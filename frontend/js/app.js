@@ -2055,7 +2055,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             if (isMasterSIGEE()) {
                 box.classList.remove('hidden');
                 const valorAnterior = select.value || filtroDashboardNteAtualSIGEE || 'GLOBAL';
-                select.innerHTML = '<option value="GLOBAL">GLOBAL - TODOS OS NTES</option>';
+                select.innerHTML = '<option value="GLOBAL">GLOBAL - TODOS OS NTEs</option>';
                 LISTA_OFICIAL_27_NTES.forEach(nte => {
                     const opt = document.createElement('option');
                     opt.value = nte;
@@ -2347,7 +2347,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 const el = document.getElementById(id);
                 if(el) {
                     const atual = el.value;
-                    el.innerHTML = id === 'filtro-dashboard-nte' ? '<option value="GLOBAL">GLOBAL - TODOS OS NTES</option>' : '';
+                    el.innerHTML = id === 'filtro-dashboard-nte' ? '<option value="GLOBAL">GLOBAL - TODOS OS NTEs</option>' : '';
                     LISTA_OFICIAL_27_NTES.forEach(nte => {
                         const opt = document.createElement('option');
                         opt.value = nte;
@@ -3183,7 +3183,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         senha: '123',
         perfil: 'Administrador',
         grupo: 'SEC',
-        nte: 'SEC - TODOS OS NTES',
+        nte: 'GLOBAL - TODOS OS NTEs',
         ativo: true
     };
 
@@ -3220,7 +3220,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     }
     function obterNtePadraoUsuarioV31(user){
         const u = user || {};
-        if (isGrupoSecV31(u)) return 'SEC - TODOS OS NTES';
+        if (isGrupoSecV31(u)) return 'GLOBAL - TODOS OS NTEs';
         return textoV31(u.nte || u.nte_vinculado || u.nte_nome || 'NTE-26 Salvador');
     }
 
@@ -3237,7 +3237,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 existente.senha = existente.senha || SIGEE_USUARIO_SEC_PADRAO.senha;
                 existente.perfil = perfilCanonicoV31(existente.perfil || 'Administrador');
                 existente.grupo = 'SEC';
-                existente.nte = 'SEC - TODOS OS NTES';
+                existente.nte = 'GLOBAL - TODOS OS NTEs';
                 existente.ativo = existente.ativo !== false;
             } else {
                 usuariosDB.push({...SIGEE_USUARIO_SEC_PADRAO});
@@ -3256,7 +3256,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             if (email === SIGEE_USUARIO_SEC_PADRAO.email || semAcentoV31(u.grupo) === 'SEC') {
                 obj.perfil = 'Administrador';
                 obj.grupo = 'SEC';
-                obj.nte = 'SEC - TODOS OS NTES';
+                obj.nte = 'GLOBAL - TODOS OS NTEs';
             } else {
                 obj.nte = textoV31(u.nte || u.nte_vinculado || u.nte_nome || obj.nte || 'NTE-26 Salvador');
             }
@@ -3285,10 +3285,10 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             const atual = el.value;
             el.innerHTML = '';
             if (id === 'filtro-dashboard-nte') {
-                el.insertAdjacentHTML('beforeend','<option value="GLOBAL">GLOBAL - TODOS OS NTES</option>');
-                el.insertAdjacentHTML('beforeend','<option value="SEC - TODOS OS NTES">SEC - TODOS OS NTES</option>');
+                el.insertAdjacentHTML('beforeend','<option value="GLOBAL">GLOBAL - TODOS OS NTEs</option>');
+                el.insertAdjacentHTML('beforeend','<option value="GLOBAL - TODOS OS NTEs">GLOBAL - TODOS OS NTEs</option>');
             } else {
-                el.insertAdjacentHTML('beforeend','<option value="SEC - TODOS OS NTES">SEC - TODOS OS NTES</option>');
+                el.insertAdjacentHTML('beforeend','<option value="GLOBAL - TODOS OS NTEs">GLOBAL - TODOS OS NTEs</option>');
             }
             (typeof LISTA_OFICIAL_27_NTES !== 'undefined' ? LISTA_OFICIAL_27_NTES : []).forEach(nte => {
                 const opt = document.createElement('option');
@@ -3352,7 +3352,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             const u = usuariosDB.find(user => normalizaEmailV31(user.email) === email && textoV31(user.senha || '123') === senha && user.ativo !== false);
             if (u) {
                 u.perfil = perfilCanonicoV31(u.perfil || 'Tecnico');
-                if (isGrupoSecV31(u)) { u.grupo = 'SEC'; u.nte = 'SEC - TODOS OS NTES'; }
+                if (isGrupoSecV31(u)) { u.grupo = 'SEC'; u.nte = 'GLOBAL - TODOS OS NTEs'; }
                 else u.nte = obterNtePadraoUsuarioV31(u);
                 try { usuarioLogado = u; window.usuarioLogado = u; } catch(e){}
                 document.getElementById('tela-login')?.classList.add('hidden');
@@ -3603,7 +3603,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
    ========================================================================== */
 (function(){
   'use strict';
-  const GRUPO_SEC_V32 = 'SEC - TODOS OS NTES';
+  const GRUPO_SEC_V32 = 'GLOBAL - TODOS OS NTEs';
   const EMAIL_SEC_V32 = 'sec@enova.educacao.ba.gov.br';
   const EMAIL_ADMIN_V32 = 'administrativo@enova.educacao.ba.gov.br';
   const EMAIL_CONSULTA_V32 = 'consulta@enova.educacao.ba.gov.br';
@@ -3886,7 +3886,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
    ========================================================================== */
 (function(){
   'use strict';
-  const GRUPO_SEC_V33 = 'SEC - TODOS OS NTES';
+  const GRUPO_SEC_V33 = 'GLOBAL - TODOS OS NTEs';
   const EMAIL_SEC_V33 = 'sec@enova.educacao.ba.gov.br';
 
   function txt(v){ return (v===undefined||v===null) ? '' : String(v).trim(); }
@@ -4055,7 +4055,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
 (function(){
   'use strict';
 
-  const GRUPO_SEC = 'SEC - TODOS OS NTES';
+  const GRUPO_SEC = 'GLOBAL - TODOS OS NTEs';
   const EMAIL_SEC = 'sec@enova.educacao.ba.gov.br';
 
   function txt(v){ return (v===undefined||v===null) ? '' : String(v).trim(); }
@@ -4896,7 +4896,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
           senha: '123',
           perfil: 'SEC',
           grupo: 'SEC',
-          nte: 'SEC - TODOS OS NTEs',
+          nte: 'GLOBAL - TODOS OS NTEs',
           ativo: true
         });
       }
@@ -5374,7 +5374,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     try{
       const [us, es, pr, so, nt]=await Promise.allSettled([readAll(T.usuarios),readAll(T.escolas),readAll(T.processos),readAll(T.solicitacoes),readAll(T.ntes)]);
       if(us.status==='fulfilled' && us.value.length){ usuariosDB=us.value.map(mapUsuario).filter(u=>u.email); window.usuariosDB=usuariosDB; }
-      if(!usuariosDB.some(u=>txt(u.email).toLowerCase()==='sec@enova.educacao.ba.gov.br')) usuariosDB.push({id:900001,nome:'USUÁRIO SEC',email:'sec@enova.educacao.ba.gov.br',senha:'123',perfil:'SEC',nte:'SEC - TODOS OS NTEs',grupo:'SEC',ativo:true});
+      if(!usuariosDB.some(u=>txt(u.email).toLowerCase()==='sec@enova.educacao.ba.gov.br')) usuariosDB.push({id:900001,nome:'USUÁRIO SEC',email:'sec@enova.educacao.ba.gov.br',senha:'123',perfil:'SEC',nte:'GLOBAL - TODOS OS NTEs',grupo:'SEC',ativo:true});
       if(es.status==='fulfilled'){ escolasDB=es.value.map(mapEscola).filter(e=>e.cod_mec||e.nome); window.escolasDB=escolasDB; }
       if(pr.status==='fulfilled'){ processosDB=pr.value.map(mapProcesso).filter(p=>p.aluno||p.escola); window.processosDB=processosDB; }
       if(so.status==='fulfilled'){ solicitacoesDB=so.value.map(mapProcesso).filter(p=>p.aluno||p.escola); window.solicitacoesDB=solicitacoesDB; if(!processosDB.length && solicitacoesDB.length){ processosDB=solicitacoesDB.slice(); window.processosDB=processosDB; } }
@@ -5395,7 +5395,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   window.handleLogin = async function(event){
     if(event) event.preventDefault();
     try{ await Promise.race([readAll(T.usuarios).then(rows=>{ if(rows&&rows.length){ usuariosDB=rows.map(mapUsuario).filter(u=>u.email); window.usuariosDB=usuariosDB; }}), new Promise(r=>setTimeout(r,1200))]); }catch(e){}
-    if(!usuariosDB.some(u=>txt(u.email).toLowerCase()==='sec@enova.educacao.ba.gov.br')) usuariosDB.push({id:900001,nome:'USUÁRIO SEC',email:'sec@enova.educacao.ba.gov.br',senha:'123',perfil:'SEC',nte:'SEC - TODOS OS NTEs',grupo:'SEC',ativo:true});
+    if(!usuariosDB.some(u=>txt(u.email).toLowerCase()==='sec@enova.educacao.ba.gov.br')) usuariosDB.push({id:900001,nome:'USUÁRIO SEC',email:'sec@enova.educacao.ba.gov.br',senha:'123',perfil:'SEC',nte:'GLOBAL - TODOS OS NTEs',grupo:'SEC',ativo:true});
     const em=txt(document.getElementById('login-email')?.value).toLowerCase(); const sn=txt(document.getElementById('login-senha')?.value);
     let u=(usuariosDB||[]).map(mapUsuario).find(x=>x.email===em && txt(x.senha||'123')===sn && x.ativo!==false);
     if(!u && em==='elmo.lobao@enova.educacao.ba.gov.br' && sn==='123') u={id:1,nome:'ELMO LOBÃO',email:em,senha:'123',perfil:'Master',nte:'NTE-26 Salvador',ativo:true};
@@ -5485,7 +5485,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
       u.nome = u.nome || 'USUÁRIO SEC';
       u.perfil = 'SEC';
       u.grupo = 'SEC';
-      u.nte = 'SEC - TODOS OS NTEs';
+      u.nte = 'GLOBAL - TODOS OS NTEs';
       u.ativo = u.ativo !== false;
       u.senha = u.senha || '123';
       return u;
@@ -5504,7 +5504,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
       try{ usuariosDB = window.usuariosDB; }catch(e){}
       const existe = email => window.usuariosDB.some(u => low(u.email)===low(email));
       const nextId = base => Math.max(base, 0, ...window.usuariosDB.map(u=>Number(u.id)||0)) + 1;
-      if(!existe(EMAIL_SEC_V39)) window.usuariosDB.push({id:nextId(900000), nome:'USUÁRIO SEC', email:EMAIL_SEC_V39, senha:'123', perfil:'SEC', grupo:'SEC', nte:'SEC - TODOS OS NTEs', ativo:true});
+      if(!existe(EMAIL_SEC_V39)) window.usuariosDB.push({id:nextId(900000), nome:'USUÁRIO SEC', email:EMAIL_SEC_V39, senha:'123', perfil:'SEC', grupo:'SEC', nte:'GLOBAL - TODOS OS NTEs', ativo:true});
       if(!existe('administrativo@enova.educacao.ba.gov.br')) window.usuariosDB.push({id:nextId(910000), nome:'USUÁRIO ADMINISTRADOR', email:'administrativo@enova.educacao.ba.gov.br', senha:'123', perfil:'Administrador', nte:'NTE-26 Salvador', ativo:true});
       if(!existe('consulta@enova.educacao.ba.gov.br')) window.usuariosDB.push({id:nextId(920000), nome:'USUÁRIO CONSULTA', email:'consulta@enova.educacao.ba.gov.br', senha:'123', perfil:'Consulta', nte:'NTE-26 Salvador', ativo:true});
       window.usuariosDB.forEach(normalizarUsuarioV39);
@@ -5645,7 +5645,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
 (function(){
   'use strict';
   const EMAIL_SEC_V40 = 'sec@enova.educacao.ba.gov.br';
-  const GRUPO_SEC_V40 = 'SEC - TODOS OS NTEs';
+  const GRUPO_SEC_V40 = 'GLOBAL - TODOS OS NTEs';
 
   function txt(v){ return (v===undefined || v===null) ? '' : String(v).trim(); }
   function sem(v){ return txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
@@ -5955,7 +5955,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     if(email==='elmo.lobao@enova.educacao.ba.gov.br') pf = 'Master';
     if(email==='sec@enova.educacao.ba.gov.br') pf = 'SEC';
     let nte = txt(u.nte || u.nte_nome || u.nte_vinculado || u.grupo || u.nte_id || 'NTE-26 Salvador');
-    if(pf==='SEC' || up(nte).includes('SEC')) nte = 'SEC - TODOS OS NTEs';
+    if(pf==='SEC' || up(nte).includes('SEC')) nte = 'GLOBAL - TODOS OS NTEs';
     return Object.assign({}, u, {
       id: u.id || Date.now(),
       nome: txt(u.nome || u.name || 'USUÁRIO').toUpperCase(),
@@ -6095,7 +6095,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
 (function(){
   'use strict';
   const EMAIL_SEC = 'sec@enova.educacao.ba.gov.br';
-  const GRUPO_SEC = 'SEC - TODOS OS NTEs';
+  const GRUPO_SEC = 'GLOBAL - TODOS OS NTEs';
   const KEY_COMPLETO = 'SIGEE_USUARIOS_COMPLETO_V41';
 
   function txt(v){ return (v===undefined || v===null) ? '' : String(v).trim(); }
@@ -6382,7 +6382,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
 (function(){
   'use strict';
   const EMAIL_SEC = 'sec@enova.educacao.ba.gov.br';
-  const GRUPO_SEC = 'SEC - TODOS OS NTEs';
+  const GRUPO_SEC = 'GLOBAL - TODOS OS NTEs';
   const KEY_COMPLETO = 'SIGEE_USUARIOS_COMPLETO_V41';
 
   function texto(v){ return (v===undefined || v===null) ? '' : String(v).trim(); }
@@ -6526,7 +6526,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
    de menus/botoes quando o usuario Tecnico possui NTE SEC.
    ========================================================= */
 (function(){
-  const GRUPO_SEC_V44 = 'SEC - TODOS OS NTEs';
+  const GRUPO_SEC_V44 = 'GLOBAL - TODOS OS NTEs';
   const EMAIL_SEC_V44 = 'sec@enova.educacao.ba.gov.br';
   function txt(v){ return (v==null?'':String(v)); }
   function up(v){ return txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().trim(); }
@@ -6679,7 +6679,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
 (function(){
   'use strict';
   const ETAPAS_V45 = ['Desarquivamento','Análise','Pendência','Digitação','Conferência','Assinatura','Aguardando Retirada','Retirado'];
-  const GRUPO_SEC_V45 = 'SEC - TODOS OS NTEs';
+  const GRUPO_SEC_V45 = 'GLOBAL - TODOS OS NTEs';
 
   function txt(v){ return (v===undefined || v===null) ? '' : String(v).trim(); }
   function sem(v){ return txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,''); }

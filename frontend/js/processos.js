@@ -9,7 +9,7 @@
     'use strict';
 
     const ETAPAS = ['Desarquivamento', 'Análise', 'Pendência', 'Digitação', 'Conferência', 'Assinatura', 'Aguardando Retirada', 'Retirado'];
-    const GRUPO_SEC = 'SEC - TODOS OS NTEs';
+    const GRUPO_SEC = 'GLOBAL - TODOS OS NTEs';
     let filtroEtapaModulo = 'TODOS';
 
     function texto(v) { return (v === undefined || v === null) ? '' : String(v).trim(); }

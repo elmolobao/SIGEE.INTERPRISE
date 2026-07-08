@@ -7,7 +7,7 @@
 (function(){
   'use strict';
 
-  const GRUPO_SEC = 'SEC - TODOS OS NTEs';
+  const GRUPO_SEC = 'GLOBAL - TODOS OS NTEs';
   const EMAIL_SEC = 'sec@enova.educacao.ba.gov.br';
   const STORAGE_USUARIOS = 'SIGEE_USUARIOS_COMPLETO_V41';
 

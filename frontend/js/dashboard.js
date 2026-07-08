@@ -116,7 +116,7 @@
 
     box.classList.remove('hidden');
     const valorAnterior = select.value || window.filtroDashboardNteAtualSIGEE || 'GLOBAL';
-    select.innerHTML = '<option value="GLOBAL">GLOBAL - TODOS OS NTES</option>';
+    select.innerHTML = '<option value="GLOBAL">GLOBAL - TODOS OS NTEs</option>';
 
     let ntes = [];
     if (Array.isArray(window.LISTA_OFICIAL_27_NTES) && window.LISTA_OFICIAL_27_NTES.length) {
