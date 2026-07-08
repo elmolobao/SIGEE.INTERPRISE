@@ -1,3 +1,2 @@
-// SIGEE Enterprise 1.0
-// Camada reservada para futuras extrações do catálogo/importação/exportação de escolas.
-// Mantido separado para evolução modular sem custo adicional e sem regressões.
+// SIGEE Enterprise 2.0 - escolas.js
+// Próxima etapa: mover catálogo, cadastro e edição de escolas para cá.

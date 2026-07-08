@@ -1,15 +1,2 @@
-const SIGEE = {
-
-    versao: "2.0.0",
-
-    nome: "SIGEE Enterprise",
-
-    supabaseUrl: "...",
-
-    supabaseKey: "...",
-
-    timeout:30000,
-
-    cache:true
-
-};
+// SIGEE Enterprise 2.0 - config.js
+// Próxima etapa: centralizar versão, URL e chave pública do Supabase.

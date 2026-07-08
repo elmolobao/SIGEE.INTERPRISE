@@ -1,4 +1,201 @@
-// ===== SIGEE Enterprise 1.0 - módulo legado preservado 1 =====
+/*
+SIGEE Enterprise 2.0 - app.js
+Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código foi separado sem alterar regras de negócio.
+*/
+
+// ===== conteúdo inline preservado de script externo: https://unpkg.com/@tailwindcss/browser@4 =====
+// =========================================================================
+        // V24 - Correção definitiva da seleção de instituição
+        // Mantém as otimizações: login rápido, Supabase em segundo plano e busca rápida.
+        // A lista agora não abre automaticamente, não some indevidamente e reabre ao clicar/digitar.
+        // =========================================================================
+        function abrirListaInstituicoesSIGEE_V24() {
+            const input = document.getElementById('novo-proc-escola-busca-v23');
+            const lista = document.getElementById('novo-proc-escola-lista-v23');
+            if (!input || !lista) return;
+            renderizarSugestoesEscolaSIGEE_V24(input.value || '');
+        }
+
+        function fecharListaInstituicoesSIGEE_V24() {
+            const lista = document.getElementById('novo-proc-escola-lista-v23');
+            if (lista) {
+                lista.classList.add('hidden');
+                lista.style.display = 'none';
+            }
+        }
+
+        function garantirCampoBuscaInstituicaoSIGEE_V23() {
+            const select = document.getElementById('novo-proc-escola');
+            if (!select) return null;
+
+            let input = document.getElementById('novo-proc-escola-busca-v23');
+            let lista = document.getElementById('novo-proc-escola-lista-v23');
+
+            if (!input) {
+                input = document.createElement('input');
+                input.type = 'text';
+                input.id = 'novo-proc-escola-busca-v23';
+                input.placeholder = 'DIGITE PARA PESQUISAR A INSTITUIÇÃO...';
+                input.autocomplete = 'off';
+                input.className = 'w-full p-2 border rounded-lg text-xs focus:outline-none bg-white font-semibold mb-1';
+                select.parentNode.insertBefore(input, select);
+            }
+
+            if (!lista) {
+                lista = document.createElement('div');
+                lista.id = 'novo-proc-escola-lista-v23';
+                lista.className = 'hidden max-h-52 overflow-y-auto border rounded-lg bg-white shadow-lg text-xs z-[10000]';
+                lista.style.display = 'none';
+                select.parentNode.insertBefore(lista, select.nextSibling);
+            }
+
+            select.classList.add('hidden');
+            select.required = false;
+
+            input.oninput = function() {
+                this.dataset.escolaSelecionada = '';
+                const selectAtual = document.getElementById('novo-proc-escola');
+                if (selectAtual) selectAtual.value = '';
+                renderizarSugestoesEscolaSIGEE_V24(this.value || '');
+            };
+            input.onfocus = function() { abrirListaInstituicoesSIGEE_V24(); };
+            input.onclick = function(ev) { ev.stopPropagation(); abrirListaInstituicoesSIGEE_V24(); };
+            lista.onclick = function(ev) { ev.stopPropagation(); };
+
+            if (!window.__SIGEE_V24_CLICK_FORA_INST__) {
+                window.__SIGEE_V24_CLICK_FORA_INST__ = true;
+                document.addEventListener('click', function(ev) {
+                    const campo = document.getElementById('novo-proc-escola-busca-v23');
+                    const painel = document.getElementById('novo-proc-escola-lista-v23');
+                    if (!campo || !painel) return;
+                    if (ev.target !== campo && !painel.contains(ev.target)) fecharListaInstituicoesSIGEE_V24();
+                });
+            }
+            return input;
+        }
+
+        function renderizarSugestoesEscolaSIGEE_V24(termo) {
+            const lista = document.getElementById('novo-proc-escola-lista-v23');
+            if (!lista) return;
+
+            const q = normalizarMaiusculoSIGEE(termo || '');
+            let resultados = cacheEscolasModalSIGEE_V23 || [];
+
+            if (q) {
+                resultados = resultados.filter(x =>
+                    String(x.nome || '').includes(q) ||
+                    String(x.municipio || '').includes(q) ||
+                    String(x.mec || '').includes(q)
+                );
+            }
+
+            resultados = resultados.slice(0, 60);
+            lista.innerHTML = '';
+
+            if (!resultados.length) {
+                lista.innerHTML = '<div class="p-2 text-gray-500 font-semibold">Nenhuma instituição localizada.</div>';
+                lista.classList.remove('hidden');
+                lista.style.display = 'block';
+                return;
+            }
+
+            const frag = document.createDocumentFragment();
+            resultados.forEach(item => {
+                const div = document.createElement('button');
+                div.type = 'button';
+                div.className = 'block w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-gray-100 text-gray-800 bg-white';
+                div.innerHTML = `<span class="font-bold">${item.nome}</span><br><span class="text-[10px] text-gray-500">MEC: ${item.mec || '-'} | ${item.municipio || '-'}</span>`;
+                div.onmousedown = function(ev) {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    selecionarInstituicaoSIGEE_V24(item);
+                };
+                frag.appendChild(div);
+            });
+
+            lista.appendChild(frag);
+            lista.classList.remove('hidden');
+            lista.style.display = 'block';
+        }
+
+        function renderizarSugestoesEscolaSIGEE_V23(termo) {
+            renderizarSugestoesEscolaSIGEE_V24(termo);
+        }
+
+        function selecionarInstituicaoSIGEE_V24(item) {
+            const input = document.getElementById('novo-proc-escola-busca-v23');
+            const select = document.getElementById('novo-proc-escola');
+            const nome = item?.nome || '';
+            if (input) {
+                input.value = nome;
+                input.dataset.escolaSelecionada = '1';
+            }
+            if (select) {
+                select.innerHTML = '';
+                const opt = document.createElement('option');
+                opt.value = nome;
+                opt.textContent = nome;
+                opt.selected = true;
+                select.appendChild(opt);
+                select.value = nome;
+            }
+            fecharListaInstituicoesSIGEE_V24();
+            handleSelecaoInstituicaoFluxoAutomatico();
+        }
+
+        function selecionarInstituicaoSIGEE_V23(item) {
+            selecionarInstituicaoSIGEE_V24(item);
+        }
+
+        const abrirFormularioNovaSolicitacaoSIGEE_V24_BASE = abrirFormularioNovaSolicitacao;
+        abrirFormularioNovaSolicitacao = function() {
+            const modal = document.getElementById('modal-nova-solicitacao');
+            const selectEscola = document.getElementById('novo-proc-escola');
+            if(!modal || !selectEscola) return;
+
+            modal.classList.remove('hidden');
+            mostrarCarregamentoSIGEE_V23('Carregando as informações, aguarde!');
+
+            setTimeout(() => {
+                try {
+                    garantirCampoBuscaInstituicaoSIGEE_V23();
+                    prepararCacheEscolasModalSIGEE_V23();
+
+                    const input = document.getElementById('novo-proc-escola-busca-v23');
+                    if (input) {
+                        input.value = '';
+                        input.dataset.escolaSelecionada = '';
+                    }
+                    selectEscola.innerHTML = '<option value="" selected>SELECIONE A INSTITUIÇÃO</option>';
+                    fecharListaInstituicoesSIGEE_V24();
+
+                    const aluno = document.getElementById('novo-proc-aluno'); if (aluno) aluno.value = '';
+                    ['novo-proc-documento','novo-proc-modalidade','novo-proc-ensino'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+                    const chk = document.getElementById('f01-chk-acolhido'); if (chk) chk.checked = false;
+                    const btn = document.getElementById('btn-submeter-nova-solicitacao'); if (btn) btn.disabled = true;
+                    ['novo-autofill-mec','novo-autofill-nte','novo-autofill-municipio','novo-autofill-dep','novo-autofill-situacao','novo-autofill-acervo','novo-autofill-local-acervo'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+                    if (typeof aplicarClasseStatusAcervoSIGEE === 'function') aplicarClasseStatusAcervoSIGEE();
+                } catch (e) {
+                    console.error('Erro ao abrir nova solicitação:', e);
+                    alert('Não foi possível carregar a janela de nova solicitação. Atualize a página e tente novamente.');
+                } finally {
+                    ocultarCarregamentoSIGEE_V23();
+                }
+            }, 20);
+        };
+
+
+
+        // ✅ V28 - Atualiza a contagem do tempo na etapa sem recarregar a página.
+        setInterval(function(){
+            try {
+                const abaProc = document.getElementById('aba-processos');
+                if (abaProc && !abaProc.classList.contains('hidden')) renderizarProcessosFlutuantes();
+            } catch(e) {}
+        }, 60000);
+
+
+// ===== bloco JS extraído do index.html =====
 // Relação Oficial e Inalterável dos 27 NTEs da SEC/BA
         const LISTA_OFICIAL_27_NTES = [
             "NTE-01 Irecê", "NTE-02 Bom Jesus da Lapa", "NTE-03 Seabra", "NTE-04 Serrinha", "NTE-05 Itabuna",
@@ -2590,7 +2787,7 @@
         })();
 
 
-// ===== SIGEE Enterprise 1.0 - módulo legado preservado 2 =====
+// ===== bloco JS extraído do index.html =====
 /* ============================================================
    V27 - Adequação do fluxo operacional sem alterar estrutura-base
    Mantém otimizações anteriores: login rápido, Supabase em segundo plano,
@@ -2974,4 +3171,3786 @@
     window.addEventListener('load', () => setTimeout(aplicarVisibilidadeExportacaoSIGEE, 500));
 })();
 
+})();
+
+
+// ===== bloco JS extraído do index.html =====
+(function(){
+    const SIGEE_USUARIO_SEC_PADRAO = {
+        id: 900001,
+        nome: 'GRUPO SEC',
+        email: 'sec@enova.educacao.ba.gov.br',
+        senha: '123',
+        perfil: 'Administrador',
+        grupo: 'SEC',
+        nte: 'SEC - TODOS OS NTES',
+        ativo: true
+    };
+
+    function textoV31(v){ return (v === undefined || v === null) ? '' : String(v).trim(); }
+    function semAcentoV31(v){ return textoV31(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase(); }
+    function normalizaEmailV31(v){ return textoV31(v).toLowerCase(); }
+    function nteNormalizadoV31(v){ return semAcentoV31(v).replace(/\s+/g,''); }
+    function perfilCanonicoV31(perfil){
+        const p = semAcentoV31(perfil);
+        if (p.includes('MASTER')) return 'Master';
+        if (p.includes('ADMIN')) return 'Administrador';
+        if (p.includes('CONSULT')) return 'Consulta';
+        if (p.includes('SEC')) return 'SEC';
+        return 'Tecnico';
+    }
+    function isGrupoSecV31(user){
+        const u = user || window.usuarioLogado || (typeof usuarioLogado !== 'undefined' ? usuarioLogado : null);
+        if (!u) return false;
+        const perfil = semAcentoV31(u.perfil);
+        const grupo = semAcentoV31(u.grupo);
+        const nte = semAcentoV31(u.nte);
+        const email = normalizaEmailV31(u.email);
+        return email === 'sec@enova.educacao.ba.gov.br' || perfil === 'SEC' || grupo === 'SEC' || nte.startsWith('SEC') || nte === 'GLOBAL';
+    }
+    function isAcessoGlobalV31(user){
+        const u = user || window.usuarioLogado || (typeof usuarioLogado !== 'undefined' ? usuarioLogado : null);
+        if (!u) return false;
+        const perfil = perfilCanonicoV31(u.perfil);
+        return perfil === 'Master' || isGrupoSecV31(u);
+    }
+    function nteIgualV31(a,b){
+        if (isGrupoSecV31({nte:a}) || isGrupoSecV31({nte:b})) return true;
+        return nteNormalizadoV31(a) === nteNormalizadoV31(b);
+    }
+    function obterNtePadraoUsuarioV31(user){
+        const u = user || {};
+        if (isGrupoSecV31(u)) return 'SEC - TODOS OS NTES';
+        return textoV31(u.nte || u.nte_vinculado || u.nte_nome || 'NTE-26 Salvador');
+    }
+
+    window.SIGEE_USUARIO_SEC_PADRAO = SIGEE_USUARIO_SEC_PADRAO;
+    window.isGrupoSecSIGEE = isGrupoSecV31;
+    window.isAcessoGlobalSIGEE = isAcessoGlobalV31;
+
+    window.garantirUsuarioSecSIGEE = function(){
+        try{
+            if (typeof usuariosDB === 'undefined' || !Array.isArray(usuariosDB)) return;
+            const existente = usuariosDB.find(u => normalizaEmailV31(u.email) === SIGEE_USUARIO_SEC_PADRAO.email);
+            if (existente) {
+                existente.nome = existente.nome || SIGEE_USUARIO_SEC_PADRAO.nome;
+                existente.senha = existente.senha || SIGEE_USUARIO_SEC_PADRAO.senha;
+                existente.perfil = perfilCanonicoV31(existente.perfil || 'Administrador');
+                existente.grupo = 'SEC';
+                existente.nte = 'SEC - TODOS OS NTES';
+                existente.ativo = existente.ativo !== false;
+            } else {
+                usuariosDB.push({...SIGEE_USUARIO_SEC_PADRAO});
+            }
+        }catch(e){ console.warn('SIGEE V31 garantirUsuarioSec:', e); }
+    };
+
+    // Ajusta conversão de usuários do Supabase sem exigir colunas que a tabela não possui.
+    if (typeof window.usuarioDoSupabaseParaLocalSIGEE === 'function' || typeof usuarioDoSupabaseParaLocalSIGEE === 'function') {
+        const originalUsuarioMapper = window.usuarioDoSupabaseParaLocalSIGEE || usuarioDoSupabaseParaLocalSIGEE;
+        window.usuarioDoSupabaseParaLocalSIGEE = function(u, indice){
+            const obj = originalUsuarioMapper(u, indice);
+            const email = normalizaEmailV31(obj.email || u.email);
+            obj.perfil = perfilCanonicoV31(u.perfil || obj.perfil || 'Tecnico');
+            obj.senha = textoV31(u.senha || u.password || obj.senha || '123');
+            if (email === SIGEE_USUARIO_SEC_PADRAO.email || semAcentoV31(u.grupo) === 'SEC') {
+                obj.perfil = 'Administrador';
+                obj.grupo = 'SEC';
+                obj.nte = 'SEC - TODOS OS NTES';
+            } else {
+                obj.nte = textoV31(u.nte || u.nte_vinculado || u.nte_nome || obj.nte || 'NTE-26 Salvador');
+            }
+            obj.ativo = obj.ativo !== false;
+            return obj;
+        };
+        try { usuarioDoSupabaseParaLocalSIGEE = window.usuarioDoSupabaseParaLocalSIGEE; } catch(e){}
+    }
+
+    // Perfis e abrangência: Master e Grupo SEC enxergam todos os NTEs; Administrador/Técnico/Consulta ficam restritos ao NTE cadastrado.
+    window.perfilCanonicoSIGEE = function(perfil){ return perfilCanonicoV31(perfil); };
+    try { perfilCanonicoSIGEE = window.perfilCanonicoSIGEE; } catch(e){}
+    window.isMasterSIGEE = function(){ return isAcessoGlobalV31(); };
+    try { isMasterSIGEE = window.isMasterSIGEE; } catch(e){}
+    window.isTecnicoRestritoSIGEE = function(){ return !isAcessoGlobalV31(); };
+    try { isTecnicoRestritoSIGEE = window.isTecnicoRestritoSIGEE; } catch(e){}
+    window.nteIgualSIGEE = function(a,b){ return nteIgualV31(a,b); };
+    try { nteIgualSIGEE = window.nteIgualSIGEE; } catch(e){}
+
+    // Selects: Master enxerga todos os grupos/NTEs e pode selecionar SEC; demais ficam no NTE do cadastro.
+    window.inicializarSelectsNteEcosystem = function(){
+        const selects = ['user-form-nte', 'filtro-dashboard-nte'];
+        selects.forEach(id => {
+            const el = document.getElementById(id);
+            if(!el) return;
+            const atual = el.value;
+            el.innerHTML = '';
+            if (id === 'filtro-dashboard-nte') {
+                el.insertAdjacentHTML('beforeend','<option value="GLOBAL">GLOBAL - TODOS OS NTES</option>');
+                el.insertAdjacentHTML('beforeend','<option value="SEC - TODOS OS NTES">SEC - TODOS OS NTES</option>');
+            } else {
+                el.insertAdjacentHTML('beforeend','<option value="SEC - TODOS OS NTES">SEC - TODOS OS NTES</option>');
+            }
+            (typeof LISTA_OFICIAL_27_NTES !== 'undefined' ? LISTA_OFICIAL_27_NTES : []).forEach(nte => {
+                const opt = document.createElement('option');
+                opt.value = nte;
+                opt.textContent = nte;
+                el.appendChild(opt);
+            });
+            if (atual && Array.from(el.options).some(o => o.value === atual)) el.value = atual;
+        });
+    };
+
+    window.inicializarFiltroDashboardMasterSIGEE = function(){
+        const box = document.getElementById('box-filtro-dashboard-master');
+        const select = document.getElementById('filtro-dashboard-nte');
+        if (!box || !select || typeof usuarioLogado === 'undefined' || !usuarioLogado) return;
+        if (isAcessoGlobalV31(usuarioLogado)) {
+            box.classList.remove('hidden');
+            const anterior = select.value || 'GLOBAL';
+            window.inicializarSelectsNteEcosystem();
+            select.value = Array.from(select.options).some(o => o.value === anterior) ? anterior : 'GLOBAL';
+            try { filtroDashboardNteAtualSIGEE = select.value; } catch(e){}
+        } else {
+            box.classList.add('hidden');
+            try { filtroDashboardNteAtualSIGEE = obterNtePadraoUsuarioV31(usuarioLogado); } catch(e){}
+        }
+    };
+
+    window.filtrarPorAbrangenciaSIGEE = function(lista, campo = 'nte'){
+        if (typeof usuarioLogado === 'undefined' || !usuarioLogado) return [];
+        const filtro = isAcessoGlobalV31(usuarioLogado) ? (document.getElementById('filtro-dashboard-nte')?.value || 'GLOBAL') : obterNtePadraoUsuarioV31(usuarioLogado);
+        try { filtroDashboardNteAtualSIGEE = filtro; } catch(e){}
+        if (isAcessoGlobalV31(usuarioLogado) && (filtro === 'GLOBAL' || isGrupoSecV31({nte:filtro}))) return lista || [];
+        return (lista || []).filter(item => nteIgualV31(item?.[campo] || item?.nte || '', filtro));
+    };
+
+    // Reforça carregamento do banco para Técnico/Administrador/Consulta após login e após sincronização em segundo plano.
+    async function sincronizarAposLoginV31(){
+        try{
+            if (typeof carregarDadosSupabaseSIGEE === 'function') {
+                await carregarDadosSupabaseSIGEE({ silencioso: true, mostrarAlertas: false });
+            } else if (typeof sincronizarSupabaseSegundoPlanoSIGEE === 'function') {
+                await sincronizarSupabaseSegundoPlanoSIGEE();
+            }
+        } catch(e){ console.warn('SIGEE V31 sync pós-login:', e); }
+        try { garantirUsuarioSecSIGEE(); } catch(e){}
+        try { if (usuarioLogado && !isGrupoSecV31(usuarioLogado)) usuarioLogado.nte = obterNtePadraoUsuarioV31(usuarioLogado); } catch(e){}
+        try { carregarDadosDashboardReal(); } catch(e){}
+        try { carregarEContarProcessosHorizontais(); } catch(e){}
+        try { renderizarListaEscolasBufferMemoria(); } catch(e){}
+        try { carregarListaUsuarios(); } catch(e){}
+        try { aplicarVisibilidadeExportacaoSIGEE(); } catch(e){}
+    }
+
+    const loginAnteriorV31 = window.handleLogin || (typeof handleLogin !== 'undefined' ? handleLogin : null);
+    if (loginAnteriorV31) {
+        window.handleLogin = function(event){
+            if (event) event.preventDefault();
+            garantirUsuarioSecSIGEE();
+            const email = normalizaEmailV31(document.getElementById('login-email')?.value || '');
+            const senha = textoV31(document.getElementById('login-senha')?.value || '');
+            const u = usuariosDB.find(user => normalizaEmailV31(user.email) === email && textoV31(user.senha || '123') === senha && user.ativo !== false);
+            if (u) {
+                u.perfil = perfilCanonicoV31(u.perfil || 'Tecnico');
+                if (isGrupoSecV31(u)) { u.grupo = 'SEC'; u.nte = 'SEC - TODOS OS NTES'; }
+                else u.nte = obterNtePadraoUsuarioV31(u);
+                try { usuarioLogado = u; window.usuarioLogado = u; } catch(e){}
+                document.getElementById('tela-login')?.classList.add('hidden');
+                document.getElementById('sistema-dashboard')?.classList.remove('hidden');
+                const nomeEl = document.getElementById('user-nome'); if(nomeEl) nomeEl.innerText = u.nome;
+                const perfEl = document.getElementById('user-perfil'); if(perfEl) perfEl.innerText = `${u.perfil}${u.grupo ? ' / ' + u.grupo : ''} | ${u.nte}`;
+                const podeAdminSistema = isAcessoGlobalV31(u) || perfilCanonicoV31(u.perfil) === 'Administrador';
+                const menuUsuarios = document.getElementById('menu-usuarios'); if(menuUsuarios) menuUsuarios.classList.toggle('hidden', !isAcessoGlobalV31(u));
+                const menuLogs = document.getElementById('menu-logs'); if(menuLogs) menuLogs.classList.toggle('hidden', !podeAdminSistema);
+                const btnImportar = document.getElementById('btn-importar-dados-master'); if(btnImportar) btnImportar.classList.toggle('hidden', !isAcessoGlobalV31(u));
+                try { registrarLog('Acesso realizado ao painel operacional.'); } catch(e){}
+                try { inicializarFiltroDashboardMasterSIGEE(); } catch(e){}
+                try { navegar('painel'); } catch(e){}
+                setTimeout(sincronizarAposLoginV31, 80);
+            } else {
+                alert('Credenciais inválidas, ou operador desativado no escopo regional.');
+            }
+        };
+        try { handleLogin = window.handleLogin; } catch(e){}
+    }
+
+    // Técnicos por NTE: evita select vazio e corrige o fluxo para Digitação.
+    window.preencherSelectTecnicosPorNte = function(selectId, nteFiltro){
+        const select = document.getElementById(selectId);
+        if(!select) return;
+        const atual = select.value;
+        select.innerHTML = '<option value="">-- Selecione o Servidor --</option>';
+        let lista = (typeof usuariosDB !== 'undefined' && Array.isArray(usuariosDB)) ? usuariosDB.filter(u => u.ativo !== false) : [];
+        lista = lista.filter(u => ['Master','Administrador','Tecnico','SEC'].includes(perfilCanonicoV31(u.perfil)) || isGrupoSecV31(u));
+        if (!isGrupoSecV31({nte:nteFiltro}) && textoV31(nteFiltro)) {
+            const filtrados = lista.filter(u => isGrupoSecV31(u) || nteIgualV31(u.nte, nteFiltro));
+            if (filtrados.length) lista = filtrados;
+        }
+        if (!lista.length && typeof usuarioLogado !== 'undefined' && usuarioLogado) lista = [usuarioLogado];
+        lista.forEach(u => {
+            const opt = document.createElement('option');
+            opt.value = u.nome;
+            opt.textContent = `${u.nome} (${perfilCanonicoV31(u.perfil)} | ${u.nte || 'NTE'})`;
+            select.appendChild(opt);
+        });
+        if (atual && Array.from(select.options).some(o => o.value === atual)) select.value = atual;
+        select.onchange = function(){
+            try { if (selectId === 'f01-digitador') atualizarBotaoSubmissaoAnalise(); } catch(e){}
+            try { if (selectId === 'f02-digitador') atualizarBotaoSubmissaoPendenciaV31(); } catch(e){}
+        };
+    };
+
+    function setDisabledV31(id, valor){ const el=document.getElementById(id); if(el) el.disabled=!!valor; }
+    function checkedV31(id){ return !!document.getElementById(id)?.checked; }
+    function valorV31(id){ return textoV31(document.getElementById(id)?.value || ''); }
+
+    window.atualizarBotaoSubmissaoAnalise = function(){
+        const pendencia = valorV31('f01-pendencia') === 'sim';
+        const btn = document.getElementById('f01-submit');
+        if (!btn) return;
+        if (pendencia) {
+            const okTipo = checkedV31('f01-p-aluno') || checkedV31('f01-p-inst');
+            btn.innerText = 'Enviar para Pendência';
+            btn.disabled = !okTipo;
+            return;
+        }
+        btn.innerText = 'Enviar para Digitação';
+        const temDigitador = !!valorV31('f01-digitador');
+        const okEmail = checkedV31('f01-chk-email');
+        btn.disabled = !(temDigitador && okEmail);
+    };
+
+    window.onChangePendenciaAnalise = function(){
+        const ehPendencia = valorV31('f01-pendencia') === 'sim';
+        const boxPend = document.getElementById('box-pendencia-analise');
+        const boxNormal = document.getElementById('box-fluxo-normal-analise');
+        if (boxPend) boxPend.classList.toggle('hidden', !ehPendencia);
+        if (boxNormal) boxNormal.classList.toggle('hidden', ehPendencia);
+        atualizarBotaoSubmissaoAnalise();
+    };
+
+    window.onChangeTipoPendenciaAnalise = function(){
+        const pAluno = checkedV31('f01-p-aluno');
+        const pInst = checkedV31('f01-p-inst');
+        const msgBox = document.getElementById('msg-email-pendencia');
+        if (msgBox) {
+            if (pAluno && pInst) msgBox.innerText = '📧 ENVIAR E-MAIL 09 - Aluno Pendência (INSTITUIÇÃO e REQUERENTE)';
+            else if (pInst) msgBox.innerText = '📧 ENVIAR E-MAIL: 08 - Aluno Pendência (INSTITUIÇÃO)';
+            else if (pAluno) msgBox.innerText = '📧 ENVIAR E-MAIL: 07-Aluno Pendência (Aluno)';
+            else msgBox.innerText = '⚠️ Selecione pelo menos uma variação.';
+        }
+        atualizarBotaoSubmissaoAnalise();
+    };
+
+    window.abrirModalFluxoAnalise = function(id){
+        const p = (typeof processosDB !== 'undefined') ? processosDB.find(proc => String(proc.id) === String(id)) : null;
+        if(!p) return;
+        document.getElementById('f01-id').value = p.id;
+        document.getElementById('f01-pendencia').value = 'não';
+        document.getElementById('f01-p-aluno').checked = false;
+        document.getElementById('f01-p-inst').checked = false;
+        document.getElementById('f01-txt-detalhe').value = '';
+        document.getElementById('f01-chk-email').checked = false;
+        preencherSelectTecnicosPorNte('f01-digitador', p.nte || (typeof usuarioLogado !== 'undefined' ? usuarioLogado?.nte : ''));
+        const sel = document.getElementById('f01-digitador'); if(sel) sel.onchange = atualizarBotaoSubmissaoAnalise;
+        onChangePendenciaAnalise();
+        setDisabledV31('f01-submit', true);
+        document.getElementById('modal-fluxo-analise').classList.remove('hidden');
+    };
+
+    window.executarTransicaoAnalise = function(event){
+        event.preventDefault();
+        const p = processosDB.find(proc => String(proc.id) === String(valorV31('f01-id')));
+        if(!p) return;
+        const ehPendencia = valorV31('f01-pendencia') === 'sim';
+        if (ehPendencia) {
+            if (!checkedV31('f01-p-aluno') && !checkedV31('f01-p-inst')) { alert('Selecione se a pendência é do aluno e/ou da instituição.'); return; }
+            p.etapa = 'Pendência';
+            p.pendencia_tipo = checkedV31('f01-p-aluno') && checkedV31('f01-p-inst') ? 'Aluno e Instituição' : (checkedV31('f01-p-aluno') ? 'Aluno' : 'Instituição');
+            p.pendencia_detalhe = valorV31('f01-txt-detalhe');
+            p.data_etapa_atual = obterDataAtualFormatada();
+            p.prazo_etapa = null;
+            registrarLog(`Processo [${p.aluno}]: Análise realizada com pendência (${p.pendencia_tipo}).`);
+        } else {
+            if (!valorV31('f01-digitador') || !checkedV31('f01-chk-email')) { alert('Selecione o digitador e confirme o envio do e-mail 03-Aluno (Digitação).'); return; }
+            p.etapa = 'Digitação';
+            p.digitador = valorV31('f01-digitador');
+            p.data_etapa_atual = obterDataAtualFormatada();
+            p.prazo_etapa = 15;
+            registrarLog(`Processo [${p.aluno}]: Análise realizada e enviada para Digitação.`);
+        }
+        try { salvarBancoLocalSIGEE(); } catch(e){}
+        fecharModalFluxo('analise');
+        carregarEContarProcessosHorizontais();
+    };
+
+    window.atualizarBotaoSubmissaoPendenciaV31 = function(){
+        const btn = document.getElementById('f02-submit');
+        if(!btn) return;
+        btn.disabled = !(valorV31('f02-digitador') && checkedV31('f02-chk-email'));
+    };
+    window.onChangeRecebimentoPendencia = function(){
+        const tipo = valorV31('f02-recebimento');
+        const parcial = tipo === 'parcial';
+        document.getElementById('box-total-pendencia')?.classList.toggle('hidden', false);
+        document.getElementById('box-parcial-pendencia')?.classList.toggle('hidden', !parcial);
+        document.getElementById('f02-chk-email').checked = false;
+        atualizarBotaoSubmissaoPendenciaV31();
+    };
+    window.abrirModalFluxoPendencia = function(id){
+        const p = processosDB.find(proc => String(proc.id) === String(id));
+        if(!p) return;
+        document.getElementById('f02-id').value = p.id;
+        document.getElementById('f02-recebimento').value = 'total';
+        document.getElementById('f02-txt-pendente').value = '';
+        document.getElementById('f02-chk-email').checked = false;
+        preencherSelectTecnicosPorNte('f02-digitador', p.nte || usuarioLogado?.nte || '');
+        const sel = document.getElementById('f02-digitador'); if(sel) sel.onchange = atualizarBotaoSubmissaoPendenciaV31;
+        onChangeRecebimentoPendencia();
+        document.getElementById('modal-fluxo-pendencia').classList.remove('hidden');
+    };
+    window.executarTransicaoPendencia = function(event){
+        event.preventDefault();
+        const p = processosDB.find(proc => String(proc.id) === String(valorV31('f02-id')));
+        if(!p) return;
+        if (!valorV31('f02-digitador') || !checkedV31('f02-chk-email')) { alert('Selecione o digitador e confirme o envio do e-mail.'); return; }
+        if (valorV31('f02-recebimento') === 'parcial' && !valorV31('f02-txt-pendente')) { alert('Informe qual documento ainda está pendente.'); return; }
+        p.etapa = 'Digitação';
+        p.digitador = valorV31('f02-digitador');
+        p.pendencia_recebimento = valorV31('f02-recebimento');
+        p.pendencia_restante = valorV31('f02-txt-pendente');
+        p.data_etapa_atual = obterDataAtualFormatada();
+        p.prazo_etapa = 15;
+        registrarLog(`Processo [${p.aluno}]: Pendência tratada e enviada para Digitação.`);
+        try { salvarBancoLocalSIGEE(); } catch(e){}
+        fecharModalFluxo('pendencia');
+        carregarEContarProcessosHorizontais();
+    };
+
+    // Salvar usuário: mantém campos locais nte/grupo/senha mesmo quando a tabela usuarios_sigee não possui essas colunas.
+    window.salvarNovoUsuarioFormularioMaster = async function(event){
+        event.preventDefault();
+        const id = valorV31('user-form-id');
+        const nome = semAcentoV31(document.getElementById('user-form-nome')?.value || '').trim();
+        const email = normalizaEmailV31(document.getElementById('user-form-email')?.value || '');
+        const senha = valorV31('user-form-senha') || '123';
+        const nte = valorV31('user-form-nte') || 'NTE-26 Salvador';
+        const perfil = perfilCanonicoV31(valorV31('user-form-perfil'));
+        if (!nome || !email) { alert('Informe nome e e-mail do usuário.'); return; }
+        let usuarioAtualizado;
+        const modoCriar = !id;
+        if (modoCriar) {
+            if (usuariosDB.some(u => normalizaEmailV31(u.email) === email)) return alert('E-mail já cadastrado.');
+            usuarioAtualizado = { id: null, nome, email, senha, perfil, nte, grupo: isGrupoSecV31({nte}) ? 'SEC' : '', ativo: true };
+        } else {
+            usuarioAtualizado = usuariosDB.find(user => String(user.id) === String(id));
+            if(!usuarioAtualizado) return alert('Usuário não localizado para edição.');
+            Object.assign(usuarioAtualizado, { nome, email, senha, perfil, nte, grupo: isGrupoSecV31({nte}) ? 'SEC' : (usuarioAtualizado.grupo || ''), ativo: usuarioAtualizado.ativo !== false });
+        }
+        let ok = true;
+        try {
+            if (typeof salvarUsuarioIndividualSupabaseSIGEE === 'function') {
+                ok = await salvarUsuarioIndividualSupabaseSIGEE(usuarioAtualizado, id, modoCriar ? 'criar' : 'editar');
+            }
+        } catch(e) { ok = false; console.warn('SIGEE V31 salvar usuário Supabase:', e); }
+        // Mesmo se o Supabase não possuir nte/senha/grupo, mantém a sessão local funcionando para não bloquear a administração.
+        if (modoCriar && !usuariosDB.includes(usuarioAtualizado)) {
+            if (!usuarioAtualizado.id) usuarioAtualizado.id = (typeof gerarProximoIdSIGEE === 'function') ? gerarProximoIdSIGEE(usuariosDB, 1) : Date.now();
+            usuariosDB.push(usuarioAtualizado);
+        }
+        if (!ok) alert('Usuário salvo no SIGEE local. Confira a estrutura da tabela usuarios_sigee para gravar também no Supabase.');
+        registrarLog(`${modoCriar ? 'Cadastrou' : 'Atualizou'} operador: ${email}`);
+        fecharModalUsuario();
+        carregarListaUsuarios();
+    };
+    try { salvarNovoUsuarioFormularioMaster = window.salvarNovoUsuarioFormularioMaster; } catch(e){}
+
+    window.carregarListaUsuarios = function(){
+        const corpo = document.getElementById('tabela-usuarios-corpo'); if(!corpo) return; corpo.innerHTML = '';
+        garantirUsuarioSecSIGEE();
+        usuariosDB.forEach(u => {
+            u.perfil = perfilCanonicoV31(u.perfil);
+            if (!u.nte) u.nte = obterNtePadraoUsuarioV31(u);
+            const podeEditar = isAcessoGlobalV31(usuarioLogado);
+            const botoes = podeEditar
+                ? `<div class="flex items-center justify-center gap-1.5"><button onclick="abrirModalEditarUsuarioMaster(${u.id})" class="bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded font-bold cursor-pointer">Editar</button><button onclick="toggleStatusUsuarioMaster(${u.id})" class="${u.ativo ? 'bg-red-600' : 'bg-emerald-600'} text-white text-[10px] px-2 py-0.5 rounded font-bold cursor-pointer">${u.ativo ? 'Desativar' : 'Ativar'}</button><button onclick="resetarSenhaUsuarioMaster(${u.id})" class="bg-gray-700 text-white text-[10px] px-2 py-0.5 rounded font-bold cursor-pointer">Resetar Senha</button></div>`
+                : '<span class="text-xs text-gray-400 italic">Sem permissão</span>';
+            const grupo = isGrupoSecV31(u) ? '<span class="ml-1 px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 font-black text-[9px]">SEC</span>' : '';
+            corpo.innerHTML += `<tr class="text-xs"><td class="p-3 font-bold">${u.nome}${grupo}<br><span class="text-xs text-gray-400 font-normal font-mono">${u.email}</span></td><td class="p-3 font-medium">${u.perfil}</td><td class="p-3 font-semibold text-gray-600">${u.nte || ''}</td><td class="p-3 text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${u.ativo !== false ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">${u.ativo !== false ? 'ATIVO' : 'INATIVO'}</span></td><td class="p-3 text-center">${botoes}</td></tr>`;
+        });
+    };
+
+    // Garante os eventos dos campos que habilitam botões.
+    window.addEventListener('load', function(){
+        garantirUsuarioSecSIGEE();
+        try { inicializarSelectsNteEcosystem(); } catch(e){}
+        ['f01-digitador','f02-digitador'].forEach(id => {
+            const el = document.getElementById(id);
+            if(el) el.addEventListener('change', () => id === 'f01-digitador' ? atualizarBotaoSubmissaoAnalise() : atualizarBotaoSubmissaoPendenciaV31());
+        });
+        const f01chk = document.getElementById('f01-chk-email'); if(f01chk) f01chk.addEventListener('change', atualizarBotaoSubmissaoAnalise);
+        const f02chk = document.getElementById('f02-chk-email'); if(f02chk) f02chk.addEventListener('change', atualizarBotaoSubmissaoPendenciaV31);
+        const pAluno = document.getElementById('f01-p-aluno'); if(pAluno) pAluno.addEventListener('change', onChangeTipoPendenciaAnalise);
+        const pInst = document.getElementById('f01-p-inst'); if(pInst) pInst.addEventListener('change', onChangeTipoPendenciaAnalise);
+    });
+})();
+
+
+// ===== bloco JS extraído do index.html =====
+/* ==========================================================================
+   SIGEE V32 - Correção de perfis, grupo SEC, carregamento técnico e importação
+   Mantém a base/visual atual e apenas sobrescreve funções de permissão/carregamento.
+   ========================================================================== */
+(function(){
+  'use strict';
+  const GRUPO_SEC_V32 = 'SEC - TODOS OS NTES';
+  const EMAIL_SEC_V32 = 'sec@enova.educacao.ba.gov.br';
+  const EMAIL_ADMIN_V32 = 'administrativo@enova.educacao.ba.gov.br';
+  const EMAIL_CONSULTA_V32 = 'consulta@enova.educacao.ba.gov.br';
+
+  function txt(v){ return (v===undefined||v===null) ? '' : String(v).trim(); }
+  function upper(v){ return txt(v).toUpperCase(); }
+  function email(v){ return txt(v).toLowerCase(); }
+  function semAcento(v){ return txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+  function perfil(v){
+    const p = semAcento(v||'Tecnico').toUpperCase();
+    if(p.includes('MASTER')) return 'Master';
+    if(p.includes('ADMIN')) return 'Administrador';
+    if(p.includes('CONSULT')) return 'Consulta';
+    if(p.includes('SEC')) return 'Administrador';
+    return 'Tecnico';
+  }
+  function numeroNte(v){
+    const m = txt(v).match(/NTE[-\s]*(\d{1,2})/i);
+    return m ? Number(m[1]) : null;
+  }
+  function nomeNtePorId(id){
+    const n = Number(id);
+    if(!n) return '';
+    const lista = (window.LISTA_OFICIAL_27_NTES || LISTA_OFICIAL_27_NTES || []);
+    return lista.find(x => numeroNte(x) === n) || `NTE-${String(n).padStart(2,'0')}`;
+  }
+  function isSEC(u){
+    const n = upper(u && (u.nte || u.grupo || u.nte_nome || ''));
+    const e = email(u && u.email);
+    return e === EMAIL_SEC_V32 || n === 'SEC' || n.includes('TODOS OS NTES') || n.includes('SEC -');
+  }
+  function isGlobal(u){
+    if(!u) return false;
+    return perfil(u.perfil) === 'Master' || isSEC(u);
+  }
+  function podeImportarPlanilha(u){
+    const p = perfil(u && u.perfil);
+    return p === 'Master' || p === 'Administrador' || isSEC(u);
+  }
+  function nteUsuario(u){
+    if(!u) return 'NTE-26 Salvador';
+    if(isSEC(u)) return GRUPO_SEC_V32;
+    if(txt(u.nte)) return txt(u.nte);
+    if(txt(u.nte_nome)) return txt(u.nte_nome);
+    if(txt(u.nte_id)) return nomeNtePorId(u.nte_id) || 'NTE-26 Salvador';
+    return 'NTE-26 Salvador';
+  }
+  function nteIgual(a,b){
+    if(!a || !b) return false;
+    if(isSEC({nte:a}) || isSEC({nte:b})) return true;
+    const na = numeroNte(a), nb = numeroNte(b);
+    if(na && nb) return na === nb;
+    return semAcento(a).toUpperCase().replace(/\s+/g,'') === semAcento(b).toUpperCase().replace(/\s+/g,'');
+  }
+  function normalizarUsuario(u, i){
+    const nu = Object.assign({}, u || {});
+    nu.id = nu.id || (i ? i+1 : Date.now());
+    nu.nome = upper(nu.nome || nu.name || nu.usuario || 'USUÁRIO SIGEE');
+    nu.email = email(nu.email || nu.login || '');
+    nu.senha = txt(nu.senha || nu.password || '123') || '123';
+    nu.perfil = perfil(nu.perfil || nu.tipo || nu.role || (isSEC(nu) ? 'Administrador' : 'Tecnico'));
+    nu.nte = nteUsuario(nu);
+    nu.grupo = isSEC(nu) ? 'SEC' : txt(nu.grupo || '');
+    nu.ativo = nu.ativo !== false;
+    return nu;
+  }
+  function garantirListaNtes(){
+    try{
+      if(Array.isArray(LISTA_OFICIAL_27_NTES) && !LISTA_OFICIAL_27_NTES.some(n => upper(n).includes('SEC - TODOS'))) {
+        LISTA_OFICIAL_27_NTES.unshift(GRUPO_SEC_V32);
+      }
+    }catch(e){}
+  }
+  function garantirUsuariosBase(){
+    if(!Array.isArray(window.usuariosDB || usuariosDB)) return;
+    const base = (window.usuariosDB || usuariosDB);
+    const add = (u) => { if(!base.some(x => email(x.email) === email(u.email))) base.push(u); };
+    add({id:900001,nome:'USUÁRIO SEC',email:EMAIL_SEC_V32,senha:'123',perfil:'Administrador',nte:GRUPO_SEC_V32,grupo:'SEC',ativo:true});
+    add({id:900002,nome:'ADMINISTRADOR SIGEE',email:EMAIL_ADMIN_V32,senha:'123',perfil:'Administrador',nte:'NTE-26 Salvador',ativo:true});
+    add({id:900003,nome:'CONSULTA SIGEE',email:EMAIL_CONSULTA_V32,senha:'123',perfil:'Consulta',nte:'NTE-26 Salvador',ativo:true});
+    base.forEach((u,i)=>Object.assign(u, normalizarUsuario(u,i)));
+  }
+
+  window.SIGEE_V32 = { isSEC, isGlobal, podeImportarPlanilha, nteIgual, nteUsuario, perfil, garantirUsuariosBase };
+
+  // Normalização dos dados vindos do Supabase para corrigir Técnico/Administrador/Consulta.
+  window.usuarioDoSupabaseParaLocalSIGEE = function(u, indice){ return normalizarUsuario(u, indice); };
+
+  // Selects com grupo SEC + 27 NTEs e todos os perfis.
+  window.inicializarSelectsNteEcosystem = function(){
+    garantirListaNtes();
+    ['user-form-nte','filtro-dashboard-nte','dashboard-filtro-nte'].forEach(id=>{
+      const el=document.getElementById(id); if(!el) return;
+      const atual=el.value; el.innerHTML='';
+      (LISTA_OFICIAL_27_NTES||[]).forEach(n=>{ const opt=document.createElement('option'); opt.value=n; opt.textContent=n; el.appendChild(opt); });
+      if(atual && Array.from(el.options).some(o=>o.value===atual)) el.value=atual;
+    });
+    const pf=document.getElementById('user-form-perfil');
+    if(pf){
+      const atual=perfil(pf.value);
+      pf.innerHTML='<option value="Master">Master</option><option value="Administrador">Administrador</option><option value="Tecnico">Tecnico</option><option value="Consulta">Consulta</option>';
+      pf.value=atual;
+    }
+  };
+
+  async function carregarTabela(tabela){
+    try{
+      const client = (typeof obterSupabaseSIGEE === 'function') ? obterSupabaseSIGEE() : null;
+      if(!client) return [];
+      const {data, error} = await client.from(tabela).select('*').limit(10000);
+      if(error) throw error;
+      return Array.isArray(data) ? data : [];
+    }catch(e){ console.warn('SIGEE V32 SELECT', tabela, e); return []; }
+  }
+  async function carregarDadosOperacionais(){
+    const T = window.SIGEE_SUPABASE_TABELAS || SIGEE_SUPABASE_TABELAS;
+    const [us, es, pr, so, nt] = await Promise.all([
+      carregarTabela(T.usuarios), carregarTabela(T.escolas), carregarTabela(T.processos), carregarTabela(T.solicitacoes), carregarTabela(T.ntes)
+    ]);
+    if(us.length) usuariosDB = us.map(normalizarUsuario).filter(u=>u.email);
+    garantirUsuariosBase();
+    if(es.length && typeof escolaDoSupabaseParaLocalSIGEE === 'function') escolasDB = es.map(escolaDoSupabaseParaLocalSIGEE).filter(e=>e && (e.cod_mec||e.nome));
+    if(pr.length && typeof processoDoSupabaseParaLocalSIGEE === 'function') processosDB = pr.map(processoDoSupabaseParaLocalSIGEE).filter(p=>p && (p.aluno||p.escola));
+    if(so.length && typeof solicitacaoDoSupabaseParaLocalSIGEE === 'function') solicitacoesDB = so.map(solicitacaoDoSupabaseParaLocalSIGEE).filter(s=>s && (s.aluno||s.escola));
+    if(nt.length && typeof nteDoSupabaseParaLocalSIGEE === 'function') {
+      const ntes = nt.map(nteDoSupabaseParaLocalSIGEE).filter(Boolean);
+      if(ntes.length){ LISTA_OFICIAL_27_NTES.splice(0, LISTA_OFICIAL_27_NTES.length, ...ntes); garantirListaNtes(); }
+    }
+    try{ inicializarSelectsNteEcosystem(); }catch(e){}
+    return true;
+  }
+  window.carregarDadosOperacionaisV32 = carregarDadosOperacionais;
+
+  function aplicarPermissoes(){
+    const u = window.usuarioLogado || usuarioLogado;
+    const menuUsuarios = document.getElementById('menu-usuarios');
+    const menuLogs = document.getElementById('menu-logs');
+    if(menuUsuarios) menuUsuarios.classList.toggle('hidden', !isGlobal(u));
+    if(menuLogs) menuLogs.classList.toggle('hidden', !(isGlobal(u) || perfil(u&&u.perfil)==='Administrador'));
+    const btnImportar = document.getElementById('btn-importar-dados-master');
+    if(btnImportar) btnImportar.classList.toggle('hidden', !podeImportarPlanilha(u));
+    document.querySelectorAll('[data-master-only-import-processos], .btn-importar-processos-master').forEach(el=>el.classList.toggle('hidden', !isGlobal(u)));
+  }
+  window.aplicarPermissoesV32 = aplicarPermissoes;
+
+  function filtrarPorUsuario(lista){
+    const u = window.usuarioLogado || usuarioLogado;
+    if(!Array.isArray(lista)) return [];
+    if(isGlobal(u)) return lista;
+    const nte = nteUsuario(u);
+    return lista.filter(x => nteIgual(x.nte || x.nte_nome || x.nte_vinculado || x.nucleo || x.nte_id, nte));
+  }
+  window.filtrarPorUsuarioV32 = filtrarPorUsuario;
+
+  // Login: carrega bancos também para Técnico/Administrador/Consulta e aplica permissões corretamente.
+  window.handleLogin = async function(event){
+    if(event) event.preventDefault();
+    garantirListaNtes(); garantirUsuariosBase();
+    // Tenta carregar usuários sem travar por muito tempo.
+    try{ await Promise.race([carregarDadosOperacionais(), new Promise(r=>setTimeout(r,1800))]); }catch(e){}
+    garantirUsuariosBase();
+    const em = email(document.getElementById('login-email')?.value || '');
+    const sn = txt(document.getElementById('login-senha')?.value || '');
+    let u = usuariosDB.find(x => email(x.email)===em && txt(x.senha||'123')===sn && x.ativo!==false);
+    if(!u && em===EMAIL_SEC_V32 && sn==='123') u = normalizarUsuario({nome:'USUÁRIO SEC',email:EMAIL_SEC_V32,senha:'123',perfil:'Administrador',nte:GRUPO_SEC_V32,grupo:'SEC',ativo:true});
+    if(!u){ alert('Credenciais inválidas, ou operador desativado no escopo regional.'); return; }
+    Object.assign(u, normalizarUsuario(u));
+    window.usuarioLogado = usuarioLogado = u;
+    document.getElementById('tela-login')?.classList.add('hidden');
+    document.getElementById('sistema-dashboard')?.classList.remove('hidden');
+    const nomeEl=document.getElementById('user-nome'); if(nomeEl) nomeEl.innerText=u.nome;
+    const perfEl=document.getElementById('user-perfil'); if(perfEl) perfEl.innerText=`${u.perfil}${isSEC(u)?' / SEC':''} | ${u.nte}`;
+    aplicarPermissoes();
+    try{ registrarLog('Acesso realizado ao painel operacional.'); }catch(e){}
+    try{ navegar('painel'); }catch(e){}
+    // Sincronização final em segundo plano para preencher processos/escolas do Técnico sem travar login.
+    setTimeout(async()=>{ await carregarDadosOperacionais(); aplicarPermissoes(); try{ navegar('painel'); }catch(e){} }, 250);
+  };
+  try{ handleLogin = window.handleLogin; }catch(e){}
+
+  const navegarOriginal = window.navegar || (typeof navegar !== 'undefined' ? navegar : null);
+  if(navegarOriginal){
+    window.navegar = function(aba){
+      const r = navegarOriginal(aba);
+      aplicarPermissoes();
+      if(aba==='processos' || aba==='escolas' || aba==='painel') setTimeout(()=>{ try{ aplicarPermissoes(); }catch(e){} }, 50);
+      return r;
+    };
+    try{ navegar = window.navegar; }catch(e){}
+  }
+
+  // Dashboard por perfil: global para Master/SEC, travado no NTE para demais.
+  window.carregarDadosDashboardReal = function(){
+    const escolasVisiveis = filtrarPorUsuario(escolasDB);
+    const procVisiveis = filtrarPorUsuario(processosDB);
+    const set=(id,v)=>{ const el=document.getElementById(id); if(el) el.innerText=v; };
+    set('dash-escolas', escolasVisiveis.length);
+    set('dash-acervos', escolasVisiveis.filter(e => upper(e.acervo||e.status_acervo).includes('RECOLH')).length);
+    set('dash-estaduais', escolasVisiveis.filter(e => upper(e.dependencia||e.dependencia_adm).includes('ESTAD')).length);
+    set('dash-municipios', [...new Set(escolasVisiveis.map(e => upper(e.municipio)).filter(Boolean))].length);
+    set('dash-usuarios', isGlobal(usuarioLogado) ? usuariosDB.length : filtrarPorUsuario(usuariosDB).length);
+    [['dash-proc-desarquivamento','Desarquivamento'],['dash-proc-analise','Análise'],['dash-proc-pendencia','Pendência'],['dash-proc-digitacao','Digitação'],['dash-proc-conferencia','Conferência'],['dash-proc-assinatura','Assinatura'],['dash-proc-aguardando','Aguardando Retirada'],['dash-proc-retirado','Retirado']]
+      .forEach(([id,et])=>set(id, procVisiveis.filter(p=>txt(p.etapa)===et).length));
+  };
+
+  // Contadores dos fluxos respeitando Técnico/Administrador/Consulta.
+  const carregarContOriginal = window.carregarEContarProcessosHorizontais || (typeof carregarEContarProcessosHorizontais !== 'undefined' ? carregarEContarProcessosHorizontais : null);
+  window.carregarEContarProcessosHorizontais = function(){
+    const visiveis = filtrarPorUsuario(processosDB);
+    const set=(id,v)=>{ const el=document.getElementById(id); if(el) el.innerText=v; };
+    set('count-horiz-todos', visiveis.length);
+    set('count-horiz-desarquivamento', visiveis.filter(p=>p.etapa==='Desarquivamento').length);
+    set('count-horiz-analise', visiveis.filter(p=>p.etapa==='Análise').length);
+    set('count-horiz-pendencia', visiveis.filter(p=>p.etapa==='Pendência').length);
+    set('count-horiz-digitacao', visiveis.filter(p=>p.etapa==='Digitação').length);
+    set('count-horiz-conferencia', visiveis.filter(p=>p.etapa==='Conferência').length);
+    set('count-horiz-assinatura', visiveis.filter(p=>p.etapa==='Assinatura').length);
+    set('count-horiz-aguardando', visiveis.filter(p=>p.etapa==='Aguardando Retirada').length);
+    set('count-horiz-retirado', visiveis.filter(p=>p.etapa==='Retirado').length);
+    if(typeof renderizarProcessosFlutuantes === 'function') renderizarProcessosFlutuantes();
+  };
+  try{ carregarEContarProcessosHorizontais = window.carregarEContarProcessosHorizontais; }catch(e){}
+
+  // Usuários: Master/SEC enxergam todos os grupos cadastrados.
+  window.carregarListaUsuarios = function(){
+    const corpo=document.getElementById('tabela-usuarios-corpo'); if(!corpo) return; corpo.innerHTML='';
+    garantirUsuariosBase();
+    const lista = isGlobal(usuarioLogado) ? usuariosDB : filtrarPorUsuario(usuariosDB);
+    lista.forEach(u=>{
+      Object.assign(u, normalizarUsuario(u));
+      const podeEditar = isGlobal(usuarioLogado);
+      const grupo = isSEC(u) ? '<span class="ml-1 px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 font-black text-[9px]">SEC</span>' : '';
+      const botoes = podeEditar ? `<div class="flex items-center justify-center gap-1.5"><button onclick="abrirModalEditarUsuarioMaster(${u.id})" class="bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded font-bold cursor-pointer">Editar</button><button onclick="toggleStatusUsuarioMaster(${u.id})" class="${u.ativo!==false?'bg-red-600':'bg-emerald-600'} text-white text-[10px] px-2 py-0.5 rounded font-bold cursor-pointer">${u.ativo!==false?'Desativar':'Ativar'}</button><button onclick="resetarSenhaUsuarioMaster(${u.id})" class="bg-gray-700 text-white text-[10px] px-2 py-0.5 rounded font-bold cursor-pointer">Resetar Senha</button></div>` : '<span class="text-xs text-gray-400 italic">Sem permissão</span>';
+      corpo.innerHTML += `<tr class="text-xs"><td class="p-3 font-bold">${u.nome}${grupo}<br><span class="text-xs text-gray-400 font-normal font-mono">${u.email}</span></td><td class="p-3 font-medium">${u.perfil}</td><td class="p-3 font-semibold text-gray-600">${u.nte}</td><td class="p-3 text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${u.ativo!==false?'bg-green-100 text-green-800':'bg-red-100 text-red-800'}">${u.ativo!==false?'ATIVO':'INATIVO'}</span></td><td class="p-3 text-center">${botoes}</td></tr>`;
+    });
+  };
+
+  // Salvar usuário localmente com perfil e grupo SEC; tenta Supabase apenas com colunas seguras.
+  window.salvarNovoUsuarioFormularioMaster = async function(event){
+    event.preventDefault();
+    const id = txt(document.getElementById('user-form-id')?.value);
+    const u = {
+      id: id || Date.now(),
+      nome: upper(document.getElementById('user-form-nome')?.value),
+      email: email(document.getElementById('user-form-email')?.value),
+      senha: txt(document.getElementById('user-form-senha')?.value) || '123',
+      nte: txt(document.getElementById('user-form-nte')?.value) || 'NTE-26 Salvador',
+      perfil: perfil(document.getElementById('user-form-perfil')?.value),
+      ativo: true
+    };
+    u.grupo = isSEC(u) ? 'SEC' : '';
+    if(!u.nome || !u.email){ alert('Informe nome e e-mail do usuário.'); return; }
+    const idx = usuariosDB.findIndex(x => String(x.id)===String(id) || email(x.email)===u.email);
+    if(idx >= 0) usuariosDB[idx] = Object.assign({}, usuariosDB[idx], u); else usuariosDB.push(u);
+    try{
+      const client = (typeof obterSupabaseSIGEE === 'function') ? obterSupabaseSIGEE() : null;
+      if(client){
+        await client.from(SIGEE_SUPABASE_TABELAS.usuarios).upsert({nome:u.nome,email:u.email,perfil:u.perfil,ativo:u.ativo},{onConflict:'email'});
+      }
+    }catch(e){ console.warn('Usuário mantido localmente; Supabase recusou colunas opcionais:', e); }
+    try{ registrarLog(`${id?'Atualizou':'Cadastrou'} operador: ${u.email}`); }catch(e){}
+    try{ fecharModalUsuario(); }catch(e){}
+    carregarListaUsuarios();
+  };
+
+  window.addEventListener('load', function(){
+    garantirListaNtes(); garantirUsuariosBase(); inicializarSelectsNteEcosystem(); aplicarPermissoes();
+    setTimeout(()=>{ carregarDadosOperacionais().then(()=>{ aplicarPermissoes(); try{ if(!document.getElementById('aba-processos')?.classList.contains('hidden')) carregarEContarProcessosHorizontais(); }catch(e){}; }); }, 300);
+  });
+})();
+
+
+/* ==========================================================================
+   SIGEE V33 - Permissões de importação e seleção global de responsáveis
+   Ajustes solicitados:
+   - Importação de planilhas somente para Master, Administrador e grupo SEC.
+   - Técnico e Consulta não importam planilhas.
+   - Master/SEC podem selecionar técnicos/responsáveis de todos os NTEs nos fluxos.
+   - Administrador/Técnico ficam restritos ao NTE do cadastro.
+   ========================================================================== */
+(function(){
+  'use strict';
+  const GRUPO_SEC_V33 = 'SEC - TODOS OS NTES';
+  const EMAIL_SEC_V33 = 'sec@enova.educacao.ba.gov.br';
+
+  function txt(v){ return (v===undefined||v===null) ? '' : String(v).trim(); }
+  function normal(v){ return txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase(); }
+  function email(v){ return txt(v).toLowerCase(); }
+  function perfil(v){
+    const p = normal(v || 'Tecnico');
+    if(p.includes('MASTER')) return 'Master';
+    if(p.includes('ADMIN')) return 'Administrador';
+    if(p.includes('CONSULT')) return 'Consulta';
+    if(p.includes('SEC')) return 'Administrador';
+    return 'Tecnico';
+  }
+  function isSEC(u){
+    const n = normal(u && (u.nte || u.grupo || u.nte_nome || ''));
+    const e = email(u && u.email);
+    return e === EMAIL_SEC_V33 || n === 'SEC' || n.includes('SEC -') || n.includes('TODOS OS NTES');
+  }
+  function isGlobal(u){ return !!u && (perfil(u.perfil) === 'Master' || isSEC(u)); }
+  function podeImportar(u){
+    const p = perfil(u && u.perfil);
+    return p === 'Master' || p === 'Administrador' || isSEC(u);
+  }
+  function nteIgual(a,b){
+    const na = normal(a).replace(/\s/g,'');
+    const nb = normal(b).replace(/\s/g,'');
+    if(!na || !nb) return false;
+    if(na === nb) return true;
+    const ma = na.match(/NTE[-]*(\d{1,2})/); const mb = nb.match(/NTE[-]*(\d{1,2})/);
+    return !!(ma && mb && Number(ma[1]) === Number(mb[1]));
+  }
+  function nteUsuario(u){
+    if(!u) return 'NTE-26 Salvador';
+    if(isSEC(u)) return GRUPO_SEC_V33;
+    return txt(u.nte || u.nte_nome || u.nte_vinculado || 'NTE-26 Salvador');
+  }
+  function garantirGrupoSEC(){
+    try{
+      if(Array.isArray(LISTA_OFICIAL_27_NTES) && !LISTA_OFICIAL_27_NTES.some(n => normal(n).includes('SEC - TODOS'))) {
+        LISTA_OFICIAL_27_NTES.unshift(GRUPO_SEC_V33);
+      }
+    }catch(e){}
+    try{
+      if(Array.isArray(usuariosDB) && !usuariosDB.some(u => email(u.email) === EMAIL_SEC_V33)) {
+        usuariosDB.push({id:990001,nome:'USUÁRIO SEC',email:EMAIL_SEC_V33,senha:'123',perfil:'Administrador',nte:GRUPO_SEC_V33,grupo:'SEC',ativo:true});
+      }
+    }catch(e){}
+  }
+
+  // Expõe regra correta para outras rotinas.
+  window.SIGEE_V33 = { podeImportar, isGlobal, isSEC, perfil, nteUsuario, nteIgual };
+
+  // Importação: somente Master, Administrador e SEC.
+  window.aplicarPermissoesV33 = function(){
+    garantirGrupoSEC();
+    const u = window.usuarioLogado || (typeof usuarioLogado !== 'undefined' ? usuarioLogado : null);
+    const btnImportar = document.getElementById('btn-importar-dados-master');
+    if(btnImportar) btnImportar.classList.toggle('hidden', !podeImportar(u));
+    document.querySelectorAll('[data-master-only-import-processos], .btn-importar-processos-master, .btn-importar-processos-admin')
+      .forEach(el => el.classList.toggle('hidden', !podeImportar(u)));
+
+    const menuUsuarios = document.getElementById('menu-usuarios');
+    if(menuUsuarios) menuUsuarios.classList.toggle('hidden', !isGlobal(u));
+    const menuLogs = document.getElementById('menu-logs');
+    if(menuLogs) menuLogs.classList.toggle('hidden', !(isGlobal(u) || perfil(u && u.perfil) === 'Administrador'));
+  };
+
+  // Master/SEC podem selecionar responsáveis de todos os NTEs nos processos.
+  // Administrador/Técnico continuam restritos ao próprio NTE.
+  window.preencherSelectTecnicosPorNte = function(selectId, nteFiltro){
+    const select = document.getElementById(selectId);
+    if(!select) return;
+    garantirGrupoSEC();
+    const u = window.usuarioLogado || (typeof usuarioLogado !== 'undefined' ? usuarioLogado : null);
+    const global = isGlobal(u);
+    const nteBase = txt(nteFiltro || nteUsuario(u));
+    let lista = Array.isArray(usuariosDB) ? usuariosDB.slice() : [];
+
+    lista = lista.filter(op => op && op.ativo !== false && perfil(op.perfil) !== 'Consulta');
+    if(!global) lista = lista.filter(op => nteIgual(nteUsuario(op), nteBase));
+
+    lista.sort((a,b) => (nteUsuario(a) + ' ' + txt(a.nome)).localeCompare(nteUsuario(b) + ' ' + txt(b.nome), 'pt-BR'));
+    select.innerHTML = '<option value="">-- Selecione o Servidor Responsável --</option>';
+
+    if(global){
+      const grupos = {};
+      lista.forEach(op => {
+        const nte = nteUsuario(op);
+        if(isSEC(op)) return;
+        grupos[nte] = grupos[nte] || [];
+        grupos[nte].push(op);
+      });
+      Object.keys(grupos).forEach(nte => {
+        const og = document.createElement('optgroup');
+        og.label = nte;
+        grupos[nte].forEach(op => {
+          const opt = document.createElement('option');
+          opt.value = txt(op.nome || op.email);
+          opt.textContent = `${txt(op.nome || op.email)} — ${perfil(op.perfil)} — ${nte}`;
+          opt.dataset.nte = nte;
+          og.appendChild(opt);
+        });
+        select.appendChild(og);
+      });
+    } else {
+      lista.forEach(op => {
+        const opt = document.createElement('option');
+        opt.value = txt(op.nome || op.email);
+        opt.textContent = `${txt(op.nome || op.email)} — ${perfil(op.perfil)}`;
+        opt.dataset.nte = nteUsuario(op);
+        select.appendChild(opt);
+      });
+    }
+  };
+  try{ preencherSelectTecnicosPorNte = window.preencherSelectTecnicosPorNte; }catch(e){}
+
+  // Reforça permissões após login/navegação/sincronização.
+  const loginAnteriorV33 = window.handleLogin || (typeof handleLogin !== 'undefined' ? handleLogin : null);
+  if(loginAnteriorV33){
+    window.handleLogin = async function(event){
+      const r = await loginAnteriorV33.apply(this, arguments);
+      garantirGrupoSEC();
+      window.aplicarPermissoesV33();
+      return r;
+    };
+    try{ handleLogin = window.handleLogin; }catch(e){}
+  }
+
+  const navegarAnteriorV33 = window.navegar || (typeof navegar !== 'undefined' ? navegar : null);
+  if(navegarAnteriorV33){
+    window.navegar = function(aba){
+      const r = navegarAnteriorV33.apply(this, arguments);
+      setTimeout(window.aplicarPermissoesV33, 60);
+      return r;
+    };
+    try{ navegar = window.navegar; }catch(e){}
+  }
+
+  // Se houver sincronização em segundo plano, aplica novamente ao terminar.
+  const carregarDadosAnteriorV33 = window.carregarDadosOperacionaisV32;
+  if(carregarDadosAnteriorV33){
+    window.carregarDadosOperacionaisV32 = async function(){
+      const r = await carregarDadosAnteriorV33.apply(this, arguments);
+      garantirGrupoSEC();
+      window.aplicarPermissoesV33();
+      return r;
+    };
+  }
+
+  window.addEventListener('load', function(){
+    garantirGrupoSEC();
+    setTimeout(window.aplicarPermissoesV33, 200);
+    setTimeout(window.aplicarPermissoesV33, 1200);
+  });
+})();
+
+
+// ===== bloco JS extraído do index.html =====
+/* ==========================================================================
+   SIGEE V34 - Carregamento de banco por perfil + permissões de importação
+   - Importação permanece SOMENTE para Master, Administrador e Grupo SEC.
+   - Técnico e Consulta NÃO importam planilhas.
+   - Corrige carregamento de escolas/processos para Técnico, Administrador e Consulta.
+   - Reforça renderização após sincronização Supabase para evitar "0 registros / banco pendente".
+   ========================================================================== */
+(function(){
+  'use strict';
+
+  const GRUPO_SEC = 'SEC - TODOS OS NTES';
+  const EMAIL_SEC = 'sec@enova.educacao.ba.gov.br';
+
+  function txt(v){ return (v===undefined||v===null) ? '' : String(v).trim(); }
+  function sem(v){ return txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase(); }
+  function email(v){ return txt(v).toLowerCase(); }
+  function perfil(v){
+    const p = sem(v || 'Tecnico');
+    if(p.includes('MASTER')) return 'Master';
+    if(p.includes('ADMIN')) return 'Administrador';
+    if(p.includes('CONSULT')) return 'Consulta';
+    if(p.includes('SEC')) return 'Administrador';
+    return 'Tecnico';
+  }
+  function numeroNte(v){
+    const m = txt(v).match(/NTE[-\s]*(\d{1,2})/i);
+    return m ? Number(m[1]) : null;
+  }
+  function ntePorId(id){
+    const n = Number(id);
+    if(!n) return '';
+    const lista = (typeof LISTA_OFICIAL_27_NTES !== 'undefined' && Array.isArray(LISTA_OFICIAL_27_NTES)) ? LISTA_OFICIAL_27_NTES : [];
+    return lista.find(x => numeroNte(x) === n) || `NTE-${String(n).padStart(2,'0')}`;
+  }
+  function isSEC(u){
+    const e = email(u && u.email);
+    const n = sem(u && (u.nte || u.grupo || u.nte_nome || u.nte_vinculado || ''));
+    return e === EMAIL_SEC || n === 'SEC' || n.includes('SEC -') || n.includes('TODOS OS NTES') || n === 'GLOBAL';
+  }
+  function isGlobal(u){ return !!u && (perfil(u.perfil) === 'Master' || isSEC(u)); }
+  function podeImportar(u){
+    const p = perfil(u && u.perfil);
+    return p === 'Master' || p === 'Administrador' || isSEC(u);
+  }
+  function nteUsuario(u){
+    if(!u) return 'NTE-26 Salvador';
+    if(isSEC(u)) return GRUPO_SEC;
+    return txt(u.nte || u.nte_nome || u.nte_vinculado || ntePorId(u.nte_id) || 'NTE-26 Salvador');
+  }
+  function nteItem(item){
+    if(!item) return '';
+    return txt(item.nte || item.nte_nome || item.nte_vinculado || item.nucleo || item.nte_descricao || ntePorId(item.nte_id) || '');
+  }
+  function nteIgual(a,b){
+    if(!a || !b) return false;
+    if(isSEC({nte:a}) || isSEC({nte:b})) return true;
+    const na = numeroNte(a), nb = numeroNte(b);
+    if(na && nb) return na === nb;
+    return sem(a).replace(/\s+/g,'') === sem(b).replace(/\s+/g,'');
+  }
+  function filtrarPorPerfil(lista){
+    const u = window.usuarioLogado || (typeof usuarioLogado !== 'undefined' ? usuarioLogado : null);
+    if(!Array.isArray(lista)) return [];
+    if(isGlobal(u)) return lista;
+    const nte = nteUsuario(u);
+    return lista.filter(item => nteIgual(nteItem(item), nte));
+  }
+  function garantirSec(){
+    try{
+      if(Array.isArray(LISTA_OFICIAL_27_NTES) && !LISTA_OFICIAL_27_NTES.some(n=>sem(n).includes('SEC - TODOS'))) LISTA_OFICIAL_27_NTES.unshift(GRUPO_SEC);
+      if(Array.isArray(usuariosDB) && !usuariosDB.some(u=>email(u.email)===EMAIL_SEC)) usuariosDB.push({id:990001,nome:'USUÁRIO SEC',email:EMAIL_SEC,senha:'123',perfil:'Administrador',nte:GRUPO_SEC,grupo:'SEC',ativo:true});
+    }catch(e){}
+  }
+
+  window.SIGEE_V34 = { perfil, isSEC, isGlobal, podeImportar, nteUsuario, nteItem, nteIgual, filtrarPorPerfil };
+
+  function aplicarPermissoes(){
+    garantirSec();
+    const u = window.usuarioLogado || (typeof usuarioLogado !== 'undefined' ? usuarioLogado : null);
+    const btnImportar = document.getElementById('btn-importar-dados-master');
+    if(btnImportar) btnImportar.classList.toggle('hidden', !podeImportar(u));
+    const input = document.getElementById('input-importar-excel');
+    if(input) input.disabled = !podeImportar(u);
+    document.querySelectorAll('[data-master-only-import-processos], .btn-importar-processos-master, .btn-importar-processos-admin')
+      .forEach(el => el.classList.toggle('hidden', !podeImportar(u)));
+    const menuUsuarios = document.getElementById('menu-usuarios');
+    if(menuUsuarios) menuUsuarios.classList.toggle('hidden', !isGlobal(u));
+    const menuLogs = document.getElementById('menu-logs');
+    if(menuLogs) menuLogs.classList.toggle('hidden', !(isGlobal(u) || perfil(u && u.perfil)==='Administrador'));
+  }
+  window.aplicarPermissoesV34 = aplicarPermissoes;
+
+  async function carregarOperacionalSilencioso(){
+    try{
+      if(typeof carregarDadosOperacionaisV32 === 'function') await carregarDadosOperacionaisV32();
+      else if(typeof carregarTodasTabelasSupabaseSIGEE === 'function') await carregarTodasTabelasSupabaseSIGEE(true);
+      else if(typeof sincronizarSupabaseSegundoPlanoSIGEE === 'function') await sincronizarSupabaseSegundoPlanoSIGEE();
+      try{ sigEESupabaseOnline = true; }catch(e){}
+      return true;
+    }catch(e){
+      console.warn('SIGEE V34: falha ao carregar dados operacionais:', e);
+      return false;
+    }
+  }
+  window.carregarOperacionalSilenciosoV34 = carregarOperacionalSilencioso;
+
+  function atualizarInfoEscolas(qtd){
+    const el = document.getElementById('info-quantidade-escolas-carregadas');
+    if(!el) return;
+    const status = (typeof sigEESupabaseOnline !== 'undefined' && sigEESupabaseOnline) ? 'Supabase online' : 'sincronizando Supabase';
+    el.innerText = `Exibindo: ${qtd} registros | Banco: ${status}`;
+  }
+
+  // Corrige catálogo para Técnico/Administrador/Consulta após sincronização.
+  window.renderizarListaEscolasBufferMemoria = function(){
+    const corpo = document.getElementById('tabela-escolas-corpo');
+    if(!corpo) return;
+    corpo.innerHTML = '';
+    let filtradas = filtrarPorPerfil(escolasDB || []);
+    const busca = (document.getElementById('busca-escola')?.value || '').toLowerCase().trim();
+    if(busca){
+      filtradas = filtradas.filter(e => [e.cod_mec,e.nome,e.nome_escola,e.municipio,e.nte,e.dependencia,e.dependencia_adm,e.situacao,e.situacao_funcional,e.acervo,e.status_acervo].some(v=>String(v||'').toLowerCase().includes(busca)));
+    }
+    atualizarInfoEscolas(filtradas.length);
+    const totalPorPagina = (typeof totalPorPaginaEscola !== 'undefined') ? totalPorPaginaEscola : 8;
+    let pagina = (typeof paginaEscolaAtual !== 'undefined') ? paginaEscolaAtual : 1;
+    const paginasTotais = Math.max(1, Math.ceil(filtradas.length / totalPorPagina));
+    if(pagina > paginasTotais) pagina = paginasTotais;
+    try{ paginaEscolaAtual = pagina; }catch(e){}
+    const inicio = (pagina - 1) * totalPorPagina;
+    filtradas.slice(inicio, inicio + totalPorPagina).forEach(e => {
+      const situacao = txt(e.situacao || e.situacao_funcional || '').toUpperCase();
+      const acervo = txt(e.acervo || e.status_acervo || '').toUpperCase();
+      const sitClasse = situacao.includes('ATIV') ? 'text-green-300' : 'text-red-300';
+      const acervoClasse = acervo.includes('RECOLH') && !acervo.includes('NÃO') && !acervo.includes('NAO') ? 'text-green-300' : 'text-red-300';
+      corpo.innerHTML += `
+        <tr class="hover:bg-white/10 text-[11px] text-white border-b border-white/10">
+          <td class="p-3 font-mono font-bold">${txt(e.cod_mec)}</td>
+          <td class="p-3 font-bold uppercase">${txt(e.nome || e.nome_escola)}</td>
+          <td class="p-3 uppercase font-medium">${txt(e.municipio)}</td>
+          <td class="p-3 font-semibold">${txt(e.nte)}<br><span class="text-[9px] bg-white/10 font-bold px-1 rounded">${txt(e.dependencia || e.dependencia_adm)}</span></td>
+          <td class="p-3"><span class="px-1.5 py-0.5 font-black rounded text-[10px] bg-black/20 ${sitClasse}">${situacao || '-'}</span></td>
+          <td class="p-3"><span class="px-1.5 py-0.5 font-black rounded text-[10px] bg-black/20 ${acervoClasse}">${acervo || '-'}</span></td>
+          <td class="p-3 text-center"><button class="px-2 py-1 rounded bg-cyan-600/30 text-cyan-100 font-black">Alterar</button></td>
+        </tr>`;
+    });
+    const pag = document.getElementById('txt-escola-paginacao'); if(pag) pag.innerText = `Página ${pagina} de ${paginasTotais}`;
+    const ant = document.getElementById('btn-escola-anterior'); if(ant) ant.disabled = pagina <= 1;
+    const prox = document.getElementById('btn-escola-proxima'); if(prox) prox.disabled = pagina >= paginasTotais;
+
+    // Se não carregou nada para o usuário, tenta buscar em segundo plano uma vez, sem travar a tela.
+    if(!filtradas.length && !window.__SIGEE_V34_RECARREGANDO_ESCOLAS){
+      window.__SIGEE_V34_RECARREGANDO_ESCOLAS = true;
+      atualizarInfoEscolas(0);
+      setTimeout(async()=>{
+        await carregarOperacionalSilencioso();
+        window.__SIGEE_V34_RECARREGANDO_ESCOLAS = false;
+        renderizarListaEscolasBufferMemoria();
+      }, 100);
+    }
+  };
+  try{ renderizarListaEscolasBufferMemoria = window.renderizarListaEscolasBufferMemoria; }catch(e){}
+
+  // Reforça processos para Técnico/Administrador/Consulta.
+  const renderProcAnterior = window.renderizarProcessosFlutuantes || (typeof renderizarProcessosFlutuantes !== 'undefined' ? renderizarProcessosFlutuantes : null);
+  window.renderizarProcessosFlutuantes = function(){
+    try{
+      const u = window.usuarioLogado || (typeof usuarioLogado !== 'undefined' ? usuarioLogado : null);
+      if(isGlobal(u) && renderProcAnterior) return renderProcAnterior.apply(this, arguments);
+      const todos = Array.isArray(processosDB) ? processosDB.slice() : [];
+      const original = processosDB;
+      processosDB = filtrarPorPerfil(todos);
+      const r = renderProcAnterior ? renderProcAnterior.apply(this, arguments) : undefined;
+      processosDB = original;
+      return r;
+    }catch(e){
+      console.warn('SIGEE V34 render processos:', e);
+      if(renderProcAnterior) return renderProcAnterior.apply(this, arguments);
+    }
+  };
+  try{ renderizarProcessosFlutuantes = window.renderizarProcessosFlutuantes; }catch(e){}
+
+  // Garante que técnico NÃO importe, conforme regra anterior. Se quiser liberar Técnico, altere aqui.
+  const importarOriginal = window.processarImportacaoOtimizada || (typeof processarImportacaoOtimizada !== 'undefined' ? processarImportacaoOtimizada : null);
+  if(importarOriginal){
+    window.processarImportacaoOtimizada = function(event){
+      const u = window.usuarioLogado || (typeof usuarioLogado !== 'undefined' ? usuarioLogado : null);
+      if(!podeImportar(u)){
+        alert('Importação permitida apenas para Master, Administrador ou Grupo SEC. O perfil Técnico pode consultar e movimentar processos do NTE, mas não importar planilhas.');
+        if(event && event.target) event.target.value = '';
+        return;
+      }
+      return importarOriginal.apply(this, arguments);
+    };
+    try{ processarImportacaoOtimizada = window.processarImportacaoOtimizada; }catch(e){}
+  }
+
+  // Ao entrar/navegar, sincroniza novamente e atualiza tela atual.
+  const navegarAnterior = window.navegar || (typeof navegar !== 'undefined' ? navegar : null);
+  if(navegarAnterior){
+    window.navegar = function(aba){
+      const r = navegarAnterior.apply(this, arguments);
+      aplicarPermissoes();
+      if(aba === 'escolas'){
+        setTimeout(()=>{ try{ renderizarListaEscolasBufferMemoria(); }catch(e){} }, 50);
+        setTimeout(async()=>{ await carregarOperacionalSilencioso(); aplicarPermissoes(); try{ renderizarListaEscolasBufferMemoria(); }catch(e){} }, 300);
+      }
+      if(aba === 'processos'){
+        setTimeout(async()=>{ await carregarOperacionalSilencioso(); aplicarPermissoes(); try{ carregarEContarProcessosHorizontais(); }catch(e){} }, 300);
+      }
+      if(aba === 'painel'){
+        setTimeout(async()=>{ await carregarOperacionalSilencioso(); aplicarPermissoes(); try{ carregarDadosDashboardReal(); }catch(e){} }, 300);
+      }
+      return r;
+    };
+    try{ navegar = window.navegar; }catch(e){}
+  }
+
+  const loginAnterior = window.handleLogin || (typeof handleLogin !== 'undefined' ? handleLogin : null);
+  if(loginAnterior){
+    window.handleLogin = async function(event){
+      const r = await loginAnterior.apply(this, arguments);
+      aplicarPermissoes();
+      setTimeout(async()=>{
+        await carregarOperacionalSilencioso();
+        aplicarPermissoes();
+        try{ carregarDadosDashboardReal(); }catch(e){}
+        try{ carregarEContarProcessosHorizontais(); }catch(e){}
+        try{ if(!document.getElementById('aba-escolas')?.classList.contains('hidden')) renderizarListaEscolasBufferMemoria(); }catch(e){}
+      }, 250);
+      return r;
+    };
+    try{ handleLogin = window.handleLogin; }catch(e){}
+  }
+
+  window.addEventListener('load', function(){
+    garantirSec();
+    setTimeout(aplicarPermissoes, 100);
+    setTimeout(async()=>{ await carregarOperacionalSilencioso(); aplicarPermissoes(); }, 600);
+  });
+})();
+
+
+// ===== bloco JS extraído do index.html =====
+/* =====================================================================
+   SIGEE V35 - Correção da importação de planilhas para ESCOLAS e PROCESSOS
+   Mantém: layout V30+, Grupo SEC, perfis, Supabase, exportações e fluxos.
+   Regra: importação somente Master, Administrador e Grupo SEC.
+   ===================================================================== */
+(function(){
+  function txt(v){ return (v===undefined || v===null) ? '' : String(v).trim(); }
+  function up(v){ try{ return txt(v).toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }catch(e){ return txt(v).toUpperCase(); } }
+  function titulo(v){ return txt(v).replace(/\s+/g,' ').trim(); }
+  function normal(v){ return up(v).replace(/[^A-Z0-9]/g,''); }
+  function getPerfil(u){ return txt(u && u.perfil).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+  function isSECUser(u){ return !!u && (up(u.grupo).includes('SEC') || up(u.nte).includes('SEC') || txt(u.email).toLowerCase()==='sec@enova.educacao.ba.gov.br'); }
+  function podeImportarV35(u){ const p=getPerfil(u); return p==='master' || p==='administrador' || isSECUser(u); }
+  function getCell(row, nomes){
+    const keys = Object.keys(row||{});
+    const alvo = nomes.map(normal);
+    let key = keys.find(k => alvo.includes(normal(k)));
+    if(!key){
+      key = keys.find(k => alvo.some(a => normal(k).includes(a) || a.includes(normal(k))));
+    }
+    return key ? txt(row[key]) : '';
+  }
+  function obterNumeroNteV35(v){
+    const t=txt(v); const m=t.match(/NTE\s*[- ]?\s*(\d{1,2})/i) || t.match(/^(\d{1,2})$/);
+    if(m) return Number(m[1]);
+    const n=Number(v); return (!Number.isNaN(n) && n>0 && n<100) ? n : null;
+  }
+  function nteNomeV35(v){
+    if(typeof obterNomeNtePorIdSIGEE === 'function'){
+      const n=obterNumeroNteV35(v); if(n) return obterNomeNtePorIdSIGEE(n) || txt(v);
+    }
+    return txt(v) || 'NTE-26 Salvador';
+  }
+  function nextId(lista, base){
+    try{ return (Array.isArray(lista)&&lista.length) ? Math.max(...lista.map(x=>Number(x.id)||0)) + 1 : base; }catch(e){ return base; }
+  }
+  function linhaEhEscola(row){
+    const mec = getCell(row,['cod_mec','codigo_mec','código mec','cod mec','mec','cód mec']);
+    const nome = getCell(row,['nome_escola','nome da escola','nome escola','nome','instituicao','instituição','escola']);
+    const aluno = getCell(row,['aluno','aluno_nome','nome do aluno','nome completo do aluno','requerente','nome_solicitante']);
+    return !!(mec && nome && !aluno);
+  }
+  function linhaEhProcesso(row){
+    const aluno = getCell(row,['aluno','aluno_nome','nome do aluno','nome completo do aluno','requerente','nome_solicitante','solicitante']);
+    const etapa = getCell(row,['etapa','etapa_atual','fase','fase_atual','status']);
+    const doc = getCell(row,['documento','documento_tipo','tipo de documento','documento_solicitado']);
+    return !!(aluno && (etapa || doc || getCell(row,['escola','escola_nome','instituicao','instituição','nome_escola'])));
+  }
+  function converterEscolaV35(row){
+    const mec = getCell(row,['cod_mec','codigo_mec','código mec','cod mec','mec','cód mec']);
+    const nome = getCell(row,['nome_escola','nome da escola','nome escola','nome','instituicao','instituição','escola']);
+    const municipio = getCell(row,['municipio','município','cidade']);
+    const nte = getCell(row,['nte','nte vinculado','nte correspondente','núcleo','nucleo','territorio','território']);
+    const nteId = getCell(row,['nte_id','id nte','codigo nte','código nte']);
+    const dep = getCell(row,['dependencia_adm','dependência administrativa','dependencia administrativa','dependencia','dep. administrativo','dep administrativo','dep adm']);
+    const sit = getCell(row,['situacao_funcional','situação funcional','situacao funcional','situação','situacao','status escola','status']);
+    const acervo = getCell(row,['status_acervo','status do acervo','acervo','situação do acervo','situacao do acervo']);
+    const local = getCell(row,['local_acervo','local do acervo','local físico do acervo','local fisico do acervo','local']);
+    const nteNum = obterNumeroNteV35(nteId || nte) || 26;
+    return {
+      id: null,
+      cod_mec: txt(mec),
+      nome: titulo(nome).toUpperCase(),
+      nome_escola: titulo(nome).toUpperCase(),
+      municipio: titulo(municipio).toUpperCase(),
+      nte: nteNomeV35(nte || nteNum),
+      nte_id: nteNum,
+      dependencia: dep || 'Estadual',
+      dependencia_adm: dep || 'Estadual',
+      situacao: sit || 'Extinta',
+      situacao_funcional: sit || 'Extinta',
+      acervo: acervo || 'Recolhido',
+      status_acervo: acervo || 'Recolhido',
+      local_acervo: local || 'Acervo do NTE',
+      ativo: true
+    };
+  }
+  function converterProcessoV35(row){
+    const aluno = getCell(row,['aluno','aluno_nome','nome do aluno','nome completo do aluno','requerente','nome_solicitante','solicitante']);
+    const escola = getCell(row,['escola','escola_nome','nome_escola','nome da escola','instituicao','instituição']);
+    const cod = getCell(row,['cod_mec','codigo_mec','código mec','mec']);
+    let escolaLocal = null;
+    try{ escolaLocal = (escolasDB||[]).find(e => txt(e.cod_mec)===txt(cod) || up(e.nome||e.nome_escola)===up(escola)); }catch(e){}
+    const nte = getCell(row,['nte','nte vinculado','nte correspondente']) || (escolaLocal && escolaLocal.nte) || 'NTE-26 Salvador';
+    return {
+      id: Number(getCell(row,['id','processo','codigo','código'])) || null,
+      aluno: titulo(aluno).toUpperCase(),
+      aluno_nome: titulo(aluno).toUpperCase(),
+      escola: titulo(escola || (escolaLocal && (escolaLocal.nome||escolaLocal.nome_escola))).toUpperCase(),
+      escola_nome: titulo(escola || (escolaLocal && (escolaLocal.nome||escolaLocal.nome_escola))).toUpperCase(),
+      documento: getCell(row,['documento','documento_tipo','tipo de documento','documento_solicitado']) || 'HISTÓRICO',
+      documento_tipo: getCell(row,['documento','documento_tipo','tipo de documento','documento_solicitado']) || 'HISTÓRICO',
+      etapa: getCell(row,['etapa','etapa_atual','fase','fase_atual','status']) || 'Desarquivamento',
+      etapa_atual: getCell(row,['etapa','etapa_atual','fase','fase_atual','status']) || 'Desarquivamento',
+      data_etapa_atual: getCell(row,['data_etapa_atual','data etapa','data','created_at','criado_em']) || (typeof obterDataAtualFormatada==='function' ? obterDataAtualFormatada() : new Date().toLocaleDateString('pt-BR')),
+      nte: nteNomeV35(nte),
+      municipio: getCell(row,['municipio','município','cidade']) || (escolaLocal && escolaLocal.municipio) || '',
+      modalidade: getCell(row,['modalidade','oferta_modalidade']) || null,
+      ensino: getCell(row,['ensino','nivel_oferta','oferta_nivel']) || null,
+      prioridade: getCell(row,['prioridade']) || null,
+      tecnico_responsavel: getCell(row,['tecnico','técnico','tecnico_responsavel','responsavel','responsável']) || null
+    };
+  }
+  async function upsertV35(tabela, payload, conflito){
+    const client = (typeof obterSupabaseSIGEE==='function') ? obterSupabaseSIGEE() : null;
+    if(!client || !payload.length) return true;
+    const loteTam=100;
+    for(let i=0;i<payload.length;i+=loteTam){
+      const lote=payload.slice(i,i+loteTam);
+      const {error}=await client.from(tabela).upsert(lote,{onConflict:conflito,ignoreDuplicates:false});
+      if(error) throw error;
+    }
+    return true;
+  }
+  async function salvarImportacaoV35(escolasAlteradas, processosAlterados){
+    const erros=[];
+    try{
+      if(escolasAlteradas.length){
+        const payload = escolasAlteradas.map(e => (typeof escolaParaSupabaseSIGEE==='function' ? escolaParaSupabaseSIGEE(e) : e))
+          .filter(e => e.cod_mec && e.nome_escola && e.municipio && e.nte_id && e.dependencia_adm && e.situacao_funcional && e.acervo && e.status_acervo);
+        await upsertV35('escolas_sigee', payload, 'cod_mec');
+      }
+    }catch(e){ console.error('SIGEE V35 erro importando escolas:', e); erros.push('escolas_sigee: '+(e.message||JSON.stringify(e))); }
+    try{
+      if(processosAlterados.length){
+        let proximo = nextId(processosDB,101);
+        const payload = processosAlterados.map(p => {
+          if(!p.id) p.id = proximo++;
+          return (typeof processoParaSupabaseSIGEE==='function' ? processoParaSupabaseSIGEE(p) : p);
+        }).filter(p => p.id && p.aluno_nome);
+        await upsertV35('processos', payload, 'id');
+      }
+    }catch(e){ console.error('SIGEE V35 erro importando processos:', e); erros.push('processos: '+(e.message||JSON.stringify(e))); }
+    return erros;
+  }
+  window.processarImportacaoOtimizada = async function(event){
+    const u = window.usuarioLogado || (typeof usuarioLogado !== 'undefined' ? usuarioLogado : null);
+    if(!podeImportarV35(u)){
+      alert('Importação permitida apenas para Master, Administrador ou Grupo SEC.');
+      if(event && event.target) event.target.value='';
+      return;
+    }
+    const arquivo = event && event.target && event.target.files ? event.target.files[0] : null;
+    if(!arquivo) return;
+    const card=document.getElementById('card-progresso-importacao');
+    const label=document.getElementById('label-status-importacao');
+    const barra=document.getElementById('barra-progresso-importacao');
+    const pctTxt=document.getElementById('percentual-importacao-texto');
+    if(card) card.classList.remove('hidden');
+    if(label) label.innerText='Carregando planilha e identificando escolas/processos...';
+    if(barra) barra.style.width='5%';
+    if(pctTxt) pctTxt.innerText='5%';
+    try{
+      const data = await arquivo.arrayBuffer();
+      const livro = XLSX.read(data, {type:'array'});
+      let escolasLidas=[], processosLidos=[];
+      livro.SheetNames.forEach(nomeAba=>{
+        const linhas = XLSX.utils.sheet_to_json(livro.Sheets[nomeAba], {defval:''});
+        linhas.forEach(row=>{
+          if(linhaEhEscola(row)) escolasLidas.push(converterEscolaV35(row));
+          else if(linhaEhProcesso(row)) processosLidos.push(converterProcessoV35(row));
+          else {
+            // tentativa extra para planilhas de processos sem etapa/documento, mas com aluno
+            if(getCell(row,['aluno','aluno_nome','nome do aluno','nome completo do aluno','nome_solicitante'])) processosLidos.push(converterProcessoV35(row));
+          }
+        });
+      });
+      if(label) label.innerText=`Processando ${escolasLidas.length} escolas e ${processosLidos.length} processos...`;
+      if(barra) barra.style.width='35%';
+      if(pctTxt) pctTxt.innerText='35%';
+
+      let insEsc=0, atuEsc=0, insProc=0, atuProc=0;
+      const alterEsc=[]; const alterProc=[];
+      escolasLidas.forEach(e=>{
+        if(!e.cod_mec || !e.nome || !e.municipio) return;
+        const idx=(escolasDB||[]).findIndex(x=>txt(x.cod_mec)===txt(e.cod_mec));
+        if(idx>=0){ escolasDB[idx] = {...escolasDB[idx], ...e, id: escolasDB[idx].id}; atuEsc++; alterEsc.push(escolasDB[idx]); }
+        else { e.id=nextId(escolasDB,1); escolasDB.push(e); insEsc++; alterEsc.push(e); }
+      });
+      processosLidos.forEach(p=>{
+        if(!p.aluno) return;
+        const id=Number(p.id);
+        const idx=id ? (processosDB||[]).findIndex(x=>Number(x.id)===id) : -1;
+        if(idx>=0){ processosDB[idx] = {...processosDB[idx], ...p, id: processosDB[idx].id}; atuProc++; alterProc.push(processosDB[idx]); }
+        else { p.id=nextId(processosDB,101); processosDB.push(p); insProc++; alterProc.push(p); }
+      });
+      if(barra) barra.style.width='65%';
+      if(pctTxt) pctTxt.innerText='65%';
+      if(label) label.innerText='Gravando escolas e processos no Supabase...';
+      const erros = await salvarImportacaoV35(alterEsc, alterProc);
+      if(barra) barra.style.width='100%';
+      if(pctTxt) pctTxt.innerText='100%';
+      try{ if(typeof registrarLog==='function') registrarLog(`Importação concluída. Escolas: +${insEsc}/atualizadas ${atuEsc}. Processos: +${insProc}/atualizados ${atuProc}.`); }catch(e){}
+      try{ if(typeof renderizarListaEscolasBufferMemoria==='function') renderizarListaEscolasBufferMemoria(); }catch(e){}
+      try{ if(typeof carregarEContarProcessosHorizontais==='function') carregarEContarProcessosHorizontais(); }catch(e){}
+      try{ if(typeof carregarDadosDashboardReal==='function') carregarDadosDashboardReal(); }catch(e){}
+      if(erros.length){
+        alert(`Importação processada na tela, mas houve falha ao gravar no Supabase:\n\n${erros.join('\n')}\n\nVerifique colunas obrigatórias, RLS e permissões INSERT/UPDATE.`);
+      }else{
+        alert(`Importação concluída e gravada no Supabase.\n\nEscolas: ${insEsc} inseridas, ${atuEsc} atualizadas.\nProcessos: ${insProc} inseridos, ${atuProc} atualizados.`);
+      }
+    }catch(e){
+      console.error('SIGEE V35 erro geral na importação:', e);
+      alert('Erro na importação da planilha. Detalhe: '+(e.message||e));
+    }finally{
+      setTimeout(()=>{ if(card) card.classList.add('hidden'); if(event && event.target) event.target.value=''; }, 800);
+    }
+  };
+  try{ processarImportacaoOtimizada = window.processarImportacaoOtimizada; }catch(e){}
+})();
+
+
+// ===== bloco JS extraído do index.html =====
+/* =====================================================================
+   SIGEE V36 - Importação robusta de Escolas, Processos e atualização Dashboard
+   Correções:
+   - Reconhece planilhas com cabeçalhos diferentes.
+   - Importa escolas mesmo quando o município/NTE vêm em colunas combinadas.
+   - Importa processos/fluxo com colunas simples ou combinadas: "Aluno / Doc", "Instituição / NTE".
+   - Atualiza dashboard, catálogo e fluxo imediatamente após a importação.
+   - Mantém regra: somente Master, Administrador e Grupo SEC importam.
+   ===================================================================== */
+(function(){
+  'use strict';
+
+  const EMAIL_SEC_V36 = 'sec@enova.educacao.ba.gov.br';
+
+  function txt(v){ return (v===undefined || v===null) ? '' : String(v).trim(); }
+  function sem(v){ return txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+  function upper(v){ return sem(v).toUpperCase(); }
+  function clean(v){ return upper(v).replace(/[^A-Z0-9]/g,''); }
+  function email(v){ return txt(v).toLowerCase(); }
+  function titleUpper(v){ return txt(v).replace(/\s+/g,' ').trim().toUpperCase(); }
+  function isBlankRow(row){ return !Object.values(row||{}).some(v => txt(v)); }
+
+  function perfilImportadorV36(u){
+    const p = upper(u && u.perfil);
+    if(p.includes('MASTER')) return 'MASTER';
+    if(p.includes('ADMIN')) return 'ADMINISTRADOR';
+    if(p.includes('CONSULT')) return 'CONSULTA';
+    if(p.includes('SEC')) return 'ADMINISTRADOR';
+    return 'TECNICO';
+  }
+  function isSecV36(u){
+    return !!u && (email(u.email) === EMAIL_SEC_V36 || upper(u.grupo).includes('SEC') || upper(u.nte).includes('SEC') || upper(u.nte).includes('TODOS OS NTES'));
+  }
+  function podeImportarV36(u){
+    const p = perfilImportadorV36(u);
+    return p === 'MASTER' || p === 'ADMINISTRADOR' || isSecV36(u);
+  }
+
+  function keys(row){ return Object.keys(row||{}); }
+  function getCell(row, aliases){
+    const ks = keys(row);
+    const targets = aliases.map(clean).filter(Boolean);
+    let k = ks.find(x => targets.includes(clean(x)));
+    if(!k) k = ks.find(x => targets.some(a => clean(x).includes(a) || a.includes(clean(x))));
+    if(!k) return '';
+    return txt(row[k]);
+  }
+  function getAny(row, groups){
+    for(const g of groups){ const v=getCell(row,g); if(v) return v; }
+    return '';
+  }
+  function firstLine(v){ return txt(v).split(/\r?\n|\|/).map(s=>txt(s)).filter(Boolean)[0] || txt(v); }
+  function secondLine(v){ const a=txt(v).split(/\r?\n|\|/).map(s=>txt(s)).filter(Boolean); return a[1] || ''; }
+
+  function nteNumero(v){
+    const t = txt(v);
+    const m = t.match(/NTE\s*[- ]?\s*(\d{1,2})/i) || t.match(/\b(\d{1,2})\b/);
+    const n = m ? Number(m[1]) : Number(t);
+    return (!Number.isNaN(n) && n >= 1 && n <= 27) ? n : null;
+  }
+  function nteNome(v){
+    const n = nteNumero(v);
+    if(n && typeof obterNomeNtePorIdSIGEE === 'function') return obterNomeNtePorIdSIGEE(n) || `NTE-${String(n).padStart(2,'0')}`;
+    if(n) return `NTE-${String(n).padStart(2,'0')}`;
+    return txt(v) || 'NTE-26 Salvador';
+  }
+  function nextId(lista, base){
+    const nums = Array.isArray(lista) ? lista.map(x=>Number(x.id)||0) : [];
+    return nums.length ? Math.max(...nums, base-1)+1 : base;
+  }
+
+  const ALIAS = {
+    mec: ['cod_mec','codigo_mec','código mec','cod mec','cód mec','mec','codigo sec','código sec','codigo','código'],
+    escola: ['nome_escola','nome da escola','nome escola','nome da instituição','nome da instituicao','instituição','instituicao','escola','unidade escolar','nome'],
+    municipio: ['municipio','município','cidade','localidade'],
+    nte: ['nte','nte vinculado','nte correspondente','nte / dep. adm','nte dep adm','núcleo','nucleo','territorio','território'],
+    nteId: ['nte_id','id nte','codigo nte','código nte','cod nte'],
+    dependencia: ['dependencia_adm','dependência administrativa','dependencia administrativa','dependencia','dep. administrativo','dep administrativo','dep adm','nte / dep. adm'],
+    situacao: ['situacao_funcional','situação funcional','situacao funcional','situação da escola','situacao da escola','situação','situacao','status escola','status'],
+    acervo: ['status_acervo','status do acervo','situação do acervo','situacao do acervo','acervo'],
+    localAcervo: ['local_acervo','local do acervo','local físico do acervo','local fisico do acervo','local'],
+    aluno: ['aluno','aluno_nome','nome aluno','nome do aluno','nome completo do aluno','nome completo','requerente','nome_solicitante','solicitante','aluno / doc','aluno/doc'],
+    documento: ['documento','documento_tipo','tipo de documento','documento solicitado','documento_solicitado','doc','aluno / doc','aluno/doc'],
+    etapa: ['etapa','etapa_atual','etapa atual','fase','fase_atual','fase atual','status processo','status'],
+    data: ['data_etapa_atual','data etapa','data','created_at','criado_em','data abertura','abertura','última movimentação','ultima movimentacao'],
+    modalidade: ['modalidade','oferta_modalidade'],
+    ensino: ['ensino','nivel_oferta','nível oferta','oferta_nivel','nível','nivel'],
+    prioridade: ['prioridade'],
+    tecnico: ['tecnico','técnico','tecnico_responsavel','técnico responsável','responsavel','responsável','digitador','analista']
+  };
+
+  function normalizarEtapaV36(v){
+    const e = upper(v);
+    if(e.includes('ANAL')) return 'Análise';
+    if(e.includes('PEND')) return 'Pendência';
+    if(e.includes('DIGIT')) return 'Digitação';
+    if(e.includes('CONFER')) return 'Conferência';
+    if(e.includes('ASSIN')) return 'Assinatura';
+    if(e.includes('DEFER')) return 'Deferido';
+    if(e.includes('AGUARD')) return 'Aguardando Retirada';
+    if(e.includes('RETIR')) return 'Retirado';
+    return 'Desarquivamento';
+  }
+
+  function converterEscolaV36(row){
+    const campoNteDep = getCell(row, ['nte / dep. adm','nte dep adm','nte/dependencia','nte dependencia']);
+    const mec = getCell(row, ALIAS.mec);
+    const nome = getCell(row, ALIAS.escola);
+    let municipio = getCell(row, ALIAS.municipio);
+    let nte = getCell(row, ALIAS.nte) || firstLine(campoNteDep);
+    const dep = getCell(row, ALIAS.dependencia) || secondLine(campoNteDep) || 'Estadual';
+    const nteIdRaw = getCell(row, ALIAS.nteId) || nte;
+    const nteId = nteNumero(nteIdRaw) || 26;
+    if(!nte) nte = nteNome(nteId);
+    if(!municipio) municipio = 'NÃO INFORMADO';
+    return {
+      id: null,
+      cod_mec: txt(mec),
+      nome: titleUpper(nome),
+      nome_escola: titleUpper(nome),
+      municipio: titleUpper(municipio),
+      nte: nteNome(nte),
+      nte_id: nteId,
+      dependencia: txt(dep || 'Estadual'),
+      dependencia_adm: txt(dep || 'Estadual'),
+      situacao: txt(getCell(row, ALIAS.situacao) || 'Extinta'),
+      situacao_funcional: txt(getCell(row, ALIAS.situacao) || 'Extinta'),
+      acervo: txt(getCell(row, ALIAS.acervo) || 'Recolhido'),
+      status_acervo: txt(getCell(row, ALIAS.acervo) || 'Recolhido'),
+      local_acervo: txt(getCell(row, ALIAS.localAcervo) || 'Acervo do NTE'),
+      ativo: true
+    };
+  }
+
+  function converterProcessoV36(row){
+    const alunoDoc = getCell(row, ['aluno / doc','aluno/doc','aluno - doc']);
+    const instNte = getCell(row, ['instituição / nte','instituicao / nte','instituição/nte','instituicao/nte','instituição - nte','instituicao - nte']);
+    const aluno = getCell(row, ALIAS.aluno) || firstLine(alunoDoc);
+    const escolaNome = getCell(row, ['escola_nome','nome_escola','nome da escola','instituição','instituicao','escola']) || firstLine(instNte);
+    const cod = getCell(row, ALIAS.mec);
+    let escolaLocal = null;
+    try { escolaLocal = (escolasDB||[]).find(e => txt(e.cod_mec) === txt(cod) || upper(e.nome || e.nome_escola) === upper(escolaNome)); } catch(e){}
+    let nte = getCell(row, ALIAS.nte) || secondLine(instNte) || (escolaLocal && escolaLocal.nte) || '';
+    if(!nte) nte = 'NTE-26 Salvador';
+    return {
+      id: Number(getCell(row, ['id','processo','codigo processo','código processo','nº processo','n processo'])) || null,
+      aluno: titleUpper(aluno),
+      aluno_nome: titleUpper(aluno),
+      escola: titleUpper(escolaNome || (escolaLocal && (escolaLocal.nome || escolaLocal.nome_escola)) || 'NÃO INFORMADA'),
+      escola_nome: titleUpper(escolaNome || (escolaLocal && (escolaLocal.nome || escolaLocal.nome_escola)) || 'NÃO INFORMADA'),
+      documento: txt(getCell(row, ALIAS.documento) || secondLine(alunoDoc) || 'HISTÓRICO'),
+      documento_tipo: txt(getCell(row, ALIAS.documento) || secondLine(alunoDoc) || 'HISTÓRICO'),
+      etapa: normalizarEtapaV36(getCell(row, ALIAS.etapa)),
+      etapa_atual: normalizarEtapaV36(getCell(row, ALIAS.etapa)),
+      data_etapa_atual: txt(getCell(row, ALIAS.data) || (typeof obterDataAtualFormatada === 'function' ? obterDataAtualFormatada() : new Date().toLocaleDateString('pt-BR'))),
+      nte: nteNome(nte),
+      municipio: titleUpper(getCell(row, ALIAS.municipio) || (escolaLocal && escolaLocal.municipio) || ''),
+      modalidade: txt(getCell(row, ALIAS.modalidade) || ''),
+      ensino: txt(getCell(row, ALIAS.ensino) || ''),
+      prioridade: txt(getCell(row, ALIAS.prioridade) || ''),
+      tecnico_responsavel: txt(getCell(row, ALIAS.tecnico) || '')
+    };
+  }
+
+  function deveSerEscola(row, nomeAba){
+    if(isBlankRow(row)) return false;
+    const aba = upper(nomeAba);
+    const temMec = !!getCell(row, ALIAS.mec);
+    const temEscola = !!getCell(row, ALIAS.escola);
+    const temAluno = !!getCell(row, ALIAS.aluno);
+    if(aba.includes('ESCOLA') || aba.includes('ACERVO') || aba.includes('CATALOGO') || aba.includes('CATÁLOGO')) return temMec && temEscola;
+    return temMec && temEscola && !temAluno;
+  }
+
+  function deveSerProcesso(row, nomeAba){
+    if(isBlankRow(row)) return false;
+    const aba = upper(nomeAba);
+    const aluno = getCell(row, ALIAS.aluno) || getCell(row, ['aluno / doc','aluno/doc']);
+    const inst = getCell(row, ['instituição / nte','instituicao / nte','instituição/nte','instituicao/nte']) || getCell(row, ALIAS.escola);
+    if(aba.includes('PROCESS') || aba.includes('FLUXO') || aba.includes('SOLICIT')) return !!(aluno || inst || getCell(row, ALIAS.etapa));
+    return !!aluno && !!(inst || getCell(row, ALIAS.documento) || getCell(row, ALIAS.etapa));
+  }
+
+  async function upsertLotesV36(tabela, payload, conflito){
+    const client = (typeof obterSupabaseSIGEE === 'function') ? obterSupabaseSIGEE() : null;
+    if(!client || !payload.length) return;
+    for(let i=0; i<payload.length; i+=100){
+      const lote = payload.slice(i, i+100);
+      const { error } = await client.from(tabela).upsert(lote, { onConflict: conflito, ignoreDuplicates: false });
+      if(error) throw error;
+    }
+  }
+
+  async function gravarImportacaoV36(escolasAlteradas, processosAlterados){
+    const erros = [];
+    try{
+      if(escolasAlteradas.length){
+        const payload = escolasAlteradas.map(e => {
+          const base = (typeof escolaParaSupabaseSIGEE === 'function') ? escolaParaSupabaseSIGEE(e) : e;
+          return {
+            cod_mec: txt(base.cod_mec),
+            nome_escola: titleUpper(base.nome_escola || e.nome),
+            municipio: titleUpper(base.municipio || 'NÃO INFORMADO'),
+            nte_id: Number(base.nte_id || e.nte_id || nteNumero(e.nte) || 26),
+            dependencia_adm: txt(base.dependencia_adm || e.dependencia || 'Estadual'),
+            situacao_funcional: txt(base.situacao_funcional || e.situacao || 'Extinta'),
+            acervo: txt(base.acervo || e.acervo || 'Recolhido'),
+            status_acervo: txt(base.status_acervo || e.status_acervo || e.acervo || 'Recolhido'),
+            local_acervo: txt(base.local_acervo || e.local_acervo || 'Acervo do NTE'),
+            ativo: true
+          };
+        }).filter(e => e.cod_mec && e.nome_escola);
+        await upsertLotesV36('escolas_sigee', payload, 'cod_mec');
+      }
+    }catch(e){ erros.push('escolas_sigee: ' + (e.message || JSON.stringify(e))); }
+
+    try{
+      if(processosAlterados.length){
+        let proximo = nextId(processosDB, 101);
+        const payload = processosAlterados.map(p => {
+          if(!p.id) p.id = proximo++;
+          return {
+            id: Number(p.id),
+            aluno_nome: titleUpper(p.aluno || p.aluno_nome),
+            escola_nome: titleUpper(p.escola || p.escola_nome || 'NÃO INFORMADA'),
+            documento_tipo: txt(p.documento || p.documento_tipo || 'HISTÓRICO'),
+            nivel_oferta: txt(p.nivel_oferta || p.ensino || '') || null,
+            modalidade: txt(p.modalidade || '') || null,
+            etapa_atual: normalizarEtapaV36(p.etapa || p.etapa_atual),
+            nte: nteNome(p.nte || 'NTE-26 Salvador')
+          };
+        }).filter(p => p.id && p.aluno_nome);
+        await upsertLotesV36('processos', payload, 'id');
+      }
+    }catch(e){ erros.push('processos: ' + (e.message || JSON.stringify(e))); }
+    return erros;
+  }
+
+  window.processarImportacaoOtimizada = async function(event){
+    const u = window.usuarioLogado || (typeof usuarioLogado !== 'undefined' ? usuarioLogado : null);
+    if(!podeImportarV36(u)){
+      alert('Importação permitida apenas para Master, Administrador ou Grupo SEC.');
+      if(event && event.target) event.target.value = '';
+      return;
+    }
+    const arquivo = event?.target?.files?.[0];
+    if(!arquivo) return;
+    const card = document.getElementById('card-progresso-importacao');
+    const label = document.getElementById('label-status-importacao');
+    const barra = document.getElementById('barra-progresso-importacao');
+    const pct = document.getElementById('percentual-importacao-texto');
+    const setProg = (n,msg) => { if(card) card.classList.remove('hidden'); if(barra) barra.style.width=n+'%'; if(pct) pct.innerText=n+'%'; if(label) label.innerText=msg; };
+
+    try{
+      setProg(5, 'Lendo planilha...');
+      const data = await arquivo.arrayBuffer();
+      const wb = XLSX.read(data, { type:'array', cellDates:true });
+      const escolasLidas = [];
+      const processosLidos = [];
+      let linhasTotais = 0;
+
+      wb.SheetNames.forEach(nomeAba => {
+        const rows = XLSX.utils.sheet_to_json(wb.Sheets[nomeAba], { defval:'', raw:false });
+        linhasTotais += rows.length;
+        rows.forEach(row => {
+          if(deveSerEscola(row, nomeAba)) escolasLidas.push(converterEscolaV36(row));
+          if(deveSerProcesso(row, nomeAba)) processosLidos.push(converterProcessoV36(row));
+        });
+      });
+
+      setProg(30, `Identificado: ${escolasLidas.length} escolas e ${processosLidos.length} processos em ${linhasTotais} linhas.`);
+
+      let insEsc=0, atuEsc=0, insProc=0, atuProc=0;
+      const escolasAlteradas = [];
+      const processosAlterados = [];
+
+      escolasLidas.forEach(e => {
+        if(!e.cod_mec || !e.nome) return;
+        const idx = (escolasDB||[]).findIndex(x => txt(x.cod_mec) === txt(e.cod_mec));
+        if(idx >= 0){ escolasDB[idx] = { ...escolasDB[idx], ...e, id: escolasDB[idx].id }; escolasAlteradas.push(escolasDB[idx]); atuEsc++; }
+        else { e.id = nextId(escolasDB, 1); escolasDB.push(e); escolasAlteradas.push(e); insEsc++; }
+      });
+      processosLidos.forEach(p => {
+        if(!p.aluno) return;
+        const id = Number(p.id);
+        const idx = id ? (processosDB||[]).findIndex(x => Number(x.id) === id) : -1;
+        if(idx >= 0){ processosDB[idx] = { ...processosDB[idx], ...p, id: processosDB[idx].id }; processosAlterados.push(processosDB[idx]); atuProc++; }
+        else { p.id = nextId(processosDB, 101); processosDB.push(p); processosAlterados.push(p); insProc++; }
+      });
+
+      setProg(65, 'Gravando escolas e processos no Supabase...');
+      const erros = await gravarImportacaoV36(escolasAlteradas, processosAlterados);
+
+      setProg(90, 'Atualizando telas e dashboard...');
+      try{ if(typeof carregarEscolasSupabaseSIGEE === 'function') await carregarEscolasSupabaseSIGEE(); }catch(e){}
+      try{ if(typeof carregarDadosOperacionaisV32 === 'function') await carregarDadosOperacionaisV32(); }catch(e){}
+      try{ if(typeof renderizarListaEscolasBufferMemoria === 'function') renderizarListaEscolasBufferMemoria(); }catch(e){}
+      try{ if(typeof carregarEContarProcessosHorizontais === 'function') carregarEContarProcessosHorizontais(); }catch(e){}
+      try{ if(typeof carregarDadosDashboardReal === 'function') carregarDadosDashboardReal(); }catch(e){}
+      try{ if(typeof registrarLog === 'function') registrarLog(`Importação V36: escolas inseridas ${insEsc}, atualizadas ${atuEsc}; processos inseridos ${insProc}, atualizados ${atuProc}.`); }catch(e){}
+
+      setProg(100, 'Importação concluída.');
+      if(erros.length){
+        alert(`Importação concluída na tela, mas o Supabase recusou parte dos dados:\n\n${erros.join('\n')}\n\nEscolas localizadas: ${escolasLidas.length}. Processos localizados: ${processosLidos.length}.`);
+      } else {
+        alert(`Importação concluída e gravada no Supabase.\n\nEscolas: ${insEsc} inseridas, ${atuEsc} atualizadas.\nProcessos: ${insProc} inseridos, ${atuProc} atualizados.`);
+      }
+    }catch(e){
+      console.error('SIGEE V36 erro na importação:', e);
+      alert('Erro na importação da planilha. Detalhe: ' + (e.message || e));
+    }finally{
+      setTimeout(() => { if(card) card.classList.add('hidden'); if(event?.target) event.target.value=''; }, 900);
+    }
+  };
+
+  try{ processarImportacaoOtimizada = window.processarImportacaoOtimizada; }catch(e){}
+})();
+
+
+// ===== bloco JS extraído do index.html =====
+(function(){
+  'use strict';
+
+  const SIGEE_V37 = 'V37 - Perfis/SEC/Escolas/Importação';
+  const EMAIL_SEC = 'sec@enova.educacao.ba.gov.br';
+
+  function txt(v){ return (v===undefined || v===null) ? '' : String(v).trim(); }
+  function sem(v){ return txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+  function upper(v){ return sem(v).toUpperCase(); }
+  function clean(v){ return upper(v).replace(/[^A-Z0-9]/g,''); }
+  function lower(v){ return txt(v).toLowerCase(); }
+  function title(v){ return txt(v).replace(/\s+/g,' ').trim().toUpperCase(); }
+  function perfil(u){ return upper(u && u.perfil); }
+  function isMaster(u){ return perfil(u).includes('MASTER'); }
+  function isAdmin(u){ return perfil(u).includes('ADMIN'); }
+  function isTecnico(u){ return perfil(u).includes('TECNIC') || perfil(u).includes('TECNICO'); }
+  function isConsulta(u){ return perfil(u).includes('CONSULT'); }
+  function isSEC(u){ return !!u && (lower(u.email)===EMAIL_SEC || perfil(u).includes('SEC') || upper(u.grupo).includes('SEC') || upper(u.nte).includes('SEC') || upper(u.nte).includes('TODOS OS NTES')); }
+  function isGlobal(u){ return isMaster(u) || isSEC(u); }
+  function podeImportar(u){ return isMaster(u) || isAdmin(u) || isSEC(u); }
+  function podeEditarEscola(u){ return isMaster(u) || isAdmin(u) || isTecnico(u) || isSEC(u); }
+  function nteTexto(v){ return txt(v || '').replace(/\s+/g,' ').trim(); }
+  function normNte(v){ return clean(v).replace(/^NTE0?/, 'NTE'); }
+  function nteIgual(a,b){ return normNte(a) === normNte(b); }
+  function nteUsuario(u){ return nteTexto((u && (u.nte || u.nte_nome || u.grupo)) || ''); }
+  function nteNumero(v){
+    const t = txt(v);
+    const m = t.match(/NTE\s*[- ]?\s*(\d{1,2})/i) || t.match(/\b(\d{1,2})\b/);
+    const n = m ? Number(m[1]) : Number(t);
+    return (!Number.isNaN(n) && n>=1 && n<=27) ? n : null;
+  }
+  function nomeNtePorId(id){
+    const n = Number(id);
+    try{
+      if(typeof obterNomeNtePorIdSIGEE === 'function'){
+        const r = obterNomeNtePorIdSIGEE(n);
+        if(r) return r;
+      }
+    }catch(e){}
+    const lista = (typeof LISTA_OFICIAL_27_NTES !== 'undefined' && Array.isArray(LISTA_OFICIAL_27_NTES)) ? LISTA_OFICIAL_27_NTES : [];
+    const ach = lista.find(x => nteNumero(x)===n);
+    return ach || (n ? `NTE-${String(n).padStart(2,'0')}` : 'NTE-26 Salvador');
+  }
+  function nteNome(v){
+    const n = nteNumero(v);
+    return n ? nomeNtePorId(n) : (txt(v) || 'NTE-26 Salvador');
+  }
+  function nextId(lista, base){
+    const nums = Array.isArray(lista) ? lista.map(x=>Number(x.id)||0) : [];
+    return nums.length ? Math.max(...nums, base-1)+1 : base;
+  }
+  function getClient(){ try{ return typeof obterSupabaseSIGEE==='function' ? obterSupabaseSIGEE() : null; }catch(e){ return null; } }
+  async function upsertTabela(tabela, payload, conflito){
+    const client = getClient();
+    if(!client || !payload || !payload.length) return {error:null};
+    for(let i=0;i<payload.length;i+=100){
+      const lote = payload.slice(i,i+100);
+      const { error } = await client.from(tabela).upsert(lote, { onConflict: conflito, ignoreDuplicates:false });
+      if(error) return {error};
+    }
+    return {error:null};
+  }
+
+  function garantirPerfilSEC(){
+    try{
+      window.usuariosDB = (typeof usuariosDB !== 'undefined' && Array.isArray(usuariosDB)) ? usuariosDB : (window.usuariosDB || []);
+      if(!usuariosDB.some(u => lower(u.email) === EMAIL_SEC)){
+        usuariosDB.push({
+          id: nextId(usuariosDB, 9000),
+          nome: 'USUÁRIO SEC',
+          email: EMAIL_SEC,
+          senha: '123',
+          perfil: 'SEC',
+          grupo: 'SEC',
+          nte: 'SEC - TODOS OS NTEs',
+          ativo: true
+        });
+      }
+      if(!usuariosDB.some(u => lower(u.email)==='administrativo@enova.educacao.ba.gov.br')){
+        usuariosDB.push({id:nextId(usuariosDB,9100), nome:'USUÁRIO ADMINISTRADOR', email:'administrativo@enova.educacao.ba.gov.br', senha:'123', perfil:'Administrador', nte:'NTE-26 Salvador', ativo:true});
+      }
+      if(!usuariosDB.some(u => lower(u.email)==='consulta@enova.educacao.ba.gov.br')){
+        usuariosDB.push({id:nextId(usuariosDB,9200), nome:'USUÁRIO CONSULTA', email:'consulta@enova.educacao.ba.gov.br', senha:'123', perfil:'Consulta', nte:'NTE-26 Salvador', ativo:true});
+      }
+    }catch(e){ console.warn('SIGEE V37: não foi possível garantir usuários base.', e); }
+  }
+
+  function aplicarPermissoesV37(){
+    garantirPerfilSEC();
+    const u = window.usuarioLogado || (typeof usuarioLogado !== 'undefined' ? usuarioLogado : null);
+    const importar = podeImportar(u);
+    const editarEscola = podeEditarEscola(u);
+    const btnImportar = document.getElementById('btn-importar-dados-master');
+    if(btnImportar) btnImportar.classList.toggle('hidden', !importar);
+    const input = document.getElementById('input-importar-excel');
+    if(input) input.disabled = !importar;
+    document.querySelectorAll('.export-only').forEach(el => el.classList.toggle('hidden', !(isMaster(u)||isAdmin(u)||isSEC(u))));
+    document.querySelectorAll('[data-sigee-permissao="editar-escola"]').forEach(el => el.classList.toggle('hidden', !editarEscola));
+    const menuUsuarios = document.getElementById('menu-usuarios');
+    if(menuUsuarios) menuUsuarios.classList.toggle('hidden', !(isMaster(u)||isSEC(u)));
+    const menuLogs = document.getElementById('menu-logs');
+    if(menuLogs) menuLogs.classList.toggle('hidden', !(isMaster(u)||isAdmin(u)||isSEC(u)));
+  }
+  window.aplicarPermissoesV37 = aplicarPermissoesV37;
+
+  /* Técnicos por NTE: Master/SEC veem todos em todas as etapas; Admin/Técnico ficam no NTE. */
+  window.preencherSelectTecnicosPorNte = function(selectId, nteFiltro){
+    garantirPerfilSEC();
+    const select = document.getElementById(selectId);
+    if(!select) return;
+    const u = window.usuarioLogado || (typeof usuarioLogado !== 'undefined' ? usuarioLogado : null);
+    const global = isGlobal(u);
+    const base = nteTexto(nteFiltro || nteUsuario(u));
+    let lista = (typeof usuariosDB !== 'undefined' && Array.isArray(usuariosDB)) ? usuariosDB.slice() : [];
+    lista = lista.filter(op => op && op.ativo !== false && !isConsulta(op) && !isSEC(op));
+    if(!global){ lista = lista.filter(op => nteIgual(nteUsuario(op), base)); }
+    lista.sort((a,b) => (nteUsuario(a)+' '+txt(a.nome||a.email)).localeCompare(nteUsuario(b)+' '+txt(b.nome||b.email),'pt-BR'));
+    select.innerHTML = '<option value="">-- Selecione o Servidor Responsável --</option>';
+    if(global){
+      const grupos = {};
+      lista.forEach(op => { const nte = nteUsuario(op)||'SEM NTE'; (grupos[nte]=grupos[nte]||[]).push(op); });
+      Object.keys(grupos).forEach(nte => {
+        const og = document.createElement('optgroup'); og.label = nte;
+        grupos[nte].forEach(op => { const opt=document.createElement('option'); opt.value=txt(op.nome||op.email); opt.textContent=`${txt(op.nome||op.email)} — ${txt(op.perfil||'Técnico')} — ${nte}`; opt.dataset.nte=nte; og.appendChild(opt); });
+        select.appendChild(og);
+      });
+    } else {
+      lista.forEach(op => { const opt=document.createElement('option'); opt.value=txt(op.nome||op.email); opt.textContent=`${txt(op.nome||op.email)} — ${txt(op.perfil||'Técnico')}`; opt.dataset.nte=nteUsuario(op); select.appendChild(opt); });
+    }
+  };
+  try{ preencherSelectTecnicosPorNte = window.preencherSelectTecnicosPorNte; }catch(e){}
+
+  function obterEscolasVisiveis(){
+    const u = window.usuarioLogado || (typeof usuarioLogado !== 'undefined' ? usuarioLogado : null);
+    let lista = (typeof escolasDB !== 'undefined' && Array.isArray(escolasDB)) ? escolasDB.slice() : [];
+    if(!isGlobal(u)) lista = lista.filter(e => nteIgual(e.nte || e.nte_nome || nomeNtePorId(e.nte_id), nteUsuario(u)));
+    return lista;
+  }
+  function obterProcessosVisiveis(){
+    const u = window.usuarioLogado || (typeof usuarioLogado !== 'undefined' ? usuarioLogado : null);
+    let lista = (typeof processosDB !== 'undefined' && Array.isArray(processosDB)) ? processosDB.slice() : [];
+    if(!isGlobal(u)) lista = lista.filter(p => nteIgual(p.nte || p.nte_nome, nteUsuario(u)));
+    return lista;
+  }
+
+  /* Modal de escola criado sem alterar a estrutura original */
+  function garantirModalEscolaV37(){
+    if(document.getElementById('modal-cadastro-escola')) return;
+    const html = `
+      <div id="modal-cadastro-escola" class="hidden fixed inset-0 bg-blue-950/70 backdrop-blur-sm flex items-center justify-center p-4 z-[9999]">
+        <div class="bg-white w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden border border-blue-200">
+          <div class="bg-blue-900 text-white px-5 py-4 flex justify-between items-center">
+            <h3 id="titulo-modal-escola" class="font-bold text-sm">🏫 Cadastrar/Alterar Escola</h3>
+            <button type="button" onclick="fecharModalEscola()" class="text-white font-bold cursor-pointer">✕</button>
+          </div>
+          <form onsubmit="salvarEscolaFormularioV37(event)" class="p-5 space-y-4">
+            <input type="hidden" id="escola-form-id">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">Código MEC</label><input id="escola-form-mec" required class="w-full p-2 border rounded-lg text-xs font-medium"></div>
+              <div class="md:col-span-2"><label class="block text-xs font-bold text-gray-700 uppercase mb-1">Nome da Escola</label><input id="escola-form-nome" required class="w-full p-2 border rounded-lg text-xs font-medium uppercase"></div>
+              <div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">Município</label><input id="escola-form-municipio" required class="w-full p-2 border rounded-lg text-xs font-medium uppercase"></div>
+              <div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">NTE</label><select id="escola-form-nte" required class="w-full p-2 border rounded-lg text-xs font-medium bg-white"></select></div>
+              <div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">Dependência Adm.</label><select id="escola-form-dependencia" required class="w-full p-2 border rounded-lg text-xs font-medium bg-white"><option value="">SELECIONE</option><option>Estadual</option><option>Municipal</option><option>Particular</option><option>Federal</option></select></div>
+              <div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">Situação</label><select id="escola-form-situacao" required class="w-full p-2 border rounded-lg text-xs font-medium bg-white"><option value="">SELECIONE</option><option>Ativa</option><option>Extinta</option></select></div>
+              <div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">Status do Acervo</label><select id="escola-form-acervo" required class="w-full p-2 border rounded-lg text-xs font-medium bg-white"><option value="">SELECIONE</option><option>Recolhido</option><option>Não recolhido</option><option>Não acolhido</option></select></div>
+              <div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">Local do Acervo</label><input id="escola-form-local-acervo" class="w-full p-2 border rounded-lg text-xs font-medium"></div>
+            </div>
+            <div class="flex justify-end gap-2 border-t pt-3">
+              <button type="button" onclick="fecharModalEscola()" class="px-4 py-2 border rounded-lg text-xs font-semibold bg-gray-100 cursor-pointer">Cancelar</button>
+              <button type="submit" class="bg-blue-900 hover:bg-blue-950 text-white font-bold px-5 py-2 rounded-lg text-xs shadow cursor-pointer">Salvar Escola</button>
+            </div>
+          </form>
+        </div>
+      </div>`;
+    document.body.insertAdjacentHTML('beforeend', html);
+  }
+  function preencherNteEscolaSelect(valor){
+    const sel = document.getElementById('escola-form-nte');
+    if(!sel) return;
+    let lista = (typeof LISTA_OFICIAL_27_NTES !== 'undefined' && Array.isArray(LISTA_OFICIAL_27_NTES)) ? LISTA_OFICIAL_27_NTES.slice() : [];
+    if(!lista.length && typeof ntesDB !== 'undefined' && Array.isArray(ntesDB)) lista = ntesDB.map(n => n.nome || n.nte || n.nome_nte).filter(Boolean);
+    sel.innerHTML = '<option value="">SELECIONE</option>' + lista.map(n => `<option value="${n}">${n}</option>`).join('');
+    if(valor) sel.value = nteNome(valor);
+  }
+  window.abrirModalNovaEscola = function(){
+    const u = window.usuarioLogado || (typeof usuarioLogado !== 'undefined' ? usuarioLogado : null);
+    if(!podeEditarEscola(u)){ alert('Cadastro de escola permitido apenas para Master, Administrador, Técnico ou SEC.'); return; }
+    garantirModalEscolaV37();
+    document.getElementById('titulo-modal-escola').innerText = '🏫 Cadastrar Nova Escola';
+    ['escola-form-id','escola-form-mec','escola-form-nome','escola-form-municipio','escola-form-local-acervo'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+    preencherNteEscolaSelect(isGlobal(u) ? '' : nteUsuario(u));
+    const dep=document.getElementById('escola-form-dependencia'); if(dep) dep.value='Estadual';
+    const sit=document.getElementById('escola-form-situacao'); if(sit) sit.value='Extinta';
+    const ac=document.getElementById('escola-form-acervo'); if(ac) ac.value='Recolhido';
+    document.getElementById('modal-cadastro-escola').classList.remove('hidden');
+  };
+  window.abrirModalEditarEscolaV37 = function(id){
+    const u = window.usuarioLogado || (typeof usuarioLogado !== 'undefined' ? usuarioLogado : null);
+    if(!podeEditarEscola(u)){ alert('Alteração de escola permitida apenas para Master, Administrador, Técnico ou SEC.'); return; }
+    garantirModalEscolaV37();
+    const e = (escolasDB||[]).find(x => Number(x.id)===Number(id) || txt(x.cod_mec)===txt(id));
+    if(!e){ alert('Escola não localizada.'); return; }
+    document.getElementById('titulo-modal-escola').innerText = '✏️ Alterar Escola';
+    document.getElementById('escola-form-id').value = e.id || '';
+    document.getElementById('escola-form-mec').value = e.cod_mec || '';
+    document.getElementById('escola-form-nome').value = e.nome || e.nome_escola || '';
+    document.getElementById('escola-form-municipio').value = e.municipio || '';
+    preencherNteEscolaSelect(e.nte || e.nte_id);
+    document.getElementById('escola-form-dependencia').value = e.dependencia || e.dependencia_adm || 'Estadual';
+    document.getElementById('escola-form-situacao').value = e.situacao || e.situacao_funcional || 'Extinta';
+    document.getElementById('escola-form-acervo').value = e.status_acervo || e.acervo || 'Recolhido';
+    document.getElementById('escola-form-local-acervo').value = e.local_acervo || '';
+    document.getElementById('modal-cadastro-escola').classList.remove('hidden');
+  };
+  window.fecharModalEscola = function(){ const m=document.getElementById('modal-cadastro-escola'); if(m) m.classList.add('hidden'); };
+  window.salvarEscolaFormularioV37 = async function(event){
+    event.preventDefault();
+    const u = window.usuarioLogado || (typeof usuarioLogado !== 'undefined' ? usuarioLogado : null);
+    if(!podeEditarEscola(u)){ alert('Sem permissão para salvar escola.'); return; }
+    const id = txt(document.getElementById('escola-form-id')?.value);
+    const nte = txt(document.getElementById('escola-form-nte')?.value);
+    const escola = {
+      id: id ? Number(id) : nextId(escolasDB, 1),
+      cod_mec: txt(document.getElementById('escola-form-mec')?.value),
+      nome: title(document.getElementById('escola-form-nome')?.value),
+      nome_escola: title(document.getElementById('escola-form-nome')?.value),
+      municipio: title(document.getElementById('escola-form-municipio')?.value),
+      nte: nteNome(nte),
+      nte_id: nteNumero(nte) || 26,
+      dependencia: txt(document.getElementById('escola-form-dependencia')?.value || 'Estadual'),
+      dependencia_adm: txt(document.getElementById('escola-form-dependencia')?.value || 'Estadual'),
+      situacao: txt(document.getElementById('escola-form-situacao')?.value || 'Extinta'),
+      situacao_funcional: txt(document.getElementById('escola-form-situacao')?.value || 'Extinta'),
+      acervo: txt(document.getElementById('escola-form-acervo')?.value || 'Recolhido'),
+      status_acervo: txt(document.getElementById('escola-form-acervo')?.value || 'Recolhido'),
+      local_acervo: txt(document.getElementById('escola-form-local-acervo')?.value || 'Acervo do NTE'),
+      ativo: true
+    };
+    if(!escola.cod_mec || !escola.nome || !escola.municipio){ alert('Preencha Código MEC, Nome da Escola e Município.'); return; }
+    const idx = (escolasDB||[]).findIndex(x => txt(x.cod_mec)===txt(escola.cod_mec) || Number(x.id)===Number(escola.id));
+    if(idx >= 0) escolasDB[idx] = { ...escolasDB[idx], ...escola, id: escolasDB[idx].id || escola.id };
+    else escolasDB.push(escola);
+    const payload = [{
+      cod_mec: escola.cod_mec,
+      nome_escola: escola.nome,
+      municipio: escola.municipio,
+      nte_id: escola.nte_id,
+      dependencia_adm: escola.dependencia,
+      situacao_funcional: escola.situacao,
+      acervo: escola.acervo,
+      status_acervo: escola.status_acervo,
+      local_acervo: escola.local_acervo,
+      ativo: true
+    }];
+    const { error } = await upsertTabela('escolas_sigee', payload, 'cod_mec');
+    if(error){ alert('Escola salva na tela, mas não foi gravada no Supabase. Detalhe: '+(error.message||JSON.stringify(error))); }
+    else { alert('Escola salva com sucesso.'); }
+    try{ if(typeof registrarLog==='function') registrarLog(`${idx>=0?'Alterou':'Cadastrou'} escola ${escola.nome} (${escola.cod_mec}).`); }catch(e){}
+    fecharModalEscola();
+    try{ renderizarListaEscolasBufferMemoria(); carregarDadosDashboardReal(); }catch(e){}
+  };
+
+  function badgeSit(valor, tipo){
+    const v = txt(valor || '').toUpperCase();
+    const ok = tipo==='situacao' ? v.includes('ATIVA') : (v.includes('RECOLHIDO') && !v.includes('NAO') && !v.includes('NÃO'));
+    const cls = ok ? 'bg-emerald-900/50 text-emerald-200 border border-emerald-500/40' : 'bg-red-900/50 text-red-200 border border-red-500/40';
+    return `<span class="px-2 py-1 rounded-lg text-[10px] font-black uppercase ${cls}">${txt(valor||'')}</span>`;
+  }
+  window.renderizarListaEscolasBufferMemoria = function(){
+    const corpo = document.getElementById('tabela-escolas-corpo'); if(!corpo) return; corpo.innerHTML='';
+    let filtradas = obterEscolasVisiveis();
+    const busca = lower(document.getElementById('busca-escola')?.value || '');
+    if(busca){ filtradas = filtradas.filter(e => [e.cod_mec,e.nome,e.nome_escola,e.municipio,e.nte,e.dependencia,e.dependencia_adm,e.situacao,e.situacao_funcional,e.acervo,e.status_acervo].some(v => lower(v).includes(busca))); }
+    const info = document.getElementById('info-quantidade-escolas-carregadas');
+    if(info) info.innerText = `Exibindo: ${filtradas.length} registros | Banco: ${window.sigEESupabaseOnline ? 'Supabase' : 'verificando Supabase'}`;
+    const porPagina = (typeof totalPorPaginaEscola !== 'undefined' ? totalPorPaginaEscola : 8);
+    if(typeof paginaEscolaAtual === 'undefined') window.paginaEscolaAtual = 1;
+    const paginas = Math.max(1, Math.ceil(filtradas.length / porPagina));
+    if(paginaEscolaAtual > paginas) paginaEscolaAtual = paginas;
+    if(paginaEscolaAtual < 1) paginaEscolaAtual = 1;
+    const paginadas = filtradas.slice((paginaEscolaAtual-1)*porPagina, (paginaEscolaAtual-1)*porPagina + porPagina);
+    const canEdit = podeEditarEscola(window.usuarioLogado || (typeof usuarioLogado!=='undefined'?usuarioLogado:null));
+    paginadas.forEach(e => {
+      corpo.innerHTML += `
+        <tr class="hover:bg-cyan-500/10 text-[11px] text-white border-b border-cyan-400/10">
+          <td class="p-3 font-mono font-bold">${txt(e.cod_mec)}</td>
+          <td class="p-3 font-bold uppercase text-white">${txt(e.nome || e.nome_escola)}</td>
+          <td class="p-3 uppercase font-medium text-white/90">${txt(e.municipio)}</td>
+          <td class="p-3 font-semibold text-white/80">${txt(e.nte || nomeNtePorId(e.nte_id))}<br><span class="text-[9px] bg-white/10 font-bold px-1 rounded">${txt(e.dependencia || e.dependencia_adm)}</span></td>
+          <td class="p-3">${badgeSit(e.situacao || e.situacao_funcional, 'situacao')}</td>
+          <td class="p-3 font-bold">${badgeSit(e.status_acervo || e.acervo, 'acervo')}</td>
+          <td class="p-3 text-center"><button ${canEdit ? '' : 'disabled'} onclick="abrirModalEditarEscolaV37('${e.id || e.cod_mec}')" class="${canEdit?'':'opacity-40'} bg-cyan-700/60 hover:bg-cyan-600 text-white px-2 py-1 rounded-lg font-bold text-[10px]">✏️ Alterar</button></td>
+        </tr>`;
+    });
+    const txtPag=document.getElementById('txt-escola-paginacao'); if(txtPag) txtPag.innerText=`Página ${paginaEscolaAtual} de ${paginas}`;
+    const ant=document.getElementById('btn-escola-anterior'); if(ant) ant.disabled = paginaEscolaAtual <= 1;
+    const prox=document.getElementById('btn-escola-proxima'); if(prox) prox.disabled = paginaEscolaAtual >= paginas;
+  };
+  try{ renderizarListaEscolasBufferMemoria = window.renderizarListaEscolasBufferMemoria; }catch(e){}
+
+  /* Importação V37: Escolas, Processos e atualização automática do Dashboard. */
+  const ALIAS = {
+    mec: ['cod_mec','codigo_mec','código mec','cod mec','cód mec','mec','codigo sec','código sec','codigo','código'],
+    escola: ['nome_escola','nome da escola','nome escola','nome da instituição','nome da instituicao','instituição','instituicao','escola','unidade escolar','nome'],
+    municipio: ['municipio','município','cidade','localidade'],
+    nte: ['nte','nte vinculado','nte correspondente','nte / dep. adm','nte dep adm','núcleo','nucleo','territorio','território'],
+    nteId: ['nte_id','id nte','codigo nte','código nte','cod nte'],
+    dependencia: ['dependencia_adm','dependência administrativa','dependencia administrativa','dependencia','dep. administrativo','dep administrativo','dep adm','nte / dep. adm'],
+    situacao: ['situacao_funcional','situação funcional','situacao funcional','situação da escola','situacao da escola','situação','situacao','status escola','status'],
+    acervo: ['status_acervo','status do acervo','situação do acervo','situacao do acervo','acervo'],
+    localAcervo: ['local_acervo','local do acervo','local físico do acervo','local fisico do acervo','local'],
+    aluno: ['aluno','aluno_nome','nome aluno','nome do aluno','nome completo do aluno','nome completo','requerente','nome_solicitante','solicitante','aluno / doc','aluno/doc'],
+    documento: ['documento','documento_tipo','tipo de documento','documento solicitado','documento_solicitado','doc','aluno / doc','aluno/doc'],
+    etapa: ['etapa','etapa_atual','etapa atual','fase','fase_atual','fase atual','status processo','status'],
+    data: ['data_etapa_atual','data etapa','data','created_at','criado_em','data abertura','abertura','última movimentação','ultima movimentacao'],
+    modalidade: ['modalidade','oferta_modalidade'],
+    ensino: ['ensino','nivel_oferta','nível oferta','oferta_nivel','nível','nivel'],
+    prioridade: ['prioridade'],
+    tecnico: ['tecnico','técnico','tecnico_responsavel','técnico responsável','responsavel','responsável','digitador','analista']
+  };
+  function keys(row){ return Object.keys(row||{}); }
+  function getCell(row, aliases){
+    const ks = keys(row); const targets = aliases.map(clean).filter(Boolean);
+    let k = ks.find(x => targets.includes(clean(x)));
+    if(!k) k = ks.find(x => targets.some(a => clean(x).includes(a) || a.includes(clean(x))));
+    return k ? txt(row[k]) : '';
+  }
+  function firstLine(v){ return txt(v).split(/\r?\n|\|/).map(s=>txt(s)).filter(Boolean)[0] || txt(v); }
+  function secondLine(v){ const a=txt(v).split(/\r?\n|\|/).map(s=>txt(s)).filter(Boolean); return a[1] || ''; }
+  function blank(row){ return !Object.values(row||{}).some(v => txt(v)); }
+  function normalizarEtapa(v){
+    const e=upper(v); if(e.includes('ANAL')) return 'Análise'; if(e.includes('PEND')) return 'Pendência'; if(e.includes('DIGIT')) return 'Digitação'; if(e.includes('CONFER')) return 'Conferência'; if(e.includes('ASSIN')) return 'Assinatura'; if(e.includes('DEFER')) return 'Deferido'; if(e.includes('AGUARD')) return 'Aguardando Retirada'; if(e.includes('RETIR')) return 'Retirado'; return 'Desarquivamento';
+  }
+  function linhaEscola(row, aba){
+    if(blank(row)) return false; const a=upper(aba); const mec=!!getCell(row,ALIAS.mec); const esc=!!getCell(row,ALIAS.escola); const aluno=!!getCell(row,ALIAS.aluno);
+    if(a.includes('ESCOLA')||a.includes('ACERVO')||a.includes('CATALOGO')||a.includes('CATÁLOGO')) return esc || mec;
+    return (mec && esc && !aluno);
+  }
+  function linhaProcesso(row, aba){
+    if(blank(row)) return false; const a=upper(aba); const aluno=getCell(row,ALIAS.aluno); const etapa=getCell(row,ALIAS.etapa); const inst=getCell(row,ALIAS.escola) || getCell(row,['instituição / nte','instituicao / nte']);
+    if(a.includes('PROCESS')||a.includes('FLUXO')||a.includes('SOLICIT')||a.includes('DASH')) return !!(aluno || etapa || inst);
+    return !!aluno && !!(inst || etapa || getCell(row,ALIAS.documento));
+  }
+  function converterEscola(row){
+    const campoNteDep=getCell(row,['nte / dep. adm','nte dep adm','nte/dependencia','nte dependencia']);
+    const nteRaw = getCell(row,ALIAS.nte) || firstLine(campoNteDep) || getCell(row,ALIAS.nteId) || 'NTE-26 Salvador';
+    const nteId = nteNumero(getCell(row,ALIAS.nteId) || nteRaw) || 26;
+    const dep = getCell(row,ALIAS.dependencia) || secondLine(campoNteDep) || 'Estadual';
+    const nome = getCell(row,ALIAS.escola);
+    return { id:null, cod_mec:txt(getCell(row,ALIAS.mec)), nome:title(nome), nome_escola:title(nome), municipio:title(getCell(row,ALIAS.municipio)||'NÃO INFORMADO'), nte:nteNome(nteRaw||nteId), nte_id:nteId, dependencia:txt(dep), dependencia_adm:txt(dep), situacao:txt(getCell(row,ALIAS.situacao)||'Extinta'), situacao_funcional:txt(getCell(row,ALIAS.situacao)||'Extinta'), acervo:txt(getCell(row,ALIAS.acervo)||'Recolhido'), status_acervo:txt(getCell(row,ALIAS.acervo)||'Recolhido'), local_acervo:txt(getCell(row,ALIAS.localAcervo)||'Acervo do NTE'), ativo:true };
+  }
+  function converterProcesso(row){
+    const alunoDoc=getCell(row,['aluno / doc','aluno/doc','aluno - doc']); const instNte=getCell(row,['instituição / nte','instituicao / nte','instituição/nte','instituicao/nte']);
+    const aluno=getCell(row,ALIAS.aluno)||firstLine(alunoDoc); const escolaNome=getCell(row,['escola_nome','nome_escola','nome da escola','instituição','instituicao','escola'])||firstLine(instNte)||'NÃO INFORMADA';
+    const cod=getCell(row,ALIAS.mec); let esc=null; try{ esc=(escolasDB||[]).find(e=>txt(e.cod_mec)===txt(cod)||upper(e.nome||e.nome_escola)===upper(escolaNome)); }catch(e){}
+    let nte=getCell(row,ALIAS.nte)||secondLine(instNte)||(esc&&esc.nte)||nteUsuario(window.usuarioLogado)||'NTE-26 Salvador';
+    return { id:Number(getCell(row,['id','processo','codigo processo','código processo','nº processo','n processo']))||null, aluno:title(aluno), aluno_nome:title(aluno), escola:title(escolaNome), escola_nome:title(escolaNome), documento:txt(getCell(row,ALIAS.documento)||secondLine(alunoDoc)||'HISTÓRICO'), documento_tipo:txt(getCell(row,ALIAS.documento)||secondLine(alunoDoc)||'HISTÓRICO'), etapa:normalizarEtapa(getCell(row,ALIAS.etapa)), etapa_atual:normalizarEtapa(getCell(row,ALIAS.etapa)), data_etapa_atual:txt(getCell(row,ALIAS.data)|| (typeof obterDataAtualFormatada==='function'?obterDataAtualFormatada():new Date().toLocaleDateString('pt-BR'))), nte:nteNome(nte), municipio:title(getCell(row,ALIAS.municipio)||(esc&&esc.municipio)||''), modalidade:txt(getCell(row,ALIAS.modalidade)||''), ensino:txt(getCell(row,ALIAS.ensino)||''), prioridade:txt(getCell(row,ALIAS.prioridade)||''), tecnico_responsavel:txt(getCell(row,ALIAS.tecnico)||'') };
+  }
+  async function gravarImportacao(escolasAlteradas, processosAlterados){
+    const erros=[];
+    if(escolasAlteradas.length){
+      const payload=escolasAlteradas.map(e=>({ cod_mec:txt(e.cod_mec), nome_escola:title(e.nome||e.nome_escola), municipio:title(e.municipio||'NÃO INFORMADO'), nte_id:Number(e.nte_id||nteNumero(e.nte)||26), dependencia_adm:txt(e.dependencia||e.dependencia_adm||'Estadual'), situacao_funcional:txt(e.situacao||e.situacao_funcional||'Extinta'), acervo:txt(e.acervo||'Recolhido'), status_acervo:txt(e.status_acervo||e.acervo||'Recolhido'), local_acervo:txt(e.local_acervo||'Acervo do NTE'), ativo:true })).filter(e=>e.cod_mec && e.nome_escola);
+      const r=await upsertTabela('escolas_sigee', payload, 'cod_mec'); if(r.error) erros.push('escolas_sigee: '+(r.error.message||JSON.stringify(r.error)));
+    }
+    if(processosAlterados.length){
+      let prox=nextId(processosDB,101);
+      const payload=processosAlterados.map(p=>{ if(!p.id) p.id=prox++; return { id:Number(p.id), aluno_nome:title(p.aluno||p.aluno_nome), escola_nome:title(p.escola||p.escola_nome||'NÃO INFORMADA'), documento_tipo:txt(p.documento||p.documento_tipo||'HISTÓRICO'), nivel_oferta:txt(p.nivel_oferta||p.ensino||'')||null, modalidade:txt(p.modalidade||'')||null, etapa_atual:normalizarEtapa(p.etapa||p.etapa_atual), nte:nteNome(p.nte||'NTE-26 Salvador') }; }).filter(p=>p.id&&p.aluno_nome);
+      const r=await upsertTabela('processos', payload, 'id'); if(r.error) erros.push('processos: '+(r.error.message||JSON.stringify(r.error)));
+    }
+    return erros;
+  }
+  window.processarImportacaoOtimizada = async function(event){
+    const u=window.usuarioLogado || (typeof usuarioLogado!=='undefined'?usuarioLogado:null);
+    if(!podeImportar(u)){ alert('Importação permitida apenas para Master, Administrador ou Grupo SEC.'); if(event?.target) event.target.value=''; return; }
+    const arq=event?.target?.files?.[0]; if(!arq) return;
+    const card=document.getElementById('card-progresso-importacao'), label=document.getElementById('label-status-importacao'), barra=document.getElementById('barra-progresso-importacao'), pct=document.getElementById('percentual-importacao-texto');
+    const prog=(n,m)=>{ if(card) card.classList.remove('hidden'); if(label) label.innerText=m; if(barra) barra.style.width=n+'%'; if(pct) pct.innerText=n+'%'; };
+    try{
+      prog(5,'Lendo planilha...');
+      const wb=XLSX.read(await arq.arrayBuffer(), {type:'array', cellDates:true});
+      const escL=[], procL=[]; let linhas=0;
+      wb.SheetNames.forEach(aba=>{ const rows=XLSX.utils.sheet_to_json(wb.Sheets[aba], {defval:'', raw:false}); linhas+=rows.length; rows.forEach(row=>{ if(linhaEscola(row,aba)) escL.push(converterEscola(row)); if(linhaProcesso(row,aba)) procL.push(converterProcesso(row)); }); });
+      prog(30,`Identificado: ${escL.length} escolas e ${procL.length} processos em ${linhas} linhas.`);
+      const escAlt=[], procAlt=[]; let insE=0,atuE=0,insP=0,atuP=0;
+      escL.forEach(e=>{ if(!e.nome) return; if(!e.cod_mec) e.cod_mec = 'SEM-MEC-' + clean(e.nome).slice(0,30); const idx=(escolasDB||[]).findIndex(x=>txt(x.cod_mec)===txt(e.cod_mec)); if(idx>=0){ escolasDB[idx]={...escolasDB[idx],...e,id:escolasDB[idx].id}; escAlt.push(escolasDB[idx]); atuE++; } else { e.id=nextId(escolasDB,1); escolasDB.push(e); escAlt.push(e); insE++; } });
+      procL.forEach(p=>{ if(!p.aluno) return; const idx=p.id ? (processosDB||[]).findIndex(x=>Number(x.id)===Number(p.id)) : -1; if(idx>=0){ processosDB[idx]={...processosDB[idx],...p,id:processosDB[idx].id}; procAlt.push(processosDB[idx]); atuP++; } else { p.id=nextId(processosDB,101); processosDB.push(p); procAlt.push(p); insP++; } });
+      prog(65,'Gravando no Supabase...'); const erros=await gravarImportacao(escAlt,procAlt);
+      prog(90,'Atualizando Dashboard, Escolas e Processos...');
+      try{ renderizarListaEscolasBufferMemoria(); }catch(e){} try{ carregarEContarProcessosHorizontais(); }catch(e){} try{ carregarDadosDashboardReal(); }catch(e){} try{ registrarLog(`Importação V37: escolas +${insE}/atualizadas ${atuE}; processos +${insP}/atualizados ${atuP}.`); }catch(e){}
+      prog(100,'Importação concluída.');
+      if(erros.length) alert(`Importação concluída na tela, mas o Supabase recusou parte dos dados:\n\n${erros.join('\n')}\n\nEscolas lidas: ${escL.length}. Processos lidos: ${procL.length}.`);
+      else alert(`Importação concluída e gravada no Supabase.\n\nEscolas: ${insE} inseridas, ${atuE} atualizadas.\nProcessos: ${insP} inseridos, ${atuP} atualizados.\nDashboard atualizado automaticamente.`);
+    }catch(e){ console.error(e); alert('Erro na importação: '+(e.message||e)); }
+    finally{ setTimeout(()=>{ if(card) card.classList.add('hidden'); if(event?.target) event.target.value=''; },900); }
+  };
+  try{ processarImportacaoOtimizada = window.processarImportacaoOtimizada; }catch(e){}
+
+  const oldLogin = window.handleLogin || (typeof handleLogin !== 'undefined' ? handleLogin : null);
+  if(oldLogin){
+    window.handleLogin = function(event){
+      garantirPerfilSEC();
+      const r = oldLogin.call(this,event);
+      setTimeout(()=>{ aplicarPermissoesV37(); try{ if(typeof carregarDadosDashboardReal==='function') carregarDadosDashboardReal(); }catch(e){} },250);
+      return r;
+    };
+    try{ handleLogin = window.handleLogin; }catch(e){}
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){ garantirPerfilSEC(); garantirModalEscolaV37(); setTimeout(aplicarPermissoesV37,500); });
+  setTimeout(function(){ garantirPerfilSEC(); garantirModalEscolaV37(); aplicarPermissoesV37(); },1200);
+  window.SIGEE_V37 = { versao: SIGEE_V37, isSEC, isGlobal, podeImportar, podeEditarEscola, preencherSelectTecnicosPorNte: window.preencherSelectTecnicosPorNte };
+})();
+
+
+// ===== bloco JS extraído do index.html =====
+(function(){
+  'use strict';
+  const V='V38 - Carregamento Escolas/Processos/Dashboard';
+  const URL='https://ckxbvsfjsknbgpfpxcyy.supabase.co';
+  const KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNreGJ2c2Zqc2tuYmdwZnB4Y3l5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxOTc4MjUsImV4cCI6MjA5ODc3MzgyNX0.ecJr_MYR9GPnaYMZ3V6kgeed7uGtg-vQ4THpdwAtTxk';
+  const T={escolas:'escolas_sigee', processos:'processos', solicitacoes:'solicitacoes_sigee', usuarios:'usuarios_sigee', ntes:'ntes_sigee'};
+  let carregando=false;
+
+  function txt(v){ return (v===undefined||v===null)?'':String(v).trim(); }
+  function up(v){ return txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase(); }
+  function title(v){ return txt(v).replace(/\s+/g,' ').trim().toUpperCase(); }
+  function perfil(u){ return up(u&&u.perfil); }
+  function isMaster(u){ return perfil(u).includes('MASTER'); }
+  function isAdmin(u){ return perfil(u).includes('ADMIN'); }
+  function isSEC(u){ return !!u && (up(u.perfil).includes('SEC') || up(u.grupo).includes('SEC') || up(u.nte).includes('SEC') || up(u.nte).includes('TODOS OS NTES') || txt(u.email).toLowerCase()==='sec@enova.educacao.ba.gov.br'); }
+  function isGlobal(u){ return isMaster(u)||isSEC(u); }
+  function podeImportar(u){ return isMaster(u)||isAdmin(u)||isSEC(u); }
+  function numeroNte(v){ const m=txt(v).match(/NTE\s*[- ]?\s*(\d{1,2})/i); if(m) return Number(m[1]); const n=Number(v); return Number.isFinite(n)&&n>=1&&n<=27?n:null; }
+  function nomeNtePorId(id){
+    const n=Number(id);
+    try{ if(typeof obterNomeNtePorIdSIGEE==='function'){ const r=obterNomeNtePorIdSIGEE(n); if(r) return r; } }catch(e){}
+    try{ const lista=(Array.isArray(LISTA_OFICIAL_27_NTES)?LISTA_OFICIAL_27_NTES:[]); const ach=lista.find(x=>numeroNte(x)===n); if(ach) return ach; }catch(e){}
+    return n?`NTE-${String(n).padStart(2,'0')}`:'NTE-26 Salvador';
+  }
+  function nteNome(v){ const n=numeroNte(v); return n?nomeNtePorId(n):(txt(v)||'NTE-26 Salvador'); }
+  function normNte(v){ const n=numeroNte(v); return n?'NTE'+n:up(v).replace(/[^A-Z0-9]/g,''); }
+  function nteUsuario(u){ return nteNome(u&&(u.nte||u.nte_nome||u.nte_vinculado||u.grupo||u.nte_id)) || 'NTE-26 Salvador'; }
+  function nteIgual(a,b){ if(!a||!b) return false; if(up(a).includes('SEC')||up(b).includes('SEC')) return true; return normNte(a)===normNte(b); }
+  function atualUsuario(){ return window.usuarioLogado || (typeof usuarioLogado!=='undefined'?usuarioLogado:null); }
+  function setText(id,v){ const el=document.getElementById(id); if(el) el.innerText=String(v); }
+  function setInfo(msg){ const el=document.getElementById('info-quantidade-escolas-carregadas'); if(el) el.innerText=msg; }
+  function dataBR(){ try{ return new Date().toLocaleDateString('pt-BR'); }catch(e){ return ''; } }
+  function diasDesde(valor){
+    if(!valor) return 0;
+    let d=null; const s=txt(valor);
+    if(/^\d{2}\/\d{2}\/\d{4}/.test(s)){ const [dd,mm,yy]=s.slice(0,10).split('/').map(Number); d=new Date(yy,mm-1,dd); }
+    else d=new Date(s);
+    if(!d || Number.isNaN(d.getTime())) return 0;
+    const hoje=new Date(); hoje.setHours(0,0,0,0); d.setHours(0,0,0,0);
+    return Math.max(0, Math.floor((hoje-d)/(86400000)));
+  }
+  function client(){
+    try{ if(typeof obterSupabaseSIGEE==='function'){ const c=obterSupabaseSIGEE(); if(c) return c; } }catch(e){}
+    if(window.__SIGEE_V38_CLIENT) return window.__SIGEE_V38_CLIENT;
+    if(window.supabase&&window.supabase.createClient){ window.__SIGEE_V38_CLIENT=window.supabase.createClient(URL,KEY); return window.__SIGEE_V38_CLIENT; }
+    return null;
+  }
+  async function readAll(table){
+    const c=client(); if(!c) throw new Error('Cliente Supabase não disponível');
+    let out=[], from=0, size=1000;
+    while(true){
+      const {data,error}=await c.from(table).select('*').range(from, from+size-1);
+      if(error) throw error;
+      out=out.concat(data||[]);
+      if(!data || data.length<size) break;
+      from += size;
+    }
+    return out;
+  }
+  async function upsert(table,payload,conflict){
+    const c=client(); if(!c || !payload || !payload.length) return {error:null};
+    for(let i=0;i<payload.length;i+=100){
+      const {error}=await c.from(table).upsert(payload.slice(i,i+100),{onConflict:conflict,ignoreDuplicates:false});
+      if(error) return {error};
+    }
+    return {error:null};
+  }
+  function mapUsuario(u,i){
+    const email=txt(u.email).toLowerCase();
+    let pf=txt(u.perfil||u.tipo||u.role||'Tecnico');
+    if(email==='elmo.lobao@enova.educacao.ba.gov.br') pf='Master';
+    if(email==='sec@enova.educacao.ba.gov.br') pf='SEC';
+    return {id:Number(u.id)||i+1,nome:title(u.nome||u.name||'USUÁRIO SIGEE'),email,senha:txt(u.senha||u.password||'123')||'123',perfil:pf,nte:nteNome(u.nte||u.nte_id||u.grupo||'NTE-26 Salvador'),grupo:txt(u.grupo||''),ativo:u.ativo!==false};
+  }
+  function mapEscola(e,i){
+    return {id:Number(e.id)||i+1,cod_mec:txt(e.cod_mec||e.codigo_mec||e.mec),nome:title(e.nome_escola||e.nome||e.instituicao||e.escola),nome_escola:title(e.nome_escola||e.nome||e.instituicao||e.escola),municipio:title(e.municipio||e.cidade||''),nte:nteNome(e.nte||e.nte_id||e.nte_nome||e.nte_vinculado),nte_id:numeroNte(e.nte_id||e.nte)||26,dependencia:txt(e.dependencia_adm||e.dependencia||'Estadual'),dependencia_adm:txt(e.dependencia_adm||e.dependencia||'Estadual'),situacao:txt(e.situacao_funcional||e.situacao||'Extinta'),situacao_funcional:txt(e.situacao_funcional||e.situacao||'Extinta'),acervo:txt(e.status_acervo||e.acervo||'Recolhido'),status_acervo:txt(e.status_acervo||e.acervo||'Recolhido'),local_acervo:txt(e.local_acervo||e.local||'')};
+  }
+  function mapProcesso(p,i){
+    const escNome=title(p.escola_nome||p.escola||p.instituicao||p.nome_escola||'');
+    let esc=null; try{ esc=(escolasDB||[]).find(e=>up(e.nome)===up(escNome)||txt(e.cod_mec)===txt(p.cod_mec)); }catch(e){}
+    return {id:Number(p.id)||101+i,aluno:title(p.aluno_nome||p.aluno||p.nome_solicitante||p.nome_aluno||p.requerente),aluno_nome:title(p.aluno_nome||p.aluno||p.nome_solicitante||p.nome_aluno||p.requerente),escola:escNome || title(esc&&esc.nome) || 'NÃO INFORMADA',escola_nome:escNome || title(esc&&esc.nome) || 'NÃO INFORMADA',documento:txt(p.documento_tipo||p.documento||p.documento_solicitado||'HISTÓRICO'),documento_tipo:txt(p.documento_tipo||p.documento||p.documento_solicitado||'HISTÓRICO'),etapa:txt(p.etapa_atual||p.etapa||p.fase_atual||'Desarquivamento'),etapa_atual:txt(p.etapa_atual||p.etapa||p.fase_atual||'Desarquivamento'),data_etapa_atual:txt(p.data_etapa_atual||p.created_at||p.criado_em||dataBR()),nte:nteNome(p.nte||p.nte_id||(esc&&esc.nte)||'NTE-26 Salvador'),municipio:title(p.municipio||(esc&&esc.municipio)||''),modalidade:txt(p.modalidade||p.oferta_modalidade||''),ensino:txt(p.nivel_oferta||p.oferta_nivel||p.ensino||''),prioridade:txt(p.prioridade||''),tecnico_responsavel:txt(p.tecnico_responsavel||p.tecnico||'')};
+  }
+  function dadosVisiveis(lista){
+    const u=atualUsuario(); if(!Array.isArray(lista)) return [];
+    if(isGlobal(u)) return lista.slice();
+    const n=nteUsuario(u);
+    return lista.filter(x=>nteIgual(x.nte||x.nte_nome||x.nte_vinculado||x.nte_id,n));
+  }
+  function contarEtapa(lista,etapa){ return (lista||[]).filter(p=>up(p.etapa||p.etapa_atual)===up(etapa)).length; }
+  function classeEtapa(etapa){
+    const e=up(etapa); if(e.includes('ANAL')) return 'bg-purple-600 text-white'; if(e.includes('PEND')) return 'bg-red-600 text-white'; if(e.includes('DIGIT')) return 'bg-orange-500 text-white'; if(e.includes('CONFER')) return 'bg-green-600 text-white'; if(e.includes('ASSIN')) return 'bg-blue-700 text-white'; if(e.includes('DEFER')) return 'bg-emerald-600 text-white'; if(e.includes('RETIR')) return 'bg-gray-700 text-white'; return 'bg-sky-600 text-white';
+  }
+  function acaoProcesso(p){
+    const e=up(p.etapa); if(e.includes('ANAL')) return `<button onclick="abrirModalFluxoAnalise(${p.id})" class="bg-purple-700 text-white font-bold px-2 py-1 rounded text-[10px]">Análise Realizada</button>`;
+    if(e.includes('PEND')) return `<button onclick="abrirModalFluxoPendencia(${p.id})" class="bg-red-700 text-white font-bold px-2 py-1 rounded text-[10px]">Tratar Pendência</button>`;
+    if(e.includes('DIGIT')) return `<button onclick="abrirModalFluxoDigitacao(${p.id})" class="bg-orange-600 text-white font-bold px-2 py-1 rounded text-[10px]">Documento Digitado</button>`;
+    if(e.includes('CONFER')) return `<button onclick="abrirModalFluxoConferencia(${p.id})" class="bg-green-700 text-white font-bold px-2 py-1 rounded text-[10px]">Documento Conferido</button>`;
+    if(e.includes('ASSIN')) return `<button onclick="abrirModalFluxoAssinatura(${p.id})" class="bg-blue-700 text-white font-bold px-2 py-1 rounded text-[10px]">Deferido</button>`;
+    if(e.includes('AGUARD')) return `<button onclick="abrirModalFluxoAguardando(${p.id})" class="bg-gray-700 text-white font-bold px-2 py-1 rounded text-[10px]">Retirado</button>`;
+    if(e.includes('RETIR')) return `<span class="text-gray-300 font-bold">Finalizado</span>`;
+    return `<button onclick="abrirModalFluxoDesarquivamento(${p.id})" class="bg-sky-700 text-white font-bold px-2 py-1 rounded text-[10px]">Documento Recebido</button>`;
+  }
+  window.carregarDadosDashboardReal = function(){
+    const escolas=dadosVisiveis(window.escolasDB||escolasDB||[]); const procs=dadosVisiveis(window.processosDB||processosDB||[]);
+    setText('dash-escolas',escolas.length); setText('dash-acervos',escolas.filter(e=>up(e.status_acervo||e.acervo).includes('RECOLHIDO')).length); setText('dash-estaduais',escolas.filter(e=>up(e.dependencia||e.dependencia_adm).includes('ESTAD')).length); setText('dash-municipios',new Set(escolas.map(e=>up(e.municipio)).filter(Boolean)).size); setText('dash-usuarios',(window.usuariosDB||usuariosDB||[]).length);
+    setText('dash-proc-desarquivamento',contarEtapa(procs,'Desarquivamento')); setText('dash-proc-analise',contarEtapa(procs,'Análise')); setText('dash-proc-pendencia',contarEtapa(procs,'Pendência')); setText('dash-proc-digitacao',contarEtapa(procs,'Digitação')); setText('dash-proc-conferencia',contarEtapa(procs,'Conferência')); setText('dash-proc-assinatura',contarEtapa(procs,'Assinatura')); setText('dash-proc-aguardando',contarEtapa(procs,'Aguardando Retirada')); setText('dash-proc-retirado',contarEtapa(procs,'Retirado'));
+  };
+  try{ carregarDadosDashboardReal=window.carregarDadosDashboardReal; }catch(e){}
+  window.renderizarListaEscolasBufferMemoria = function(){
+    const corpo=document.getElementById('tabela-escolas-corpo'); if(!corpo) return; corpo.innerHTML='';
+    const lista=dadosVisiveis(window.escolasDB||escolasDB||[]); const busca=up(document.getElementById('busca-escola')?.value||'');
+    let filtradas=busca?lista.filter(e=>up((e.cod_mec||'')+' '+(e.nome||'')+' '+(e.municipio||'')).includes(busca)):lista;
+    const porPagina=(typeof totalPorPaginaEscola!=='undefined'?totalPorPaginaEscola:8); let pagina=(typeof paginaEscolaAtual!=='undefined'?paginaEscolaAtual:1); const totalPag=Math.max(1,Math.ceil(filtradas.length/porPagina)); if(pagina>totalPag) pagina=1; try{ paginaEscolaAtual=pagina; }catch(e){}
+    const pag=filtradas.slice((pagina-1)*porPagina,(pagina-1)*porPagina+porPagina);
+    setInfo(`Exibindo: ${filtradas.length} registros | Banco: Supabase carregado`);
+    pag.forEach(e=>{
+      const situ=up(e.situacao||e.situacao_funcional).includes('ATIVA')?'<span class="font-black text-green-400">ATIVA</span>':'<span class="font-black text-red-400">EXTINTA</span>';
+      const acv=up(e.status_acervo||e.acervo).includes('RECOLHIDO')?'<span class="font-black text-green-400">RECOLHIDO</span>':'<span class="font-black text-red-400">NÃO RECOLHIDO</span>';
+      corpo.insertAdjacentHTML('beforeend',`<tr class="hover:bg-white/10 text-[11px] text-white"><td class="p-3 font-mono font-bold">${txt(e.cod_mec)}</td><td class="p-3 font-bold uppercase">${txt(e.nome)}</td><td class="p-3 uppercase font-medium">${txt(e.municipio)}</td><td class="p-3 font-semibold">${txt(e.nte)}<br><span class="text-[9px] bg-white/10 px-1 rounded">${txt(e.dependencia||e.dependencia_adm)}</span></td><td class="p-3">${situ}</td><td class="p-3">${acv}</td><td class="p-3 text-center"><button onclick="abrirModalEditarEscolaV37 ? abrirModalEditarEscolaV37('${e.id}') : abrirModalEscola && abrirModalEscola('${e.id}')" class="bg-cyan-600/70 text-white font-bold px-2 py-1 rounded text-[10px]">Alterar</button></td></tr>`);
+    });
+    setText('txt-escola-paginacao',`Página ${pagina} de ${totalPag}`); const a=document.getElementById('btn-escola-anterior'); if(a) a.disabled=pagina<=1; const p=document.getElementById('btn-escola-proxima'); if(p) p.disabled=pagina>=totalPag;
+  };
+  try{ renderizarListaEscolasBufferMemoria=window.renderizarListaEscolasBufferMemoria; }catch(e){}
+  window.carregarEContarProcessosHorizontais = function(){
+    const procs=dadosVisiveis(window.processosDB||processosDB||[]); setText('count-horiz-todos',procs.length); setText('count-horiz-desarquivamento',contarEtapa(procs,'Desarquivamento')); setText('count-horiz-analise',contarEtapa(procs,'Análise')); setText('count-horiz-pendencia',contarEtapa(procs,'Pendência')); setText('count-horiz-digitacao',contarEtapa(procs,'Digitação')); setText('count-horiz-conferencia',contarEtapa(procs,'Conferência')); setText('count-horiz-assinatura',contarEtapa(procs,'Assinatura')); setText('count-horiz-aguardando',contarEtapa(procs,'Aguardando Retirada')); setText('count-horiz-retirado',contarEtapa(procs,'Retirado')); window.renderizarProcessosFlutuantes(); };
+  try{ carregarEContarProcessosHorizontais=window.carregarEContarProcessosHorizontais; }catch(e){}
+  window.renderizarProcessosFlutuantes = function(){
+    const corpo=document.getElementById('tabela-processos-corpo'); if(!corpo) return; corpo.innerHTML='';
+    let lista=dadosVisiveis(window.processosDB||processosDB||[]); const etapa=(typeof etapaFiltroAtual!=='undefined'?etapaFiltroAtual:'TODOS'); if(etapa&&etapa!=='TODOS') lista=lista.filter(p=>up(p.etapa)===up(etapa)); const busca=up(document.getElementById('busca-proc-nome')?.value||''); if(busca) lista=lista.filter(p=>up(p.aluno+' '+p.escola).includes(busca));
+    lista.forEach(p=>{ corpo.insertAdjacentHTML('beforeend',`<tr class="hover:bg-white/10 text-white"><td class="p-2.5 font-bold truncate"><span class="block uppercase truncate">${txt(p.aluno)}</span><span class="text-[10px] text-cyan-200 font-extrabold">${txt(p.documento)}</span></td><td class="p-2.5 truncate"><span class="block font-bold text-white truncate text-[10px]">${txt(p.escola)}</span><span class="text-[9px] text-cyan-200 block font-semibold uppercase truncate">${txt(p.nte)}</span></td><td class="p-2.5 text-center"><span class="px-2 py-1 ${classeEtapa(p.etapa)} font-black rounded text-[9px] uppercase block">${txt(p.etapa)}</span></td><td class="p-2.5 text-center font-bold">${diasDesde(p.data_etapa_atual)} dias</td><td class="p-2.5 text-center">${acaoProcesso(p)}</td></tr>`); });
+  };
+  try{ renderizarProcessosFlutuantes=window.renderizarProcessosFlutuantes; }catch(e){}
+  async function carregarTudoV38(silencioso=true){
+    if(carregando) return false; carregando=true; setInfo('Carregando informações do Supabase, aguarde...');
+    try{
+      const [us, es, pr, so, nt]=await Promise.allSettled([readAll(T.usuarios),readAll(T.escolas),readAll(T.processos),readAll(T.solicitacoes),readAll(T.ntes)]);
+      if(us.status==='fulfilled' && us.value.length){ usuariosDB=us.value.map(mapUsuario).filter(u=>u.email); window.usuariosDB=usuariosDB; }
+      if(!usuariosDB.some(u=>txt(u.email).toLowerCase()==='sec@enova.educacao.ba.gov.br')) usuariosDB.push({id:900001,nome:'USUÁRIO SEC',email:'sec@enova.educacao.ba.gov.br',senha:'123',perfil:'SEC',nte:'SEC - TODOS OS NTEs',grupo:'SEC',ativo:true});
+      if(es.status==='fulfilled'){ escolasDB=es.value.map(mapEscola).filter(e=>e.cod_mec||e.nome); window.escolasDB=escolasDB; }
+      if(pr.status==='fulfilled'){ processosDB=pr.value.map(mapProcesso).filter(p=>p.aluno||p.escola); window.processosDB=processosDB; }
+      if(so.status==='fulfilled'){ solicitacoesDB=so.value.map(mapProcesso).filter(p=>p.aluno||p.escola); window.solicitacoesDB=solicitacoesDB; if(!processosDB.length && solicitacoesDB.length){ processosDB=solicitacoesDB.slice(); window.processosDB=processosDB; } }
+      if(nt.status==='fulfilled' && nt.value.length && typeof LISTA_OFICIAL_27_NTES!=='undefined'){
+        const ntes=nt.value.map(n=>txt(n.nome||n.nte||n.codigo||n.descricao)).filter(Boolean); if(ntes.length){ LISTA_OFICIAL_27_NTES.splice(0,LISTA_OFICIAL_27_NTES.length,...ntes); }
+      }
+      try{ inicializarSelectsNteEcosystem(); }catch(e){}
+      try{ window.aplicarPermissoesV37&&window.aplicarPermissoesV37(); }catch(e){}
+      window.sigEESupabaseOnline=true; try{ sigEESupabaseOnline=true; }catch(e){}
+      window.carregarDadosDashboardReal(); window.renderizarListaEscolasBufferMemoria(); window.carregarEContarProcessosHorizontais();
+      setInfo(`Exibindo: ${dadosVisiveis(escolasDB).length} registros | Banco: Supabase carregado`);
+      return true;
+    }catch(err){ console.error('SIGEE V38 erro geral:',err); if(!silencioso) alert('Erro ao carregar dados do Supabase: '+(err.message||err)); return false; }
+    finally{ carregando=false; }
+  }
+  window.SIGEE_V38_CARREGAR_BANCOS = carregarTudoV38;
+  const oldLogin=window.handleLogin;
+  window.handleLogin = async function(event){
+    if(event) event.preventDefault();
+    try{ await Promise.race([readAll(T.usuarios).then(rows=>{ if(rows&&rows.length){ usuariosDB=rows.map(mapUsuario).filter(u=>u.email); window.usuariosDB=usuariosDB; }}), new Promise(r=>setTimeout(r,1200))]); }catch(e){}
+    if(!usuariosDB.some(u=>txt(u.email).toLowerCase()==='sec@enova.educacao.ba.gov.br')) usuariosDB.push({id:900001,nome:'USUÁRIO SEC',email:'sec@enova.educacao.ba.gov.br',senha:'123',perfil:'SEC',nte:'SEC - TODOS OS NTEs',grupo:'SEC',ativo:true});
+    const em=txt(document.getElementById('login-email')?.value).toLowerCase(); const sn=txt(document.getElementById('login-senha')?.value);
+    let u=(usuariosDB||[]).map(mapUsuario).find(x=>x.email===em && txt(x.senha||'123')===sn && x.ativo!==false);
+    if(!u && em==='elmo.lobao@enova.educacao.ba.gov.br' && sn==='123') u={id:1,nome:'ELMO LOBÃO',email:em,senha:'123',perfil:'Master',nte:'NTE-26 Salvador',ativo:true};
+    if(!u){ alert('Credenciais inválidas, ou operador desativado no escopo regional.'); return; }
+    window.usuarioLogado=u; try{ usuarioLogado=u; }catch(e){}
+    document.getElementById('tela-login')?.classList.add('hidden'); document.getElementById('sistema-dashboard')?.classList.remove('hidden');
+    setText('user-nome',u.nome); setText('user-perfil',`${u.perfil} | ${u.nte}`);
+    try{ registrarLog('Acesso realizado ao painel operacional.'); }catch(e){}
+    try{ window.aplicarPermissoesV37&&window.aplicarPermissoesV37(); }catch(e){}
+    try{ navegar('painel'); }catch(e){}
+    setTimeout(()=>carregarTudoV38(true),50);
+  };
+  try{ handleLogin=window.handleLogin; }catch(e){}
+  const oldNav=window.navegar;
+  if(oldNav){ window.navegar=function(aba){ const r=oldNav.apply(this,arguments); setTimeout(()=>{ if(aba==='painel') window.carregarDadosDashboardReal(); if(aba==='escolas') window.renderizarListaEscolasBufferMemoria(); if(aba==='processos') window.carregarEContarProcessosHorizontais(); },30); return r; }; try{ navegar=window.navegar; }catch(e){} }
+
+  // Importação final: identifica escolas e processos em qualquer aba da planilha.
+  function getCell(row,names){ const ks=Object.keys(row||{}); for(const n of names){ const nn=up(n); const k=ks.find(x=>up(x)===nn || up(x).includes(nn)); if(k && txt(row[k])) return row[k]; } return ''; }
+  function linhaVazia(row){ return !Object.values(row||{}).some(v=>txt(v)); }
+  function etapa(v){ const e=up(v); if(e.includes('ANAL')) return 'Análise'; if(e.includes('PEND')) return 'Pendência'; if(e.includes('DIGIT')) return 'Digitação'; if(e.includes('CONFER')) return 'Conferência'; if(e.includes('ASSIN')) return 'Assinatura'; if(e.includes('DEFER')) return 'Deferido'; if(e.includes('AGUARD')) return 'Aguardando Retirada'; if(e.includes('RETIR')) return 'Retirado'; return 'Desarquivamento'; }
+  window.processarImportacaoOtimizada = async function(event){
+    const u=atualUsuario(); if(!podeImportar(u)){ alert('Importação permitida apenas para Master, Administrador ou Grupo SEC.'); if(event?.target) event.target.value=''; return; }
+    const arq=event?.target?.files?.[0]; if(!arq) return; const card=document.getElementById('card-progresso-importacao'); const label=document.getElementById('label-status-importacao'); const bar=document.getElementById('barra-progresso-importacao'); const pct=document.getElementById('percentual-importacao-texto');
+    const prog=(n,m)=>{ if(card) card.classList.remove('hidden'); if(label) label.innerText=m; if(bar) bar.style.width=n+'%'; if(pct) pct.innerText=n+'%'; };
+    try{
+      prog(5,'Lendo planilha...'); const wb=XLSX.read(await arq.arrayBuffer(),{type:'array',cellDates:true}); let escolas=[],procs=[];
+      wb.SheetNames.forEach(aba=>{ const rows=XLSX.utils.sheet_to_json(wb.Sheets[aba],{defval:'',raw:false}); rows.forEach(row=>{ if(linhaVazia(row)) return; const mec=getCell(row,['cod_mec','código mec','codigo mec','mec']); const escola=getCell(row,['nome_escola','nome da escola','instituição','instituicao','escola','instituição / nte']); const aluno=getCell(row,['aluno_nome','nome completo do aluno','nome do aluno','aluno','requerente','nome_solicitante','aluno / doc']); const mun=getCell(row,['municipio','município','cidade']); if((mec||escola) && !aluno){ escolas.push(mapEscola({cod_mec:mec,nome_escola:escola,municipio:mun||'NÃO INFORMADO',nte:getCell(row,['nte','nte_id','nte / dep. adm'])||nteUsuario(u),dependencia_adm:getCell(row,['dependencia_adm','dependência administrativa','dep. adm','dependência','dependencia'])||'Estadual',situacao_funcional:getCell(row,['situacao_funcional','situação funcional','situação','situacao'])||'Extinta',status_acervo:getCell(row,['status_acervo','status do acervo','acervo'])||'Recolhido',local_acervo:getCell(row,['local_acervo','local do acervo'])||'Acervo do NTE'},0)); } if(aluno){ procs.push(mapProcesso({aluno_nome:aluno,escola_nome:escola,documento_tipo:getCell(row,['documento_tipo','tipo de documento','documento','documento_solicitado'])||'HISTÓRICO',etapa_atual:etapa(getCell(row,['etapa_atual','etapa','fase_atual','status'])),created_at:getCell(row,['created_at','data','criado_em','data abertura'])||dataBR(),nte:getCell(row,['nte','nte_id'])||nteUsuario(u),municipio:mun,modalidade:getCell(row,['modalidade','oferta_modalidade']),nivel_oferta:getCell(row,['ensino','nivel_oferta','oferta_nivel'])},0)); } }); });
+      prog(35,`Identificadas ${escolas.length} escolas e ${procs.length} processos.`);
+      // merge local
+      escolas.forEach(e=>{ if(!e.cod_mec) e.cod_mec='SEM-MEC-'+up(e.nome).slice(0,30); const i=(escolasDB||[]).findIndex(x=>txt(x.cod_mec)===txt(e.cod_mec)); if(i>=0) escolasDB[i]={...escolasDB[i],...e}; else {e.id=Math.max(0,...(escolasDB||[]).map(x=>Number(x.id)||0))+1; escolasDB.push(e);} });
+      procs.forEach(p=>{ p.id=Math.max(100,...(processosDB||[]).map(x=>Number(x.id)||0))+1; processosDB.push(p); }); window.escolasDB=escolasDB; window.processosDB=processosDB;
+      prog(65,'Gravando no Supabase...');
+      const payE=escolas.map(e=>({cod_mec:txt(e.cod_mec),nome_escola:title(e.nome),municipio:title(e.municipio||'NÃO INFORMADO'),nte_id:numeroNte(e.nte_id||e.nte)||26,dependencia_adm:txt(e.dependencia_adm||e.dependencia||'Estadual'),situacao_funcional:txt(e.situacao_funcional||e.situacao||'Extinta'),acervo:txt(e.acervo||'Recolhido'),status_acervo:txt(e.status_acervo||e.acervo||'Recolhido'),local_acervo:txt(e.local_acervo||'Acervo do NTE'),ativo:true})).filter(e=>e.cod_mec&&e.nome_escola);
+      const payP=procs.map(p=>({id:Number(p.id),aluno_nome:title(p.aluno),escola_nome:title(p.escola),documento_tipo:txt(p.documento||'HISTÓRICO'),nivel_oferta:txt(p.ensino||'')||null,modalidade:txt(p.modalidade||'')||null,etapa_atual:txt(p.etapa||'Desarquivamento'),nte:nteNome(p.nte)})).filter(p=>p.id&&p.aluno_nome);
+      const er=[]; const r1=await upsert(T.escolas,payE,'cod_mec'); if(r1.error) er.push('escolas_sigee: '+r1.error.message); const r2=await upsert(T.processos,payP,'id'); if(r2.error) er.push('processos: '+r2.error.message);
+      prog(90,'Atualizando telas...'); window.carregarDadosDashboardReal(); window.renderizarListaEscolasBufferMemoria(); window.carregarEContarProcessosHorizontais(); prog(100,'Concluído.');
+      alert(er.length?`Importação concluída na tela, mas houve erro no Supabase:\n${er.join('\n')}`:`Importação concluída.\nEscolas: ${payE.length}\nProcessos: ${payP.length}\nDashboard atualizado.`);
+    }catch(e){ console.error(e); alert('Erro na importação: '+(e.message||e)); }
+    finally{ setTimeout(()=>{ if(card) card.classList.add('hidden'); if(event?.target) event.target.value=''; },800); }
+  };
+  try{ processarImportacaoOtimizada=window.processarImportacaoOtimizada; }catch(e){}
+  document.addEventListener('DOMContentLoaded',()=>{ setTimeout(()=>carregarTudoV38(true),400); });
+  window.SIGEE_V38={versao:V,carregar:carregarTudoV38};
+})();
+
+
+// ===== bloco JS extraído do index.html =====
+(function(){
+  'use strict';
+  const EMAIL_SEC_V39 = 'sec@enova.educacao.ba.gov.br';
+
+  function txt(v){ return (v===undefined || v===null) ? '' : String(v).trim(); }
+  function sem(v){ return txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+  function up(v){ return sem(v).toUpperCase(); }
+  function low(v){ return txt(v).toLowerCase(); }
+
+  function perfilCanonicoV39(valor){
+    const p = up(valor);
+    if(p.includes('SEC')) return 'SEC';
+    if(p.includes('MASTER')) return 'Master';
+    if(p.includes('ADMINISTR')) return 'Administrador';
+    if(p.includes('ADMIN')) return 'Administrador';
+    if(p.includes('CONSULT')) return 'Consulta';
+    if(p.includes('TECNIC') || p.includes('TÉCNIC')) return 'Tecnico';
+    return txt(valor) || 'Tecnico';
+  }
+
+  function perfilUsuarioV39(u){ return perfilCanonicoV39(u && (u.perfil || u.tipo || u.role)); }
+  function isSECV39(u){ return !!u && (low(u.email)===EMAIL_SEC_V39 || perfilUsuarioV39(u)==='SEC' || up(u.grupo).includes('SEC') || up(u.nte).includes('SEC') || up(u.nte).includes('TODOS OS NTES')); }
+  function isMasterV39(u){ return perfilUsuarioV39(u)==='Master'; }
+  function isAdminV39(u){ return perfilUsuarioV39(u)==='Administrador'; }
+  function isTecnicoV39(u){ return perfilUsuarioV39(u)==='Tecnico'; }
+  function isConsultaV39(u){ return perfilUsuarioV39(u)==='Consulta'; }
+  function isGlobalV39(u){ return isSECV39(u) || isMasterV39(u); }
+  function podeImportarV39(u){ return isGlobalV39(u) || isAdminV39(u); }
+  function podeEditarEscolaV39(u){ return isGlobalV39(u) || isAdminV39(u) || isTecnicoV39(u); }
+  function podeExportarV39(u){ return isGlobalV39(u) || isAdminV39(u); }
+  function podeMovimentarV39(u){ return isGlobalV39(u) || isAdminV39(u) || isTecnicoV39(u); }
+  function podeGerirUsuariosV39(u){ return isGlobalV39(u); }
+  function podeVerLogsV39(u){ return isGlobalV39(u) || isAdminV39(u); }
+
+  function usuarioAtualV39(){ return window.usuarioLogado || (typeof usuarioLogado !== 'undefined' ? usuarioLogado : null); }
+
+  function normalizarUsuarioV39(u){
+    if(!u) return u;
+    if(low(u.email) === EMAIL_SEC_V39){
+      u.nome = u.nome || 'USUÁRIO SEC';
+      u.perfil = 'SEC';
+      u.grupo = 'SEC';
+      u.nte = 'SEC - TODOS OS NTEs';
+      u.ativo = u.ativo !== false;
+      u.senha = u.senha || '123';
+      return u;
+    }
+    if(low(u.email) === 'elmo.lobao@enova.educacao.ba.gov.br') u.perfil = 'Master';
+    else u.perfil = perfilCanonicoV39(u.perfil || 'Tecnico');
+    u.nte = u.nte || u.nte_vinculado || u.grupo || 'NTE-26 Salvador';
+    u.senha = u.senha || '123';
+    u.ativo = u.ativo !== false;
+    return u;
+  }
+
+  function garantirUsuariosBaseV39(){
+    try{
+      window.usuariosDB = Array.isArray(window.usuariosDB) ? window.usuariosDB : (typeof usuariosDB !== 'undefined' && Array.isArray(usuariosDB) ? usuariosDB : []);
+      try{ usuariosDB = window.usuariosDB; }catch(e){}
+      const existe = email => window.usuariosDB.some(u => low(u.email)===low(email));
+      const nextId = base => Math.max(base, 0, ...window.usuariosDB.map(u=>Number(u.id)||0)) + 1;
+      if(!existe(EMAIL_SEC_V39)) window.usuariosDB.push({id:nextId(900000), nome:'USUÁRIO SEC', email:EMAIL_SEC_V39, senha:'123', perfil:'SEC', grupo:'SEC', nte:'SEC - TODOS OS NTEs', ativo:true});
+      if(!existe('administrativo@enova.educacao.ba.gov.br')) window.usuariosDB.push({id:nextId(910000), nome:'USUÁRIO ADMINISTRADOR', email:'administrativo@enova.educacao.ba.gov.br', senha:'123', perfil:'Administrador', nte:'NTE-26 Salvador', ativo:true});
+      if(!existe('consulta@enova.educacao.ba.gov.br')) window.usuariosDB.push({id:nextId(920000), nome:'USUÁRIO CONSULTA', email:'consulta@enova.educacao.ba.gov.br', senha:'123', perfil:'Consulta', nte:'NTE-26 Salvador', ativo:true});
+      window.usuariosDB.forEach(normalizarUsuarioV39);
+    }catch(e){ console.warn('SIGEE V39: não foi possível garantir usuários base.', e); }
+  }
+
+  function atualizarSelectPerfilV39(){
+    const select = document.getElementById('user-form-perfil');
+    if(!select) return;
+    const valorAtual = perfilCanonicoV39(select.value || 'Tecnico');
+    const opcoes = ['SEC','Master','Administrador','Tecnico','Consulta'];
+    select.innerHTML = opcoes.map(p => `<option value="${p}">${p}</option>`).join('');
+    select.value = opcoes.includes(valorAtual) ? valorAtual : 'Tecnico';
+  }
+
+  function aplicarPermissoesV39(){
+    garantirUsuariosBaseV39();
+    const u = normalizarUsuarioV39(usuarioAtualV39());
+    if(u){ window.usuarioLogado = u; try{ usuarioLogado = u; }catch(e){} }
+    atualizarSelectPerfilV39();
+
+    const importar = podeImportarV39(u);
+    const editarEscola = podeEditarEscolaV39(u);
+    const exportar = podeExportarV39(u);
+    const gerirUsuarios = podeGerirUsuariosV39(u);
+    const logs = podeVerLogsV39(u);
+
+    const btnImportar = document.getElementById('btn-importar-dados-master');
+    if(btnImportar) btnImportar.classList.toggle('hidden', !importar);
+    const input = document.getElementById('input-importar-excel');
+    if(input) input.disabled = !importar;
+    document.querySelectorAll('.import-only,.export-only').forEach(el => el.classList.toggle('hidden', !exportar));
+    document.querySelectorAll('[data-sigee-permissao="editar-escola"]').forEach(el => el.classList.toggle('hidden', !editarEscola));
+
+    const menuUsuarios = document.getElementById('menu-usuarios');
+    if(menuUsuarios) menuUsuarios.classList.toggle('hidden', !gerirUsuarios);
+    const menuLogs = document.getElementById('menu-logs');
+    if(menuLogs) menuLogs.classList.toggle('hidden', !logs);
+
+    const nome = document.getElementById('user-nome');
+    const pf = document.getElementById('user-perfil');
+    if(u && nome) nome.innerText = u.nome || '';
+    if(u && pf) pf.innerText = `${perfilUsuarioV39(u)} | ${u.nte || ''}`;
+  }
+
+  // Substitui apenas a leitura do perfil, preservando a rotina de carregamento V38.
+  window.perfilCanonicoSIGEE = function(perfil){ return perfilCanonicoV39(perfil); };
+  try{ perfilCanonicoSIGEE = window.perfilCanonicoSIGEE; }catch(e){}
+  window.isMasterSIGEE = function(){ return isGlobalV39(usuarioAtualV39()); };
+  try{ isMasterSIGEE = window.isMasterSIGEE; }catch(e){}
+  window.isTecnicoRestritoSIGEE = function(){ return !isGlobalV39(usuarioAtualV39()); };
+  try{ isTecnicoRestritoSIGEE = window.isTecnicoRestritoSIGEE; }catch(e){}
+
+  // Mantém nomes usados em versões anteriores.
+  window.SIGEE_PERFIS_V39 = {
+    perfil: perfilUsuarioV39,
+    isSEC: isSECV39,
+    isMaster: isMasterV39,
+    isAdmin: isAdminV39,
+    isTecnico: isTecnicoV39,
+    isConsulta: isConsultaV39,
+    isGlobal: isGlobalV39,
+    podeImportar: podeImportarV39,
+    podeEditarEscola: podeEditarEscolaV39,
+    podeExportar: podeExportarV39,
+    podeMovimentar: podeMovimentarV39,
+    podeGerirUsuarios: podeGerirUsuariosV39,
+    aplicarPermissoes: aplicarPermissoesV39
+  };
+
+  // Garante que o perfil vindo do Supabase não seja convertido indevidamente para Master/Técnico.
+  if(typeof window.usuarioDoSupabaseParaLocalSIGEE === 'function'){
+    const antigoMapUsuario = window.usuarioDoSupabaseParaLocalSIGEE;
+    window.usuarioDoSupabaseParaLocalSIGEE = function(u, indice){
+      const base = antigoMapUsuario(u, indice) || {};
+      base.perfil = perfilCanonicoV39(u?.perfil || u?.tipo || u?.role || base.perfil || 'Tecnico');
+      if(low(base.email) === 'elmo.lobao@enova.educacao.ba.gov.br') base.perfil = 'Master';
+      if(low(base.email) === EMAIL_SEC_V39) base.perfil = 'SEC';
+      base.nte = base.nte || u?.nte || u?.nte_vinculado || u?.grupo || 'NTE-26 Salvador';
+      return normalizarUsuarioV39(base);
+    };
+    try{ usuarioDoSupabaseParaLocalSIGEE = window.usuarioDoSupabaseParaLocalSIGEE; }catch(e){}
+  }
+
+  // Master/SEC veem técnicos de todos os NTEs; Admin/Técnico veem apenas o NTE vinculado.
+  window.preencherSelectTecnicosPorNte = function(selectId, nteFiltro){
+    garantirUsuariosBaseV39();
+    const select = document.getElementById(selectId);
+    if(!select) return;
+    const u = usuarioAtualV39();
+    const global = isGlobalV39(u);
+    const nteBase = txt(nteFiltro || u?.nte || '');
+    function norm(v){
+      const m = txt(v).match(/NTE\s*[- ]?\s*(\d{1,2})/i);
+      return m ? 'NTE'+Number(m[1]) : up(v).replace(/[^A-Z0-9]/g,'');
+    }
+    let lista = (window.usuariosDB || []).map(normalizarUsuarioV39).filter(op => op && op.ativo !== false && !isConsultaV39(op) && !isSECV39(op));
+    if(!global) lista = lista.filter(op => norm(op.nte) === norm(nteBase || u?.nte));
+    select.innerHTML = '<option value="">-- Selecione o Servidor --</option>';
+    lista.sort((a,b)=>txt(a.nome).localeCompare(txt(b.nome),'pt-BR')).forEach(op => {
+      const nte = op.nte ? ` - ${op.nte}` : '';
+      select.innerHTML += `<option value="${op.nome}">${op.nome}${global ? nte : ''}</option>`;
+    });
+  };
+  try{ preencherSelectTecnicosPorNte = window.preencherSelectTecnicosPorNte; }catch(e){}
+
+  // Reaplica permissões após login/navegação/carregamento, sem tocar na carga dos dados.
+  const oldHandle = window.handleLogin;
+  if(typeof oldHandle === 'function'){
+    window.handleLogin = async function(event){
+      const r = await oldHandle.apply(this, arguments);
+      garantirUsuariosBaseV39();
+      if(window.usuarioLogado){ normalizarUsuarioV39(window.usuarioLogado); try{ usuarioLogado = window.usuarioLogado; }catch(e){} }
+      aplicarPermissoesV39();
+      return r;
+    };
+    try{ handleLogin = window.handleLogin; }catch(e){}
+  }
+
+  const oldNavegar = window.navegar;
+  if(typeof oldNavegar === 'function'){
+    window.navegar = function(){ const r = oldNavegar.apply(this, arguments); setTimeout(aplicarPermissoesV39, 60); return r; };
+    try{ navegar = window.navegar; }catch(e){}
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    garantirUsuariosBaseV39();
+    atualizarSelectPerfilV39();
+    setTimeout(aplicarPermissoesV39, 600);
+    setTimeout(aplicarPermissoesV39, 1800);
+  });
+
+  setTimeout(function(){ garantirUsuariosBaseV39(); aplicarPermissoesV39(); }, 2500);
+})();
+
+
+// ===== bloco JS extraído do index.html =====
+(function(){
+  'use strict';
+  const EMAIL_SEC_V40 = 'sec@enova.educacao.ba.gov.br';
+  const GRUPO_SEC_V40 = 'SEC - TODOS OS NTEs';
+
+  function txt(v){ return (v===undefined || v===null) ? '' : String(v).trim(); }
+  function sem(v){ return txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+  function up(v){ return sem(v).toUpperCase(); }
+  function low(v){ return txt(v).toLowerCase(); }
+
+  function perfilV40(v){
+    const p = up(v || 'Tecnico');
+    if(p.includes('SEC')) return 'SEC';
+    if(p.includes('MASTER')) return 'Master';
+    if(p.includes('ADMIN')) return 'Administrador';
+    if(p.includes('CONSULT')) return 'Consulta';
+    if(p.includes('TECNIC') || p.includes('TÉCNIC')) return 'Tecnico';
+    return 'Tecnico';
+  }
+  function isSECV40(u){ return !!u && (low(u.email)===EMAIL_SEC_V40 || perfilV40(u.perfil)==='SEC' || up(u.grupo).includes('SEC') || up(u.nte).includes('SEC') || up(u.nte).includes('TODOS OS NTES')); }
+  function isMasterV40(u){ return perfilV40(u && u.perfil)==='Master'; }
+  function isAdminV40(u){ return perfilV40(u && u.perfil)==='Administrador'; }
+  function isTecnicoV40(u){ return perfilV40(u && u.perfil)==='Tecnico'; }
+  function isConsultaV40(u){ return perfilV40(u && u.perfil)==='Consulta'; }
+  function isGlobalV40(u){ return isMasterV40(u) || isSECV40(u); }
+  function podeImportarV40(u){ return isGlobalV40(u) || isAdminV40(u); }
+  function podeEditarEscolaV40(u){ return isGlobalV40(u) || isAdminV40(u) || isTecnicoV40(u); }
+  function podeMovimentarV40(u){ return isGlobalV40(u) || isAdminV40(u) || isTecnicoV40(u); }
+  function podeVerUsuariosV40(u){ return isGlobalV40(u); }
+  function podeVerLogsV40(u){ return isGlobalV40(u) || isAdminV40(u); }
+  function usuarioAtual(){ return window.usuarioLogado || (typeof usuarioLogado !== 'undefined' ? usuarioLogado : null); }
+
+  function normalizarUsuarioV40(u){
+    if(!u) return u;
+    if(low(u.email) === EMAIL_SEC_V40){
+      u.nome = u.nome || 'USUÁRIO SEC';
+      u.perfil = 'SEC';
+      u.grupo = 'SEC';
+      u.nte = GRUPO_SEC_V40;
+      u.senha = u.senha || '123';
+      u.ativo = u.ativo !== false;
+      return u;
+    }
+    u.perfil = perfilV40(u.perfil || u.tipo || u.role || 'Tecnico');
+    u.nte = txt(u.nte || u.nte_vinculado || u.grupo || 'NTE-26 Salvador');
+    u.senha = u.senha || '123';
+    u.ativo = u.ativo !== false;
+    return u;
+  }
+
+  function garantirUsuariosBaseV40(){
+    try{
+      window.usuariosDB = Array.isArray(window.usuariosDB) ? window.usuariosDB : (typeof usuariosDB !== 'undefined' && Array.isArray(usuariosDB) ? usuariosDB : []);
+      try{ usuariosDB = window.usuariosDB; }catch(e){}
+      const existe = e => window.usuariosDB.some(u => low(u.email) === low(e));
+      const prox = base => Math.max(base, 0, ...window.usuariosDB.map(u => Number(u.id)||0)) + 1;
+      if(!existe(EMAIL_SEC_V40)) window.usuariosDB.push({id: prox(900000), nome:'USUÁRIO SEC', email:EMAIL_SEC_V40, senha:'123', perfil:'SEC', grupo:'SEC', nte:GRUPO_SEC_V40, ativo:true});
+      window.usuariosDB.forEach(normalizarUsuarioV40);
+      if(Array.isArray(window.LISTA_OFICIAL_27_NTES) && !window.LISTA_OFICIAL_27_NTES.some(n => up(n).includes('SEC - TODOS'))) window.LISTA_OFICIAL_27_NTES.unshift(GRUPO_SEC_V40);
+    }catch(e){ console.warn('SIGEE V40: não foi possível garantir usuários base.', e); }
+  }
+
+  function sincronizarIdentidadeUsuarioV40(){
+    garantirUsuariosBaseV40();
+    const u = usuarioAtual();
+    if(!u) return null;
+    // Mantém o perfil salvo/cadastrado para o usuário. Não promove Técnico para Master por e-mail.
+    const cadastrado = (window.usuariosDB || []).find(x => low(x.email) === low(u.email));
+    if(cadastrado){
+      u.perfil = perfilV40(cadastrado.perfil || u.perfil);
+      u.nte = cadastrado.nte || u.nte;
+      u.grupo = cadastrado.grupo || u.grupo || '';
+      u.nome = cadastrado.nome || u.nome;
+      u.ativo = cadastrado.ativo !== false;
+    } else {
+      normalizarUsuarioV40(u);
+    }
+    window.usuarioLogado = u;
+    try{ usuarioLogado = u; }catch(e){}
+    return u;
+  }
+
+  function aplicarPermissoesV40(){
+    const u = sincronizarIdentidadeUsuarioV40();
+
+    const btnImportar = document.getElementById('btn-importar-dados-master');
+    if(btnImportar) btnImportar.classList.toggle('hidden', !podeImportarV40(u));
+    const inputImportar = document.getElementById('input-importar-excel');
+    if(inputImportar) inputImportar.disabled = !podeImportarV40(u);
+    document.querySelectorAll('[data-master-only-import-processos], .btn-importar-processos-master, .btn-importar-processos-admin, .import-only')
+      .forEach(el => el.classList.toggle('hidden', !podeImportarV40(u)));
+
+    const menuUsuarios = document.getElementById('menu-usuarios');
+    if(menuUsuarios) menuUsuarios.classList.toggle('hidden', !podeVerUsuariosV40(u));
+    const menuLogs = document.getElementById('menu-logs');
+    if(menuLogs) menuLogs.classList.toggle('hidden', !podeVerLogsV40(u));
+
+    document.querySelectorAll('[data-sigee-permissao="editar-escola"], .btn-editar-escola')
+      .forEach(el => el.classList.toggle('hidden', !podeEditarEscolaV40(u)));
+
+    const nome = document.getElementById('user-nome');
+    const pf = document.getElementById('user-perfil');
+    if(u && nome) nome.innerText = u.nome || '';
+    if(u && pf) pf.innerText = `${perfilV40(u.perfil)} | ${u.nte || ''}`;
+
+    // Se um Técnico/Consulta estiver numa aba administrativa por cache/navegação direta, volta ao Dashboard.
+    const abaUsuarios = document.getElementById('aba-usuarios');
+    if(abaUsuarios && !abaUsuarios.classList.contains('hidden') && !podeVerUsuariosV40(u)){
+      if(typeof navegar === 'function') navegar('painel');
+    }
+    const abaLogs = document.getElementById('aba-logs');
+    if(abaLogs && !abaLogs.classList.contains('hidden') && !podeVerLogsV40(u)){
+      if(typeof navegar === 'function') navegar('painel');
+    }
+  }
+
+  window.SIGEE_PERFIS_V40 = {
+    perfil: u => perfilV40(u && u.perfil ? u.perfil : u),
+    isSEC: isSECV40,
+    isMaster: isMasterV40,
+    isAdmin: isAdminV40,
+    isTecnico: isTecnicoV40,
+    isConsulta: isConsultaV40,
+    isGlobal: isGlobalV40,
+    podeImportar: podeImportarV40,
+    podeEditarEscola: podeEditarEscolaV40,
+    podeMovimentar: podeMovimentarV40,
+    podeVerUsuarios: podeVerUsuariosV40,
+    podeVerLogs: podeVerLogsV40,
+    aplicarPermissoes: aplicarPermissoesV40
+  };
+  window.perfilCanonicoSIGEE = function(perfil){ return perfilV40(perfil); };
+  try{ perfilCanonicoSIGEE = window.perfilCanonicoSIGEE; }catch(e){}
+
+  // Protege navegação administrativa para Técnico e Consulta.
+  const navegarAnteriorV40 = window.navegar || (typeof navegar !== 'undefined' ? navegar : null);
+  if(typeof navegarAnteriorV40 === 'function'){
+    window.navegar = function(aba){
+      const u = sincronizarIdentidadeUsuarioV40();
+      if(aba === 'usuarios' && !podeVerUsuariosV40(u)){ alert('Acesso ao Controle de Usuários permitido apenas para SEC e Master.'); aba = 'painel'; }
+      if(aba === 'logs' && !podeVerLogsV40(u)){ alert('Acesso aos Logs permitido apenas para SEC, Master e Administrador.'); aba = 'painel'; }
+      const r = navegarAnteriorV40.call(this, aba);
+      setTimeout(aplicarPermissoesV40, 80);
+      return r;
+    };
+    try{ navegar = window.navegar; }catch(e){}
+  }
+
+  // Reforça login sem alterar a rotina de carregamento do banco.
+  const loginAnteriorV40 = window.handleLogin || (typeof handleLogin !== 'undefined' ? handleLogin : null);
+  if(typeof loginAnteriorV40 === 'function'){
+    window.handleLogin = async function(event){
+      const r = await loginAnteriorV40.apply(this, arguments);
+      sincronizarIdentidadeUsuarioV40();
+      registrarUsuarioConectadoV40('Login realizado no sistema.');
+      aplicarPermissoesV40();
+      return r;
+    };
+    try{ handleLogin = window.handleLogin; }catch(e){}
+  }
+
+  // Impede importação para Técnico/Consulta mesmo se o botão for acionado por console ou cache.
+  const importAnteriorV40 = window.processarImportacaoOtimizada || (typeof processarImportacaoOtimizada !== 'undefined' ? processarImportacaoOtimizada : null);
+  if(typeof importAnteriorV40 === 'function'){
+    window.processarImportacaoOtimizada = function(event){
+      const u = sincronizarIdentidadeUsuarioV40();
+      if(!podeImportarV40(u)){
+        if(event && event.target) event.target.value = '';
+        alert('Importação permitida apenas para os perfis SEC, Master e Administrador.');
+        return false;
+      }
+      return importAnteriorV40.apply(this, arguments);
+    };
+    try{ processarImportacaoOtimizada = window.processarImportacaoOtimizada; }catch(e){}
+  }
+
+  function lerOnlineV40(){
+    const mapa = Object.assign({}, window.SIGEE_USUARIOS_ONLINE || {});
+    try{ Object.assign(mapa, JSON.parse(localStorage.getItem('SIGEE_USUARIOS_ONLINE') || '{}')); }catch(e){}
+    const agora = Date.now();
+    return Object.values(mapa).filter(u => {
+      const ts = Number(u.ts || 0);
+      return !ts || (agora - ts) < (1000 * 60 * 60 * 8); // mantém online nas últimas 8h
+    });
+  }
+
+  function salvarOnlineV40(mapa){
+    window.SIGEE_USUARIOS_ONLINE = mapa;
+    try{ localStorage.setItem('SIGEE_USUARIOS_ONLINE', JSON.stringify(mapa)); }catch(e){}
+  }
+
+  function registrarUsuarioConectadoV40(acao){
+    const u = usuarioAtual();
+    if(!u || !u.email) return;
+    const agora = new Date();
+    let mapa = {};
+    try{ mapa = JSON.parse(localStorage.getItem('SIGEE_USUARIOS_ONLINE') || '{}'); }catch(e){ mapa = {}; }
+    mapa[low(u.email)] = {
+      nome: u.nome || '', email: u.email || '', nte: u.nte || '', perfil: perfilV40(u.perfil),
+      ultimo: agora.toLocaleString('pt-BR'), ts: agora.getTime()
+    };
+    salvarOnlineV40(mapa);
+    try{
+      if(typeof registrarLog === 'function' && acao) registrarLog(acao);
+    }catch(e){}
+  }
+
+  function garantirDashboardLogV40(){
+    const secao = document.getElementById('aba-logs');
+    if(!secao || document.getElementById('painel-usuarios-conectados-v40')) return;
+    const bloco = document.createElement('div');
+    bloco.id = 'painel-usuarios-conectados-v40';
+    bloco.className = 'bg-white/10 rounded-xl border border-cyan-700/40 shadow-sm p-4 space-y-3 text-white';
+    bloco.innerHTML = `
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+        <div>
+          <h2 class="text-lg font-bold text-cyan-100">👥 Usuários conectados no sistema</h2>
+          <p class="text-xs text-cyan-200/80">Sessões registradas neste navegador/ambiente de uso.</p>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-center">
+          <div class="bg-blue-950/70 rounded-lg p-3"><p class="text-[10px] uppercase text-cyan-200">Total</p><p id="log-v40-total" class="text-xl font-black">0</p></div>
+          <div class="bg-blue-950/70 rounded-lg p-3"><p class="text-[10px] uppercase text-cyan-200">SEC/Master</p><p id="log-v40-master" class="text-xl font-black">0</p></div>
+          <div class="bg-blue-950/70 rounded-lg p-3"><p class="text-[10px] uppercase text-cyan-200">Admin</p><p id="log-v40-admin" class="text-xl font-black">0</p></div>
+          <div class="bg-blue-950/70 rounded-lg p-3"><p class="text-[10px] uppercase text-cyan-200">Técnico/Consulta</p><p id="log-v40-operacao" class="text-xl font-black">0</p></div>
+        </div>
+      </div>
+      <div class="overflow-x-auto rounded-lg border border-cyan-700/30">
+        <table class="w-full text-left text-xs">
+          <thead class="bg-cyan-950/70 text-cyan-100 uppercase"><tr><th class="p-2">Usuário</th><th class="p-2">Perfil</th><th class="p-2">NTE</th><th class="p-2">Último acesso</th><th class="p-2">Status</th></tr></thead>
+          <tbody id="tabela-usuarios-conectados-v40" class="divide-y divide-cyan-900/40"></tbody>
+        </table>
+      </div>`;
+    const tabelaLogs = secao.querySelector('.bg-white.rounded-xl, table') || null;
+    if(tabelaLogs && tabelaLogs.parentElement === secao) secao.insertBefore(bloco, tabelaLogs);
+    else secao.prepend(bloco);
+  }
+
+  function atualizarUsuariosConectadosV40(){
+    garantirDashboardLogV40();
+    const online = lerOnlineV40();
+    const set = (id, val) => { const el = document.getElementById(id); if(el) el.innerText = val; };
+    set('log-v40-total', online.length);
+    set('log-v40-master', online.filter(u => ['SEC','Master'].includes(perfilV40(u.perfil))).length);
+    set('log-v40-admin', online.filter(u => perfilV40(u.perfil)==='Administrador').length);
+    set('log-v40-operacao', online.filter(u => ['Tecnico','Consulta'].includes(perfilV40(u.perfil))).length);
+    const corpo = document.getElementById('tabela-usuarios-conectados-v40');
+    if(corpo){
+      corpo.innerHTML = online.length ? online.map(u => `<tr class="hover:bg-white/5"><td class="p-2 font-bold">${txt(u.nome)}<br><span class="font-mono text-cyan-200/80">${txt(u.email)}</span></td><td class="p-2">${perfilV40(u.perfil)}</td><td class="p-2">${txt(u.nte)}</td><td class="p-2">${txt(u.ultimo)}</td><td class="p-2"><span class="bg-emerald-500/20 text-emerald-200 px-2 py-0.5 rounded-full font-bold">ONLINE</span></td></tr>`).join('') : '<tr><td colspan="5" class="p-3 text-center text-cyan-100/70">Nenhum usuário registrado como conectado.</td></tr>';
+    }
+  }
+
+  const logsAnteriorV40 = window.carregarLogs || (typeof carregarLogs !== 'undefined' ? carregarLogs : null);
+  window.carregarLogs = function(){
+    if(typeof logsAnteriorV40 === 'function') logsAnteriorV40.apply(this, arguments);
+    atualizarUsuariosConectadosV40();
+  };
+  try{ carregarLogs = window.carregarLogs; }catch(e){}
+
+  const logoutAnteriorV40 = window.logout || (typeof logout !== 'undefined' ? logout : null);
+  window.logout = function(){
+    const u = usuarioAtual();
+    if(u && u.email){
+      try{
+        const mapa = JSON.parse(localStorage.getItem('SIGEE_USUARIOS_ONLINE') || '{}');
+        delete mapa[low(u.email)];
+        salvarOnlineV40(mapa);
+      }catch(e){}
+      try{ if(typeof registrarLog === 'function') registrarLog('Logout realizado no sistema.'); }catch(e){}
+    }
+    if(typeof logoutAnteriorV40 === 'function') return logoutAnteriorV40.apply(this, arguments);
+    window.usuarioLogado = null; try{ usuarioLogado = null; }catch(e){}
+    document.getElementById('sistema-dashboard')?.classList.add('hidden');
+    document.getElementById('tela-login')?.classList.remove('hidden');
+  };
+  try{ logout = window.logout; }catch(e){}
+
+  document.addEventListener('DOMContentLoaded', function(){
+    garantirUsuariosBaseV40();
+    setTimeout(aplicarPermissoesV40, 400);
+    setTimeout(aplicarPermissoesV40, 1500);
+    setTimeout(atualizarUsuariosConectadosV40, 1600);
+  });
+  setInterval(function(){ if(usuarioAtual()) registrarUsuarioConectadoV40(); if(!document.getElementById('aba-logs')?.classList.contains('hidden')) atualizarUsuariosConectadosV40(); }, 60000);
+})();
+
+
+// ===== bloco JS extraído do index.html =====
+(function(){
+  'use strict';
+  const KEY_COMPLETO = 'SIGEE_USUARIOS_COMPLETO_V41';
+  const KEY_ONLINE = 'SIGEE_USUARIOS_ONLINE';
+
+  function txt(v){ return (v===undefined||v===null)?'':String(v).trim(); }
+  function low(v){ return txt(v).toLowerCase(); }
+  function up(v){ return txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase(); }
+  function perfil(v){
+    const p = up(v);
+    if(p.includes('SEC')) return 'SEC';
+    if(p.includes('MASTER')) return 'Master';
+    if(p.includes('ADMIN')) return 'Administrador';
+    if(p.includes('CONSULT')) return 'Consulta';
+    return 'Tecnico';
+  }
+  function isSEC(u){ return !!u && (perfil(u.perfil)==='SEC' || up(u.grupo).includes('SEC') || up(u.nte).includes('SEC') || up(u.nte).includes('TODOS OS NTES') || low(u.email)==='sec@enova.educacao.ba.gov.br'); }
+  function isGlobal(u){ const p=perfil(u&&u.perfil); return p==='SEC' || p==='Master' || isSEC(u); }
+  function usuarioAtual(){ return window.usuarioLogado || (typeof usuarioLogado!=='undefined'?usuarioLogado:null); }
+  function normalizarUsuarioV41(u){
+    u = u || {};
+    const email = low(u.email);
+    let pf = perfil(u.perfil || u.tipo || u.role || 'Tecnico');
+    if(email==='elmo.lobao@enova.educacao.ba.gov.br') pf = 'Master';
+    if(email==='sec@enova.educacao.ba.gov.br') pf = 'SEC';
+    let nte = txt(u.nte || u.nte_nome || u.nte_vinculado || u.grupo || u.nte_id || 'NTE-26 Salvador');
+    if(pf==='SEC' || up(nte).includes('SEC')) nte = 'SEC - TODOS OS NTEs';
+    return Object.assign({}, u, {
+      id: u.id || Date.now(),
+      nome: txt(u.nome || u.name || 'USUÁRIO').toUpperCase(),
+      email,
+      senha: txt(u.senha || u.password || '123'),
+      perfil: pf,
+      nte,
+      grupo: pf==='SEC' ? 'SEC' : (u.grupo || ''),
+      ativo: u.ativo !== false
+    });
+  }
+  function salvarUsuariosLocalV41(){
+    try{
+      const base = Array.isArray(window.usuariosDB) ? window.usuariosDB : (typeof usuariosDB!=='undefined'?usuariosDB:[]);
+      const salvos = base.map(normalizarUsuarioV41);
+      localStorage.setItem(KEY_COMPLETO, JSON.stringify(salvos));
+      return true;
+    }catch(e){ console.warn('SIGEE V41: não salvou usuários no cache local', e); return false; }
+  }
+  function carregarUsuariosLocalV41(){
+    try{
+      const salvos = JSON.parse(localStorage.getItem(KEY_COMPLETO) || '[]').map(normalizarUsuarioV41);
+      if(!salvos.length) return false;
+      const base = Array.isArray(window.usuariosDB) ? window.usuariosDB : (typeof usuariosDB!=='undefined'?usuariosDB:[]);
+      salvos.forEach(s=>{
+        const idx = base.findIndex(u => low(u.email)===s.email || String(u.id)===String(s.id));
+        if(idx>=0) base[idx] = Object.assign({}, base[idx], s); else base.push(s);
+      });
+      window.usuariosDB = base;
+      try{ usuariosDB = base; }catch(e){}
+      return true;
+    }catch(e){ console.warn('SIGEE V41: não carregou usuários do cache local', e); return false; }
+  }
+  async function salvarUsuarioSupabaseBasicoV41(u){
+    try{
+      const client = (typeof obterSupabaseSIGEE==='function') ? obterSupabaseSIGEE() : (window.supabaseClient || null);
+      const tabela = (window.SIGEE_SUPABASE_TABELAS && window.SIGEE_SUPABASE_TABELAS.usuarios) || 'usuarios_sigee';
+      if(!client || !client.from) return false;
+      // Grava apenas colunas seguras já usadas pelo SIGEE. NTE/senha ficam preservados localmente quando não existirem no banco.
+      const payload = { nome:u.nome, email:u.email, perfil:u.perfil, ativo:u.ativo!==false };
+      const { error } = await client.from(tabela).upsert(payload, { onConflict:'email' });
+      if(error) throw error;
+      return true;
+    }catch(e){ console.warn('SIGEE V41: Supabase recusou salvamento básico do usuário; cache local preservado.', e); return false; }
+  }
+
+  // Aplica cache local assim que a página abre e também depois de qualquer sincronização do Supabase.
+  document.addEventListener('DOMContentLoaded', function(){
+    setTimeout(function(){ carregarUsuariosLocalV41(); if(typeof carregarListaUsuarios==='function') carregarListaUsuarios(); }, 100);
+    setTimeout(function(){ carregarUsuariosLocalV41(); if(typeof carregarListaUsuarios==='function') carregarListaUsuarios(); }, 1500);
+  });
+
+  const carregarV32 = window.carregarDadosOperacionaisV32;
+  if(typeof carregarV32 === 'function'){
+    window.carregarDadosOperacionaisV32 = async function(){
+      const r = await carregarV32.apply(this, arguments);
+      carregarUsuariosLocalV41();
+      try{ if(typeof carregarListaUsuarios==='function') carregarListaUsuarios(); }catch(e){}
+      return r;
+    };
+    try{ carregarDadosOperacionaisV32 = window.carregarDadosOperacionaisV32; }catch(e){}
+  }
+
+  // Substitui salvamento do formulário para não perder perfil/NTE/senha ao sair do sistema.
+  window.salvarNovoUsuarioFormularioMaster = async function(event){
+    if(event) event.preventDefault();
+    const id = txt(document.getElementById('user-form-id')?.value);
+    const novo = normalizarUsuarioV41({
+      id: id || Date.now(),
+      nome: document.getElementById('user-form-nome')?.value,
+      email: document.getElementById('user-form-email')?.value,
+      senha: document.getElementById('user-form-senha')?.value || '123',
+      nte: document.getElementById('user-form-nte')?.value || 'NTE-26 Salvador',
+      perfil: document.getElementById('user-form-perfil')?.value || 'Tecnico',
+      ativo: true
+    });
+    if(!novo.nome || !novo.email){ alert('Informe nome e e-mail do usuário.'); return; }
+    const base = Array.isArray(window.usuariosDB) ? window.usuariosDB : (typeof usuariosDB!=='undefined'?usuariosDB:[]);
+    const idx = base.findIndex(u => low(u.email)===novo.email || String(u.id)===String(id));
+    if(idx>=0) base[idx] = Object.assign({}, base[idx], novo); else base.push(novo);
+    window.usuariosDB = base; try{ usuariosDB = base; }catch(e){}
+    salvarUsuariosLocalV41();
+    await salvarUsuarioSupabaseBasicoV41(novo);
+    try{ if(typeof registrarLog==='function') registrarLog((id?'Atualizou':'Cadastrou')+' usuário: '+novo.email+' | Perfil: '+novo.perfil+' | NTE: '+novo.nte); }catch(e){}
+    try{ if(typeof fecharModalUsuario==='function') fecharModalUsuario(); }catch(e){ const m=document.getElementById('modal-cadastro-usuario'); if(m) m.classList.add('hidden'); }
+    try{ if(typeof carregarListaUsuarios==='function') carregarListaUsuarios(); }catch(e){}
+    alert('Usuário salvo. As informações complementares de perfil/NTE/senha foram preservadas no SIGEE.');
+  };
+  try{ salvarNovoUsuarioFormularioMaster = window.salvarNovoUsuarioFormularioMaster; }catch(e){}
+
+  // Desativar/ativar também persiste.
+  const oldToggle = window.toggleStatusUsuarioMaster || (typeof toggleStatusUsuarioMaster!=='undefined'?toggleStatusUsuarioMaster:null);
+  window.toggleStatusUsuarioMaster = async function(id){
+    const base = Array.isArray(window.usuariosDB) ? window.usuariosDB : (typeof usuariosDB!=='undefined'?usuariosDB:[]);
+    const u = base.find(x => String(x.id)===String(id));
+    if(!u){ if(typeof oldToggle==='function') return oldToggle.apply(this, arguments); return; }
+    u.ativo = !(u.ativo!==false);
+    salvarUsuariosLocalV41();
+    await salvarUsuarioSupabaseBasicoV41(normalizarUsuarioV41(u));
+    try{ if(typeof registrarLog==='function') registrarLog((u.ativo?'Ativou':'Desativou')+' usuário: '+u.email); }catch(e){}
+    try{ carregarListaUsuarios(); }catch(e){}
+  };
+  try{ toggleStatusUsuarioMaster = window.toggleStatusUsuarioMaster; }catch(e){}
+
+  // Resetar senha também persiste no cache local.
+  const oldReset = window.resetarSenhaUsuarioMaster || (typeof resetarSenhaUsuarioMaster!=='undefined'?resetarSenhaUsuarioMaster:null);
+  window.resetarSenhaUsuarioMaster = async function(id){
+    const base = Array.isArray(window.usuariosDB) ? window.usuariosDB : (typeof usuariosDB!=='undefined'?usuariosDB:[]);
+    const u = base.find(x => String(x.id)===String(id));
+    if(!u){ if(typeof oldReset==='function') return oldReset.apply(this, arguments); return; }
+    const nova = prompt('Informe a nova senha provisória:', u.senha || '123');
+    if(!nova) return;
+    u.senha = txt(nova);
+    salvarUsuariosLocalV41();
+    await salvarUsuarioSupabaseBasicoV41(normalizarUsuarioV41(u));
+    try{ if(typeof registrarLog==='function') registrarLog('Resetou senha do usuário: '+u.email); }catch(e){}
+    try{ carregarListaUsuarios(); }catch(e){}
+    alert('Senha atualizada no SIGEE. Observação: a tabela usuarios_sigee não possui coluna senha; por isso a senha fica preservada na camada complementar local deste navegador.');
+  };
+  try{ resetarSenhaUsuarioMaster = window.resetarSenhaUsuarioMaster; }catch(e){}
+
+  // Garante que o login considere os dados complementares salvos.
+  const oldLogin = window.handleLogin || (typeof handleLogin!=='undefined'?handleLogin:null);
+  if(typeof oldLogin === 'function'){
+    window.handleLogin = function(event){
+      carregarUsuariosLocalV41();
+      return oldLogin.apply(this, arguments);
+    };
+    try{ handleLogin = window.handleLogin; }catch(e){}
+  }
+
+  window.SIGEE_V41 = {salvarUsuariosLocalV41, carregarUsuariosLocalV41};
+})();
+
+
+// ===== bloco JS extraído do index.html =====
+(function(){
+  'use strict';
+  const EMAIL_SEC = 'sec@enova.educacao.ba.gov.br';
+  const GRUPO_SEC = 'SEC - TODOS OS NTEs';
+  const KEY_COMPLETO = 'SIGEE_USUARIOS_COMPLETO_V41';
+
+  function txt(v){ return (v===undefined || v===null) ? '' : String(v).trim(); }
+  function low(v){ return txt(v).toLowerCase(); }
+  function sem(v){ return txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+  function up(v){ return sem(v).toUpperCase(); }
+  function numeroNte(v){ const m = txt(v).match(/NTE\s*[- ]?\s*(\d{1,2})/i); return m ? Number(m[1]) : null; }
+  function normNte(v){ const n = numeroNte(v); return n ? 'NTE'+String(n).padStart(2,'0') : up(v).replace(/[^A-Z0-9]/g,''); }
+
+  function perfilCanonico(v){
+    const p = up(v || 'Tecnico');
+    if(p.includes('SEC')) return 'SEC';
+    if(p.includes('MASTER')) return 'Master';
+    if(p.includes('ADMINISTR') || p.includes('ADMIN')) return 'Administrador';
+    if(p.includes('CONSULT')) return 'Consulta';
+    if(p.includes('TECNIC')) return 'Tecnico';
+    return 'Tecnico';
+  }
+
+  function usuarioAtual(){ return window.usuarioLogado || (typeof usuarioLogado !== 'undefined' ? usuarioLogado : null); }
+  function isSEC(u){ return !!u && (low(u.email) === EMAIL_SEC || perfilCanonico(u.perfil) === 'SEC' || (perfilCanonico(u.perfil)==='SEC' && up(u.grupo).includes('SEC'))); }
+  function isMaster(u){ return perfilCanonico(u && u.perfil) === 'Master'; }
+  function isAdmin(u){ return perfilCanonico(u && u.perfil) === 'Administrador'; }
+  function isTecnico(u){ return perfilCanonico(u && u.perfil) === 'Tecnico'; }
+  function isConsulta(u){ return perfilCanonico(u && u.perfil) === 'Consulta'; }
+  function isGlobal(u){ return isSEC(u) || isMaster(u); }
+  function nteUsuario(u){
+    if(!u) return '';
+    if(isSEC(u)) return GRUPO_SEC;
+    return txt(u.nte || u.nte_nome || u.nte_vinculado || u.grupo || 'NTE-26 Salvador');
+  }
+  function nteItem(x){ return txt(x && (x.nte || x.nte_nome || x.nte_vinculado || x.nucleo || x.nte_descricao || x.nte_id || '')); }
+  function mesmoNte(a,b){
+    if(!a || !b) return false;
+    const na = numeroNte(a), nb = numeroNte(b);
+    if(na && nb) return na === nb;
+    return normNte(a) === normNte(b);
+  }
+
+  const Perm = {
+    visualizarTodos: u => isGlobal(u),
+    dashboardGlobal: u => isGlobal(u),
+    cadastrarEscola: u => isGlobal(u) || isAdmin(u) || isTecnico(u),
+    alterarEscola: u => isGlobal(u) || isAdmin(u) || isTecnico(u),
+    excluirEscola: u => isGlobal(u),
+    importarEscolas: u => isGlobal(u) || isAdmin(u),
+    importarProcessos: u => isGlobal(u) || isAdmin(u),
+    importarUsuarios: u => isGlobal(u),
+    exportarDados: u => isGlobal(u) || isAdmin(u),
+    abrirSolicitacao: u => isGlobal(u) || isAdmin(u) || isTecnico(u),
+    alterarFluxo: u => isGlobal(u) || isAdmin(u) || isTecnico(u),
+    tecnicosQualquerNte: u => isGlobal(u),
+    cadastrarUsuarios: u => isGlobal(u),
+    alterarUsuarios: u => isGlobal(u) || isAdmin(u),
+    alterarPerfilUsuario: u => isGlobal(u),
+    acessarLogs: u => isGlobal(u) || isAdmin(u),
+    usuariosConectados: u => isGlobal(u) || isAdmin(u),
+    configuracoes: u => isGlobal(u)
+  };
+
+  function normalizarUsuario(u){
+    if(!u) return u;
+    const email = low(u.email);
+    let p = perfilCanonico(u.perfil || u.tipo || u.role || 'Tecnico');
+    if(email === EMAIL_SEC) p = 'SEC';
+    let nte = txt(u.nte || u.nte_nome || u.nte_vinculado || u.grupo || 'NTE-26 Salvador');
+    if(p === 'SEC') nte = GRUPO_SEC;
+    // IMPORTANTE: nte SEC sozinho não transforma Técnico/Admin em global.
+    u.perfil = p;
+    u.nte = nte;
+    u.grupo = p === 'SEC' ? 'SEC' : txt(u.grupo || '');
+    u.senha = txt(u.senha || u.password || '123') || '123';
+    u.ativo = u.ativo !== false;
+    return u;
+  }
+
+  function usuariosBase(){
+    const base = Array.isArray(window.usuariosDB) ? window.usuariosDB : (typeof usuariosDB !== 'undefined' && Array.isArray(usuariosDB) ? usuariosDB : []);
+    window.usuariosDB = base; try{ usuariosDB = base; }catch(e){}
+    return base;
+  }
+  function salvarLocal(){
+    try{ localStorage.setItem(KEY_COMPLETO, JSON.stringify(usuariosBase().map(u => Object.assign({}, normalizarUsuario(u))))); }catch(e){}
+  }
+  function carregarLocal(){
+    try{
+      const salvos = JSON.parse(localStorage.getItem(KEY_COMPLETO) || '[]').map(normalizarUsuario);
+      const base = usuariosBase();
+      salvos.forEach(s => {
+        const idx = base.findIndex(u => low(u.email) === low(s.email) || String(u.id) === String(s.id));
+        if(idx >= 0) base[idx] = Object.assign({}, base[idx], s); else base.push(s);
+      });
+      base.forEach(normalizarUsuario);
+      return salvos.length > 0;
+    }catch(e){ return false; }
+  }
+  function garantirBase(){
+    carregarLocal();
+    const base = usuariosBase();
+    if(!base.some(u => low(u.email) === EMAIL_SEC)) base.push({id:990001,nome:'USUÁRIO SEC',email:EMAIL_SEC,senha:'123',perfil:'SEC',grupo:'SEC',nte:GRUPO_SEC,ativo:true});
+    base.forEach(normalizarUsuario);
+    try{
+      if(Array.isArray(window.LISTA_OFICIAL_27_NTES) && !window.LISTA_OFICIAL_27_NTES.some(n => up(n).includes('SEC - TODOS'))) window.LISTA_OFICIAL_27_NTES.unshift(GRUPO_SEC);
+    }catch(e){}
+  }
+
+  function filtrarListaPorUsuario(lista){
+    const u = usuarioAtual();
+    if(!Array.isArray(lista)) return [];
+    if(isGlobal(u)) return lista;
+    const nte = nteUsuario(u);
+    return lista.filter(item => mesmoNte(nteItem(item), nte));
+  }
+
+  function aplicarPermissoes(){
+    garantirBase();
+    const u = normalizarUsuario(usuarioAtual());
+    if(u){ window.usuarioLogado = u; try{ usuarioLogado = u; }catch(e){} }
+
+    const menuUsuarios = document.getElementById('menu-usuarios');
+    if(menuUsuarios) menuUsuarios.classList.toggle('hidden', !(Perm.alterarUsuarios(u) || Perm.cadastrarUsuarios(u)));
+    const menuLogs = document.getElementById('menu-logs');
+    if(menuLogs) menuLogs.classList.toggle('hidden', !Perm.acessarLogs(u));
+
+    const btnImportar = document.getElementById('btn-importar-dados-master');
+    if(btnImportar) btnImportar.classList.toggle('hidden', !(Perm.importarEscolas(u) || Perm.importarProcessos(u)));
+    const inputImportar = document.getElementById('input-importar-excel');
+    if(inputImportar) inputImportar.disabled = !(Perm.importarEscolas(u) || Perm.importarProcessos(u));
+    document.querySelectorAll('.import-only').forEach(el => el.classList.toggle('hidden', !(Perm.importarEscolas(u) || Perm.importarProcessos(u))));
+    document.querySelectorAll('.export-only').forEach(el => el.classList.toggle('hidden', !Perm.exportarDados(u)));
+
+    document.querySelectorAll('button[onclick="abrirModalNovaEscola()"], .btn-nova-escola').forEach(el => el.classList.toggle('hidden', !Perm.cadastrarEscola(u)));
+    document.querySelectorAll('[data-sigee-permissao="editar-escola"], .btn-editar-escola').forEach(el => el.classList.toggle('hidden', !Perm.alterarEscola(u)));
+    document.querySelectorAll('button[onclick="abrirFormularioNovaSolicitacao()"], .btn-nova-solicitacao').forEach(el => el.classList.toggle('hidden', !Perm.abrirSolicitacao(u)));
+
+    const tituloUser = document.querySelector('#aba-usuarios h1, #aba-usuarios .text-3xl');
+    const btnCadastrarTecnico = document.querySelector('button[onclick="abrirModalCriarUsuarioMaster()"]');
+    if(btnCadastrarTecnico) btnCadastrarTecnico.classList.toggle('hidden', !Perm.cadastrarUsuarios(u));
+
+    const nome = document.getElementById('user-nome'); if(nome && u) nome.innerText = u.nome || '';
+    const pf = document.getElementById('user-perfil'); if(pf && u) pf.innerText = `${perfilCanonico(u.perfil)} | ${nteUsuario(u)}`;
+
+    const abaUsuarios = document.getElementById('aba-usuarios');
+    if(abaUsuarios && !abaUsuarios.classList.contains('hidden') && !(Perm.alterarUsuarios(u) || Perm.cadastrarUsuarios(u))){ try{ navegar('painel'); }catch(e){} }
+    const abaLogs = document.getElementById('aba-logs');
+    if(abaLogs && !abaLogs.classList.contains('hidden') && !Perm.acessarLogs(u)){ try{ navegar('painel'); }catch(e){} }
+  }
+
+  window.SIGEE_PERFIS_V42 = { perfil: perfilCanonico, isSEC, isMaster, isAdmin, isTecnico, isConsulta, isGlobal, Perm, aplicarPermissoes, filtrarListaPorUsuario, normalizarUsuario };
+  window.perfilCanonicoSIGEE = perfilCanonico;
+  try{ perfilCanonicoSIGEE = perfilCanonico; }catch(e){}
+
+  // Carregamento de lista de usuários conforme perfil oficial.
+  window.carregarListaUsuarios = function(){
+    garantirBase();
+    const corpo = document.getElementById('tabela-usuarios-corpo'); if(!corpo) return;
+    corpo.innerHTML = '';
+    const uLog = usuarioAtual();
+    let lista = usuariosBase().map(normalizarUsuario);
+    if(!isGlobal(uLog)) lista = lista.filter(u => mesmoNte(nteUsuario(u), nteUsuario(uLog)));
+    lista.forEach(u => {
+      const mesmo = mesmoNte(nteUsuario(u), nteUsuario(uLog));
+      const podeEditar = isGlobal(uLog) || (isAdmin(uLog) && mesmo && !isGlobal(u));
+      const podeAlterarPerfil = isGlobal(uLog);
+      const grupo = isSEC(u) ? '<span class="ml-1 px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 font-black text-[9px]">SEC</span>' : '';
+      const botoes = podeEditar ? `<div class="flex items-center justify-center gap-1.5"><button onclick="abrirModalEditarUsuarioMaster(${u.id})" class="bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded font-bold cursor-pointer">Editar</button><button onclick="toggleStatusUsuarioMaster(${u.id})" class="${u.ativo!==false?'bg-red-600':'bg-emerald-600'} text-white text-[10px] px-2 py-0.5 rounded font-bold cursor-pointer">${u.ativo!==false?'Desativar':'Ativar'}</button>${podeAlterarPerfil?`<button onclick="resetarSenhaUsuarioMaster(${u.id})" class="bg-gray-700 text-white text-[10px] px-2 py-0.5 rounded font-bold cursor-pointer">Resetar Senha</button>`:''}</div>` : '<span class="text-xs text-gray-400 italic">Sem permissão</span>';
+      corpo.innerHTML += `<tr class="text-xs"><td class="p-3 font-bold">${u.nome}${grupo}<br><span class="text-xs text-gray-400 font-normal font-mono">${u.email}</span></td><td class="p-3 font-medium">${perfilCanonico(u.perfil)}</td><td class="p-3 font-semibold text-gray-600">${nteUsuario(u)}</td><td class="p-3 text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${u.ativo!==false?'bg-green-100 text-green-800':'bg-red-100 text-red-800'}">${u.ativo!==false?'ATIVO':'INATIVO'}</span></td><td class="p-3 text-center">${botoes}</td></tr>`;
+    });
+  };
+  try{ carregarListaUsuarios = window.carregarListaUsuarios; }catch(e){}
+
+  // Cadastro/edição de usuário: Admin edita apenas NTE, mas não muda perfil; SEC/Master mudam tudo.
+  window.salvarNovoUsuarioFormularioMaster = async function(event){
+    if(event) event.preventDefault();
+    garantirBase();
+    const uLog = usuarioAtual();
+    if(!(Perm.cadastrarUsuarios(uLog) || Perm.alterarUsuarios(uLog))){ alert('Seu perfil não possui permissão para alterar usuários.'); return; }
+    const id = txt(document.getElementById('user-form-id')?.value);
+    const base = usuariosBase();
+    const atual = base.find(x => String(x.id)===String(id));
+    const nome = txt(document.getElementById('user-form-nome')?.value).toUpperCase();
+    const email = low(document.getElementById('user-form-email')?.value);
+    const senha = txt(document.getElementById('user-form-senha')?.value || '123');
+    let nte = txt(document.getElementById('user-form-nte')?.value || nteUsuario(uLog));
+    let perfil = perfilCanonico(document.getElementById('user-form-perfil')?.value || 'Tecnico');
+    if(!isGlobal(uLog)){
+      if(!atual || !mesmoNte(nteUsuario(atual), nteUsuario(uLog))){ alert('Administrador só pode alterar usuários do próprio NTE.'); return; }
+      perfil = perfilCanonico(atual.perfil); // Admin não altera perfil.
+      nte = nteUsuario(uLog);
+    }
+    const novo = normalizarUsuario({ id: id || Date.now(), nome, email, senha, nte, perfil, ativo: atual ? atual.ativo !== false : true });
+    if(!novo.nome || !novo.email){ alert('Informe nome e e-mail do usuário.'); return; }
+    const idx = base.findIndex(x => low(x.email) === novo.email || String(x.id) === String(id));
+    if(idx >= 0) base[idx] = Object.assign({}, base[idx], novo); else base.push(novo);
+    salvarLocal();
+    try{
+      const client = (typeof obterSupabaseSIGEE==='function') ? obterSupabaseSIGEE() : null;
+      const tabela = (window.SIGEE_SUPABASE_TABELAS && window.SIGEE_SUPABASE_TABELAS.usuarios) || 'usuarios_sigee';
+      if(client) await client.from(tabela).upsert({nome:novo.nome,email:novo.email,perfil:novo.perfil,ativo:novo.ativo!==false},{onConflict:'email'});
+    }catch(e){ console.warn('SIGEE V42: usuário salvo localmente; Supabase não possui todas as colunas.', e); }
+    try{ if(typeof registrarLog==='function') registrarLog((id?'Atualizou':'Cadastrou')+` usuário: ${novo.email} | Perfil: ${novo.perfil} | NTE: ${novo.nte}`); }catch(e){}
+    try{ fecharModalUsuario(); }catch(e){ document.getElementById('modal-cadastro-usuario')?.classList.add('hidden'); }
+    window.carregarListaUsuarios(); aplicarPermissoes();
+  };
+  try{ salvarNovoUsuarioFormularioMaster = window.salvarNovoUsuarioFormularioMaster; }catch(e){}
+
+  const oldAbrirEditar = window.abrirModalEditarUsuarioMaster || (typeof abrirModalEditarUsuarioMaster !== 'undefined' ? abrirModalEditarUsuarioMaster : null);
+  window.abrirModalEditarUsuarioMaster = function(id){
+    const uLog = usuarioAtual();
+    const alvo = usuariosBase().find(u => String(u.id)===String(id));
+    if(!alvo) return;
+    if(!(isGlobal(uLog) || (isAdmin(uLog) && mesmoNte(nteUsuario(alvo), nteUsuario(uLog))))){ alert('Sem permissão para editar este usuário.'); return; }
+    if(typeof oldAbrirEditar === 'function') oldAbrirEditar.apply(this, arguments);
+    setTimeout(()=>{
+      const pf = document.getElementById('user-form-perfil'); if(pf) pf.disabled = !isGlobal(uLog);
+      const nte = document.getElementById('user-form-nte'); if(nte) nte.disabled = !isGlobal(uLog);
+    },60);
+  };
+  try{ abrirModalEditarUsuarioMaster = window.abrirModalEditarUsuarioMaster; }catch(e){}
+
+  window.preencherSelectTecnicosPorNte = function(selectId, nteFiltro){
+    garantirBase();
+    const select = document.getElementById(selectId); if(!select) return;
+    const uLog = usuarioAtual();
+    const global = isGlobal(uLog);
+    const nteBase = txt(nteFiltro || nteUsuario(uLog));
+    let lista = usuariosBase().map(normalizarUsuario).filter(u => u.ativo!==false && !isConsulta(u) && !isSEC(u));
+    if(!global) lista = lista.filter(u => mesmoNte(nteUsuario(u), nteBase));
+    select.innerHTML = '<option value="">-- Selecione o Servidor --</option>';
+    lista.sort((a,b)=> (nteUsuario(a)+' '+a.nome).localeCompare(nteUsuario(b)+' '+b.nome,'pt-BR')).forEach(u => {
+      const opt = document.createElement('option');
+      opt.value = u.nome;
+      opt.textContent = global ? `${u.nome} — ${perfilCanonico(u.perfil)} — ${nteUsuario(u)}` : `${u.nome} — ${perfilCanonico(u.perfil)}`;
+      opt.dataset.nte = nteUsuario(u);
+      select.appendChild(opt);
+    });
+  };
+  try{ preencherSelectTecnicosPorNte = window.preencherSelectTecnicosPorNte; }catch(e){}
+
+  // Reforça importação/exportação pelos perfis oficiais.
+  const oldImportar = window.processarImportacaoOtimizada || (typeof processarImportacaoOtimizada !== 'undefined' ? processarImportacaoOtimizada : null);
+  if(typeof oldImportar === 'function'){
+    window.processarImportacaoOtimizada = function(event){
+      const u = usuarioAtual();
+      if(!(Perm.importarEscolas(u) || Perm.importarProcessos(u))){ alert('Importação permitida apenas para SEC, Master e Administrador.'); if(event?.target) event.target.value=''; return; }
+      return oldImportar.apply(this, arguments);
+    };
+    try{ processarImportacaoOtimizada = window.processarImportacaoOtimizada; }catch(e){}
+  }
+
+  const oldExportPerfil = window.perfilExportadorSIGEE;
+  window.perfilExportadorSIGEE = function(){ return Perm.exportarDados(usuarioAtual()); };
+
+  const oldLogin = window.handleLogin;
+  if(typeof oldLogin === 'function'){
+    window.handleLogin = async function(event){
+      carregarLocal();
+      const r = await oldLogin.apply(this, arguments);
+      garantirBase();
+      const u = usuarioAtual(); if(u) normalizarUsuario(u);
+      aplicarPermissoes(); salvarLocal();
+      return r;
+    };
+    try{ handleLogin = window.handleLogin; }catch(e){}
+  }
+
+  const oldNavegar = window.navegar;
+  if(typeof oldNavegar === 'function'){
+    window.navegar = function(){ const r = oldNavegar.apply(this, arguments); setTimeout(aplicarPermissoes, 50); return r; };
+    try{ navegar = window.navegar; }catch(e){}
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){ garantirBase(); aplicarPermissoes(); setTimeout(aplicarPermissoes, 700); setTimeout(aplicarPermissoes, 2000); });
+  setInterval(function(){ if(usuarioAtual()) aplicarPermissoes(); }, 30000);
+})();
+
+
+// ===== bloco JS extraído do index.html =====
+/* ==========================================================
+   SIGEE V43 - Correção definitiva de permissões por PERFIL
+   Mantém o carregamento V38/V42 e impede que NTE/Grupo SEC
+   conceda permissões administrativas a usuário Técnico.
+   ========================================================== */
+(function(){
+  'use strict';
+  const EMAIL_SEC = 'sec@enova.educacao.ba.gov.br';
+  const GRUPO_SEC = 'SEC - TODOS OS NTEs';
+  const KEY_COMPLETO = 'SIGEE_USUARIOS_COMPLETO_V41';
+
+  function texto(v){ return (v===undefined || v===null) ? '' : String(v).trim(); }
+  function semAcento(v){ return texto(v).normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+  function up(v){ return semAcento(v).toUpperCase(); }
+  function low(v){ return texto(v).toLowerCase(); }
+  function perfilOficial(v){
+    const p = up(v || 'Tecnico');
+    if(p.includes('SEC')) return 'SEC';
+    if(p.includes('MASTER')) return 'Master';
+    if(p.includes('ADMIN')) return 'Administrador';
+    if(p.includes('CONSULT')) return 'Consulta';
+    if(p.includes('TECNIC')) return 'Tecnico';
+    return 'Tecnico';
+  }
+  function usuario(){ return window.usuarioLogado || (typeof usuarioLogado !== 'undefined' ? usuarioLogado : null); }
+  function perfilAtual(){ return perfilOficial(usuario() && usuario().perfil); }
+  function isSEC(){ const u=usuario(); return !!u && (low(u.email)===EMAIL_SEC || perfilAtual()==='SEC'); }
+  function isMaster(){ return perfilAtual()==='Master'; }
+  function isAdmin(){ return perfilAtual()==='Administrador'; }
+  function isTecnico(){ return perfilAtual()==='Tecnico'; }
+  function isConsulta(){ return perfilAtual()==='Consulta'; }
+  function isGlobal(){ return isSEC() || isMaster(); }
+  function podeUsuarios(){ return isSEC() || isMaster(); }
+  function podeLogs(){ return isSEC() || isMaster() || isAdmin(); }
+  function podeImportar(){ return isSEC() || isMaster() || isAdmin(); }
+  function podeExportar(){ return isSEC() || isMaster() || isAdmin(); }
+  function podeCadastrarEditarEscola(){ return isSEC() || isMaster() || isAdmin() || isTecnico(); }
+  function podeMovimentar(){ return isSEC() || isMaster() || isAdmin() || isTecnico(); }
+  function podeNovaSolicitacao(){ return isSEC() || isMaster() || isAdmin() || isTecnico(); }
+
+  function aplicarPermissoesV43(){
+    const u = usuario();
+    if(!u) return;
+    u.perfil = perfilOficial(u.perfil);
+    if(u.perfil === 'SEC') u.nte = GRUPO_SEC;
+
+    const nome = document.getElementById('user-nome');
+    if(nome) nome.innerText = u.nome || '';
+    const perf = document.getElementById('user-perfil');
+    if(perf) perf.innerText = `${u.perfil} | ${u.nte || ''}`;
+
+    const menuUsuarios = document.getElementById('menu-usuarios');
+    if(menuUsuarios) menuUsuarios.classList.toggle('hidden', !podeUsuarios());
+
+    const menuLogs = document.getElementById('menu-logs');
+    if(menuLogs) menuLogs.classList.toggle('hidden', !podeLogs());
+
+    const btnImportar = document.getElementById('btn-importar-dados-master');
+    if(btnImportar) btnImportar.classList.toggle('hidden', !podeImportar());
+    const inputImportar = document.getElementById('input-importar-excel');
+    if(inputImportar) inputImportar.disabled = !podeImportar();
+
+    document.querySelectorAll('.export-only, [data-sigee-exportar]').forEach(el=>el.classList.toggle('hidden', !podeExportar()));
+    document.querySelectorAll('.import-only, [data-sigee-importar]').forEach(el=>el.classList.toggle('hidden', !podeImportar()));
+    document.querySelectorAll('button[onclick="abrirModalNovaEscola()"], .btn-nova-escola').forEach(el=>el.classList.toggle('hidden', !podeCadastrarEditarEscola()));
+    document.querySelectorAll('[data-sigee-permissao="editar-escola"], .btn-editar-escola').forEach(el=>el.classList.toggle('hidden', !podeCadastrarEditarEscola()));
+    document.querySelectorAll('button[onclick="abrirFormularioNovaSolicitacao()"], .btn-nova-solicitacao').forEach(el=>el.classList.toggle('hidden', !podeNovaSolicitacao()));
+
+    const abaUsuarios = document.getElementById('aba-usuarios');
+    if(abaUsuarios && !abaUsuarios.classList.contains('hidden') && !podeUsuarios()){
+      try{ navegar('painel'); }catch(e){ abaUsuarios.classList.add('hidden'); document.getElementById('aba-painel')?.classList.remove('hidden'); }
+    }
+    const abaLogs = document.getElementById('aba-logs');
+    if(abaLogs && !abaLogs.classList.contains('hidden') && !podeLogs()){
+      try{ navegar('painel'); }catch(e){ abaLogs.classList.add('hidden'); document.getElementById('aba-painel')?.classList.remove('hidden'); }
+    }
+  }
+
+  // Bloqueia navegação indevida, mesmo se algum botão antigo ficar visível por cache.
+  const navegarOriginalV43 = window.navegar || (typeof navegar !== 'undefined' ? navegar : null);
+  window.navegar = function(aba){
+    if(aba === 'usuarios' && !podeUsuarios()) { alert('Seu perfil não possui permissão para acessar Controle de Usuários.'); aba = 'painel'; }
+    if(aba === 'logs' && !podeLogs()) { alert('Seu perfil não possui permissão para acessar Aba de Registros (Logs).'); aba = 'painel'; }
+    const r = (typeof navegarOriginalV43 === 'function') ? navegarOriginalV43.call(this, aba) : undefined;
+    setTimeout(aplicarPermissoesV43, 20);
+    setTimeout(aplicarPermissoesV43, 250);
+    return r;
+  };
+  try{ navegar = window.navegar; }catch(e){}
+
+  // Bloqueia importação para Técnico/Consulta, independentemente do NTE ser SEC.
+  const importarOriginalV43 = window.processarImportacaoOtimizada || (typeof processarImportacaoOtimizada !== 'undefined' ? processarImportacaoOtimizada : null);
+  if(typeof importarOriginalV43 === 'function'){
+    window.processarImportacaoOtimizada = function(event){
+      if(!podeImportar()){
+        alert('Importação permitida apenas para SEC, Master e Administrador.');
+        if(event && event.target) event.target.value = '';
+        return false;
+      }
+      return importarOriginalV43.apply(this, arguments);
+    };
+    try{ processarImportacaoOtimizada = window.processarImportacaoOtimizada; }catch(e){}
+  }
+
+  // Bloqueia exportação para Técnico/Consulta.
+  window.perfilExportadorSIGEE = function(){ return podeExportar(); };
+
+  // Bloqueia renderização da lista de usuários para quem não pode acessar.
+  const carregarUsuariosOriginalV43 = window.carregarListaUsuarios || (typeof carregarListaUsuarios !== 'undefined' ? carregarListaUsuarios : null);
+  window.carregarListaUsuarios = function(){
+    if(!podeUsuarios()){
+      const corpo = document.getElementById('tabela-usuarios-corpo');
+      if(corpo) corpo.innerHTML = '<tr><td colspan="5" class="p-6 text-center text-red-300 font-bold">Acesso restrito aos perfis SEC e Master.</td></tr>';
+      return;
+    }
+    return (typeof carregarUsuariosOriginalV43 === 'function') ? carregarUsuariosOriginalV43.apply(this, arguments) : undefined;
+  };
+  try{ carregarListaUsuarios = window.carregarListaUsuarios; }catch(e){}
+
+  // Compatibilidade: substitui helpers globais usados por camadas antigas.
+  window.SIGEE_PERMISSOES_V43 = {perfilOficial, aplicarPermissoesV43, podeUsuarios, podeLogs, podeImportar, podeExportar, isGlobal};
+  window.perfilCanonicoSIGEE = perfilOficial;
+  try{ perfilCanonicoSIGEE = perfilOficial; }catch(e){}
+
+  const loginOriginalV43 = window.handleLogin || (typeof handleLogin !== 'undefined' ? handleLogin : null);
+  if(typeof loginOriginalV43 === 'function'){
+    window.handleLogin = async function(event){
+      const r = await loginOriginalV43.apply(this, arguments);
+      setTimeout(aplicarPermissoesV43, 30);
+      setTimeout(aplicarPermissoesV43, 400);
+      setTimeout(aplicarPermissoesV43, 1200);
+      return r;
+    };
+    try{ handleLogin = window.handleLogin; }catch(e){}
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    aplicarPermissoesV43();
+    setTimeout(aplicarPermissoesV43, 500);
+    setTimeout(aplicarPermissoesV43, 1500);
+  });
+  setInterval(aplicarPermissoesV43, 5000);
+})();
+
+
+// ===== bloco JS extraído do index.html =====
+/* =========================================================
+   SIGEE V44 - MENU ESTAVEL E PERMISSOES DEFINITIVAS
+   Mantem carregamento V38+ e corrige reexibicao indevida
+   de menus/botoes quando o usuario Tecnico possui NTE SEC.
+   ========================================================= */
+(function(){
+  const GRUPO_SEC_V44 = 'SEC - TODOS OS NTEs';
+  const EMAIL_SEC_V44 = 'sec@enova.educacao.ba.gov.br';
+  function txt(v){ return (v==null?'':String(v)); }
+  function up(v){ return txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().trim(); }
+  function user(){ return window.usuarioLogado || (typeof usuarioLogado !== 'undefined' ? usuarioLogado : null); }
+  function perfil(v){
+    const p = up(v || (user() && user().perfil));
+    if(p.includes('SEC')) return 'SEC';
+    if(p.includes('MASTER')) return 'Master';
+    if(p.includes('ADMIN')) return 'Administrador';
+    if(p.includes('CONSULT')) return 'Consulta';
+    if(p.includes('TECNIC')) return 'Tecnico';
+    return 'Tecnico';
+  }
+  function isSEC(u=user()){ return !!u && (perfil(u.perfil)==='SEC' || txt(u.email).toLowerCase()===EMAIL_SEC_V44); }
+  function isMaster(u=user()){ return perfil(u && u.perfil)==='Master'; }
+  function isAdmin(u=user()){ return perfil(u && u.perfil)==='Administrador'; }
+  function isTecnico(u=user()){ return perfil(u && u.perfil)==='Tecnico'; }
+  function isConsulta(u=user()){ return perfil(u && u.perfil)==='Consulta'; }
+  function global(u=user()){ return isSEC(u) || isMaster(u); }
+  function canUsers(u=user()){ return isSEC(u) || isMaster(u); }
+  function canLogs(u=user()){ return isSEC(u) || isMaster(u) || isAdmin(u); }
+  function canImport(u=user()){ return isSEC(u) || isMaster(u) || isAdmin(u); }
+  function canExport(u=user()){ return isSEC(u) || isMaster(u) || isAdmin(u); }
+  function canEditSchool(u=user()){ return isSEC(u) || isMaster(u) || isAdmin(u) || isTecnico(u); }
+  function canFlow(u=user()){ return isSEC(u) || isMaster(u) || isAdmin(u) || isTecnico(u); }
+  function canNewRequest(u=user()){ return canFlow(u); }
+
+  // IMPORTANTE: NTE SEC sozinho nao transforma Tecnico em global.
+  window.isAcessoGlobalSIGEE = function(u){ return global(u || user()); };
+  window.isMasterSIGEE = function(){ return isMaster(user()) || isSEC(user()); };
+  window.isTecnicoRestritoSIGEE = function(){ return !global(user()); };
+  window.perfilCanonicoSIGEE = perfil;
+  try { isAcessoGlobalSIGEE = window.isAcessoGlobalSIGEE; } catch(e) {}
+  try { isMasterSIGEE = window.isMasterSIGEE; } catch(e) {}
+  try { isTecnicoRestritoSIGEE = window.isTecnicoRestritoSIGEE; } catch(e) {}
+  try { perfilCanonicoSIGEE = perfil; } catch(e) {}
+
+  function setHidden(el, hide){ if(el) el.classList.toggle('hidden', !!hide); }
+  function lockButton(el, blocked){
+    if(!el) return;
+    el.classList.toggle('hidden', !!blocked);
+    if('disabled' in el) el.disabled = !!blocked;
+    if(blocked) el.setAttribute('aria-hidden','true'); else el.removeAttribute('aria-hidden');
+  }
+
+  function aplicarPermissoesV44(){
+    const u = user();
+    if(!u) return;
+    u.perfil = perfil(u.perfil);
+    if(isSEC(u)) u.nte = GRUPO_SEC_V44;
+
+    document.body.dataset.sigeePerfil = u.perfil;
+    document.body.classList.toggle('sigee-perfil-global', global(u));
+    document.body.classList.toggle('sigee-perfil-tecnico', isTecnico(u));
+    document.body.classList.toggle('sigee-perfil-consulta', isConsulta(u));
+    document.body.classList.toggle('sigee-perfil-admin', isAdmin(u));
+
+    const nome = document.getElementById('user-nome');
+    if(nome) nome.innerText = u.nome || '';
+    const perf = document.getElementById('user-perfil');
+    if(perf) perf.innerText = `${u.perfil} | ${u.nte || ''}`;
+
+    setHidden(document.getElementById('menu-usuarios'), !canUsers(u));
+    setHidden(document.getElementById('menu-logs'), !canLogs(u));
+
+    lockButton(document.getElementById('btn-importar-dados-master'), !canImport(u));
+    const input = document.getElementById('input-importar-excel');
+    if(input) input.disabled = !canImport(u);
+
+    // Exportacao deve sumir imediatamente para Tecnico/Consulta.
+    document.querySelectorAll('.export-only, [data-sigee-exportar], button[onclick*="exportar"], button[onclick*="Exportar"], button[id*="export"], button[id*="Export"]').forEach(el=>{
+      const texto = up(el.innerText || el.textContent || el.id || '');
+      if(texto.includes('EXPORT')) lockButton(el, !canExport(u));
+    });
+
+    document.querySelectorAll('.import-only, [data-sigee-importar]').forEach(el=>lockButton(el, !canImport(u)));
+    document.querySelectorAll('button[onclick="abrirModalNovaEscola()"], .btn-nova-escola').forEach(el=>lockButton(el, !canEditSchool(u)));
+    document.querySelectorAll('[data-sigee-permissao="editar-escola"], .btn-editar-escola').forEach(el=>lockButton(el, !canEditSchool(u)));
+    document.querySelectorAll('button[onclick="abrirFormularioNovaSolicitacao()"], .btn-nova-solicitacao').forEach(el=>lockButton(el, !canNewRequest(u)));
+
+    const abaUsuarios = document.getElementById('aba-usuarios');
+    if(abaUsuarios && !abaUsuarios.classList.contains('hidden') && !canUsers(u)){
+      try{ window.navegar('painel'); }catch(e){ abaUsuarios.classList.add('hidden'); document.getElementById('aba-painel')?.classList.remove('hidden'); }
+    }
+    const abaLogs = document.getElementById('aba-logs');
+    if(abaLogs && !abaLogs.classList.contains('hidden') && !canLogs(u)){
+      try{ window.navegar('painel'); }catch(e){ abaLogs.classList.add('hidden'); document.getElementById('aba-painel')?.classList.remove('hidden'); }
+    }
+  }
+
+  // Substitui navegacao antiga e reaplica permissoes imediatamente depois de renderizacoes.
+  const navPrev = window.navegar || (typeof navegar !== 'undefined' ? navegar : null);
+  window.navegar = function(aba){
+    const u = user();
+    if(aba === 'usuarios' && !canUsers(u)){ alert('Acesso ao Controle de Usuários permitido apenas para SEC e Master.'); aba = 'painel'; }
+    if(aba === 'logs' && !canLogs(u)){ alert('Acesso aos Logs permitido apenas para SEC, Master e Administrador.'); aba = 'painel'; }
+    const r = (typeof navPrev === 'function') ? navPrev.call(this, aba) : undefined;
+    aplicarPermissoesV44();
+    setTimeout(aplicarPermissoesV44, 0);
+    setTimeout(aplicarPermissoesV44, 80);
+    setTimeout(aplicarPermissoesV44, 300);
+    return r;
+  };
+  try{ navegar = window.navegar; }catch(e){}
+
+  // Reforca login e importacao.
+  const loginPrev = window.handleLogin || (typeof handleLogin !== 'undefined' ? handleLogin : null);
+  if(typeof loginPrev === 'function'){
+    window.handleLogin = async function(){
+      const r = await loginPrev.apply(this, arguments);
+      aplicarPermissoesV44();
+      setTimeout(aplicarPermissoesV44, 50);
+      setTimeout(aplicarPermissoesV44, 500);
+      return r;
+    };
+    try{ handleLogin = window.handleLogin; }catch(e){}
+  }
+  const impPrev = window.processarImportacaoOtimizada || (typeof processarImportacaoOtimizada !== 'undefined' ? processarImportacaoOtimizada : null);
+  if(typeof impPrev === 'function'){
+    window.processarImportacaoOtimizada = function(event){
+      if(!canImport(user())){
+        alert('Importação permitida apenas para SEC, Master e Administrador.');
+        if(event && event.target) event.target.value = '';
+        return false;
+      }
+      return impPrev.apply(this, arguments);
+    };
+    try{ processarImportacaoOtimizada = window.processarImportacaoOtimizada; }catch(e){}
+  }
+
+  // Observador impede que scripts antigos voltem a exibir menus/botoes proibidos.
+  let t=null;
+  const obs = new MutationObserver(()=>{
+    clearTimeout(t); t=setTimeout(aplicarPermissoesV44, 15);
+  });
+  document.addEventListener('DOMContentLoaded', ()=>{
+    obs.observe(document.body, {childList:true, subtree:true, attributes:true, attributeFilter:['class','style']});
+    aplicarPermissoesV44();
+    setTimeout(aplicarPermissoesV44, 300);
+    setTimeout(aplicarPermissoesV44, 1200);
+  });
+  window.addEventListener('load', ()=>setTimeout(aplicarPermissoesV44, 100));
+  setInterval(aplicarPermissoesV44, 1200);
+
+  window.SIGEE_PERMISSOES_V44 = {perfil, isSEC, isMaster, isAdmin, isTecnico, isConsulta, global, canUsers, canLogs, canImport, canExport, aplicarPermissoesV44};
+})();
+
+
+// ===== bloco JS extraído do index.html =====
+(function(){
+  'use strict';
+  const ETAPAS_V45 = ['Desarquivamento','Análise','Pendência','Digitação','Conferência','Assinatura','Aguardando Retirada','Retirado'];
+  const GRUPO_SEC_V45 = 'SEC - TODOS OS NTEs';
+
+  function txt(v){ return (v===undefined || v===null) ? '' : String(v).trim(); }
+  function sem(v){ return txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+  function up(v){ return sem(v).toUpperCase(); }
+  function low(v){ return txt(v).toLowerCase(); }
+  function hojeBR(){ return new Date().toLocaleDateString('pt-BR'); }
+  function user(){ return window.usuarioLogado || (typeof usuarioLogado !== 'undefined' ? usuarioLogado : null); }
+  function perfil(u){
+    const p = up(u && u.perfil || 'Tecnico');
+    if(p.includes('SEC')) return 'SEC';
+    if(p.includes('MASTER')) return 'Master';
+    if(p.includes('ADMIN')) return 'Administrador';
+    if(p.includes('CONSULT')) return 'Consulta';
+    return 'Tecnico';
+  }
+  function isSEC(u){ return perfil(u)==='SEC' || low(u && u.email)==='sec@enova.educacao.ba.gov.br'; }
+  function isMaster(u){ return perfil(u)==='Master'; }
+  function isAdmin(u){ return perfil(u)==='Administrador'; }
+  function isTecnico(u){ return perfil(u)==='Tecnico'; }
+  function isConsulta(u){ return perfil(u)==='Consulta'; }
+  function isGlobal(u){ return isSEC(u) || isMaster(u); }
+  function numNte(v){ const m = txt(v).match(/NTE\s*[- ]?\s*(\d{1,2})/i); return m ? Number(m[1]) : null; }
+  function normNte(v){ const n=numNte(v); return n ? 'NTE'+String(n).padStart(2,'0') : up(v).replace(/[^A-Z0-9]/g,''); }
+  function nteUsuario(u){ return isSEC(u) ? GRUPO_SEC_V45 : txt(u && (u.nte || u.nte_nome || u.nte_vinculado || u.grupo) || 'NTE-26 Salvador'); }
+  function mesmoNte(a,b){ if(isGlobal(user())) return true; if(!a || !b) return false; const na=numNte(a), nb=numNte(b); return na&&nb ? na===nb : normNte(a)===normNte(b); }
+  function podeGerirUsuarios(u){ return isSEC(u) || isMaster(u); }
+  function podeExcluirUsuario(u){ return isSEC(u) || isMaster(u); }
+  function podeGerirProcessosMaster(u){ return isSEC(u) || isMaster(u); }
+  function podeMovimentarProcesso(u,p){ return isSEC(u) || isMaster(u) || isAdmin(u) || (isTecnico(u) && mesmoNte(nteUsuario(u), p && p.nte)); }
+  function podeEditarEscolaCompleta(u){ return isSEC(u) || isMaster(u) || isAdmin(u); }
+  function podeEditarEscolaLimitada(u){ return isTecnico(u); }
+  function listaUsuarios(){
+    const base = Array.isArray(window.usuariosDB) ? window.usuariosDB : (typeof usuariosDB !== 'undefined' && Array.isArray(usuariosDB) ? usuariosDB : []);
+    window.usuariosDB = base; try{ usuariosDB = base; }catch(e){}
+    return base;
+  }
+  function listaProcessos(){
+    const base = Array.isArray(window.processosDB) ? window.processosDB : (typeof processosDB !== 'undefined' && Array.isArray(processosDB) ? processosDB : []);
+    window.processosDB = base; try{ processosDB = base; }catch(e){}
+    return base;
+  }
+  function listaEscolas(){
+    const base = Array.isArray(window.escolasDB) ? window.escolasDB : (typeof escolasDB !== 'undefined' && Array.isArray(escolasDB) ? escolasDB : []);
+    window.escolasDB = base; try{ escolasDB = base; }catch(e){}
+    return base;
+  }
+  function registrar(acao){ try{ if(typeof registrarLog==='function') registrarLog(acao); }catch(e){} }
+  function supa(){ try{ return (typeof obterSupabaseSIGEE==='function') ? obterSupabaseSIGEE() : null; }catch(e){ return null; } }
+  async function salvarUsuarioV45(u){
+    try{ localStorage.setItem('SIGEE_USUARIOS_COMPLETO_V41', JSON.stringify(listaUsuarios())); }catch(e){}
+    try{
+      const c=supa(); if(!c || !u) return;
+      await c.from((window.SIGEE_SUPABASE_TABELAS&&window.SIGEE_SUPABASE_TABELAS.usuarios)||'usuarios_sigee')
+        .upsert({ nome:u.nome, email:u.email, perfil:u.perfil, ativo:u.ativo!==false }, { onConflict:'email' });
+    }catch(e){ console.warn('SIGEE V45: usuário preservado localmente; Supabase sem todas as colunas.', e); }
+  }
+  async function excluirUsuarioSupabaseV45(u){
+    try{
+      const c=supa(); if(!c || !u) return;
+      const tabela=(window.SIGEE_SUPABASE_TABELAS&&window.SIGEE_SUPABASE_TABELAS.usuarios)||'usuarios_sigee';
+      if(u.id) await c.from(tabela).delete().eq('id', u.id);
+      else if(u.email) await c.from(tabela).delete().eq('email', u.email);
+    }catch(e){ console.warn('SIGEE V45: exclusão de usuário não confirmada no Supabase.', e); }
+  }
+  function processoPayloadV45(p){
+    try{ if(typeof processoParaSupabaseSIGEE==='function') return processoParaSupabaseSIGEE(p); }catch(e){}
+    return { id:p.id, aluno_nome:p.aluno||p.aluno_nome, escola_nome:p.escola||p.escola_nome, documento_tipo:p.documento||p.documento_tipo, etapa_atual:p.etapa||p.etapa_atual, nte:p.nte, modalidade:p.modalidade||null, nivel_oferta:p.ensino||p.nivel_oferta||null };
+  }
+  async function salvarProcessoV45(p){
+    try{ if(typeof salvarBancoLocalSIGEE==='function') salvarBancoLocalSIGEE(); }catch(e){}
+    try{
+      const c=supa(); if(!c || !p) return;
+      await c.from((window.SIGEE_SUPABASE_TABELAS&&window.SIGEE_SUPABASE_TABELAS.processos)||'processos')
+        .upsert(processoPayloadV45(p), { onConflict:'id' });
+    }catch(e){ console.warn('SIGEE V45: processo alterado localmente; Supabase não confirmou.', e); }
+  }
+  async function excluirProcessoSupabaseV45(id){
+    try{
+      const c=supa(); if(!c) return;
+      await c.from((window.SIGEE_SUPABASE_TABELAS&&window.SIGEE_SUPABASE_TABELAS.processos)||'processos').delete().eq('id', id);
+      try{ await c.from((window.SIGEE_SUPABASE_TABELAS&&window.SIGEE_SUPABASE_TABELAS.solicitacoes)||'solicitacoes_sigee').delete().eq('id', id); }catch(e){}
+    }catch(e){ console.warn('SIGEE V45: exclusão de processo não confirmada no Supabase.', e); }
+  }
+  function escolaPayloadV45(e){
+    try{ if(typeof escolaParaSupabaseSIGEE==='function') return escolaParaSupabaseSIGEE(e); }catch(err){}
+    const n = numNte(e.nte || e.nte_id) || e.nte_id || 26;
+    return { cod_mec:e.cod_mec, nome_escola:e.nome_escola||e.nome, municipio:e.municipio||'', nte_id:n, dependencia_adm:e.dependencia_adm||e.dependencia||'Estadual', situacao_funcional:e.situacao_funcional||e.situacao||'Extinta', acervo:e.acervo||'Recolhido', status_acervo:e.status_acervo||e.acervo||'Recolhido', local_acervo:e.local_acervo||null, nome:e.nome||e.nome_escola, nte:e.nte, dependencia:e.dependencia||e.dependencia_adm, situacao:e.situacao||e.situacao_funcional, ativo:e.ativo!==false };
+  }
+  async function salvarEscolaV45(e){
+    try{ if(typeof salvarBancoLocalSIGEE==='function') salvarBancoLocalSIGEE(); }catch(err){}
+    try{
+      const c=supa(); if(!c || !e) return;
+      await c.from((window.SIGEE_SUPABASE_TABELAS&&window.SIGEE_SUPABASE_TABELAS.escolas)||'escolas_sigee')
+        .upsert(escolaPayloadV45(e), { onConflict:'cod_mec' });
+    }catch(err){ console.warn('SIGEE V45: escola alterada localmente; Supabase não confirmou.', err); }
+  }
+  function refresh(){
+    try{ if(typeof carregarListaUsuarios==='function' && !document.getElementById('aba-usuarios')?.classList.contains('hidden')) carregarListaUsuarios(); }catch(e){}
+    try{ if(typeof renderizarListaEscolasBufferMemoria==='function') renderizarListaEscolasBufferMemoria(); }catch(e){}
+    try{ if(typeof carregarEContarProcessosHorizontais==='function') carregarEContarProcessosHorizontais(); }catch(e){}
+    try{ if(typeof carregarDadosDashboardReal==='function') carregarDadosDashboardReal(); }catch(e){}
+    try{ window.SIGEE_PERMISSOES_V44 && window.SIGEE_PERMISSOES_V44.aplicarPermissoesV44(); }catch(e){}
+  }
+
+  window.excluirUsuarioSistemaMasterV45 = async function(id){
+    const uLog=user(); if(!podeExcluirUsuario(uLog)){ alert('Apenas SEC e Master podem excluir usuários.'); return; }
+    const base=listaUsuarios(); const idx=base.findIndex(u=>String(u.id)===String(id));
+    if(idx<0){ alert('Usuário não localizado.'); return; }
+    const alvo=base[idx];
+    if(low(alvo.email)===low(uLog.email)){ alert('Não é permitido excluir o próprio usuário logado.'); return; }
+    if(!confirm(`Confirma excluir o usuário ${alvo.nome || alvo.email}?`)) return;
+    base.splice(idx,1);
+    try{ localStorage.setItem('SIGEE_USUARIOS_COMPLETO_V41', JSON.stringify(base)); }catch(e){}
+    await excluirUsuarioSupabaseV45(alvo);
+    registrar(`[MASTER] Excluiu usuário: ${alvo.nome || alvo.email}`);
+    refresh();
+  };
+
+  const oldToggle = window.toggleStatusUsuarioMaster || (typeof toggleStatusUsuarioMaster !== 'undefined' ? toggleStatusUsuarioMaster : null);
+  window.toggleStatusUsuarioMaster = async function(id){
+    if(!podeGerirUsuarios(user())){ alert('Apenas SEC e Master podem ativar/desativar usuários.'); return; }
+    const u=listaUsuarios().find(x=>String(x.id)===String(id)); if(!u) return;
+    u.ativo = !(u.ativo!==false);
+    await salvarUsuarioV45(u);
+    registrar(`[MASTER] ${u.ativo?'Ativou':'Desativou'} usuário: ${u.nome || u.email}`);
+    refresh();
+  };
+  try{ toggleStatusUsuarioMaster=window.toggleStatusUsuarioMaster; }catch(e){}
+
+  const oldReset = window.resetarSenhaUsuarioMaster || (typeof resetarSenhaUsuarioMaster !== 'undefined' ? resetarSenhaUsuarioMaster : null);
+  window.resetarSenhaUsuarioMaster = async function(id){
+    if(!podeGerirUsuarios(user())){ alert('Apenas SEC e Master podem resetar senha.'); return; }
+    const u=listaUsuarios().find(x=>String(x.id)===String(id)); if(!u) return;
+    const nova=prompt('Informe a nova senha provisória:', '123'); if(nova===null) return;
+    u.senha = txt(nova) || '123';
+    await salvarUsuarioV45(u);
+    registrar(`[MASTER] Resetou senha do usuário: ${u.nome || u.email}`);
+    alert('Senha atualizada.');
+    refresh();
+  };
+  try{ resetarSenhaUsuarioMaster=window.resetarSenhaUsuarioMaster; }catch(e){}
+
+  const oldCarregarUsuarios = window.carregarListaUsuarios || (typeof carregarListaUsuarios !== 'undefined' ? carregarListaUsuarios : null);
+  window.carregarListaUsuarios = function(){
+    const corpo=document.getElementById('tabela-usuarios-corpo'); if(!corpo){ if(oldCarregarUsuarios) return oldCarregarUsuarios.apply(this,arguments); return; }
+    corpo.innerHTML='';
+    const uLog=user();
+    let lista=listaUsuarios().slice();
+    if(!isGlobal(uLog)) lista=lista.filter(u=>mesmoNte(nteUsuario(u), nteUsuario(uLog)));
+    lista.forEach(u=>{
+      const p=perfil(u); const nte=nteUsuario(u);
+      const pode=podeGerirUsuarios(uLog);
+      const botoes=pode?`<div class="flex items-center justify-center gap-1.5"><button onclick="abrirModalEditarUsuarioMaster(${u.id})" class="bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded font-bold cursor-pointer">Editar</button><button onclick="toggleStatusUsuarioMaster(${u.id})" class="${u.ativo!==false?'bg-red-600':'bg-emerald-600'} text-white text-[10px] px-2 py-0.5 rounded font-bold cursor-pointer">${u.ativo!==false?'Desativar':'Ativar'}</button><button onclick="resetarSenhaUsuarioMaster(${u.id})" class="bg-gray-700 text-white text-[10px] px-2 py-0.5 rounded font-bold cursor-pointer">Resetar Senha</button><button onclick="excluirUsuarioSistemaMasterV45(${u.id})" class="bg-black text-white text-[10px] px-2 py-0.5 rounded font-bold cursor-pointer">Excluir</button></div>`:'<span class="text-xs text-gray-400 italic">Sem permissão</span>';
+      corpo.insertAdjacentHTML('beforeend',`<tr class="text-xs"><td class="p-3 font-bold">${u.nome||''}${p==='SEC'?'<span class="ml-1 px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 font-black text-[9px]">SEC</span>':''}<br><span class="text-xs text-gray-400 font-normal font-mono">${u.email||''}</span></td><td class="p-3 font-medium">${p}</td><td class="p-3 font-semibold text-gray-400">${nte}</td><td class="p-3 text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${u.ativo!==false?'bg-green-100 text-green-800':'bg-red-100 text-red-800'}">${u.ativo!==false?'ATIVO':'INATIVO'}</span></td><td class="p-3 text-center">${botoes}</td></tr>`);
+    });
+  };
+  try{ carregarListaUsuarios=window.carregarListaUsuarios; }catch(e){}
+
+  window.editarProcessoMasterV45 = async function(id){
+    const u=user(); if(!podeGerirProcessosMaster(u)){ alert('Apenas SEC e Master podem editar processos diretamente.'); return; }
+    const p=listaProcessos().find(x=>String(x.id)===String(id)); if(!p) return;
+    const aluno=prompt('Aluno:', p.aluno || p.aluno_nome || ''); if(aluno===null) return;
+    const escola=prompt('Instituição:', p.escola || p.escola_nome || ''); if(escola===null) return;
+    const doc=prompt('Documento:', p.documento || p.documento_tipo || 'HISTÓRICO'); if(doc===null) return;
+    const nte=prompt('NTE:', p.nte || ''); if(nte===null) return;
+    p.aluno=p.aluno_nome=txt(aluno).toUpperCase(); p.escola=p.escola_nome=txt(escola).toUpperCase(); p.documento=p.documento_tipo=txt(doc).toUpperCase(); p.nte=txt(nte) || p.nte;
+    registrar(`[MASTER] Editou processo ID ${p.id}.`); await salvarProcessoV45(p); refresh();
+  };
+  window.avancarProcessoMasterV45 = async function(id){
+    const u=user(); if(!podeGerirProcessosMaster(u)){ alert('Apenas SEC e Master podem avançar processos diretamente.'); return; }
+    const p=listaProcessos().find(x=>String(x.id)===String(id)); if(!p) return;
+    const atual=ETAPAS_V45.findIndex(e=>up(e)===up(p.etapa||p.etapa_atual)); const prox=ETAPAS_V45[Math.min(ETAPAS_V45.length-1, Math.max(0,atual)+1)];
+    p.etapa=p.etapa_atual=prox; p.data_etapa_atual=hojeBR();
+    registrar(`[MASTER] Avançou processo ID ${p.id} para ${prox}.`); await salvarProcessoV45(p); refresh();
+  };
+  window.regredirProcessoMasterV45 = async function(id){
+    const u=user(); if(!podeGerirProcessosMaster(u)){ alert('Apenas SEC e Master podem regredir processos diretamente.'); return; }
+    const p=listaProcessos().find(x=>String(x.id)===String(id)); if(!p) return;
+    const atual=ETAPAS_V45.findIndex(e=>up(e)===up(p.etapa||p.etapa_atual)); const ant=ETAPAS_V45[Math.max(0, (atual<0?0:atual)-1)];
+    p.etapa=p.etapa_atual=ant; p.data_etapa_atual=hojeBR();
+    registrar(`[MASTER] Regrediu processo ID ${p.id} para ${ant}.`); await salvarProcessoV45(p); refresh();
+  };
+  window.excluirProcessoMasterV45 = async function(id){
+    const u=user(); if(!podeGerirProcessosMaster(u)){ alert('Apenas SEC e Master podem excluir processos.'); return; }
+    const base=listaProcessos(); const idx=base.findIndex(x=>String(x.id)===String(id)); if(idx<0) return;
+    const p=base[idx]; if(!confirm(`Confirma excluir o processo de ${p.aluno || p.aluno_nome || 'aluno'}?`)) return;
+    base.splice(idx,1); await excluirProcessoSupabaseV45(id); registrar(`[MASTER] Excluiu processo ID ${id}.`); refresh();
+  };
+
+  function diasDesde(valor){
+    if(!valor) return 0; let d=null, s=txt(valor);
+    if(/^\d{2}\/\d{2}\/\d{4}/.test(s)){ const a=s.slice(0,10).split('/').map(Number); d=new Date(a[2],a[1]-1,a[0]); } else d=new Date(s);
+    if(!d || Number.isNaN(d.getTime())) return 0; const h=new Date(); h.setHours(0,0,0,0); d.setHours(0,0,0,0); return Math.max(0,Math.floor((h-d)/86400000));
+  }
+  function clsEtapa(etapa){ const e=up(etapa); if(e.includes('ANAL')) return 'bg-purple-600'; if(e.includes('PEND')) return 'bg-red-600'; if(e.includes('DIGIT')) return 'bg-orange-500'; if(e.includes('CONFER')) return 'bg-green-600'; if(e.includes('ASSIN')) return 'bg-blue-700'; if(e.includes('AGUARD')) return 'bg-teal-600'; if(e.includes('RETIR')) return 'bg-gray-700'; return 'bg-sky-600'; }
+  function acaoFluxo(p){
+    if(!podeMovimentarProcesso(user(),p)) return '<span class="text-gray-400 font-bold">Sem ação</span>';
+    const e=up(p.etapa||p.etapa_atual);
+    if(e.includes('ANAL')) return `<button onclick="abrirModalFluxoAnalise(${p.id})" class="bg-purple-700 text-white font-bold px-2 py-1 rounded text-[10px]">Análise Realizada</button>`;
+    if(e.includes('PEND')) return `<button onclick="abrirModalFluxoPendencia(${p.id})" class="bg-red-700 text-white font-bold px-2 py-1 rounded text-[10px]">Tratar Pendência</button>`;
+    if(e.includes('DIGIT')) return `<button onclick="abrirModalFluxoDigitacao(${p.id})" class="bg-orange-600 text-white font-bold px-2 py-1 rounded text-[10px]">Documento Digitado</button>`;
+    if(e.includes('CONFER')) return `<button onclick="abrirModalFluxoConferencia(${p.id})" class="bg-green-700 text-white font-bold px-2 py-1 rounded text-[10px]">Documento Conferido</button>`;
+    if(e.includes('ASSIN')) return `<button onclick="abrirModalFluxoAssinatura(${p.id})" class="bg-blue-700 text-white font-bold px-2 py-1 rounded text-[10px]">Deferido</button>`;
+    if(e.includes('AGUARD')) return `<button onclick="abrirModalFluxoAguardando(${p.id})" class="bg-gray-700 text-white font-bold px-2 py-1 rounded text-[10px]">Retirado</button>`;
+    if(e.includes('RETIR')) return '<span class="text-gray-300 font-bold">Finalizado</span>';
+    return `<button onclick="abrirModalFluxoDesarquivamento(${p.id})" class="bg-sky-700 text-white font-bold px-2 py-1 rounded text-[10px]">Documento Recebido</button>`;
+  }
+  window.renderizarProcessosFlutuantes = function(){
+    const corpo=document.getElementById('tabela-processos-corpo'); if(!corpo) return; corpo.innerHTML='';
+    let lista=listaProcessos().slice(); const u=user();
+    if(!isGlobal(u)) lista=lista.filter(p=>mesmoNte(nteUsuario(u), p.nte));
+    const etapa=(typeof etapaFiltroAtual!=='undefined'?etapaFiltroAtual:'TODOS'); if(etapa && etapa!=='TODOS') lista=lista.filter(p=>up(p.etapa||p.etapa_atual)===up(etapa));
+    const busca=up(document.getElementById('busca-proc-nome')?.value||''); if(busca) lista=lista.filter(p=>up((p.aluno||p.aluno_nome||'')+' '+(p.escola||p.escola_nome||'')).includes(busca));
+    lista.forEach(p=>{
+      const etapaTxt=txt(p.etapa||p.etapa_atual||'Desarquivamento');
+      const master=podeGerirProcessosMaster(u)?`<div class="mt-1 flex flex-wrap justify-center gap-1"><button onclick="editarProcessoMasterV45(${p.id})" class="bg-blue-600 text-white text-[9px] px-2 py-0.5 rounded font-bold">Editar</button><button onclick="regredirProcessoMasterV45(${p.id})" class="bg-amber-700 text-white text-[9px] px-2 py-0.5 rounded font-bold">Regredir</button><button onclick="avancarProcessoMasterV45(${p.id})" class="bg-emerald-700 text-white text-[9px] px-2 py-0.5 rounded font-bold">Avançar</button><button onclick="excluirProcessoMasterV45(${p.id})" class="bg-red-700 text-white text-[9px] px-2 py-0.5 rounded font-bold">Excluir</button></div>`:'';
+      corpo.insertAdjacentHTML('beforeend',`<tr class="hover:bg-white/10 text-white"><td class="p-2.5 font-bold truncate"><span class="block uppercase truncate">${txt(p.aluno||p.aluno_nome)}</span><span class="text-[10px] text-cyan-200 font-extrabold">${txt(p.documento||p.documento_tipo)}</span></td><td class="p-2.5 truncate"><span class="block font-bold text-white truncate text-[10px]">${txt(p.escola||p.escola_nome)}</span><span class="text-[9px] text-cyan-200 block font-semibold uppercase truncate">${txt(p.nte)}</span></td><td class="p-2.5 text-center"><span class="px-2 py-1 ${clsEtapa(etapaTxt)} text-white font-black rounded text-[9px] uppercase block">${etapaTxt}</span></td><td class="p-2.5 text-center font-bold">${diasDesde(p.data_etapa_atual||p.created_at)} dias</td><td class="p-2.5 text-center">${acaoFluxo(p)}${master}</td></tr>`);
+    });
+  };
+  try{ renderizarProcessosFlutuantes=window.renderizarProcessosFlutuantes; }catch(e){}
+
+  window.editarEscolaSIGEEV45 = async function(id){
+    const u=user(); const e=listaEscolas().find(x=>String(x.id)===String(id) || String(x.cod_mec)===String(id)); if(!e) return;
+    if(!podeEditarEscolaCompleta(u) && !podeEditarEscolaLimitada(u)){ alert('Sem permissão para alterar escola.'); return; }
+    if(podeEditarEscolaLimitada(u) && !isGlobal(u) && !isAdmin(u) && !mesmoNte(nteUsuario(u), e.nte)){ alert('Técnico só altera escolas do próprio NTE.'); return; }
+    if(podeEditarEscolaCompleta(u)){
+      const nome=prompt('Nome da escola:', e.nome||e.nome_escola||''); if(nome===null) return;
+      const municipio=prompt('Município:', e.municipio||''); if(municipio===null) return;
+      const nte=prompt('NTE:', e.nte||''); if(nte===null) return;
+      const dependencia=prompt('Dependência administrativa:', e.dependencia||e.dependencia_adm||''); if(dependencia===null) return;
+      e.nome=e.nome_escola=txt(nome).toUpperCase(); e.municipio=txt(municipio).toUpperCase(); e.nte=txt(nte); e.dependencia=e.dependencia_adm=txt(dependencia);
+    }
+    const sit=prompt('Situação da escola:', e.situacao||e.situacao_funcional||'Extinta'); if(sit===null) return;
+    const acv=prompt('Status do Acervo:', e.status_acervo||e.acervo||'Recolhido'); if(acv===null) return;
+    const loc=prompt('Local do acervo:', e.local_acervo||''); if(loc===null) return;
+    e.situacao=e.situacao_funcional=txt(sit); e.acervo=e.status_acervo=txt(acv); e.local_acervo=txt(loc);
+    await salvarEscolaV45(e);
+    registrar(`${perfil(u)} alterou escola ${e.cod_mec || e.nome}: situação=${e.situacao}; acervo=${e.status_acervo}; local=${e.local_acervo}`);
+    refresh();
+  };
+
+  const oldRenderEscolas = window.renderizarListaEscolasBufferMemoria || (typeof renderizarListaEscolasBufferMemoria !== 'undefined' ? renderizarListaEscolasBufferMemoria : null);
+  window.renderizarListaEscolasBufferMemoria = function(){
+    const corpo=document.getElementById('tabela-escolas-corpo');
+    if(!corpo){ if(oldRenderEscolas) return oldRenderEscolas.apply(this,arguments); return; }
+    corpo.innerHTML='';
+    let lista=listaEscolas().slice(); const u=user(); if(!isGlobal(u)) lista=lista.filter(e=>mesmoNte(nteUsuario(u), e.nte));
+    const busca=up(document.getElementById('busca-escola')?.value||''); if(busca) lista=lista.filter(e=>up((e.cod_mec||'')+' '+(e.nome||e.nome_escola||'')+' '+(e.municipio||'')).includes(busca));
+    const porPagina=(typeof totalPorPaginaEscola!=='undefined'?totalPorPaginaEscola:8); let pagAtual=(typeof paginaEscolaAtual!=='undefined'?paginaEscolaAtual:1); const totalPag=Math.max(1,Math.ceil(lista.length/porPagina)); if(pagAtual>totalPag) pagAtual=1; try{ paginaEscolaAtual=pagAtual; }catch(e){}
+    lista.slice((pagAtual-1)*porPagina,(pagAtual-1)*porPagina+porPagina).forEach(e=>{
+      const situ=up(e.situacao||e.situacao_funcional).includes('ATIVA')?'<span class="font-black text-green-400">ATIVA</span>':'<span class="font-black text-red-400">EXTINTA</span>';
+      const acv=up(e.status_acervo||e.acervo).includes('RECOLHIDO')?'<span class="font-black text-green-400">RECOLHIDO</span>':'<span class="font-black text-red-400">NÃO RECOLHIDO</span>';
+      const pode = podeEditarEscolaCompleta(u) || podeEditarEscolaLimitada(u);
+      corpo.insertAdjacentHTML('beforeend',`<tr class="hover:bg-white/10 text-[11px] text-white"><td class="p-3 font-mono font-bold">${txt(e.cod_mec)}</td><td class="p-3 font-bold uppercase">${txt(e.nome||e.nome_escola)}</td><td class="p-3 uppercase font-medium">${txt(e.municipio)}</td><td class="p-3 font-semibold">${txt(e.nte)}<br><span class="text-[9px] bg-white/10 px-1 rounded">${txt(e.dependencia||e.dependencia_adm)}</span></td><td class="p-3">${situ}</td><td class="p-3">${acv}</td><td class="p-3 text-center">${pode?`<button onclick="editarEscolaSIGEEV45('${e.id||e.cod_mec}')" class="bg-cyan-600/80 text-white font-bold px-2 py-1 rounded text-[10px]">Alterar</button>`:'<span class="text-gray-400">Sem ação</span>'}</td></tr>`);
+    });
+    const info=document.getElementById('info-quantidade-escolas-carregadas'); if(info) info.innerText=`Exibindo: ${lista.length} registros | Banco: Supabase carregado`;
+    const ptxt=document.getElementById('txt-escola-paginacao'); if(ptxt) ptxt.innerText=`Página ${pagAtual} de ${totalPag}`;
+  };
+  try{ renderizarListaEscolasBufferMemoria=window.renderizarListaEscolasBufferMemoria; }catch(e){}
+
+  function aplicarV45(){
+    try{ window.SIGEE_PERMISSOES_V44 && window.SIGEE_PERMISSOES_V44.aplicarPermissoesV44(); }catch(e){}
+    const u=user(); if(!u) return;
+    document.querySelectorAll('#menu-usuarios').forEach(el=>el.classList.toggle('hidden', !podeGerirUsuarios(u)));
+    if(document.getElementById('aba-processos') && !document.getElementById('aba-processos').classList.contains('hidden')) window.renderizarProcessosFlutuantes();
+    if(document.getElementById('aba-escolas') && !document.getElementById('aba-escolas').classList.contains('hidden')) window.renderizarListaEscolasBufferMemoria();
+  }
+  const navPrev=window.navegar || (typeof navegar !== 'undefined' ? navegar : null);
+  window.navegar=function(){ const r=typeof navPrev==='function'?navPrev.apply(this,arguments):undefined; setTimeout(aplicarV45,30); return r; };
+  try{ navegar=window.navegar; }catch(e){}
+  document.addEventListener('DOMContentLoaded',()=>setTimeout(aplicarV45,500));
+  setInterval(aplicarV45,3000);
+  window.SIGEE_V45 = { aplicarV45, editarEscolaSIGEEV45, excluirUsuarioSistemaMasterV45, editarProcessoMasterV45, avancarProcessoMasterV45, regredirProcessoMasterV45, excluirProcessoMasterV45 };
 })();

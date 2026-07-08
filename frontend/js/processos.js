@@ -1,3 +1,2 @@
-// SIGEE Enterprise 1.0
-// Camada reservada para futuras extrações do fluxo de processos.
-// Mantido separado para evolução modular sem custo adicional e sem regressões.
+// SIGEE Enterprise 2.0 - processos.js
+// Próxima etapa: mover fluxo de processos para cá.
