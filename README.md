@@ -1,23 +1,14 @@
-# SIGEE Enterprise 2.0 - Parte 1
+# SIGEE Enterprise 2.0
 
-Arquivos iniciais da modularização:
+Sistema Integrado de Gestão de Escolas Extintas.
 
-- frontend/js/config.js
-- frontend/js/supabase.js
-- frontend/js/auth.js
-- frontend/js/permissoes.js
+## Estrutura
 
-## Como importar
+- `frontend/index.html`: estrutura principal do sistema.
+- `frontend/css/enterprise.css`: CSS extraído do index original.
+- `frontend/js/app.js`: JavaScript extraído do index original.
+- demais arquivos em `frontend/js/`: módulos preparados para migração gradual.
 
-Envie estes arquivos para a pasta `frontend/js` no GitHub.
+## Publicação
 
-No `frontend/index.html`, garanta que existam estes scripts antes do `app.js`:
-
-```html
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="js/config.js"></script>
-<script src="js/supabase.js"></script>
-<script src="js/auth.js"></script>
-<script src="js/permissoes.js"></script>
-<script src="js/app.js"></script>
-```
+No Vercel, use `frontend` como Root Directory.

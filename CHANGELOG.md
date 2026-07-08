@@ -1,11 +1,9 @@
-# Histórico de Versões
+# CHANGELOG
 
-## V45
+## 2.0.0-base-editavel
 
-- Correção das permissões Master
-- Correção do Técnico
-- Ajustes no fluxo
-
-## Próxima versão
-
-SIGEE Enterprise 2.0
+- Criação da estrutura modular inicial.
+- Extração do CSS para `frontend/css/enterprise.css`.
+- Extração do JavaScript para `frontend/js/app.js`.
+- Criação dos módulos preparados para edição futura.
+- Sem alteração intencional da base Supabase.
