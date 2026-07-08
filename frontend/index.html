@@ -69,7 +69,7 @@
                     <div id="box-filtro-dashboard-master" class="hidden bg-white border rounded-xl px-3 py-2 shadow-xs">
                         <label class="block text-[10px] font-black text-gray-500 uppercase mb-1">Abrangência do Dashboard</label>
                         <select id="filtro-dashboard-nte" onchange="carregarDadosDashboardReal()" class="min-w-[220px] p-2 border rounded-lg text-xs font-bold bg-gray-50 focus:outline-none">
-                            <option value="GLOBAL">GLOBAL - TODOS OS NTEs</option>
+                            <option value="GLOBAL">GLOBAL - TODOS OS NTES</option>
                         </select>
                     </div>
                     <div class="export-only hidden flex flex-wrap gap-2">
@@ -223,7 +223,7 @@
             <section id="aba-usuarios" class="hidden space-y-6">
                 <div class="flex justify-between items-center border-b pb-4">
                     <h1 class="text-3xl font-bold text-blue-900">Controle de Usuários</h1>
-                    <button onclick="abrirModalCriarUsuarioMaster()" class="bg-amber-500 hover:bg-amber-600 text-white font-bold px-4 py-2 rounded-lg text-xs shadow cursor-pointer transition">➕ Cadastrar Técnico</button>
+                    <button onclick="abrirModalCriarUsuarioMaster()" class="bg-amber-500 hover:bg-amber-600 text-white font-bold px-4 py-2 rounded-lg text-xs shadow cursor-pointer transition">➕ Cadastrar Usuário</button>
                 </div>
                 <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
                     <table class="w-full text-left border-collapse text-sm">
@@ -582,7 +582,7 @@
                 <div>
                     <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Perfil de Usuário</label>
                     <select id="user-form-perfil" required class="w-full p-2 border rounded-lg text-xs font-medium bg-gray-50 focus:outline-none">
-                        <option value="Master">Master</option> <option value="Administrador">Administrador</option> <option value="Tecnico">Tecnico</option> <option value="Consulta">Consulta</option>
+                        <option value="Master">Master</option> <option value="Administrador">Administrador</option> <option value="Tecnico">Técnico</option> <option value="SEC">SEC</option> <option value="Consulta">Consulta</option>
                     </select>
                 </div>
                 <div class="flex justify-end gap-2 border-t pt-3">
@@ -704,6 +704,6 @@
 <script src="js/fluxo-operacional.js"></script>
 <script src="js/app-core.js"></script>
 <script src="js/app.js"></script>
-<script src="js/sigee_v31_global_dashboard_hotfix.js"></script>
+<script src="js/sigee_v31_2_usuarios_master_final.js"></script>
 </body>
 </html>
