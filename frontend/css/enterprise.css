@@ -363,30 +363,3 @@ button[id^="btn-fase-"]{
 button[id^="btn-fase-"] span:not(.status-ico){
     font-size:inherit;
 }
-
-
-/* ===== SIGEE ENTERPRISE V31 - Ajuste dos ícones da barra de status ===== */
-#filtros-status button i,
-#barra-status button i,
-.status-btn i,
-.status-chip i,
-button i.bi,
-button i.fa,
-button i.fas,
-button i.far {
-    font-size: 20px !important;
-    width: 20px;
-    min-width: 20px;
-    text-align: center;
-    margin-right: 6px;
-    vertical-align: middle;
-}
-
-#filtros-status button,
-#barra-status button,
-.status-btn,
-.status-chip {
-    min-height: 36px;
-    padding-top: 6px;
-    padding-bottom: 6px;
-}
