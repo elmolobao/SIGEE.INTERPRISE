@@ -1,45 +1,38 @@
 /* =====================================================================
-   SIGEE Enterprise 2.0 - Entrega 5A
-   Módulo: usuarios.js
-   Objetivo: centralizar as rotinas de usuários, perfis e permissões
-   Base extraída/compatibilizada a partir do app.js SIGEE V45.
-
-   IMPORTANTE:
-   - Este módulo NÃO altera banco de dados.
-   - Este módulo NÃO remove funções do app.js ainda.
-   - Ele sobrescreve, em camada modular, as rotinas de usuário após o app.js carregar.
-   - Pode ser editado futuramente sem mexer no app.js inteiro.
+   SIGEE Enterprise 2.0 - Entrega Usuarios/Permissoes
+   Arquivo: frontend/js/usuarios.js
+   Objetivo: centralizar regras de usuarios, perfis e reforco de menu
+   Compatibilidade: funciona sobre o app.js atual, sem remover logica existente.
    ===================================================================== */
-
-(function () {
+(function(){
   'use strict';
 
   const GRUPO_SEC = 'SEC - TODOS OS NTEs';
   const EMAIL_SEC = 'sec@enova.educacao.ba.gov.br';
-  const STORAGE_USUARIOS_COMPLETO = 'SIGEE_USUARIOS_COMPLETO_V41';
+  const STORAGE_USUARIOS = 'SIGEE_USUARIOS_COMPLETO_V41';
 
-  function txt(v) {
-    return (v === undefined || v === null) ? '' : String(v).trim();
+  function txt(v){ return (v === undefined || v === null) ? '' : String(v).trim(); }
+  function low(v){ return txt(v).toLowerCase(); }
+  function semAcento(v){ return txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
+  function up(v){ return semAcento(v).toUpperCase(); }
+
+  function usuarioAtual(){
+    try { return window.usuarioLogado || usuarioLogado || null; } catch(e) { return window.usuarioLogado || null; }
   }
 
-  function sem(v) {
-    return txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  function baseUsuarios(){
+    let base = [];
+    try {
+      if (Array.isArray(window.usuariosDB)) base = window.usuariosDB;
+      else if (typeof usuariosDB !== 'undefined' && Array.isArray(usuariosDB)) base = usuariosDB;
+    } catch(e) {}
+    window.usuariosDB = base;
+    try { usuariosDB = base; } catch(e) {}
+    return base;
   }
 
-  function up(v) {
-    return sem(v).toUpperCase();
-  }
-
-  function low(v) {
-    return txt(v).toLowerCase();
-  }
-
-  function usuarioAtual() {
-    return window.usuarioLogado || (typeof usuarioLogado !== 'undefined' ? usuarioLogado : null);
-  }
-
-  function perfilUsuario(u) {
-    const p = up((u && u.perfil) || 'Tecnico');
+  function perfilCanonico(valor){
+    const p = up(valor || 'Tecnico');
     if (p.includes('SEC')) return 'SEC';
     if (p.includes('MASTER')) return 'Master';
     if (p.includes('ADMIN')) return 'Administrador';
@@ -47,362 +40,344 @@
     return 'Tecnico';
   }
 
-  function isSEC(u) {
-    return perfilUsuario(u) === 'SEC' || low(u && u.email) === EMAIL_SEC;
+  function normalizarUsuario(u){
+    u = u || {};
+    const email = low(u.email);
+    let perfil = perfilCanonico(u.perfil || u.tipo || u.role || 'Tecnico');
+    if (email === 'elmo.lobao@enova.educacao.ba.gov.br') perfil = 'Master';
+    if (email === EMAIL_SEC) perfil = 'SEC';
+    let nte = txt(u.nte || u.nte_nome || u.nte_vinculado || u.grupo || u.nte_id || 'NTE-26 Salvador');
+    if (perfil === 'SEC' || up(nte).includes('SEC') || up(nte).includes('TODOS OS NTES')) nte = GRUPO_SEC;
+    return Object.assign({}, u, {
+      id: u.id || Date.now(),
+      nome: txt(u.nome || u.name || 'USUARIO').toUpperCase(),
+      email,
+      senha: txt(u.senha || u.password || '123'),
+      perfil,
+      nte,
+      grupo: perfil === 'SEC' ? 'SEC' : (u.grupo || ''),
+      ativo: u.ativo !== false
+    });
   }
 
-  function isMaster(u) {
-    return perfilUsuario(u) === 'Master';
-  }
+  function isSEC(u){ u = u || usuarioAtual(); return perfilCanonico(u && u.perfil) === 'SEC' || low(u && u.email) === EMAIL_SEC || up(u && u.nte).includes('TODOS OS NTES'); }
+  function isMaster(u){ return perfilCanonico(u && u.perfil) === 'Master'; }
+  function isAdmin(u){ return perfilCanonico(u && u.perfil) === 'Administrador'; }
+  function isTecnico(u){ return perfilCanonico(u && u.perfil) === 'Tecnico'; }
+  function isConsulta(u){ return perfilCanonico(u && u.perfil) === 'Consulta'; }
+  function isGlobal(u){ return isSEC(u) || isMaster(u); }
 
-  function isAdministrador(u) {
-    return perfilUsuario(u) === 'Administrador';
-  }
-
-  function isTecnico(u) {
-    return perfilUsuario(u) === 'Tecnico';
-  }
-
-  function isConsulta(u) {
-    return perfilUsuario(u) === 'Consulta';
-  }
-
-  function isGlobal(u) {
-    return isSEC(u) || isMaster(u);
-  }
-
-  function numeroNte(v) {
-    const m = txt(v).match(/NTE\s*[- ]?\s*(\d{1,2})/i);
-    return m ? Number(m[1]) : null;
-  }
-
-  function normalizarNte(v) {
-    const n = numeroNte(v);
-    return n ? 'NTE' + String(n).padStart(2, '0') : up(v).replace(/[^A-Z0-9]/g, '');
-  }
-
-  function nteUsuario(u) {
+  function nteUsuario(u){
     if (isSEC(u)) return GRUPO_SEC;
     return txt(u && (u.nte || u.nte_nome || u.nte_vinculado || u.grupo) || 'NTE-26 Salvador');
   }
 
-  function mesmoNte(a, b) {
-    const atual = usuarioAtual();
-    if (isGlobal(atual)) return true;
-    if (!a || !b) return false;
-    const na = numeroNte(a);
-    const nb = numeroNte(b);
-    return (na && nb) ? na === nb : normalizarNte(a) === normalizarNte(b);
+  function numeroNte(v){
+    const m = txt(v).match(/NTE\s*[- ]?\s*(\d{1,2})/i);
+    return m ? Number(m[1]) : null;
   }
 
-  function podeGerirUsuarios(u) {
-    return isSEC(u) || isMaster(u);
+  function mesmoNte(a,b){
+    const na = numeroNte(a), nb = numeroNte(b);
+    if (na && nb) return na === nb;
+    return up(a).replace(/[^A-Z0-9]/g,'') === up(b).replace(/[^A-Z0-9]/g,'');
   }
 
-  function podeExcluirUsuario(u) {
-    return isSEC(u) || isMaster(u);
+  const Perm = {
+    acessoGlobal: isGlobal,
+    visualizarTodosNtes: isGlobal,
+    dashboardGlobal: isGlobal,
+    cadastrarEscola: u => isSEC(u) || isMaster(u) || isAdmin(u) || isTecnico(u),
+    alterarEscola: u => isSEC(u) || isMaster(u) || isAdmin(u) || isTecnico(u),
+    alterarEscolaCompleta: u => isSEC(u) || isMaster(u) || isAdmin(u),
+    alterarEscolaLimitada: u => isTecnico(u),
+    excluirEscola: u => isSEC(u) || isMaster(u),
+    importarDados: u => isSEC(u) || isMaster(u) || isAdmin(u),
+    exportarDados: u => isSEC(u) || isMaster(u) || isAdmin(u),
+    abrirSolicitacao: u => isSEC(u) || isMaster(u) || isAdmin(u) || isTecnico(u),
+    movimentarFluxo: u => isSEC(u) || isMaster(u) || isAdmin(u) || isTecnico(u),
+    gerirUsuarios: u => isSEC(u) || isMaster(u),
+    alterarUsuarios: u => isSEC(u) || isMaster(u),
+    cadastrarUsuarios: u => isSEC(u) || isMaster(u),
+    excluirUsuarios: u => isSEC(u) || isMaster(u),
+    acessarLogs: u => isSEC(u) || isMaster(u) || isAdmin(u),
+    usuariosConectados: u => isSEC(u) || isMaster(u) || isAdmin(u)
+  };
+
+  function setHidden(el, ocultar){
+    if (!el) return;
+    el.classList.toggle('hidden', !!ocultar);
+    if (ocultar) el.setAttribute('aria-hidden','true');
+    else el.removeAttribute('aria-hidden');
   }
 
-  function listaUsuarios() {
-    const base = Array.isArray(window.usuariosDB)
-      ? window.usuariosDB
-      : (typeof usuariosDB !== 'undefined' && Array.isArray(usuariosDB) ? usuariosDB : []);
+  function lockButton(el, bloquear){
+    if (!el) return;
+    setHidden(el, bloquear);
+    if ('disabled' in el) el.disabled = !!bloquear;
+  }
 
+  function aplicarPermissoes(){
+    const u = normalizarUsuario(usuarioAtual() || {});
+    if (!u.email && !u.nome) return;
+
+    try { if (usuarioAtual()) Object.assign(usuarioAtual(), u); } catch(e) {}
+    document.body.dataset.sigeePerfil = u.perfil;
+
+    const nome = document.getElementById('user-nome');
+    if (nome) nome.innerText = u.nome || '';
+    const perfilEl = document.getElementById('user-perfil');
+    if (perfilEl) perfilEl.innerText = `${u.perfil} | ${nteUsuario(u)}`;
+
+    setHidden(document.getElementById('menu-usuarios'), !Perm.gestirUsuarios && !Perm.gerirUsuarios(u));
+    setHidden(document.getElementById('menu-logs'), !Perm.acessarLogs(u));
+
+    lockButton(document.getElementById('btn-importar-dados-master'), !Perm.importarDados(u));
+    const inputImportar = document.getElementById('input-importar-excel');
+    if (inputImportar) inputImportar.disabled = !Perm.importarDados(u);
+
+    document.querySelectorAll('.import-only, [data-sigee-importar], button[onclick*="Importar"], button[onclick*="importar"]').forEach(el => lockButton(el, !Perm.importarDados(u)));
+    document.querySelectorAll('.export-only, [data-sigee-exportar], button[onclick*="Exportar"], button[onclick*="exportar"]').forEach(el => lockButton(el, !Perm.exportarDados(u)));
+    document.querySelectorAll('button[onclick="abrirModalNovaEscola()"], .btn-nova-escola').forEach(el => lockButton(el, !Perm.cadastrarEscola(u)));
+    document.querySelectorAll('button[onclick="abrirFormularioNovaSolicitacao()"], .btn-nova-solicitacao').forEach(el => lockButton(el, !Perm.abrirSolicitacao(u)));
+
+    const abaUsuarios = document.getElementById('aba-usuarios');
+    if (abaUsuarios && !abaUsuarios.classList.contains('hidden') && !Perm.gerirUsuarios(u)) {
+      try { window.navegar('painel'); } catch(e) { abaUsuarios.classList.add('hidden'); document.getElementById('aba-painel')?.classList.remove('hidden'); }
+    }
+    const abaLogs = document.getElementById('aba-logs');
+    if (abaLogs && !abaLogs.classList.contains('hidden') && !Perm.acessarLogs(u)) {
+      try { window.navegar('painel'); } catch(e) { abaLogs.classList.add('hidden'); document.getElementById('aba-painel')?.classList.remove('hidden'); }
+    }
+  }
+
+  function salvarCacheUsuarios(){
+    try {
+      localStorage.setItem(STORAGE_USUARIOS, JSON.stringify(baseUsuarios().map(normalizarUsuario)));
+    } catch(e) { console.warn('SIGEE Usuarios: não foi possível salvar cache local de usuários.', e); }
+  }
+
+  async function salvarUsuarioSupabase(u){
+    salvarCacheUsuarios();
+    try {
+      const client = (typeof obterSupabaseSIGEE === 'function') ? obterSupabaseSIGEE() : (window.supabaseClient || null);
+      const tabela = (window.SIGEE_SUPABASE_TABELAS && window.SIGEE_SUPABASE_TABELAS.usuarios) || 'usuarios_sigee';
+      if (!client || !client.from || !u) return false;
+      const payload = { nome: u.nome, email: u.email, perfil: u.perfil, ativo: u.ativo !== false };
+      const { error } = await client.from(tabela).upsert(payload, { onConflict: 'email' });
+      if (error) throw error;
+      return true;
+    } catch(e) {
+      console.warn('SIGEE Usuarios: Supabase recusou salvamento completo; cache local preservado.', e);
+      return false;
+    }
+  }
+
+  async function excluirUsuarioSupabase(u){
+    try {
+      const client = (typeof obterSupabaseSIGEE === 'function') ? obterSupabaseSIGEE() : (window.supabaseClient || null);
+      const tabela = (window.SIGEE_SUPABASE_TABELAS && window.SIGEE_SUPABASE_TABELAS.usuarios) || 'usuarios_sigee';
+      if (!client || !client.from || !u) return false;
+      if (u.id) await client.from(tabela).delete().eq('id', u.id);
+      else if (u.email) await client.from(tabela).delete().eq('email', u.email);
+      return true;
+    } catch(e) {
+      console.warn('SIGEE Usuarios: exclusão não confirmada no Supabase.', e);
+      return false;
+    }
+  }
+
+  function garantirUsuariosBase(){
+    const base = baseUsuarios();
+    const existe = email => base.some(u => low(u.email) === low(email));
+    const prox = start => Math.max(start, 0, ...base.map(u => Number(u.id)||0)) + 1;
+    if (!existe(EMAIL_SEC)) base.push({id:prox(900000), nome:'USUARIO SEC', email:EMAIL_SEC, senha:'123', perfil:'SEC', grupo:'SEC', nte:GRUPO_SEC, ativo:true});
+    base.forEach((u,i) => base[i] = normalizarUsuario(u));
     window.usuariosDB = base;
-    try { usuariosDB = base; } catch (e) { /* ambiente sem var global editável */ }
-    return base;
+    try { usuariosDB = base; } catch(e) {}
+    salvarCacheUsuarios();
   }
 
-  function registrarAcao(acao) {
-    try {
-      if (typeof registrarLog === 'function') registrarLog(acao);
-    } catch (e) {
-      console.warn('SIGEE usuarios.js: falha ao registrar log.', e);
-    }
-  }
+  window.carregarListaUsuarios = function(){
+    garantirUsuariosBase();
+    const corpo = document.getElementById('tabela-usuarios-corpo');
+    if (!corpo) return;
+    corpo.innerHTML = '';
+    const uLog = normalizarUsuario(usuarioAtual() || {});
+    let lista = baseUsuarios().map(normalizarUsuario);
+    if (!isGlobal(uLog)) lista = lista.filter(u => mesmoNte(nteUsuario(u), nteUsuario(uLog)));
 
-  function obterSupabase() {
-    try {
-      return (typeof obterSupabaseSIGEE === 'function') ? obterSupabaseSIGEE() : null;
-    } catch (e) {
-      return null;
-    }
-  }
-
-  function tabelaUsuarios() {
-    return (window.SIGEE_SUPABASE_TABELAS && window.SIGEE_SUPABASE_TABELAS.usuarios) || 'usuarios_sigee';
-  }
-
-  function persistirUsuariosLocal() {
-    try {
-      localStorage.setItem(STORAGE_USUARIOS_COMPLETO, JSON.stringify(listaUsuarios()));
-    } catch (e) {
-      console.warn('SIGEE usuarios.js: não foi possível salvar usuários no localStorage.', e);
-    }
-  }
-
-  async function salvarUsuarioSupabase(u) {
-    persistirUsuariosLocal();
-
-    try {
-      const client = obterSupabase();
-      if (!client || !u) return;
-
-      await client
-        .from(tabelaUsuarios())
-        .upsert({
-          nome: u.nome,
-          email: u.email,
-          perfil: u.perfil,
-          ativo: u.ativo !== false
-        }, { onConflict: 'email' });
-    } catch (e) {
-      console.warn('SIGEE usuarios.js: usuário preservado localmente; Supabase não confirmou.', e);
-    }
-  }
-
-  async function excluirUsuarioSupabase(u) {
-    try {
-      const client = obterSupabase();
-      if (!client || !u) return;
-
-      if (u.id) {
-        await client.from(tabelaUsuarios()).delete().eq('id', u.id);
-      } else if (u.email) {
-        await client.from(tabelaUsuarios()).delete().eq('email', u.email);
-      }
-    } catch (e) {
-      console.warn('SIGEE usuarios.js: exclusão de usuário não confirmada no Supabase.', e);
-    }
-  }
-
-  function atualizarTelaUsuarios() {
-    try {
-      if (typeof carregarListaUsuarios === 'function' && !document.getElementById('aba-usuarios')?.classList.contains('hidden')) {
-        carregarListaUsuarios();
-      }
-    } catch (e) {}
-
-    try {
-      if (window.SIGEE_PERMISSOES_V44 && typeof window.SIGEE_PERMISSOES_V44.aplicarPermissoesV44 === 'function') {
-        window.SIGEE_PERMISSOES_V44.aplicarPermissoesV44();
-      }
-    } catch (e) {}
-
-    try {
-      if (typeof aplicarPermissoesMenuPorPerfil === 'function') aplicarPermissoesMenuPorPerfil();
-    } catch (e) {}
-  }
-
-  function montarLinhaUsuario(u, podeEditar) {
-    const perfil = perfilUsuario(u);
-    const nte = nteUsuario(u);
-    const ativo = u.ativo !== false;
-
-    const badgeSEC = perfil === 'SEC'
-      ? '<span class="ml-1 px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 font-black text-[9px]">SEC</span>'
-      : '';
-
-    const botoes = podeEditar
-      ? `<div class="flex items-center justify-center gap-1.5">
+    lista.forEach(u => {
+      const mesmo = mesmoNte(nteUsuario(u), nteUsuario(uLog));
+      const podeEditar = isGlobal(uLog) || (isAdmin(uLog) && mesmo && !isGlobal(u));
+      const botoes = podeEditar ? `
+        <div class="flex items-center justify-center gap-1.5">
           <button onclick="abrirModalEditarUsuarioMaster(${u.id})" class="bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded font-bold cursor-pointer">Editar</button>
-          <button onclick="toggleStatusUsuarioMaster(${u.id})" class="${ativo ? 'bg-red-600' : 'bg-emerald-600'} text-white text-[10px] px-2 py-0.5 rounded font-bold cursor-pointer">${ativo ? 'Desativar' : 'Ativar'}</button>
+          <button onclick="toggleStatusUsuarioMaster(${u.id})" class="${u.ativo!==false?'bg-red-600':'bg-emerald-600'} text-white text-[10px] px-2 py-0.5 rounded font-bold cursor-pointer">${u.ativo!==false?'Desativar':'Ativar'}</button>
           <button onclick="resetarSenhaUsuarioMaster(${u.id})" class="bg-gray-700 text-white text-[10px] px-2 py-0.5 rounded font-bold cursor-pointer">Resetar Senha</button>
-          <button onclick="excluirUsuarioSistemaMaster(${u.id})" class="bg-black text-white text-[10px] px-2 py-0.5 rounded font-bold cursor-pointer">Excluir</button>
-        </div>`
-      : '<span class="text-xs text-gray-400 italic">Sem permissão</span>';
+          ${Perm.excluirUsuarios(uLog) ? `<button onclick="excluirUsuarioSistemaSIGEE(${u.id})" class="bg-red-800 text-white text-[10px] px-2 py-0.5 rounded font-bold cursor-pointer">Excluir</button>` : ''}
+        </div>` : `<span class="text-xs text-gray-400 italic">Sem permissão</span>`;
 
-    return `<tr class="text-xs">
-      <td class="p-3 font-bold">${u.nome || ''}${badgeSEC}<br><span class="text-xs text-gray-400 font-normal font-mono">${u.email || ''}</span></td>
-      <td class="p-3 font-medium">${perfil}</td>
-      <td class="p-3 font-semibold text-gray-400">${nte}</td>
-      <td class="p-3 text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${ativo ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">${ativo ? 'ATIVO' : 'INATIVO'}</span></td>
-      <td class="p-3 text-center">${botoes}</td>
-    </tr>`;
+      const badgeSec = isSEC(u) ? '<span class="ml-1 px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 font-black text-[9px]">SEC</span>' : '';
+      corpo.innerHTML += `
+        <tr class="text-xs">
+          <td class="p-3 font-bold">${u.nome}${badgeSec}<br><span class="text-xs text-gray-400 font-normal font-mono">${u.email}</span></td>
+          <td class="p-3 font-medium">${u.perfil}</td>
+          <td class="p-3 font-semibold text-gray-600">${nteUsuario(u)}</td>
+          <td class="p-3 text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${u.ativo!==false?'bg-green-100 text-green-800':'bg-red-100 text-red-800'}">${u.ativo!==false?'ATIVO':'INATIVO'}</span></td>
+          <td class="p-3 text-center">${botoes}</td>
+        </tr>`;
+    });
+    aplicarPermissoes();
+  };
+
+  window.abrirModalCriarUsuarioMaster = function(){
+    if (!Perm.cadastrarUsuarios(usuarioAtual())) return alert('Cadastro de usuários permitido apenas para SEC e Master.');
+    document.getElementById('titulo-modal-usuario').innerText = '👥 Cadastrar Técnico';
+    document.getElementById('user-form-id').value = '';
+    document.getElementById('user-form-nome').value = '';
+    document.getElementById('user-form-email').value = '';
+    document.getElementById('user-form-senha').value = 'SECBA2026';
+    try { if (typeof inicializarSelectsNteEcosystem === 'function') inicializarSelectsNteEcosystem(); } catch(e) {}
+    const perfilSel = document.getElementById('user-form-perfil');
+    if (perfilSel) perfilSel.innerHTML = '<option value="SEC">SEC</option><option value="Master">Master</option><option value="Administrador">Administrador</option><option value="Tecnico">Tecnico</option><option value="Consulta">Consulta</option>';
+    document.getElementById('modal-cadastro-usuario').classList.remove('hidden');
+  };
+
+  window.abrirModalEditarUsuarioMaster = function(id){
+    const u = baseUsuarios().map(normalizarUsuario).find(x => String(x.id) === String(id));
+    if (!u) return alert('Usuário não localizado.');
+    if (!Perm.alterarUsuarios(usuarioAtual())) return alert('Edição de usuários permitida apenas para SEC e Master.');
+    document.getElementById('titulo-modal-usuario').innerText = '📝 Editar Informações do Usuário';
+    document.getElementById('user-form-id').value = u.id;
+    document.getElementById('user-form-nome').value = u.nome;
+    document.getElementById('user-form-email').value = u.email;
+    document.getElementById('user-form-senha').value = u.senha || '123';
+    try { if (typeof inicializarSelectsNteEcosystem === 'function') inicializarSelectsNteEcosystem(); } catch(e) {}
+    const nte = document.getElementById('user-form-nte'); if (nte) nte.value = nteUsuario(u);
+    const perfilSel = document.getElementById('user-form-perfil');
+    if (perfilSel) { perfilSel.innerHTML = '<option value="SEC">SEC</option><option value="Master">Master</option><option value="Administrador">Administrador</option><option value="Tecnico">Tecnico</option><option value="Consulta">Consulta</option>'; perfilSel.value = u.perfil; }
+    document.getElementById('modal-cadastro-usuario').classList.remove('hidden');
+  };
+
+  window.fecharModalUsuario = function(){ document.getElementById('modal-cadastro-usuario')?.classList.add('hidden'); };
+
+  window.salvarNovoUsuarioFormularioMaster = async function(event){
+    if (event) event.preventDefault();
+    if (!Perm.cadastrarUsuarios(usuarioAtual())) return alert('Operação permitida apenas para SEC e Master.');
+    const id = txt(document.getElementById('user-form-id')?.value);
+    const nome = txt(document.getElementById('user-form-nome')?.value).toUpperCase();
+    const email = low(document.getElementById('user-form-email')?.value);
+    const senha = txt(document.getElementById('user-form-senha')?.value) || '123';
+    const nte = txt(document.getElementById('user-form-nte')?.value);
+    const perfil = perfilCanonico(document.getElementById('user-form-perfil')?.value);
+    if (!nome || !email) return alert('Informe nome e e-mail.');
+
+    const base = baseUsuarios();
+    let u = id ? base.find(x => String(x.id) === String(id)) : null;
+    if (!u && base.some(x => low(x.email) === email)) return alert('E-mail já cadastrado.');
+    if (!u) { u = { id: Math.max(1, ...base.map(x => Number(x.id)||0)) + 1 }; base.push(u); }
+    Object.assign(u, normalizarUsuario({ ...u, nome, email, senha, perfil, nte: perfil === 'SEC' ? GRUPO_SEC : nte, grupo: perfil === 'SEC' ? 'SEC' : u.grupo, ativo: u.ativo !== false }));
+    await salvarUsuarioSupabase(u);
+    try { if (typeof registrarLog === 'function') registrarLog(`${id ? 'Usuário editado' : 'Usuário cadastrado'}: ${u.nome} (${u.perfil})`); } catch(e) {}
+    window.fecharModalUsuario();
+    window.carregarListaUsuarios();
+    aplicarPermissoes();
+  };
+
+  window.toggleStatusUsuarioMaster = async function(id){
+    if (!Perm.alterarUsuarios(usuarioAtual())) return alert('Operação permitida apenas para SEC e Master.');
+    const u = baseUsuarios().find(x => String(x.id) === String(id));
+    if (!u) return;
+    u.ativo = !(u.ativo !== false);
+    await salvarUsuarioSupabase(u);
+    try { if (typeof registrarLog === 'function') registrarLog(`${u.ativo ? 'Ativou' : 'Desativou'} usuário: ${u.nome}`); } catch(e) {}
+    window.carregarListaUsuarios();
+  };
+
+  window.resetarSenhaUsuarioMaster = async function(id){
+    if (!Perm.alterarUsuarios(usuarioAtual())) return alert('Operação permitida apenas para SEC e Master.');
+    const u = baseUsuarios().find(x => String(x.id) === String(id));
+    if (!u) return;
+    u.senha = '123';
+    await salvarUsuarioSupabase(u);
+    alert(`Senha de ${u.nome} resetada para: 123`);
+    try { if (typeof registrarLog === 'function') registrarLog(`Resetou senha do usuário: ${u.nome}`); } catch(e) {}
+    window.carregarListaUsuarios();
+  };
+
+  window.excluirUsuarioSistemaSIGEE = async function(id){
+    if (!Perm.excluirUsuarios(usuarioAtual())) return alert('Exclusão de usuários permitida apenas para SEC e Master.');
+    const base = baseUsuarios();
+    const idx = base.findIndex(x => String(x.id) === String(id));
+    if (idx < 0) return;
+    const u = base[idx];
+    if (!confirm(`Confirma excluir o usuário ${u.nome}?`)) return;
+    base.splice(idx, 1);
+    await excluirUsuarioSupabase(u);
+    salvarCacheUsuarios();
+    try { if (typeof registrarLog === 'function') registrarLog(`Excluiu usuário: ${u.nome}`); } catch(e) {}
+    window.carregarListaUsuarios();
+  };
+
+  // Reforca navegacao e permissoes após scripts antigos renderizarem menus.
+  function instalarPatches(){
+    garantirUsuariosBase();
+
+    const navOriginal = window.navegar || (typeof navegar !== 'undefined' ? navegar : null);
+    if (typeof navOriginal === 'function' && !window.__SIGEE_USUARIOS_NAV_PATCH) {
+      window.__SIGEE_USUARIOS_NAV_PATCH = true;
+      window.navegar = function(aba){
+        const u = usuarioAtual();
+        if (aba === 'usuarios' && !Perm.gerirUsuarios(u)) { alert('Acesso ao Controle de Usuários permitido apenas para SEC e Master.'); aba = 'painel'; }
+        if (aba === 'logs' && !Perm.acessarLogs(u)) { alert('Acesso aos Logs permitido apenas para SEC, Master e Administrador.'); aba = 'painel'; }
+        const r = navOriginal.call(this, aba);
+        aplicarPermissoes();
+        setTimeout(aplicarPermissoes, 60);
+        setTimeout(aplicarPermissoes, 300);
+        return r;
+      };
+      try { navegar = window.navegar; } catch(e) {}
+    }
+
+    const loginOriginal = window.handleLogin || (typeof handleLogin !== 'undefined' ? handleLogin : null);
+    if (typeof loginOriginal === 'function' && !window.__SIGEE_USUARIOS_LOGIN_PATCH) {
+      window.__SIGEE_USUARIOS_LOGIN_PATCH = true;
+      window.handleLogin = async function(){
+        const r = await loginOriginal.apply(this, arguments);
+        garantirUsuariosBase();
+        aplicarPermissoes();
+        setTimeout(aplicarPermissoes, 100);
+        setTimeout(aplicarPermissoes, 600);
+        return r;
+      };
+      try { handleLogin = window.handleLogin; } catch(e) {}
+    }
+
+    const importOriginal = window.processarImportacaoOtimizada || (typeof processarImportacaoOtimizada !== 'undefined' ? processarImportacaoOtimizada : null);
+    if (typeof importOriginal === 'function' && !window.__SIGEE_USUARIOS_IMPORT_PATCH) {
+      window.__SIGEE_USUARIOS_IMPORT_PATCH = true;
+      window.processarImportacaoOtimizada = function(event){
+        if (!Perm.importarDados(usuarioAtual())) {
+          alert('Importação permitida apenas para SEC, Master e Administrador.');
+          if (event && event.target) event.target.value = '';
+          return false;
+        }
+        return importOriginal.apply(this, arguments);
+      };
+      try { processarImportacaoOtimizada = window.processarImportacaoOtimizada; } catch(e) {}
+    }
+
+    aplicarPermissoes();
   }
 
-  function instalarModuloUsuarios() {
-    const oldCarregarListaUsuarios = window.carregarListaUsuarios || (typeof carregarListaUsuarios !== 'undefined' ? carregarListaUsuarios : null);
-
-    window.carregarListaUsuarios = function () {
-      const corpo = document.getElementById('tabela-usuarios-corpo');
-      if (!corpo) {
-        if (oldCarregarListaUsuarios) return oldCarregarListaUsuarios.apply(this, arguments);
-        return;
-      }
-
-      corpo.innerHTML = '';
-
-      const usuarioLogadoAtual = usuarioAtual();
-      let lista = listaUsuarios().slice();
-
-      if (!isGlobal(usuarioLogadoAtual)) {
-        lista = lista.filter(u => mesmoNte(nteUsuario(u), nteUsuario(usuarioLogadoAtual)));
-      }
-
-      const podeEditar = podeGerirUsuarios(usuarioLogadoAtual);
-      lista.forEach(u => corpo.insertAdjacentHTML('beforeend', montarLinhaUsuario(u, podeEditar)));
-    };
-    try { carregarListaUsuarios = window.carregarListaUsuarios; } catch (e) {}
-
-    window.excluirUsuarioSistemaMaster = async function (id) {
-      const usuarioLogadoAtual = usuarioAtual();
-      if (!podeExcluirUsuario(usuarioLogadoAtual)) {
-        alert('Apenas SEC e Master podem excluir usuários.');
-        return;
-      }
-
-      const base = listaUsuarios();
-      const idx = base.findIndex(u => String(u.id) === String(id));
-      if (idx < 0) {
-        alert('Usuário não localizado.');
-        return;
-      }
-
-      const alvo = base[idx];
-      if (low(alvo.email) === low(usuarioLogadoAtual.email)) {
-        alert('Não é permitido excluir o próprio usuário logado.');
-        return;
-      }
-
-      if (!confirm(`Confirma excluir o usuário ${alvo.nome || alvo.email}?`)) return;
-
-      base.splice(idx, 1);
-      persistirUsuariosLocal();
-      await excluirUsuarioSupabase(alvo);
-      registrarAcao(`[MASTER] Excluiu usuário: ${alvo.nome || alvo.email}`);
-      atualizarTelaUsuarios();
-    };
-
-    // Mantém compatibilidade com chamadas antigas V45.
-    window.excluirUsuarioSistemaMasterV45 = window.excluirUsuarioSistemaMaster;
-
-    window.toggleStatusUsuarioMaster = async function (id) {
-      const usuarioLogadoAtual = usuarioAtual();
-      if (!podeGerirUsuarios(usuarioLogadoAtual)) {
-        alert('Apenas SEC e Master podem ativar/desativar usuários.');
-        return;
-      }
-
-      const u = listaUsuarios().find(x => String(x.id) === String(id));
-      if (!u) return;
-
-      u.ativo = !(u.ativo !== false);
-      await salvarUsuarioSupabase(u);
-      registrarAcao(`[MASTER] ${u.ativo ? 'Ativou' : 'Desativou'} usuário: ${u.nome || u.email}`);
-      atualizarTelaUsuarios();
-    };
-    try { toggleStatusUsuarioMaster = window.toggleStatusUsuarioMaster; } catch (e) {}
-
-    window.resetarSenhaUsuarioMaster = async function (id) {
-      const usuarioLogadoAtual = usuarioAtual();
-      if (!podeGerirUsuarios(usuarioLogadoAtual)) {
-        alert('Apenas SEC e Master podem resetar senha.');
-        return;
-      }
-
-      const u = listaUsuarios().find(x => String(x.id) === String(id));
-      if (!u) return;
-
-      const nova = prompt('Informe a nova senha provisória:', '123');
-      if (nova === null) return;
-
-      u.senha = txt(nova) || '123';
-      await salvarUsuarioSupabase(u);
-      registrarAcao(`[MASTER] Resetou senha do usuário: ${u.nome || u.email}`);
-      alert('Senha atualizada.');
-      atualizarTelaUsuarios();
-    };
-    try { resetarSenhaUsuarioMaster = window.resetarSenhaUsuarioMaster; } catch (e) {}
-
-    const oldSalvarUsuario = window.salvarNovoUsuarioFormularioMaster || (typeof salvarNovoUsuarioFormularioMaster !== 'undefined' ? salvarNovoUsuarioFormularioMaster : null);
-
-    window.salvarNovoUsuarioFormularioMaster = async function (event) {
-      if (event) event.preventDefault();
-
-      const usuarioLogadoAtual = usuarioAtual();
-      if (!podeGerirUsuarios(usuarioLogadoAtual)) {
-        alert('Seu perfil não possui permissão para alterar usuários.');
-        return;
-      }
-
-      const id = txt(document.getElementById('user-form-id')?.value);
-      const nome = txt(document.getElementById('user-form-nome')?.value).toUpperCase();
-      const email = low(document.getElementById('user-form-email')?.value);
-      const senha = txt(document.getElementById('user-form-senha')?.value) || '123';
-      const nte = txt(document.getElementById('user-form-nte')?.value) || 'NTE-26 Salvador';
-      const perfil = txt(document.getElementById('user-form-perfil')?.value) || 'Tecnico';
-
-      if (!nome || !email) {
-        alert('Informe nome e e-mail do usuário.');
-        return;
-      }
-
-      const base = listaUsuarios();
-      let usuario = id ? base.find(u => String(u.id) === String(id)) : null;
-
-      if (!usuario && base.some(u => low(u.email) === email)) {
-        alert('E-mail já cadastrado.');
-        return;
-      }
-
-      if (!usuario) {
-        usuario = {
-          id: base.length ? Math.max(...base.map(u => Number(u.id) || 0)) + 1 : 1,
-          ativo: true
-        };
-        base.push(usuario);
-      }
-
-      usuario.nome = nome;
-      usuario.email = email;
-      usuario.senha = senha;
-      usuario.nte = perfilUsuario({ perfil }) === 'SEC' ? GRUPO_SEC : nte;
-      usuario.grupo = usuario.nte;
-      usuario.perfil = perfil;
-      usuario.ativo = usuario.ativo !== false;
-
-      await salvarUsuarioSupabase(usuario);
-      registrarAcao(`${id ? 'Editou' : 'Cadastrou'} usuário: ${usuario.nome || usuario.email}`);
-
-      try {
-        if (typeof fecharModalUsuario === 'function') fecharModalUsuario();
-      } catch (e) {}
-
-      atualizarTelaUsuarios();
-    };
-    try { salvarNovoUsuarioFormularioMaster = window.salvarNovoUsuarioFormularioMaster; } catch (e) {}
-
-    window.SIGEE_USUARIOS_MODULO = {
-      perfilUsuario,
-      isSEC,
-      isMaster,
-      isAdministrador,
-      isTecnico,
-      isConsulta,
-      isGlobal,
-      nteUsuario,
-      mesmoNte,
-      podeGerirUsuarios,
-      podeExcluirUsuario,
-      listaUsuarios,
-      salvarUsuarioSupabase,
-      instalarModuloUsuarios
-    };
-  }
-
-  // O index atual carrega módulos antes do app.js em alguns cenários.
-  // Por isso, aplicamos depois do carregamento da página e repetimos rapidamente
-  // para garantir que as funções antigas do app.js sejam sobrescritas.
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', instalarModuloUsuarios);
-  } else {
-    instalarModuloUsuarios();
-  }
-
-  window.addEventListener('load', function () {
-    setTimeout(instalarModuloUsuarios, 100);
-    setTimeout(instalarModuloUsuarios, 800);
-    setTimeout(instalarModuloUsuarios, 2000);
+  document.addEventListener('DOMContentLoaded', function(){
+    setTimeout(instalarPatches, 50);
+    setTimeout(instalarPatches, 500);
+    setTimeout(instalarPatches, 1500);
   });
+  window.addEventListener('load', function(){ setTimeout(instalarPatches, 100); });
+  setInterval(aplicarPermissoes, 1500);
+
+  window.SIGEE_USUARIOS = { normalizarUsuario, perfilCanonico, isSEC, isMaster, isAdmin, isTecnico, isConsulta, isGlobal, Perm, aplicarPermissoes, carregarListaUsuarios: () => window.carregarListaUsuarios() };
 })();
