@@ -232,94 +232,6 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         let etapaFiltroAtual = 'TODOS';
 
         // =========================================================================
-        // 🔧 HOTFIX PRODUÇÃO - PERFIS/NTE/USUÁRIOS/AUTOCOMPLETE
-        // Sprint produção: não altera banco; corrige leitura local, filtro por NTE
-        // e campo pesquisável da escola na nova solicitação.
-        // =========================================================================
-        const SIGEE_META_USUARIOS_STORAGE = 'SIGEE_USUARIOS_META_LOCAL_V1';
-
-        function obterMetadadosUsuariosLocaisSIGEE() {
-            try { return JSON.parse(localStorage.getItem(SIGEE_META_USUARIOS_STORAGE) || '{}') || {}; }
-            catch(e) { return {}; }
-        }
-
-        function salvarMetadadosUsuarioLocalSIGEE(usuario) {
-            try {
-                if (!usuario || !usuario.email) return;
-                const email = normalizarTextoSIGEE(usuario.email).toLowerCase();
-                const mapa = obterMetadadosUsuariosLocaisSIGEE();
-                mapa[email] = {
-                    nte: normalizarTextoSIGEE(usuario.nte || mapa[email]?.nte || ''),
-                    perfil: normalizarTextoSIGEE(usuario.perfil || mapa[email]?.perfil || 'Tecnico'),
-                    senha: normalizarTextoSIGEE(usuario.senha || mapa[email]?.senha || '123'),
-                    ativo: (usuario.ativo === undefined || usuario.ativo === null) ? (mapa[email]?.ativo !== false) : !!usuario.ativo
-                };
-                localStorage.setItem(SIGEE_META_USUARIOS_STORAGE, JSON.stringify(mapa));
-            } catch(e) {}
-        }
-
-        function aplicarMetadadosUsuariosLocaisSIGEE(lista) {
-            const mapa = obterMetadadosUsuariosLocaisSIGEE();
-            return (Array.isArray(lista) ? lista : []).map(u => {
-                const email = normalizarTextoSIGEE(u.email).toLowerCase();
-                const meta = mapa[email];
-                if (!meta) return u;
-                return {
-                    ...u,
-                    nte: meta.nte || u.nte,
-                    perfil: meta.perfil || u.perfil,
-                    senha: meta.senha || u.senha,
-                    ativo: (meta.ativo === undefined || meta.ativo === null) ? u.ativo : !!meta.ativo
-                };
-            });
-        }
-
-        function perfilNormalizadoAppSIGEE(perfil) {
-            return normalizarTextoSIGEE(perfil).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-        }
-
-        function perfilGlobalAppSIGEE(perfil) {
-            const p = perfilNormalizadoAppSIGEE(perfil);
-            return p === 'master' || p === 'sec';
-        }
-
-        function usuarioEhGlobalSIGEE(usuario) {
-            return !!usuario && perfilGlobalAppSIGEE(usuario.perfil);
-        }
-
-        function nteTextoEhGlobalSIGEE(nte) {
-            const n = normalizarTextoSIGEE(nte).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
-            return n.includes('SEC') && n.includes('TODOS');
-        }
-
-        function obterNteEfetivoUsuarioSIGEE(usuario) {
-            if (!usuario) return 'NTE-26 Salvador';
-            if (usuarioEhGlobalSIGEE(usuario)) return 'SEC - TODOS OS NTEs';
-            const email = normalizarTextoSIGEE(usuario.email).toLowerCase();
-            const meta = obterMetadadosUsuariosLocaisSIGEE()[email] || {};
-            const candidatos = [meta.nte, usuario.nte, usuario.nte_vinculado, usuario.nte_nome];
-            for (const item of candidatos) {
-                const nte = normalizarTextoSIGEE(item);
-                if (nte && !nteTextoEhGlobalSIGEE(nte)) return nte;
-            }
-            // Segurança: usuário operacional nunca deve cair no acesso global por falta de NTE.
-            return 'NTE-26 Salvador';
-        }
-
-        function normalizarNteComparacaoSIGEE(nte) {
-            return normalizarTextoSIGEE(nte).toUpperCase().replace(/\s/g,'').replace(/[–—]/g,'-');
-        }
-
-        function escolaVisivelParaUsuarioSIGEE(escola, usuario) {
-            if (!usuario) return false;
-            if (usuarioEhGlobalSIGEE(usuario)) return true;
-            const nteUsuario = normalizarNteComparacaoSIGEE(obterNteEfetivoUsuarioSIGEE(usuario));
-            const nteEscola = normalizarNteComparacaoSIGEE(escola && (escola.nte || escola.nte_nome || escola.nte_vinculado));
-            return !!nteUsuario && !!nteEscola && nteEscola === nteUsuario;
-        }
-
-
-        // =========================================================================
         // 💾 PERSISTÊNCIA LOCAL DO BANCO DE DADOS DO SIGEE
         // V9: Supabase direto, sem dados de exemplo quando a tabela remota estiver vazia.
         // Mantém escolas, processos, usuários e logs gravados no Supabase.
@@ -502,7 +414,6 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
 
                 if (resposta.error) throw resposta.error;
                 if (resposta.data && resposta.data.id) usuario.id = Number(resposta.data.id);
-                salvarMetadadosUsuarioLocalSIGEE(usuario);
                 sigEESupabaseOnline = true;
                 return true;
             } catch (erro) {
@@ -515,33 +426,24 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
 
         function usuarioDoSupabaseParaLocalSIGEE(u, indice) {
             const emailNormalizado = normalizarTextoSIGEE(u.email).toLowerCase();
-            const metaLocal = obterMetadadosUsuariosLocaisSIGEE()[emailNormalizado] || {};
-            const perfilOrigem = normalizarTextoSIGEE(metaLocal.perfil || u.perfil || u.tipo || u.role || 'Tecnico');
-            const perfilSemAcento = perfilNormalizadoAppSIGEE(perfilOrigem);
-            let perfilFinal = 'Tecnico';
+            const perfilOrigem = normalizarTextoSIGEE(u.perfil || u.tipo || u.role || 'Técnico');
+            const perfilMinusculo = perfilOrigem.toLowerCase();
+            let perfilFinal = perfilMinusculo.includes('master') || perfilMinusculo.includes('admin') ? 'Master' : 'Técnico';
 
-            if (perfilSemAcento === 'sec') perfilFinal = 'SEC';
-            else if (perfilSemAcento.includes('master')) perfilFinal = 'Master';
-            else if (perfilSemAcento.includes('admin')) perfilFinal = 'Administrador';
-            else if (perfilSemAcento.includes('consulta')) perfilFinal = 'Consulta';
-            else perfilFinal = 'Tecnico';
-
-            if (emailNormalizado === 'elmo.lobao@enova.educacao.ba.gov.br') perfilFinal = 'Master';
-
-            let nteFinal = normalizarTextoSIGEE(metaLocal.nte || u.nte || u.nte_vinculado || obterNomeNtePorIdSIGEE(u.nte_id));
-            if (!nteFinal) nteFinal = perfilGlobalAppSIGEE(perfilFinal) ? 'SEC - TODOS OS NTEs' : 'NTE-26 Salvador';
-            if (!perfilGlobalAppSIGEE(perfilFinal) && nteTextoEhGlobalSIGEE(nteFinal)) nteFinal = 'NTE-26 Salvador';
+            // Garante que o usuário institucional principal mantenha as permissões de Master,
+            // mesmo quando a tabela usuarios_sigee não possuir todas as colunas administrativas.
+            if (emailNormalizado === 'elmo.lobao@enova.educacao.ba.gov.br') {
+                perfilFinal = 'Master';
+            }
 
             return {
                 id: Number(u.id) || (indice + 1),
                 nome: normalizarMaiusculoSIGEE(u.nome || u.name || 'OPERADOR SIGEE'),
                 email: emailNormalizado,
-                senha: normalizarTextoSIGEE(metaLocal.senha || u.senha || u.password || '123'),
+                senha: normalizarTextoSIGEE(u.senha || u.password || '123'),
                 perfil: perfilFinal,
-                nte: nteFinal,
-                ativo: (metaLocal.ativo === undefined || metaLocal.ativo === null)
-                    ? ((u.ativo === undefined || u.ativo === null) ? true : !!u.ativo)
-                    : !!metaLocal.ativo
+                nte: normalizarTextoSIGEE(u.nte || u.nte_vinculado || obterNomeNtePorIdSIGEE(u.nte_id) || 'NTE-26 Salvador'),
+                ativo: (u.ativo === undefined || u.ativo === null) ? true : !!u.ativo
             };
         }
 
@@ -714,7 +616,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
 
             // Carregamento paralelo: as tabelas são puxadas ao mesmo tempo para reduzir o tempo inicial.
             await Promise.all([
-                carregarSeguro('usuarios', SIGEE_SUPABASE_TABELAS.usuarios, null, usuarioDoSupabaseParaLocalSIGEE, u => u.email && u.nome, dados => { usuariosDB = aplicarMetadadosUsuariosLocaisSIGEE(dados); }),
+                carregarSeguro('usuarios', SIGEE_SUPABASE_TABELAS.usuarios, null, usuarioDoSupabaseParaLocalSIGEE, u => u.email && u.nome, dados => { usuariosDB = dados; }),
                 carregarSeguro('escolas', SIGEE_SUPABASE_TABELAS.escolas, null, escolaDoSupabaseParaLocalSIGEE, e => e.cod_mec && e.nome, dados => { escolasDB = dados; }),
                 carregarSeguro('processos', SIGEE_SUPABASE_TABELAS.processos, null, processoDoSupabaseParaLocalSIGEE, p => p.aluno || p.escola, dados => { processosDB = dados; }),
                 carregarSeguro('solicitacoes', SIGEE_SUPABASE_TABELAS.solicitacoes, null, solicitacaoDoSupabaseParaLocalSIGEE, s => s.aluno || s.escola, dados => { solicitacoesDB = dados; }),
@@ -1141,8 +1043,8 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         }
 
         function carregarDadosDashboardReal() {
-            let escolasVisiveis = (usuarioEhGlobalSIGEE(usuarioLogado)) ? escolasDB : escolasDB.filter(e => e.nte.toUpperCase().replace(/\s/g,'') === obterNteEfetivoUsuarioSIGEE(usuarioLogado).toUpperCase().replace(/\s/g,''));
-            let procVisiveis = (usuarioEhGlobalSIGEE(usuarioLogado)) ? processosDB : processosDB.filter(p => p.nte.toUpperCase().replace(/\s/g,'') === obterNteEfetivoUsuarioSIGEE(usuarioLogado).toUpperCase().replace(/\s/g,''));
+            let escolasVisiveis = (usuarioLogado.perfil === "Master") ? escolasDB : escolasDB.filter(e => e.nte.toUpperCase().replace(/\s/g,'') === usuarioLogado.nte.toUpperCase().replace(/\s/g,''));
+            let procVisiveis = (usuarioLogado.perfil === "Master") ? processosDB : processosDB.filter(p => p.nte.toUpperCase().replace(/\s/g,'') === usuarioLogado.nte.toUpperCase().replace(/\s/g,''));
 
             document.getElementById('dash-escolas').innerText = escolasVisiveis.length;
             document.getElementById('dash-acervos').innerText = escolasVisiveis.filter(e => e.acervo === "Recolhido").length;
@@ -1235,7 +1137,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         // 📁 CONTROLADOR DE FLUXOS REGIONAIS E TRAVAMENTO DE DATAS
         // =========================================================================
         function carregarEContarProcessosHorizontais() {
-            let visiveis = (usuarioEhGlobalSIGEE(usuarioLogado)) ? processosDB : processosDB.filter(p => p.nte.toUpperCase().replace(/\s/g,'') === obterNteEfetivoUsuarioSIGEE(usuarioLogado).toUpperCase().replace(/\s/g,''));
+            let visiveis = (usuarioLogado.perfil === "Master") ? processosDB : processosDB.filter(p => p.nte.toUpperCase().replace(/\s/g,'') === usuarioLogado.nte.toUpperCase().replace(/\s/g,''));
             
             document.getElementById('count-horiz-todos').innerText = visiveis.length;
             document.getElementById('count-horiz-desarquivamento').innerText = visiveis.filter(p => p.etapa === "Desarquivamento").length;
@@ -1340,7 +1242,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         function renderizarProcessosFlutuantes() {
             const corpo = document.getElementById('tabela-processos-corpo'); if(!corpo) return; corpo.innerHTML = "";
             
-            let filtrados = (usuarioEhGlobalSIGEE(usuarioLogado)) ? processosDB : processosDB.filter(p => p.nte.toUpperCase().replace(/\s/g,'') === obterNteEfetivoUsuarioSIGEE(usuarioLogado).toUpperCase().replace(/\s/g,''));
+            let filtrados = (usuarioLogado.perfil === "Master") ? processosDB : processosDB.filter(p => p.nte.toUpperCase().replace(/\s/g,'') === usuarioLogado.nte.toUpperCase().replace(/\s/g,''));
             if (etapaFiltroAtual !== 'TODOS') filtrados = filtrados.filter(p => p.etapa === etapaFiltroAtual);
 
             const busca = document.getElementById('busca-proc-nome').value.toLowerCase();
@@ -1377,7 +1279,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 }
 
                 let areaControlesMasterOuComum = "";
-                if (usuarioEhGlobalSIGEE(usuarioLogado)) {
+                if (usuarioLogado.perfil === "Master") {
                     let opcoesEtapasSelect = ETAPAS_FLUXO_OFICIAL.map(etp => 
                         `<option value="${etp}" ${p.etapa === etp ? 'selected' : ''}>Forçar: ${etp}</option>`
                     ).join("");
@@ -1692,147 +1594,44 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             if(p) { p.etapa = "Retirado"; p.data_etapa_atual = obterDataAtualFormatada(); salvarBancoLocalSIGEE(); fecharModalFluxo('aguardando'); carregarEContarProcessosHorizontais(); }
         }
 
-        function obterEscolasVisiveisNovaSolicitacaoSIGEE() {
-            return (Array.isArray(escolasDB) ? escolasDB : [])
-                .filter(e => normalizarTextoSIGEE(e.nome || e.nome_escola || e.instituicao))
-                .filter(e => escolaVisivelParaUsuarioSIGEE(e, usuarioLogado));
-        }
-
-        function configurarCampoEscolaPesquisavelSIGEE() {
-            const selectEscola = document.getElementById('novo-proc-escola');
-            if (!selectEscola) return null;
-
-            selectEscola.style.display = 'none';
-            selectEscola.removeAttribute('required');
-
-            let input = document.getElementById('novo-proc-escola-pesquisa');
-            let lista = document.getElementById('novo-proc-escola-resultados');
-
-            if (!input) {
-                input = document.createElement('input');
-                input.type = 'text';
-                input.id = 'novo-proc-escola-pesquisa';
-                input.autocomplete = 'off';
-                input.placeholder = 'Digite pelo menos 2 letras da escola...';
-                input.className = selectEscola.className || 'w-full p-2 border rounded-lg text-xs focus:outline-none bg-white font-semibold';
-                selectEscola.parentNode.insertBefore(input, selectEscola.nextSibling);
-            }
-
-            if (!lista) {
-                lista = document.createElement('div');
-                lista.id = 'novo-proc-escola-resultados';
-                lista.style.cssText = 'display:none;max-height:260px;overflow:auto;background:#fff;border:1px solid #0ea5e9;border-radius:8px;margin-top:4px;box-shadow:0 10px 25px rgba(0,0,0,.25);z-index:9999;position:relative;color:#0f172a;font-size:12px;';
-                input.parentNode.insertBefore(lista, input.nextSibling);
-            }
-
-            const limparSelecao = () => {
-                selectEscola.innerHTML = '<option value="">SELECIONE A INSTITUIÇÃO</option>';
-                selectEscola.value = '';
-                delete selectEscola.dataset.codMecSelecionado;
-            };
-
-            const renderMensagem = (texto) => {
-                lista.innerHTML = `<div style="padding:10px;color:#64748b;font-weight:600;">${texto}</div>`;
-                lista.style.display = 'block';
-            };
-
-            const selecionarEscola = (esc) => {
-                const nome = normalizarMaiusculoSIGEE(esc.nome || esc.nome_escola || esc.instituicao);
-                input.value = nome;
-                selectEscola.innerHTML = `<option selected value="${nome.replace(/"/g, '&quot;')}">${nome}</option>`;
-                selectEscola.value = nome;
-                selectEscola.dataset.codMecSelecionado = normalizarTextoSIGEE(esc.cod_mec || esc.mec || '');
-                lista.style.display = 'none';
-                handleSelecaoInstituicaoFluxoAutomatico();
-            };
-
-            const pesquisar = () => {
-                const termo = normalizarMaiusculoSIGEE(input.value).trim();
-                limparSelecao();
-                if (termo.length < 2) {
-                    renderMensagem('Digite pelo menos 2 letras para pesquisar.');
-                    return;
-                }
-                const base = obterEscolasVisiveisNovaSolicitacaoSIGEE();
-                const resultados = base
-                    .filter(e => {
-                        const nome = normalizarMaiusculoSIGEE(e.nome || e.nome_escola || e.instituicao);
-                        const municipio = normalizarMaiusculoSIGEE(e.municipio || '');
-                        const mec = normalizarTextoSIGEE(e.cod_mec || e.mec || '');
-                        return nome.includes(termo) || municipio.includes(termo) || mec.includes(termo);
-                    })
-                    .slice(0, 30);
-
-                if (!resultados.length) {
-                    renderMensagem('Nenhuma escola encontrada para o NTE do usuário.');
-                    return;
-                }
-
-                lista.innerHTML = resultados.map((e, idx) => {
-                    const nome = normalizarMaiusculoSIGEE(e.nome || e.nome_escola || e.instituicao);
-                    const mec = normalizarTextoSIGEE(e.cod_mec || e.mec || '');
-                    const municipio = normalizarMaiusculoSIGEE(e.municipio || '');
-                    const nte = normalizarTextoSIGEE(e.nte || '');
-                    return `<button type="button" data-idx="${idx}" style="display:block;width:100%;text-align:left;padding:10px 12px;border:0;border-bottom:1px solid #e2e8f0;background:#fff;cursor:pointer;color:#0f172a;">
-                        <strong>${nome}</strong><br><span style="font-size:11px;color:#475569;">MEC: ${mec || '-'} | ${municipio || '-'} | ${nte || '-'}</span>
-                    </button>`;
-                }).join('');
-                lista.querySelectorAll('button[data-idx]').forEach(btn => {
-                    btn.addEventListener('click', () => selecionarEscola(resultados[Number(btn.dataset.idx)]));
-                    btn.addEventListener('mouseenter', () => btn.style.background = '#e0f2fe');
-                    btn.addEventListener('mouseleave', () => btn.style.background = '#fff');
-                });
-                lista.style.display = 'block';
-            };
-
-            input.oninput = pesquisar;
-            input.onfocus = () => {
-                if (input.value.trim().length >= 2) pesquisar();
-                else renderMensagem('Digite pelo menos 2 letras para pesquisar.');
-            };
-
-            document.addEventListener('click', (ev) => {
-                if (!lista.contains(ev.target) && ev.target !== input) lista.style.display = 'none';
-            }, { once: true });
-
-            return { input, lista, select: selectEscola };
-        }
-
         function abrirFormularioNovaSolicitacao() {
             const btnAbrir = document.querySelector('button[onclick="abrirFormularioNovaSolicitacao()"]');
             if (btnAbrir) { btnAbrir.disabled = true; btnAbrir.dataset.textoOriginal = btnAbrir.innerText; btnAbrir.innerText = 'Carregando...'; }
 
+            // V18: abre a nova solicitação sem travar; não bloqueia a tela com alertas de sincronização em segundo plano.
             requestAnimationFrame(() => {
                 try {
                     const selectEscola = document.getElementById('novo-proc-escola');
                     if(!selectEscola) return;
 
-                    const visiveis = obterEscolasVisiveisNovaSolicitacaoSIGEE();
-                    if(visiveis.length === 0) {
-                        alert("Nenhuma escola catalogada para o NTE de origem do usuário. Verifique o NTE no cadastro do usuário ou aguarde a sincronização do Supabase.");
+                    const nteUsuario = normalizarTextoSIGEE(usuarioLogado && usuarioLogado.nte).toUpperCase().replace(/\s/g,'');
+                    let filtradas = (usuarioLogado && usuarioLogado.perfil === "Master")
+                        ? escolasDB
+                        : escolasDB.filter(e => normalizarTextoSIGEE(e.nte).toUpperCase().replace(/\s/g,'') === nteUsuario);
+
+                    filtradas = filtradas.filter(e => normalizarTextoSIGEE(e.nome || e.nome_escola || e.instituicao));
+                    if(filtradas.length === 0) {
+                        alert("Nenhuma escola catalogada para o seu NTE de origem. Aguarde a sincronização do Supabase ou verifique a tabela escolas_sigee.");
                         return;
+                    }
+
+                    // Montagem rápida: limita a lista inicial para não travar o navegador.
+                    // A busca no catálogo continua disponível para localizar qualquer escola.
+                    const limiteLista = 500;
+                    const listaSelect = filtradas.slice(0, limiteLista);
+                    selectEscola.innerHTML = listaSelect.map(e => {
+                        const nomeEscola = normalizarMaiusculoSIGEE(e.nome || e.nome_escola || e.instituicao);
+                        return `<option value="${nomeEscola.replace(/"/g, '&quot;')}">${nomeEscola}</option>`;
+                    }).join('');
+                    if (filtradas.length > limiteLista) {
+                        console.info(`SIGEE: lista de escolas da nova solicitação limitada a ${limiteLista} registros para evitar travamento. Total disponível: ${filtradas.length}.`);
                     }
 
                     document.getElementById('novo-proc-aluno').value = "";
                     document.getElementById('f01-chk-acolhido').checked = false;
                     document.getElementById('btn-submeter-nova-solicitacao').disabled = true;
-                    selectEscola.innerHTML = '<option value="">SELECIONE A INSTITUIÇÃO</option>';
-                    selectEscola.value = '';
-                    delete selectEscola.dataset.codMecSelecionado;
-
-                    const componente = configurarCampoEscolaPesquisavelSIGEE();
-                    if (componente && componente.input) componente.input.value = '';
-                    if (componente && componente.lista) componente.lista.style.display = 'none';
-
-                    ['novo-autofill-mec','novo-autofill-nte','novo-autofill-municipio','novo-autofill-dep','novo-autofill-situacao','novo-autofill-acervo','novo-autofill-local-acervo'].forEach(id => {
-                        const el = document.getElementById(id); if (el) el.value = '';
-                    });
-
+                    handleSelecaoInstituicaoFluxoAutomatico();
                     document.getElementById('modal-nova-solicitacao').classList.remove('hidden');
-                    setTimeout(() => {
-                        const input = document.getElementById('novo-proc-escola-pesquisa');
-                        if (input) input.focus();
-                    }, 80);
                 } finally {
                     if (btnAbrir) { btnAbrir.disabled = false; btnAbrir.innerText = btnAbrir.dataset.textoOriginal || '➕ 📥 Nova Solicitação'; }
                 }
@@ -1841,13 +1640,8 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
 
         function handleSelecaoInstituicaoFluxoAutomatico() {
             const seletor = document.getElementById('novo-proc-escola');
-            const instNome = normalizarMaiusculoSIGEE(seletor && seletor.value);
-            const codSelecionado = normalizarTextoSIGEE(seletor && seletor.dataset && seletor.dataset.codMecSelecionado);
-            const esc = escolasDB.find(e =>
-                (codSelecionado && String(e.cod_mec || '') === String(codSelecionado)) ||
-                normalizarMaiusculoSIGEE(e.nome || e.nome_escola || e.instituicao) === instNome ||
-                String(e.cod_mec || '') === String(instNome || '')
-            );
+            const instNome = normalizarMaiusculoSIGEE(seletor.value);
+            const esc = escolasDB.find(e => normalizarMaiusculoSIGEE(e.nome || e.nome_escola || e.instituicao) === instNome || String(e.cod_mec || '') === String(instNome || ''));
             if(esc) {
                 document.getElementById('novo-autofill-mec').value = esc.cod_mec || "";
                 document.getElementById('novo-autofill-nte').value = esc.nte || "";
@@ -1870,11 +1664,6 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             try {
                 const nomeAluno = normalizarMaiusculoSIGEE(document.getElementById('novo-proc-aluno').value).trim();
                 const escolaNome = normalizarMaiusculoSIGEE(document.getElementById('novo-proc-escola').value);
-                if (!escolaNome) {
-                    alert('Selecione uma instituição de ensino na pesquisa antes de enviar para desarquivamento.');
-                    if (botao) { botao.disabled = false; botao.innerText = textoOriginal || 'Enviar para Desarquivamento'; }
-                    return;
-                }
                 const docTipo = document.getElementById('novo-proc-documento').value;
                 const mun = document.getElementById('novo-autofill-municipio').value;
                 const nteVinculo = document.getElementById('novo-autofill-nte').value;
@@ -2024,7 +1813,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
 
         function renderizarListaEscolasBufferMemoria() {
             const corpo = document.getElementById('tabela-escolas-corpo'); if(!corpo) return; corpo.innerHTML = "";
-            let filtradas = (usuarioEhGlobalSIGEE(usuarioLogado)) ? escolasDB : escolasDB.filter(e => e.nte.toUpperCase().replace(/\s/g,'') === obterNteEfetivoUsuarioSIGEE(usuarioLogado).toUpperCase().replace(/\s/g,''));
+            let filtradas = (usuarioLogado.perfil === "Master") ? escolasDB : escolasDB.filter(e => e.nte.toUpperCase().replace(/\s/g,'') === usuarioLogado.nte.toUpperCase().replace(/\s/g,''));
             const termoBusca = (document.getElementById('busca-escola')?.value || '').toLowerCase().trim();
             if (termoBusca) {
                 filtradas = filtradas.filter(e =>
@@ -2082,7 +1871,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             const corpo = document.getElementById('tabela-usuarios-corpo'); if(!corpo) return; corpo.innerHTML = "";
             usuariosDB.forEach(u => {
                 let botoesMaster = `<span class="text-xs text-gray-400 italic">Sem permissão</span>`;
-                if (usuarioLogado && usuarioEhGlobalSIGEE(usuarioLogado)) {
+                if (usuarioLogado && usuarioLogado.perfil === 'Master') {
                     botoesMaster = `
                         <div class="flex items-center justify-center gap-1.5">
                             <button onclick="abrirModalEditarUsuarioMaster(${u.id})" class="bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded font-bold cursor-pointer">Editar</button>
@@ -2517,11 +2306,6 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             try {
                 const nomeAluno = normalizarMaiusculoSIGEE(document.getElementById('novo-proc-aluno').value).trim();
                 const escolaNome = normalizarMaiusculoSIGEE(document.getElementById('novo-proc-escola').value);
-                if (!escolaNome) {
-                    alert('Selecione uma instituição de ensino na pesquisa antes de enviar para desarquivamento.');
-                    if (botao) { botao.disabled = false; botao.innerText = textoOriginal || 'Enviar para Desarquivamento'; }
-                    return;
-                }
                 const docTipo = document.getElementById('novo-proc-documento').value;
                 const modalidade = document.getElementById('novo-proc-modalidade').value;
                 const ensino = document.getElementById('novo-proc-ensino').value;
