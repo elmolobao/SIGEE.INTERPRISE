@@ -40,7 +40,7 @@
       CONSULTA: 'Consulta'
     },
 
-    nteGlobal: 'GLOBAL - TODOS OS NTEs',
+    nteGlobal: 'SEC - TODOS OS NTEs',
 
     prazosEtapas: {
       'Desarquivamento': 30,
