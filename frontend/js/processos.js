@@ -307,3 +307,43 @@
 
     window.addEventListener('load', aplicarModuloProcessos);
 })();
+
+/* =====================================================================
+   SIGEE Sprint 2.6.2 - Processos: Estagiário visualiza, mas não edita
+   ===================================================================== */
+(function(){
+  'use strict';
+  function txt(v){ return (v===null||v===undefined)?'':String(v).trim(); }
+  function semAcento(v){ return txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+  function up(v){ return semAcento(v).toUpperCase(); }
+  function perfil(u){
+    const p = up((u||window.usuarioLogado||{}).perfil);
+    if (p.includes('SEC')) return 'SEC'; if (p.includes('MASTER')) return 'Master'; if (p.includes('ADMIN')) return 'Administrador'; if (p.includes('ESTAG')) return 'Estagiario'; if (p.includes('CONSULT')) return 'Consulta'; if (p.includes('TECNIC')) return 'Tecnico'; return p;
+  }
+  function usuario(){ return window.usuarioLogado || null; }
+  function isEstagiario(){ return perfil(usuario()) === 'Estagiario'; }
+  const oldEditar1 = window.editarProcessoMasterSIGEE;
+  const oldEditar2 = window.editarProcessoMasterV45;
+  window.editarProcessoMasterSIGEE = window.editarProcessoMasterV45 = function(){
+    if (isEstagiario()) return alert('Perfil Estagiário pode visualizar processos, mas não pode editar.');
+    const fn = oldEditar1 || oldEditar2;
+    if (typeof fn === 'function') return fn.apply(this, arguments);
+  };
+  function ocultarBotaoEditar(){
+    if (!isEstagiario()) return;
+    document.querySelectorAll('button').forEach(btn=>{
+      const texto = up(btn.textContent);
+      const onclick = up(btn.getAttribute('onclick') || '');
+      if (texto === 'EDITAR' || onclick.includes('EDITARPROCESSO')) btn.classList.add('hidden');
+    });
+  }
+  const oldRender = window.renderizarProcessosFlutuantes;
+  window.renderizarProcessosFlutuantes = function(){
+    const r = typeof oldRender === 'function' ? oldRender.apply(this, arguments) : undefined;
+    setTimeout(ocultarBotaoEditar, 20);
+    return r;
+  };
+  document.addEventListener('DOMContentLoaded', ()=>setInterval(ocultarBotaoEditar, 1200));
+  window.addEventListener('load', ()=>setTimeout(ocultarBotaoEditar, 500));
+})();
+

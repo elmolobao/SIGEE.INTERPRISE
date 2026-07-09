@@ -628,3 +628,41 @@
     };
 })();
 })();
+
+/* =====================================================================
+   SIGEE Sprint 2.6.3 - Escolas/Nova Solicitação: filtro NTE e autofill seguro
+   ===================================================================== */
+(function(){
+  'use strict';
+  function txt(v){ return (v===null||v===undefined)?'':String(v).trim(); }
+  function semAcento(v){ return txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+  function up(v){ return semAcento(v).toUpperCase(); }
+  function perfil(){ const p=up((window.usuarioLogado||{}).perfil); if(p.includes('SEC'))return'SEC'; if(p.includes('MASTER'))return'Master'; if(p.includes('ADMIN'))return'Administrador'; if(p.includes('ESTAG'))return'Estagiario'; if(p.includes('CONSULT'))return'Consulta'; if(p.includes('TECNIC'))return'Tecnico'; return p; }
+  function isGlobal(){ const p=perfil(); return p==='Master'||p==='SEC'; }
+  function nteIdUsuario(){ const u=window.usuarioLogado||{}; const m=txt(u.nte_id||u.nte||'').match(/(\d{1,2})/); return m?Number(m[1]):null; }
+  function limparEmailCampoEscola(){
+    const input = document.getElementById('novo-proc-escola-busca-v23') || document.getElementById('novo-proc-escola-busca-sigee');
+    if (!input) return;
+    input.setAttribute('autocomplete','off');
+    input.setAttribute('name','pesquisa_escola_sigee_' + Date.now());
+    input.setAttribute('inputmode','search');
+    if (/@/.test(input.value)) input.value = '';
+  }
+  const oldAbrir = window.abrirFormularioNovaSolicitacao;
+  window.abrirFormularioNovaSolicitacao = function(){
+    const r = typeof oldAbrir === 'function' ? oldAbrir.apply(this, arguments) : undefined;
+    setTimeout(limparEmailCampoEscola, 80);
+    setTimeout(limparEmailCampoEscola, 400);
+    return r;
+  };
+  const oldCore = window.SIGEE_CORE_V2 && window.SIGEE_CORE_V2.queryEscolasBase;
+  if (window.SIGEE_CORE_V2 && typeof oldCore === 'function') {
+    window.SIGEE_CORE_V2.queryEscolasBase = async function(params){
+      const p = Object.assign({}, params || {});
+      if (!isGlobal()) p.nte_id = nteIdUsuario();
+      return oldCore.call(this, p);
+    };
+  }
+  document.addEventListener('DOMContentLoaded', ()=>setInterval(limparEmailCampoEscola, 1500));
+})();
+

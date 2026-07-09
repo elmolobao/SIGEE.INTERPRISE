@@ -110,3 +110,48 @@
   // Compatibilidade com correções anteriores do menu instável.
   window.aplicarPermissoesMenuPorPerfil = window.aplicarPermissoesMenuPorPerfil || aplicarMenu;
 })(window);
+
+/* =====================================================================
+   SIGEE Sprint 2.6.2 - Perfis e permissões oficiais
+   ===================================================================== */
+(function(){
+  'use strict';
+  function txt(v){ return (v===null||v===undefined)?'':String(v).trim(); }
+  function semAcento(v){ return txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+  function normalizarPerfil(v){
+    const p = semAcento(v).toUpperCase();
+    if (p.includes('SEC')) return 'SEC';
+    if (p.includes('MASTER')) return 'Master';
+    if (p.includes('ADMIN')) return 'Administrador';
+    if (p.includes('ESTAG')) return 'Estagiario';
+    if (p.includes('CONSULT')) return 'Consulta';
+    if (p.includes('TECNIC')) return 'Tecnico';
+    return txt(v);
+  }
+  const P = { MASTER:'Master', SEC:'SEC', ADMIN:'Administrador', TECNICO:'Tecnico', ESTAGIARIO:'Estagiario', CONSULTA:'Consulta' };
+  const MATRIZ = {
+    Master:        { global:true,  usuarios:true,  logs:true,  importar:true,  exportar:true,  abrirSolicitacao:true, visualizarProcesso:true, moverProcesso:true,  editarProcesso:true,  excluirProcesso:true, editarEscola:true },
+    SEC:           { global:true,  usuarios:true,  logs:true,  importar:true,  exportar:true,  abrirSolicitacao:true, visualizarProcesso:true, moverProcesso:true,  editarProcesso:true,  excluirProcesso:true, editarEscola:true },
+    Administrador: { global:false, usuarios:false, logs:true,  importar:true,  exportar:true,  abrirSolicitacao:true, visualizarProcesso:true, moverProcesso:true,  editarProcesso:true,  excluirProcesso:false, editarEscola:true },
+    Tecnico:       { global:false, usuarios:false, logs:false, importar:false, exportar:false, abrirSolicitacao:true, visualizarProcesso:true, moverProcesso:true,  editarProcesso:false, excluirProcesso:false, editarEscola:true },
+    Estagiario:    { global:false, usuarios:false, logs:false, importar:false, exportar:false, abrirSolicitacao:true, visualizarProcesso:true, moverProcesso:false, editarProcesso:false, excluirProcesso:false, editarEscola:false },
+    Consulta:      { global:false, usuarios:false, logs:false, importar:false, exportar:false, abrirSolicitacao:false,visualizarProcesso:true, moverProcesso:false, editarProcesso:false, excluirProcesso:false, editarEscola:false }
+  };
+  function usuario(){ return window.usuarioLogado || null; }
+  function pode(acao, u){ const p=normalizarPerfil((u||usuario()||{}).perfil); return Boolean(MATRIZ[p] && MATRIZ[p][acao]); }
+  function aplicarMenu(){
+    const u = usuario();
+    document.querySelectorAll('#menu-usuarios').forEach(el=>el.classList.toggle('hidden', !pode('usuarios', u)));
+    document.querySelectorAll('#menu-logs').forEach(el=>el.classList.toggle('hidden', !pode('logs', u)));
+    document.querySelectorAll('#btn-importar-dados-master,.import-only').forEach(el=>el.classList.toggle('hidden', !pode('importar', u)));
+    document.querySelectorAll('.export-only').forEach(el=>el.classList.toggle('hidden', !pode('exportar', u)));
+    if (normalizarPerfil(u && u.perfil) === 'Estagiario') {
+      document.querySelectorAll('[onclick*="editarProcesso"],[onclick*="Editar Processo"],.btn-editar-processo').forEach(el=>el.classList.add('hidden'));
+    }
+  }
+  window.SIGEE_PERMISSOES = { PERFIS:P, MATRIZ, normalizarPerfil, pode, ehGlobal:(u)=>pode('global',u), aplicarMenu };
+  window.aplicarPermissoesMenuPorPerfil = aplicarMenu;
+  document.addEventListener('DOMContentLoaded', ()=>setInterval(aplicarMenu, 1200));
+  window.addEventListener('load', ()=>setTimeout(aplicarMenu, 500));
+})();
+

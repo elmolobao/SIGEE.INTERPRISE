@@ -641,3 +641,291 @@
     payloadUsuario
   };
 })();
+
+/* =====================================================================
+   SIGEE Sprint 2.6.1 - Consolidação definitiva de Usuários
+   - Perfis oficiais: Master, SEC, Administrador, Tecnico, Estagiario, Consulta
+   - Senha padrão: SEC@2026
+   - Primeiro acesso: forcar_troca_senha=true até cadastrar nova senha
+   - CRUD usando Supabase como fonte única de verdade
+   ===================================================================== */
+(function(){
+  'use strict';
+
+  const TABELA = 'usuarios_sigee';
+  const SENHA_PADRAO = 'SEC@2026';
+  const PERFIS = [
+    { value:'', label:'Selecione o Perfil' },
+    { value:'Master', label:'Master' },
+    { value:'SEC', label:'SEC' },
+    { value:'Administrador', label:'Administrator' },
+    { value:'Tecnico', label:'Tecnico' },
+    { value:'Estagiario', label:'Estagiário' },
+    { value:'Consulta', label:'Consulta' }
+  ];
+
+  function txt(v){ return (v === null || v === undefined) ? '' : String(v).trim(); }
+  function low(v){ return txt(v).toLowerCase(); }
+  function semAcento(v){ return txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+  function up(v){ return semAcento(v).toUpperCase(); }
+  function client(){
+    try { if (typeof obterSupabaseSIGEE === 'function') return obterSupabaseSIGEE(); } catch(e) {}
+    try { if (window.SIGEE_SUPABASE && typeof window.SIGEE_SUPABASE.criarCliente === 'function') return window.SIGEE_SUPABASE.criarCliente(); } catch(e) {}
+    return window.SIGEE_SUPABASE_CLIENT || window.supabaseClient || null;
+  }
+  function usuarioAtual(){ try { return window.usuarioLogado || usuarioLogado || null; } catch(e){ return window.usuarioLogado || null; } }
+  function perfilCanonico(v){
+    const p = up(v);
+    if (p.includes('SEC')) return 'SEC';
+    if (p.includes('MASTER')) return 'Master';
+    if (p.includes('ADMIN')) return 'Administrador';
+    if (p.includes('ESTAG')) return 'Estagiario';
+    if (p.includes('CONSULT')) return 'Consulta';
+    if (p.includes('TECNIC')) return 'Tecnico';
+    return '';
+  }
+  function numeroNte(v){
+    const s = txt(v);
+    const n0 = Number(s);
+    if (Number.isFinite(n0) && n0 >= 1 && n0 <= 27) return n0;
+    const m = s.match(/(\d{1,2})/);
+    if (!m) return null;
+    const n = Number(m[1]);
+    return Number.isFinite(n) && n >= 1 && n <= 27 ? n : null;
+  }
+  function formatarNte(v, perfil){
+    if (perfilCanonico(perfil) === 'SEC') return 'SEC - TODOS OS NTEs';
+    const n = numeroNte(v);
+    return n ? `NTE ${String(n).padStart(2,'0')}` : txt(v);
+  }
+  function nteId(v, perfil){ return perfilCanonico(perfil) === 'SEC' ? null : numeroNte(v); }
+  function ativo(u){ return u && u.ativo !== false && u.Ativo !== false; }
+  function podeGerir(){ const p = perfilCanonico((usuarioAtual()||{}).perfil); return p === 'Master' || p === 'SEC'; }
+  function isEstagiario(u){ return perfilCanonico((u||usuarioAtual()||{}).perfil) === 'Estagiario'; }
+  function isGlobal(u){ const p = perfilCanonico((u||usuarioAtual()||{}).perfil); return p === 'Master' || p === 'SEC'; }
+
+  function normalizarUsuario(u){
+    const perfil = perfilCanonico(u && u.perfil) || 'Tecnico';
+    const senha = txt((u||{}).senha || (u||{}).senha_hash || SENHA_PADRAO);
+    const nte = formatarNte((u||{}).nte || (u||{}).nte_id, perfil);
+    const idNte = nteId((u||{}).nte_id || nte, perfil);
+    return {
+      ...(u||{}),
+      id: (u||{}).id,
+      nome: txt((u||{}).nome || (u||{}).name || 'USUÁRIO').toUpperCase(),
+      email: low((u||{}).email),
+      senha,
+      senha_hash: txt((u||{}).senha_hash || senha),
+      perfil,
+      nte,
+      nte_id: idNte,
+      ativo: ativo(u),
+      Ativo: ativo(u),
+      pode_editar: perfil === 'Estagiario' || perfil === 'Consulta' ? false : ((u||{}).pode_editar !== false),
+      forcar_troca_senha: (u||{}).forcar_troca_senha === true
+    };
+  }
+  function baseUsuarios(){
+    if (!Array.isArray(window.usuariosDB)) window.usuariosDB = [];
+    try { usuariosDB = window.usuariosDB; } catch(e) {}
+    return window.usuariosDB;
+  }
+  function sincronizarBase(lista){
+    window.usuariosDB = (lista || []).map(normalizarUsuario).filter(u => u.email && u.nome);
+    try { usuariosDB = window.usuariosDB; } catch(e) {}
+    try { localStorage.setItem('SIGEE_USUARIOS_COMPLETO_V41', JSON.stringify(window.usuariosDB)); } catch(e) {}
+    return window.usuariosDB;
+  }
+  async function carregarUsuariosSupabase(){
+    const c = client();
+    if (!c) return baseUsuarios();
+    const { data, error } = await c.from(TABELA).select('*').order('nome', { ascending:true });
+    if (error) throw error;
+    return sincronizarBase(data || []);
+  }
+  function payload(u, modo){
+    const n = normalizarUsuario(u);
+    const p = {
+      nome: n.nome,
+      email: n.email,
+      perfil: n.perfil,
+      nte: n.nte,
+      nte_id: n.nte_id,
+      ativo: n.ativo,
+      Ativo: n.ativo,
+      senha: n.senha,
+      senha_hash: n.senha_hash,
+      forcar_troca_senha: n.forcar_troca_senha,
+      pode_editar: n.pode_editar
+    };
+    if (modo === 'editar' && n.id) p.id = n.id;
+    return p;
+  }
+  async function salvarUsuario(u, modo){
+    const c = client();
+    if (!c) throw new Error('Cliente Supabase indisponível.');
+    const p = payload(u, modo);
+    if (modo === 'criar') {
+      const { data: existente, error: errConsulta } = await c.from(TABELA).select('*').eq('email', p.email).maybeSingle();
+      if (errConsulta) throw errConsulta;
+      if (existente) throw new Error('E-mail já cadastrado. Use outro e-mail ou edite o usuário existente.');
+      delete p.id;
+      const { data, error } = await c.from(TABELA).insert(p).select('*').single();
+      if (error) throw error;
+      return normalizarUsuario(data || p);
+    }
+    const q = p.id ? c.from(TABELA).update(p).eq('id', p.id) : c.from(TABELA).update(p).eq('email', p.email);
+    const { data, error } = await q.select('*').single();
+    if (error) throw error;
+    return normalizarUsuario(data || p);
+  }
+  async function excluirUsuario(u){
+    const c = client(); if (!c) throw new Error('Cliente Supabase indisponível.');
+    if (u.id) {
+      const { error } = await c.from(TABELA).delete().eq('id', u.id);
+      if (error) throw error;
+    } else {
+      const { error } = await c.from(TABELA).delete().eq('email', u.email);
+      if (error) throw error;
+    }
+  }
+  function preencherPerfis(select, valor){
+    if (!select) return;
+    select.innerHTML = PERFIS.map(p => `<option value="${p.value}">${p.label}</option>`).join('');
+    select.value = valor || '';
+  }
+  function preencherNtes(select, valor){
+    if (!select) return;
+    const atual = valor || '';
+    let html = '<option value="">Selecione o NTE</option><option value="SEC - TODOS OS NTEs">SEC - TODOS OS NTEs</option>';
+    for(let i=1;i<=27;i++) html += `<option value="NTE ${String(i).padStart(2,'0')}">NTE ${String(i).padStart(2,'0')}</option>`;
+    select.innerHTML = html;
+    if (atual) select.value = formatarNte(atual, document.getElementById('user-form-perfil')?.value || '');
+  }
+  function prepararSelectsUsuario(valorPerfil, valorNte){
+    preencherPerfis(document.getElementById('user-form-perfil'), valorPerfil);
+    preencherNtes(document.getElementById('user-form-nte'), valorNte);
+    const pf = document.getElementById('user-form-perfil');
+    const nt = document.getElementById('user-form-nte');
+    if (pf && !pf.dataset.sigee26Change) {
+      pf.dataset.sigee26Change = '1';
+      pf.addEventListener('change', () => {
+        if (perfilCanonico(pf.value) === 'SEC') { if (nt) nt.value = 'SEC - TODOS OS NTEs'; }
+      });
+    }
+  }
+  function formUsuario(){
+    const id = txt(document.getElementById('user-form-id')?.value);
+    const nome = txt(document.getElementById('user-form-nome')?.value).toUpperCase();
+    const email = low(document.getElementById('user-form-email')?.value);
+    const perfil = perfilCanonico(document.getElementById('user-form-perfil')?.value);
+    const nteRaw = txt(document.getElementById('user-form-nte')?.value);
+    const senhaInformada = txt(document.getElementById('user-form-senha')?.value);
+    const modo = id ? 'editar' : 'criar';
+    const senha = modo === 'criar' ? SENHA_PADRAO : (senhaInformada || SENHA_PADRAO);
+    return { id, nome, email, perfil, nte: formatarNte(nteRaw, perfil), nte_id: nteId(nteRaw, perfil), senha, senha_hash: senha, ativo:true, Ativo:true, forcar_troca_senha: modo === 'criar', pode_editar: perfil !== 'Estagiario' && perfil !== 'Consulta' };
+  }
+  function renderTabelaUsuarios(){
+    const corpo = document.getElementById('tabela-usuarios-corpo');
+    if (!corpo) return;
+    const uLog = usuarioAtual();
+    corpo.innerHTML = '';
+    baseUsuarios().slice().sort((a,b)=>txt(a.nome).localeCompare(txt(b.nome))).forEach(u0 => {
+      const u = normalizarUsuario(u0);
+      const botoes = podeGerir() ? `<div class="flex items-center justify-center gap-1.5 flex-wrap">
+        <button onclick="abrirModalEditarUsuarioMaster(${u.id})" class="bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded font-bold cursor-pointer">Editar</button>
+        <button onclick="toggleStatusUsuarioMaster(${u.id})" class="${u.ativo?'bg-red-600':'bg-emerald-600'} text-white text-[10px] px-2 py-0.5 rounded font-bold cursor-pointer">${u.ativo?'Desativar':'Ativar'}</button>
+        <button onclick="resetarSenhaUsuarioMaster(${u.id})" class="bg-gray-700 text-white text-[10px] px-2 py-0.5 rounded font-bold cursor-pointer">Resetar Senha</button>
+        <button onclick="excluirUsuarioSistemaMasterV45(${u.id})" class="bg-black text-white text-[10px] px-2 py-0.5 rounded font-bold cursor-pointer">Excluir</button>
+      </div>` : '<span class="text-xs text-gray-400 italic">Sem permissão</span>';
+      corpo.insertAdjacentHTML('beforeend', `<tr class="text-xs">
+        <td class="p-3 font-bold">${u.nome}<br><span class="text-xs text-gray-400 font-normal font-mono">${u.email}</span></td>
+        <td class="p-3 font-medium">${u.perfil === 'Estagiario' ? 'Estagiário' : u.perfil}</td>
+        <td class="p-3 font-semibold text-gray-600">${u.nte || ''}</td>
+        <td class="p-3 text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${u.ativo?'bg-green-100 text-green-800':'bg-red-100 text-red-800'}">${u.ativo?'ATIVO':'INATIVO'}</span></td>
+        <td class="p-3 text-center">${botoes}</td>
+      </tr>`);
+    });
+  }
+  async function atualizarListaUsuarios(){
+    try { await carregarUsuariosSupabase(); } catch(e) { console.warn('[SIGEE 2.6] Falha ao carregar usuários do Supabase:', e); }
+    renderTabelaUsuarios();
+  }
+
+  window.abrirModalNovoUsuarioMaster = function(){
+    if (!podeGerir()) return alert('Apenas Master ou SEC podem cadastrar usuários.');
+    prepararSelectsUsuario('', '');
+    const set = (id,val)=>{ const el=document.getElementById(id); if(el) el.value=val; };
+    set('user-form-id',''); set('user-form-nome',''); set('user-form-email',''); set('user-form-senha', SENHA_PADRAO);
+    const modal = document.getElementById('modal-cadastro-usuario'); if (modal) modal.classList.remove('hidden');
+  };
+  window.abrirModalEditarUsuarioMaster = function(id){
+    if (!podeGerir()) return alert('Apenas Master ou SEC podem editar usuários.');
+    const u = normalizarUsuario(baseUsuarios().find(x => String(x.id) === String(id)) || {});
+    if (!u.email) return alert('Usuário não localizado.');
+    prepararSelectsUsuario(u.perfil, u.nte);
+    const set = (id,val)=>{ const el=document.getElementById(id); if(el) el.value=val; };
+    set('user-form-id', u.id); set('user-form-nome', u.nome); set('user-form-email', u.email); set('user-form-senha', u.senha || u.senha_hash || SENHA_PADRAO);
+    const modal = document.getElementById('modal-cadastro-usuario'); if (modal) modal.classList.remove('hidden');
+  };
+  window.salvarNovoUsuarioFormularioMaster = async function(ev){
+    if (ev) { ev.preventDefault(); ev.stopPropagation(); if (ev.stopImmediatePropagation) ev.stopImmediatePropagation(); }
+    if (!podeGerir()) return alert('Apenas Master ou SEC podem salvar usuários.');
+    const u = formUsuario();
+    if (!u.nome) return alert('Informe o nome do usuário.');
+    if (!u.email) return alert('Informe o e-mail do usuário.');
+    if (!u.perfil) return alert('Selecione o Perfil.');
+    if (u.perfil !== 'SEC' && !u.nte_id) return alert('Selecione o NTE.');
+    try {
+      const salvo = await salvarUsuario(u, u.id ? 'editar' : 'criar');
+      await atualizarListaUsuarios();
+      const modal = document.getElementById('modal-cadastro-usuario'); if (modal) modal.classList.add('hidden');
+      alert('Usuário salvo com sucesso.');
+      return salvo;
+    } catch(e) {
+      console.error('[SIGEE 2.6] Erro ao salvar usuário:', e);
+      alert('Erro ao salvar usuário: ' + (e.message || e));
+    }
+  };
+  window.resetarSenhaUsuarioMaster = async function(id){
+    if (!podeGerir()) return alert('Apenas Master ou SEC podem resetar senha.');
+    const u = normalizarUsuario(baseUsuarios().find(x => String(x.id) === String(id)) || {});
+    if (!u.email) return alert('Usuário não localizado.');
+    try {
+      u.senha = SENHA_PADRAO; u.senha_hash = SENHA_PADRAO; u.forcar_troca_senha = true;
+      await salvarUsuario(u, 'editar');
+      await atualizarListaUsuarios();
+      alert('Senha resetada para SEC@2026. No próximo login, o usuário deverá cadastrar nova senha.');
+    } catch(e) { alert('Erro ao resetar senha: ' + (e.message || e)); }
+  };
+  window.toggleStatusUsuarioMaster = async function(id){
+    if (!podeGerir()) return alert('Apenas Master ou SEC podem ativar/desativar usuários.');
+    const u = normalizarUsuario(baseUsuarios().find(x => String(x.id) === String(id)) || {});
+    if (!u.email) return alert('Usuário não localizado.');
+    try { u.ativo = u.Ativo = !u.ativo; await salvarUsuario(u, 'editar'); await atualizarListaUsuarios(); } catch(e){ alert('Erro ao alterar usuário: ' + (e.message || e)); }
+  };
+  window.excluirUsuarioSistemaMasterV45 = window.excluirUsuarioSistemaSIGEE = async function(id){
+    if (!podeGerir()) return alert('Apenas Master ou SEC podem excluir usuários.');
+    const u = normalizarUsuario(baseUsuarios().find(x => String(x.id) === String(id)) || {});
+    if (!u.email) return alert('Usuário não localizado.');
+    if (!confirm(`Confirma excluir o usuário ${u.nome}?`)) return;
+    try { await excluirUsuario(u); await atualizarListaUsuarios(); alert('Usuário excluído.'); } catch(e){ alert('Erro ao excluir usuário: ' + (e.message || e)); }
+  };
+
+  function capturarSubmit(){
+    const modal = document.getElementById('modal-cadastro-usuario');
+    const form = modal && modal.querySelector('form');
+    prepararSelectsUsuario(document.getElementById('user-form-perfil')?.value || '', document.getElementById('user-form-nte')?.value || '');
+    if (form && form.dataset.sigee26Submit !== '1') {
+      form.dataset.sigee26Submit = '1';
+      form.addEventListener('submit', window.salvarNovoUsuarioFormularioMaster, true);
+    }
+  }
+  document.addEventListener('DOMContentLoaded', function(){ setTimeout(capturarSubmit, 300); setTimeout(atualizarListaUsuarios, 700); });
+  window.addEventListener('load', function(){ setTimeout(capturarSubmit, 600); setTimeout(atualizarListaUsuarios, 1000); });
+  window.carregarListaUsuarios = atualizarListaUsuarios;
+  try { carregarListaUsuarios = window.carregarListaUsuarios; } catch(e) {}
+
+  window.SIGEE_USUARIOS_26 = { SENHA_PADRAO, PERFIS, perfilCanonico, normalizarUsuario, carregarUsuariosSupabase, salvarUsuario, atualizarListaUsuarios, isEstagiario, isGlobal };
+})();
+
