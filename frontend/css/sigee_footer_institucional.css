@@ -1,0 +1,135 @@
+/* SIGEE Enterprise - Rodapé Institucional v1.0 */
+:root {
+  --sigee-footer-bg: rgba(5, 16, 42, 0.96);
+  --sigee-footer-border: rgba(37, 99, 235, 0.35);
+  --sigee-footer-text: #e5eefc;
+  --sigee-footer-muted: #b8c7df;
+  --sigee-footer-accent: #38bdf8;
+}
+
+body {
+  padding-bottom: 132px !important;
+}
+
+#sigee-session-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 86px;
+  z-index: 9998;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 8px 18px;
+  font-size: 12px;
+  color: var(--sigee-footer-muted);
+  background: rgba(15, 23, 42, 0.92);
+  border-top: 1px solid rgba(148, 163, 184, 0.22);
+  backdrop-filter: blur(8px);
+}
+
+#sigee-session-bar strong {
+  color: #ffffff;
+  font-weight: 700;
+}
+
+#sigee-footer-institucional {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9998;
+  display: grid;
+  grid-template-columns: 1fr 2.2fr 1fr;
+  gap: 18px;
+  min-height: 86px;
+  padding: 12px 22px;
+  color: var(--sigee-footer-text);
+  background: var(--sigee-footer-bg);
+  border-top: 1px solid var(--sigee-footer-border);
+  box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(10px);
+}
+
+.sigee-footer-col {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  line-height: 1.35;
+}
+
+.sigee-footer-left {
+  text-align: left;
+}
+
+.sigee-footer-center {
+  text-align: center;
+}
+
+.sigee-footer-right {
+  text-align: right;
+}
+
+.sigee-footer-title {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #ffffff;
+}
+
+.sigee-footer-subtitle {
+  font-size: 12px;
+  color: var(--sigee-footer-muted);
+}
+
+.sigee-footer-main {
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.sigee-footer-org {
+  font-size: 12px;
+  color: var(--sigee-footer-muted);
+}
+
+.sigee-footer-contact {
+  font-size: 12px;
+  color: var(--sigee-footer-muted);
+}
+
+.sigee-footer-contact strong {
+  color: var(--sigee-footer-accent);
+}
+
+.sigee-footer-copy {
+  margin-top: 3px;
+  font-size: 11px;
+  color: rgba(229, 238, 252, 0.68);
+}
+
+@media (max-width: 900px) {
+  body {
+    padding-bottom: 205px !important;
+  }
+
+  #sigee-session-bar {
+    bottom: 154px;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    text-align: center;
+  }
+
+  #sigee-footer-institucional {
+    grid-template-columns: 1fr;
+    min-height: 154px;
+    text-align: center;
+  }
+
+  .sigee-footer-left,
+  .sigee-footer-center,
+  .sigee-footer-right {
+    text-align: center;
+  }
+}
