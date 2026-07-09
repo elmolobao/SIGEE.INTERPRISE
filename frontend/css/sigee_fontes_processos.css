@@ -1,0 +1,32 @@
+/* SIGEE - Ajuste de legibilidade na tabela de Processos (Fluxo) */
+/* Aumenta fonte de Aluno/Doc e Instituição/NTE sem alterar estrutura do sistema */
+
+#tabela-processos-corpo td:nth-child(1),
+#tabela-processos-corpo td:nth-child(2) {
+  font-size: 13px !important;
+  line-height: 1.45 !important;
+}
+
+#tabela-processos-corpo td:nth-child(1) strong,
+#tabela-processos-corpo td:nth-child(1) b,
+#tabela-processos-corpo td:nth-child(1) .font-bold,
+#tabela-processos-corpo td:nth-child(2) strong,
+#tabela-processos-corpo td:nth-child(2) b,
+#tabela-processos-corpo td:nth-child(2) .font-bold {
+  font-size: 14px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.01em !important;
+}
+
+#tabela-processos-corpo td:nth-child(1) small,
+#tabela-processos-corpo td:nth-child(1) span,
+#tabela-processos-corpo td:nth-child(2) small,
+#tabela-processos-corpo td:nth-child(2) span {
+  font-size: 12px !important;
+  line-height: 1.35 !important;
+}
+
+#tabela-processos-corpo td {
+  padding-top: 12px !important;
+  padding-bottom: 12px !important;
+}
