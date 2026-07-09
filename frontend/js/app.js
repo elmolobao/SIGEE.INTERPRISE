@@ -6954,3 +6954,368 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   setInterval(aplicarV45,3000);
   window.SIGEE_V45 = { aplicarV45, editarEscolaSIGEEV45, excluirUsuarioSistemaMasterV45, editarProcessoMasterV45, avancarProcessoMasterV45, regredirProcessoMasterV45, excluirProcessoMasterV45 };
 })();
+
+
+/* =====================================================================
+   SIGEE PRODUÇÃO CORE FIX v1
+   Correções aplicadas diretamente no núcleo após app.js:
+   - Autocomplete real de escola com consulta Supabase e filtro por NTE
+   - Técnico/Admin/Consulta nunca usam base global quando não são SEC/Master
+   - Cadastro/edição de usuários grava nas colunas reais do Supabase
+   - Redução do carregamento global de escolas para perfis territoriais
+   ===================================================================== */
+(function(){
+  'use strict';
+
+  const CFG = {
+    escolas: 'escolas_sigee',
+    usuarios: 'usuarios_sigee',
+    processos: 'processos',
+    solicitacoes: 'solicitacoes_sigee',
+    ntes: 'ntes_sigee'
+  };
+
+  function texto(v){ return (v ?? '').toString().trim(); }
+  function upper(v){ return texto(v).toUpperCase(); }
+  function semAcento(v){ return upper(v).normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+  function onlyDigits(v){ const m = texto(v).match(/\d+/); return m ? Number(m[0]) : null; }
+  function supa(){
+    try { if (typeof obterSupabaseSIGEE === 'function') return obterSupabaseSIGEE(); } catch(e) {}
+    try { if (window.supabase && window.SIGEE_SUPABASE_URL && window.SIGEE_SUPABASE_ANON_KEY) return window.supabase.createClient(window.SIGEE_SUPABASE_URL, window.SIGEE_SUPABASE_ANON_KEY); } catch(e) {}
+    try { if (window.supabase && typeof SIGEE_SUPABASE_URL !== 'undefined' && typeof SIGEE_SUPABASE_ANON_KEY !== 'undefined') return window.supabase.createClient(SIGEE_SUPABASE_URL, SIGEE_SUPABASE_ANON_KEY); } catch(e) {}
+    return null;
+  }
+  function perfilUsuario(u){ return semAcento(u && u.perfil).replace('TECNICO','TECNICO'); }
+  function isGlobal(u){ const p = perfilUsuario(u || window.usuarioLogado); return p === 'MASTER' || p === 'SEC'; }
+  function formatarNte(id){
+    const n = Number(id);
+    if(!n || Number.isNaN(n)) return '';
+    const nomes = {
+      1:'Irecê',2:'Bom Jesus da Lapa',3:'Seabra',4:'Serrinha',5:'Itabuna',6:'Valença',7:'Teixeira de Freitas',8:'Itapetinga',9:'Amargosa',10:'Juazeiro',11:'Barreiras',12:'Macaúbas',13:'Caetité',14:'Itaberaba',15:'Ipirá',16:'Jacobina',17:'Ribeira do Pombal',18:'Alagoinhas',19:'Feira de Santana',20:'Vitória da Conquista',21:'Santo Antônio de Jesus',22:'Jequié',23:'Santa Maria da Vitória',24:'Paulo Afonso',25:'Senhor do Bonfim',26:'Salvador',27:'Eunápolis'
+    };
+    return `NTE-${String(n).padStart(2,'0')} ${nomes[n] || ''}`.trim();
+  }
+  function nteIdUsuario(u){
+    u = u || window.usuarioLogado || {};
+    const direto = Number(u.nte_id || u.nteId || u.numero_nte || 0);
+    if(direto) return direto;
+    const deNte = onlyDigits(u.nte || u.NTE || '');
+    if(deNte) return deNte;
+    return null;
+  }
+  function nteTextoUsuario(u){
+    u = u || window.usuarioLogado || {};
+    if(isGlobal(u)) return 'SEC - TODOS OS NTES';
+    return texto(u.nte) && !semAcento(u.nte).includes('TODOS OS NTES') ? texto(u.nte) : formatarNte(nteIdUsuario(u));
+  }
+  function normalizaEscola(e){
+    const nteId = Number(e.nte_id) || onlyDigits(e.nte) || null;
+    return {
+      id: e.id,
+      cod_mec: texto(e.cod_mec || e.codigo_mec || e.mec),
+      nome: upper(e.nome_escola || e.nome || e.instituicao),
+      nome_escola: upper(e.nome_escola || e.nome || e.instituicao),
+      municipio: upper(e.municipio || e.cidade),
+      nte_id: nteId,
+      nte: texto(e.nte) && !semAcento(e.nte).includes('TODOS OS NTES') ? texto(e.nte) : formatarNte(nteId),
+      dependencia: texto(e.dependencia_adm || e.dependencia || 'Estadual'),
+      dependencia_adm: texto(e.dependencia_adm || e.dependencia || 'Estadual'),
+      situacao: texto(e.situacao_funcional || e.situacao || 'Extinta'),
+      situacao_funcional: texto(e.situacao_funcional || e.situacao || 'Extinta'),
+      acervo: texto(e.status_acervo || e.acervo || 'Recolhido'),
+      status_acervo: texto(e.status_acervo || e.acervo || 'Recolhido'),
+      local_acervo: texto(e.local_acervo || e.local_do_acervo || e.local || '')
+    };
+  }
+  function likeTerm(t){ return texto(t).replace(/[,%]/g,' ').replace(/\s+/g,' ').trim(); }
+  function debounce(fn, ms){ let timer = null; return function(){ const ctx=this, args=arguments; clearTimeout(timer); timer=setTimeout(()=>fn.apply(ctx,args), ms); }; }
+
+  async function buscarEscolasBanco(termo){
+    const c = supa();
+    if(!c) return [];
+    const u = window.usuarioLogado || {};
+    const q = likeTerm(termo);
+    let query = c.from(CFG.escolas)
+      .select('id,cod_mec,nome_escola,nome,municipio,nte_id,nte,dependencia_adm,dependencia,situacao_funcional,situacao,status_acervo,acervo,local_acervo,ativo')
+      .limit(30);
+    if(!isGlobal(u)){
+      const nteId = nteIdUsuario(u);
+      if(!nteId) return [];
+      query = query.eq('nte_id', nteId);
+    }
+    if(q.length >= 2){
+      const f = `%${q}%`;
+      query = query.or(`nome_escola.ilike.${f},nome.ilike.${f},municipio.ilike.${f},cod_mec.ilike.${f}`);
+    }
+    query = query.order('nome_escola', { ascending:true });
+    const { data, error } = await query;
+    if(error){ console.warn('SIGEE autocomplete: falha ao pesquisar escolas:', error); return []; }
+    return (data || []).map(normalizaEscola).filter(e => e.nome);
+  }
+
+  function limparAutofillEscola(){
+    ['novo-autofill-mec','novo-autofill-nte','novo-autofill-municipio','novo-autofill-dep','novo-autofill-situacao','novo-autofill-acervo','novo-autofill-local-acervo'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+  }
+  function preencherAutofillEscola(e){
+    const mapa = {
+      'novo-autofill-mec': e.cod_mec,
+      'novo-autofill-nte': e.nte,
+      'novo-autofill-municipio': e.municipio,
+      'novo-autofill-dep': e.dependencia,
+      'novo-autofill-situacao': e.situacao,
+      'novo-autofill-acervo': e.status_acervo || e.acervo,
+      'novo-autofill-local-acervo': e.local_acervo
+    };
+    Object.entries(mapa).forEach(([id,val])=>{ const el=document.getElementById(id); if(el) el.value = texto(val); });
+    try { if (typeof aplicarClasseStatusAcervoSIGEE === 'function') aplicarClasseStatusAcervoSIGEE(); } catch(err) {}
+  }
+  function selecionarEscolaAutocomplete(e){
+    window.__SIGEE_ESCOLA_SELECIONADA = e;
+    const input = document.getElementById('novo-proc-escola-autocomplete');
+    const hidden = document.getElementById('novo-proc-escola');
+    const lista = document.getElementById('novo-proc-escola-resultados');
+    if(input) input.value = e.nome;
+    if(hidden){
+      hidden.innerHTML = '';
+      const opt = document.createElement('option');
+      opt.value = e.nome;
+      opt.textContent = `${e.nome} - ${e.municipio || ''} (${e.nte || ''})`;
+      opt.selected = true;
+      hidden.appendChild(opt);
+      hidden.value = e.nome;
+      hidden.dataset.codMec = e.cod_mec || '';
+      hidden.dataset.nteId = e.nte_id || '';
+    }
+    if(lista){ lista.innerHTML=''; lista.classList.add('hidden'); }
+    preencherAutofillEscola(e);
+  }
+  function montarAutocompleteEscola(){
+    const select = document.getElementById('novo-proc-escola');
+    if(!select || !select.parentNode) return;
+    select.required = false;
+    select.classList.add('hidden');
+    select.style.display = 'none';
+
+    let input = document.getElementById('novo-proc-escola-autocomplete');
+    if(!input){
+      input = document.createElement('input');
+      input.id = 'novo-proc-escola-autocomplete';
+      input.type = 'text';
+      input.autocomplete = 'off';
+      input.placeholder = 'DIGITE PELO MENOS 2 LETRAS DA ESCOLA...';
+      input.className = 'w-full p-2 border rounded-lg text-xs focus:outline-none bg-white font-semibold';
+      select.parentNode.insertBefore(input, select);
+    }
+    let lista = document.getElementById('novo-proc-escola-resultados');
+    if(!lista){
+      lista = document.createElement('div');
+      lista.id = 'novo-proc-escola-resultados';
+      lista.className = 'hidden max-h-64 overflow-y-auto border rounded-lg bg-white shadow-xl text-xs z-[99999] mt-1';
+      select.parentNode.insertBefore(lista, select.nextSibling);
+    }
+    const render = async () => {
+      const termo = input.value || '';
+      window.__SIGEE_ESCOLA_SELECIONADA = null;
+      limparAutofillEscola();
+      select.innerHTML = '<option value="">SELECIONE A INSTITUIÇÃO</option>';
+      if(termo.trim().length < 2){
+        lista.innerHTML = '<div class="p-2 text-gray-500 font-semibold">Digite pelo menos 2 letras para pesquisar.</div>';
+        lista.classList.remove('hidden');
+        return;
+      }
+      lista.innerHTML = '<div class="p-2 text-gray-500 font-semibold">Pesquisando...</div>';
+      lista.classList.remove('hidden');
+      const resultados = await buscarEscolasBanco(termo);
+      if(!resultados.length){
+        lista.innerHTML = '<div class="p-2 text-red-600 font-bold">Nenhuma escola localizada para este NTE.</div>';
+        return;
+      }
+      lista.innerHTML = '';
+      resultados.forEach(e => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'block w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-gray-100 text-gray-900';
+        b.innerHTML = `<strong>${e.nome}</strong><br><small>MEC: ${e.cod_mec || '-'} | ${e.municipio || '-'} | ${e.nte || '-'}</small>`;
+        b.onclick = () => selecionarEscolaAutocomplete(e);
+        lista.appendChild(b);
+      });
+    };
+    input.oninput = debounce(render, 350);
+    input.onfocus = () => { if(input.value.trim().length >= 2) input.oninput(); };
+    input.value = '';
+    lista.innerHTML = '';
+    lista.classList.add('hidden');
+  }
+
+  const abrirNovaOriginal = window.abrirFormularioNovaSolicitacao || (typeof abrirFormularioNovaSolicitacao !== 'undefined' ? abrirFormularioNovaSolicitacao : null);
+  window.abrirFormularioNovaSolicitacao = function(){
+    const modal = document.getElementById('modal-nova-solicitacao');
+    if(!modal){ if(typeof abrirNovaOriginal === 'function') return abrirNovaOriginal.apply(this, arguments); return; }
+    modal.classList.remove('hidden');
+    const aluno = document.getElementById('novo-proc-aluno'); if(aluno) aluno.value = '';
+    ['novo-proc-documento','novo-proc-modalidade','novo-proc-ensino'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+    const chk = document.getElementById('f01-chk-acolhido'); if(chk) chk.checked = false;
+    const btn = document.getElementById('btn-submeter-nova-solicitacao'); if(btn) btn.disabled = true;
+    limparAutofillEscola();
+    window.__SIGEE_ESCOLA_SELECIONADA = null;
+    montarAutocompleteEscola();
+  };
+  try { abrirFormularioNovaSolicitacao = window.abrirFormularioNovaSolicitacao; } catch(e) {}
+
+  window.handleSelecaoInstituicaoFluxoAutomatico = function(){
+    if(window.__SIGEE_ESCOLA_SELECIONADA){ preencherAutofillEscola(window.__SIGEE_ESCOLA_SELECIONADA); return; }
+    limparAutofillEscola();
+  };
+  try { handleSelecaoInstituicaoFluxoAutomatico = window.handleSelecaoInstituicaoFluxoAutomatico; } catch(e) {}
+
+  // Conversão de usuários padronizada com as colunas reais do Supabase.
+  window.usuarioDoSupabaseParaLocalSIGEE = function(u, indice){
+    const nteId = Number(u.nte_id) || onlyDigits(u.nte) || null;
+    const perfil = texto(u.perfil || 'Tecnico');
+    const global = ['MASTER','SEC'].includes(semAcento(perfil));
+    return {
+      id: Number(u.id) || (indice + 1),
+      nome: upper(u.nome),
+      email: texto(u.email).toLowerCase(),
+      senha: texto(u.senha || u.senha_hash || ''),
+      senha_hash: texto(u.senha_hash || u.senha || ''),
+      perfil,
+      nte_id: nteId,
+      nte: global ? 'SEC - TODOS OS NTES' : (texto(u.nte) && !semAcento(u.nte).includes('TODOS OS NTES') ? texto(u.nte) : formatarNte(nteId)),
+      ativo: (u.ativo !== undefined ? u.ativo : u.Ativo) !== false,
+      ultima_atividade: u.ultima_atividade || null
+    };
+  };
+  try { usuarioDoSupabaseParaLocalSIGEE = window.usuarioDoSupabaseParaLocalSIGEE; } catch(e) {}
+
+  window.usuarioParaSupabaseSIGEE = function(u){
+    const p = texto(u.perfil || 'Tecnico');
+    const nteId = ['MASTER','SEC'].includes(semAcento(p)) ? null : (Number(u.nte_id) || onlyDigits(u.nte) || null);
+    const senha = texto(u.senha || u.senha_hash || '123456');
+    return {
+      nome: upper(u.nome),
+      email: texto(u.email).toLowerCase(),
+      senha_hash: senha,
+      senha: senha,
+      perfil: p,
+      nte_id: nteId,
+      nte: ['MASTER','SEC'].includes(semAcento(p)) ? 'SEC - TODOS OS NTES' : formatarNte(nteId),
+      ativo: u.ativo !== false,
+      Ativo: u.ativo !== false,
+      forcar_troca_senha: u.forcar_troca_senha !== false,
+      ultima_atividade: new Date().toISOString()
+    };
+  };
+  try { usuarioParaSupabaseSIGEE = window.usuarioParaSupabaseSIGEE; } catch(e) {}
+
+  window.salvarUsuarioIndividualSupabaseSIGEE = async function(usuario, idOriginal=null, modo='editar'){
+    const c = supa();
+    if(!c){ alert('Supabase não conectado.'); return false; }
+    const payload = window.usuarioParaSupabaseSIGEE(usuario);
+    if(!payload.nome || !payload.email){ alert('Informe nome e e-mail do usuário.'); return false; }
+    try{
+      let resp;
+      const id = Number(idOriginal || usuario.id || 0);
+      if(modo === 'editar' && id){
+        resp = await c.from(CFG.usuarios).update(payload).eq('id', id).select('*').single();
+      } else {
+        resp = await c.from(CFG.usuarios).insert([payload]).select('*').single();
+      }
+      if(resp.error) throw resp.error;
+      if(resp.data){
+        const local = window.usuarioDoSupabaseParaLocalSIGEE(resp.data, 0);
+        Object.assign(usuario, local);
+      }
+      return true;
+    }catch(err){
+      console.error('Erro ao salvar usuário no Supabase:', err);
+      alert('Não foi possível salvar o usuário no Supabase. Verifique se a tabela usuarios_sigee possui as colunas: nome, email, senha_hash, senha, perfil, nte_id, nte, ativo e Ativo.');
+      return false;
+    }
+  };
+  try { salvarUsuarioIndividualSupabaseSIGEE = window.salvarUsuarioIndividualSupabaseSIGEE; } catch(e) {}
+
+  window.salvarNovoUsuarioFormularioMaster = async function(event){
+    event.preventDefault();
+    const id = texto(document.getElementById('user-form-id')?.value);
+    const usuario = {
+      id: id ? Number(id) : null,
+      nome: upper(document.getElementById('user-form-nome')?.value),
+      email: texto(document.getElementById('user-form-email')?.value).toLowerCase(),
+      senha: texto(document.getElementById('user-form-senha')?.value || '123456'),
+      nte: texto(document.getElementById('user-form-nte')?.value),
+      perfil: texto(document.getElementById('user-form-perfil')?.value || 'Tecnico'),
+      ativo: true
+    };
+    usuario.nte_id = ['MASTER','SEC'].includes(semAcento(usuario.perfil)) ? null : (onlyDigits(usuario.nte) || null);
+    if(!usuario.nome || !usuario.email){ alert('Informe nome e e-mail.'); return; }
+    if(!id && Array.isArray(window.usuariosDB) && window.usuariosDB.some(u => texto(u.email).toLowerCase() === usuario.email)){
+      alert('E-mail já cadastrado.'); return;
+    }
+    const ok = await window.salvarUsuarioIndividualSupabaseSIGEE(usuario, id, id ? 'editar' : 'criar');
+    if(!ok) return;
+    if(Array.isArray(window.usuariosDB)){
+      const idx = window.usuariosDB.findIndex(u => String(u.id) === String(usuario.id) || texto(u.email).toLowerCase() === usuario.email);
+      if(idx >= 0) window.usuariosDB[idx] = usuario; else window.usuariosDB.push(usuario);
+    }
+    try { if(typeof registrarLog === 'function') registrarLog((id ? 'Atualizou' : 'Cadastrou') + ' usuário: ' + usuario.email); } catch(e) {}
+    try { if(typeof fecharModalUsuario === 'function') fecharModalUsuario(); } catch(e) { document.getElementById('modal-cadastro-usuario')?.classList.add('hidden'); }
+    try { if(typeof carregarListaUsuarios === 'function') carregarListaUsuarios(); } catch(e) {}
+    alert('Usuário salvo no Supabase com sucesso.');
+  };
+  try { salvarNovoUsuarioFormularioMaster = window.salvarNovoUsuarioFormularioMaster; } catch(e) {}
+
+  // Carregamento otimizado: não busca 41 mil escolas para perfil territorial.
+  const carregarTabelaOriginal = window.carregarTabelaSupabaseSIGEE || (typeof carregarTabelaSupabaseSIGEE !== 'undefined' ? carregarTabelaSupabaseSIGEE : null);
+  window.carregarTabelaSupabaseSIGEE = async function(nomeTabela, selectCampos='*', ordenarPor=null){
+    const c = supa();
+    if(!c || !nomeTabela) return carregarTabelaOriginal ? carregarTabelaOriginal.apply(this, arguments) : [];
+    if(nomeTabela === CFG.escolas && window.usuarioLogado && !isGlobal(window.usuarioLogado)){
+      const nteId = nteIdUsuario(window.usuarioLogado);
+      if(!nteId) return [];
+      let query = c.from(nomeTabela).select(selectCampos).eq('nte_id', nteId).limit(5000);
+      if(ordenarPor) query = query.order(ordenarPor, { ascending:true });
+      const { data, error } = await query;
+      if(error) throw error;
+      return data || [];
+    }
+    if(carregarTabelaOriginal) return carregarTabelaOriginal.apply(this, arguments);
+    const { data, error } = await c.from(nomeTabela).select(selectCampos).limit(1000);
+    if(error) throw error;
+    return data || [];
+  };
+  try { carregarTabelaSupabaseSIGEE = window.carregarTabelaSupabaseSIGEE; } catch(e) {}
+
+  // Garante que usuário territorial sem NTE não seja tratado como SEC.
+  function corrigirUsuarioLogadoTerritorial(){
+    const u = window.usuarioLogado;
+    if(!u || isGlobal(u)) return;
+    const nteId = nteIdUsuario(u);
+    if(nteId){
+      u.nte_id = nteId;
+      u.nte = formatarNte(nteId);
+    } else {
+      u.nte = '';
+    }
+    const el = document.getElementById('user-perfil');
+    if(el) el.innerText = `${u.perfil} | ${u.nte || 'NTE NÃO VINCULADO'}`;
+  }
+  const navegarAnterior = window.navegar || (typeof navegar !== 'undefined' ? navegar : null);
+  window.navegar = function(){
+    corrigirUsuarioLogadoTerritorial();
+    const r = typeof navegarAnterior === 'function' ? navegarAnterior.apply(this, arguments) : undefined;
+    setTimeout(corrigirUsuarioLogadoTerritorial, 50);
+    return r;
+  };
+  try { navegar = window.navegar; } catch(e) {}
+
+  document.addEventListener('DOMContentLoaded', function(){
+    setTimeout(function(){
+      corrigirUsuarioLogadoTerritorial();
+      const modal = document.getElementById('modal-nova-solicitacao');
+      if(modal && !modal.classList.contains('hidden')) montarAutocompleteEscola();
+    }, 500);
+  });
+
+  window.SIGEE_CORE_PRODUCAO_FIX_V1 = { buscarEscolasBanco, montarAutocompleteEscola, salvarUsuarioIndividualSupabaseSIGEE: window.salvarUsuarioIndividualSupabaseSIGEE };
+})();
