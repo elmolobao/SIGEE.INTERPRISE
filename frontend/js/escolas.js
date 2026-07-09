@@ -392,4 +392,239 @@
     autocompleteNovaSolicitacao: garantirAutocompleteNovaSolicitacao
   };
   window.addEventListener('load', aplicarModulo);
+/* ============================================================
+   SIGEE - Nova Solicitação com pesquisa digitável de escola
+   Usa a mesma lógica do Catálogo e respeita o NTE do usuário
+   ============================================================ */
+
+(function instalarNovaSolicitacaoDigitavelSIGEE() {
+    let timerBuscaEscola = null;
+
+    function campo(id) {
+        return document.getElementById(id);
+    }
+
+    function limparAutofillNovaSolicitacao() {
+        [
+            'novo-autofill-mec',
+            'novo-autofill-nte',
+            'novo-autofill-municipio',
+            'novo-autofill-dep',
+            'novo-autofill-situacao',
+            'novo-autofill-acervo',
+            'novo-autofill-local-acervo'
+        ].forEach(id => {
+            const el = campo(id);
+            if (el) el.value = '';
+        });
+    }
+
+    function escolaFormatada(e) {
+        return {
+            id: e.id,
+            nome: texto(e.nome_escola || e.nome || e.escola || e.instituicao),
+            cod_mec: texto(e.cod_mec),
+            municipio: texto(e.municipio),
+            nte: texto(e.nte || e.nte_nome),
+            nte_id: e.nte_id,
+            dependencia: texto(e.dependencia_adm || e.dependencia),
+            situacao: texto(e.situacao_funcional || e.situacao),
+            acervo: texto(e.status_acervo || e.acervo),
+            local_acervo: texto(e.local_acervo)
+        };
+    }
+
+    async function buscarEscolasNovaSolicitacao(termo) {
+        const busca = texto(termo);
+
+        if (window.SIGEE_CORE_V2 && typeof window.SIGEE_CORE_V2.queryEscolasBase === 'function') {
+            return await window.SIGEE_CORE_V2.queryEscolasBase({
+                termo: busca,
+                limit: 30,
+                offset: 0
+            });
+        }
+
+        let lista = escolasVisiveis().map(escolaFormatada);
+
+        if (busca.length >= 2) {
+            const n = normalizar(busca);
+            lista = lista.filter(e =>
+                normalizar(e.nome).includes(n) ||
+                normalizar(e.municipio).includes(n) ||
+                normalizar(e.cod_mec).includes(n)
+            );
+        }
+
+        return lista.slice(0, 30);
+    }
+
+    function preencherEscolaNovaSolicitacao(escola) {
+        const select = campo('novo-proc-escola');
+        const input = campo('novo-proc-escola-busca-v23');
+        const lista = campo('novo-proc-escola-lista-v23');
+
+        if (input) {
+            input.value = escola.nome;
+            input.dataset.escolaSelecionada = '1';
+        }
+
+        if (select) {
+            select.innerHTML = '';
+            const opt = document.createElement('option');
+            opt.value = escola.nome;
+            opt.textContent = escola.nome;
+            opt.selected = true;
+            select.appendChild(opt);
+            select.value = escola.nome;
+        }
+
+        if (lista) {
+            lista.classList.add('hidden');
+            lista.innerHTML = '';
+        }
+
+        const set = (id, valor) => {
+            const el = campo(id);
+            if (el) el.value = valor || '';
+        };
+
+        set('novo-autofill-mec', escola.cod_mec);
+        set('novo-autofill-nte', escola.nte || (escola.nte_id ? `NTE ${String(escola.nte_id).padStart(2, '0')}` : ''));
+        set('novo-autofill-municipio', escola.municipio);
+        set('novo-autofill-dep', escola.dependencia);
+        set('novo-autofill-situacao', escola.situacao);
+        set('novo-autofill-acervo', escola.acervo);
+        set('novo-autofill-local-acervo', escola.local_acervo);
+
+        if (typeof aplicarClasseStatusAcervoSIGEE === 'function') {
+            aplicarClasseStatusAcervoSIGEE();
+        }
+
+        if (typeof aplicarStatusBotaoNovaSolicitacaoV25 === 'function') {
+            aplicarStatusBotaoNovaSolicitacaoV25();
+        }
+    }
+
+    async function renderizarBuscaNovaSolicitacao(termo) {
+        const lista = campo('novo-proc-escola-lista-v23');
+        if (!lista) return;
+
+        if (texto(termo).length < 2) {
+            lista.innerHTML = '<div class="p-3 text-gray-500 font-semibold">Digite pelo menos 2 letras.</div>';
+            lista.classList.remove('hidden');
+            return;
+        }
+
+        lista.innerHTML = '<div class="p-3 text-gray-500 font-semibold">Pesquisando...</div>';
+        lista.classList.remove('hidden');
+
+        const resultados = await buscarEscolasNovaSolicitacao(termo);
+
+        if (!resultados.length) {
+            lista.innerHTML = '<div class="p-3 text-red-600 font-bold">Nenhuma escola encontrada.</div>';
+            return;
+        }
+
+        lista.innerHTML = '';
+
+        resultados.forEach(item => {
+            const escola = escolaFormatada(item);
+
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'block w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-gray-100 bg-white';
+            btn.innerHTML = `
+                <div class="font-black text-blue-900">${escola.nome}</div>
+                <div class="text-[10px] text-gray-600">
+                    MEC: ${escola.cod_mec || '-'} | ${escola.municipio || '-'} | ${escola.nte || ''}
+                </div>
+            `;
+
+            btn.onclick = () => preencherEscolaNovaSolicitacao(escola);
+            lista.appendChild(btn);
+        });
+    }
+
+    function prepararCampoEscolaNovaSolicitacao() {
+        const select = campo('novo-proc-escola');
+        if (!select) return;
+
+        let input = campo('novo-proc-escola-busca-v23');
+        let lista = campo('novo-proc-escola-lista-v23');
+
+        if (!input) {
+            input = document.createElement('input');
+            input.type = 'text';
+            input.id = 'novo-proc-escola-busca-v23';
+            input.placeholder = 'Digite parte do nome da escola...';
+            input.autocomplete = 'off';
+            input.className = 'w-full p-2 border rounded-lg text-xs font-semibold bg-white mb-1';
+            select.parentNode.insertBefore(input, select);
+        }
+
+        if (!lista) {
+            lista = document.createElement('div');
+            lista.id = 'novo-proc-escola-lista-v23';
+            lista.className = 'hidden max-h-56 overflow-y-auto border rounded-lg bg-white shadow-lg text-xs z-[9999]';
+            select.parentNode.insertBefore(lista, select.nextSibling);
+        }
+
+        select.classList.add('hidden');
+        select.required = false;
+
+        input.oninput = function () {
+            input.dataset.escolaSelecionada = '';
+            select.innerHTML = '<option value="">SELECIONE A INSTITUIÇÃO</option>';
+            limparAutofillNovaSolicitacao();
+
+            clearTimeout(timerBuscaEscola);
+            timerBuscaEscola = setTimeout(() => {
+                renderizarBuscaNovaSolicitacao(input.value);
+            }, 300);
+        };
+
+        input.onfocus = function () {
+            renderizarBuscaNovaSolicitacao(input.value);
+        };
+    }
+
+    window.abrirFormularioNovaSolicitacao = function () {
+        const modal = campo('modal-nova-solicitacao');
+        if (!modal) return;
+
+        modal.classList.remove('hidden');
+
+        prepararCampoEscolaNovaSolicitacao();
+
+        const input = campo('novo-proc-escola-busca-v23');
+        const select = campo('novo-proc-escola');
+
+        if (input) {
+            input.value = '';
+            input.dataset.escolaSelecionada = '';
+        }
+
+        if (select) {
+            select.innerHTML = '<option value="">SELECIONE A INSTITUIÇÃO</option>';
+            select.value = '';
+        }
+
+        const aluno = campo('novo-proc-aluno');
+        if (aluno) aluno.value = '';
+
+        ['novo-proc-documento', 'novo-proc-modalidade', 'novo-proc-ensino'].forEach(id => {
+            const el = campo(id);
+            if (el) el.value = '';
+        });
+
+        const chk = campo('f01-chk-acolhido');
+        if (chk) chk.checked = false;
+
+        const btn = campo('btn-submeter-nova-solicitacao');
+        if (btn) btn.disabled = true;
+
+        limparAutofillNovaSolicitacao();
+    };
+})();
 })();
