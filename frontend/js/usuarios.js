@@ -7,7 +7,7 @@
 (function(){
   'use strict';
 
-  const GRUPO_SEC = 'GLOBAL - TODOS OS NTEs';
+  const GRUPO_SEC = 'SEC - TODOS OS NTEs';
   const EMAIL_SEC = 'sec@enova.educacao.ba.gov.br';
   const STORAGE_USUARIOS = 'SIGEE_USUARIOS_COMPLETO_V41';
 
@@ -191,7 +191,7 @@
     const base = baseUsuarios();
     const existe = email => base.some(u => low(u.email) === low(email));
     const prox = start => Math.max(start, 0, ...base.map(u => Number(u.id)||0)) + 1;
-    if (!existe(EMAIL_SEC)) base.push({id:prox(900000), nome:'USUARIO SEC', email:EMAIL_SEC, senha:'123', perfil:'SEC', grupo:'SEC', nte:GRUPO_SEC, ativo:true});
+    // V31.2: não criar automaticamente usuário SEC.
     base.forEach((u,i) => base[i] = normalizarUsuario(u));
     window.usuariosDB = base;
     try { usuariosDB = base; } catch(e) {}
@@ -240,7 +240,7 @@
     document.getElementById('user-form-senha').value = 'SECBA2026';
     try { if (typeof inicializarSelectsNteEcosystem === 'function') inicializarSelectsNteEcosystem(); } catch(e) {}
     const perfilSel = document.getElementById('user-form-perfil');
-    if (perfilSel) perfilSel.innerHTML = '<option value="SEC">SEC</option><option value="Master">Master</option><option value="Administrador">Administrador</option><option value="Tecnico">Tecnico</option><option value="Consulta">Consulta</option>';
+    if (perfilSel) perfilSel.innerHTML = '<option value="Tecnico">Técnico</option><option value="Master">Master</option>';
     document.getElementById('modal-cadastro-usuario').classList.remove('hidden');
   };
 
@@ -256,7 +256,7 @@
     try { if (typeof inicializarSelectsNteEcosystem === 'function') inicializarSelectsNteEcosystem(); } catch(e) {}
     const nte = document.getElementById('user-form-nte'); if (nte) nte.value = nteUsuario(u);
     const perfilSel = document.getElementById('user-form-perfil');
-    if (perfilSel) { perfilSel.innerHTML = '<option value="SEC">SEC</option><option value="Master">Master</option><option value="Administrador">Administrador</option><option value="Tecnico">Tecnico</option><option value="Consulta">Consulta</option>'; perfilSel.value = u.perfil; }
+    if (perfilSel) { perfilSel.innerHTML = '<option value="Tecnico">Técnico</option><option value="Master">Master</option>'; perfilSel.value = u.perfil; }
     document.getElementById('modal-cadastro-usuario').classList.remove('hidden');
   };
 

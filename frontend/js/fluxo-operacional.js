@@ -7,7 +7,7 @@
 (function () {
     'use strict';
 
-    const GRUPO_SEC = 'GLOBAL - TODOS OS NTEs';
+    const GRUPO_SEC = 'SEC - TODOS OS NTEs';
 
     function texto(v) { return (v === undefined || v === null) ? '' : String(v).trim(); }
     function semAcento(v) { return texto(v).normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
