@@ -379,3 +379,21 @@ button[id^="btn-fase-"] span:not(.status-ico){
 .etapa-deferido{background:#16a34a;color:#fff;border-color:#15803d;}
 .etapa-retirado{background:#64748b;color:#fff;border-color:#475569;}
 .etapa-indeferido{background:#dc2626;color:#fff;border-color:#b91c1c;}
+
+
+/* SIGEE Sprint 3.2 - identidade operacional da Central de Processos */
+.sigee-etapa-badge{display:block;border-radius:.45rem;padding:.32rem .45rem;font-size:.58rem;line-height:1;font-weight:900;text-transform:uppercase;border:1px solid rgba(255,255,255,.28)}
+.sigee-etapa-nova{background:#2563eb;color:#fff}
+.sigee-etapa-desarquivamento{background:#fff;color:#0f172a;border-color:#cbd5e1}
+.sigee-etapa-analise{background:#f97316;color:#fff}
+.sigee-etapa-pendencia{background:#7e22ce;color:#fff}
+.sigee-etapa-digitacao{background:#facc15;color:#422006}
+.sigee-etapa-conferencia{background:#22d3ee;color:#083344}
+.sigee-etapa-assinatura{background:#78350f;color:#fff}
+.sigee-etapa-deferido{background:#16a34a;color:#fff}
+.sigee-etapa-retirado{background:#4b5563;color:#fff}
+.sigee-etapa-indeferido{background:#dc2626;color:#fff}
+.sigee-prioridade{display:inline-block;border-radius:999px;padding:.2rem .55rem;font-size:.58rem;font-weight:900;text-transform:uppercase}
+.sigee-prioridade-alta{background:#fee2e2;color:#991b1b}
+.sigee-prioridade-normal{background:#fef3c7;color:#92400e}
+.sigee-prioridade-baixa{background:#dcfce7;color:#166534}
