@@ -262,7 +262,7 @@
             corpo.insertAdjacentHTML('beforeend', `
                 <tr class="hover:bg-blue-950/70 text-white transition-colors">
                     <td class="p-2.5">
-                        <button type="button" onclick="copiarCodigoSIGEE('${codigo}')" class="font-black text-cyan-200 hover:text-white text-[10px] tracking-wide" title="Clique para copiar">${codigo}</button>
+                        <button type="button" data-sigee-codigo="${codigo}" class="sigee-codigo-copiavel font-black text-cyan-200 hover:text-white text-[10px] tracking-wide" title="Clique para copiar">${codigo} <span aria-hidden="true">📋</span></button>
                         <span class="block uppercase font-bold truncate mt-1">${processoAluno(p)}</span>
                     </td>
                     <td class="p-2.5 truncate">
@@ -416,3 +416,136 @@
   window.addEventListener('load', ()=>setTimeout(ocultarBotaoEditar, 300));
 })();
 
+
+
+/* =====================================================================
+   SIGEE Sprint 3.2.1 — sincronização operacional em tempo real
+   ===================================================================== */
+(function(){
+  'use strict';
+  if (window.__SIGEE_REALTIME_PROCESSOS_321__) return;
+  window.__SIGEE_REALTIME_PROCESSOS_321__ = true;
+
+  let canal = null;
+  let atualizando = false;
+  let timer = null;
+
+  function tabelaProcessos(){
+    return (window.SIGEE_SUPABASE_TABELAS && window.SIGEE_SUPABASE_TABELAS.processos) || 'processos';
+  }
+  function cliente(){
+    try {
+      if (window.SIGEE_SUPABASE && typeof window.SIGEE_SUPABASE.criarCliente === 'function') return window.SIGEE_SUPABASE.criarCliente();
+      if (typeof window.criarClienteSupabaseSIGEE === 'function') return window.criarClienteSupabaseSIGEE();
+      if (typeof window.obterSupabaseSIGEE === 'function') return window.obterSupabaseSIGEE();
+    } catch(e) { console.warn('[SIGEE] Cliente Supabase indisponível.', e); }
+    return null;
+  }
+  function indicador(){
+    let el=document.getElementById('sigee-sync-status');
+    if(el) return el;
+    const alvo=document.querySelector('#aba-processos h2, #aba-processos h1, .sigee-central-header') || document.querySelector('#aba-processos');
+    if(!alvo) return null;
+    el=document.createElement('span');
+    el.id='sigee-sync-status';
+    el.className='ml-3 inline-flex items-center rounded-full px-2 py-1 text-[10px] font-black bg-gray-700 text-white';
+    el.textContent='🟡 Conectando...';
+    if(alvo.parentNode && alvo.matches('h1,h2')) alvo.parentNode.insertBefore(el, alvo.nextSibling); else alvo.prepend(el);
+    return el;
+  }
+  function status(tipo, texto){
+    const el=indicador(); if(!el) return;
+    const cls={ok:'bg-emerald-700', wait:'bg-amber-600', off:'bg-red-700'}[tipo] || 'bg-gray-700';
+    el.className=`ml-3 inline-flex items-center rounded-full px-2 py-1 text-[10px] font-black ${cls} text-white`;
+    el.textContent=texto;
+  }
+  function mapear(r){
+    if(!r) return null;
+    if(typeof window.processoDoSupabaseParaLocalSIGEE==='function') {
+      try { return window.processoDoSupabaseParaLocalSIGEE(r); } catch(e){}
+    }
+    return {
+      ...r,
+      id: Number(r.id) || r.id,
+      aluno: r.aluno_nome || r.aluno || r.nome_solicitante || '',
+      aluno_nome: r.aluno_nome || r.aluno || '',
+      escola: r.escola_nome || r.escola || r.nome_escola || r.instituicao || '',
+      escola_nome: r.escola_nome || r.escola || '',
+      documento: r.documento_tipo || r.documento || r.documento_solicitado || '',
+      documento_tipo: r.documento_tipo || r.documento || '',
+      etapa: r.etapa_atual || r.etapa || r.fase_atual || 'Desarquivamento',
+      etapa_atual: r.etapa_atual || r.etapa || 'Desarquivamento',
+      nte: r.nte || r.nte_nome || r.grupo || '',
+      modalidade: r.modalidade || r.oferta_modalidade || r.nivel_oferta || '',
+      prioridade: r.prioridade || 'Normal',
+      tecnico_responsavel: r.tecnico_responsavel || r.responsavel || r.usuario_responsavel || '',
+      codigo_sigee: r.codigo_sigee || '',
+      data_etapa_atual: r.data_etapa_atual || r.updated_at || r.created_at,
+      created_at: r.created_at
+    };
+  }
+  function redesenhar(){
+    try { if(window.SIGEE_Processos && typeof window.SIGEE_Processos.contar==='function') window.SIGEE_Processos.contar();
+      else if(typeof window.carregarEContarProcessosHorizontais==='function') window.carregarEContarProcessosHorizontais();
+    } catch(e){ console.warn('[SIGEE] Falha ao redesenhar Central.',e); }
+  }
+  async function recarregar(silencioso=true){
+    if(atualizando) return;
+    const c=cliente(); if(!c) { status('off','🔴 Sem conexão'); return; }
+    atualizando=true; status('wait','🟡 Atualizando...');
+    try{
+      const {data,error}=await c.from(tabelaProcessos()).select('*').order('id',{ascending:false});
+      if(error) throw error;
+      const lista=(data||[]).map(mapear).filter(Boolean);
+      window.processosDB=lista;
+      try { processosDB=lista; } catch(e){}
+      redesenhar();
+      status('ok','🟢 Sincronizado');
+    }catch(e){
+      status('off','🔴 Sem conexão');
+      if(!silencioso) console.error('[SIGEE] Falha ao sincronizar processos:',e);
+    }finally{ atualizando=false; }
+  }
+  function agendar(){
+    clearTimeout(timer);
+    timer=setTimeout(()=>recarregar(true),180);
+  }
+  function iniciarRealtime(){
+    const c=cliente(); if(!c || typeof c.channel!=='function') return;
+    try { if(canal) c.removeChannel(canal); } catch(e){}
+    canal=c.channel('sigee-processos-central-v321')
+      .on('postgres_changes',{event:'*',schema:'public',table:tabelaProcessos()},agendar)
+      .subscribe((estado)=>{
+        if(estado==='SUBSCRIBED') status('ok','🟢 Sincronizado');
+        else if(estado==='CHANNEL_ERROR' || estado==='TIMED_OUT' || estado==='CLOSED') status('off','🔴 Sem conexão');
+        else status('wait','🟡 Conectando...');
+      });
+  }
+  async function copiar(valor){
+    valor=String(valor||'').trim(); if(!valor) return;
+    try{
+      if(navigator.clipboard && window.isSecureContext) await navigator.clipboard.writeText(valor);
+      else {
+        const ta=document.createElement('textarea'); ta.value=valor; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.focus(); ta.select();
+        if(!document.execCommand('copy')) throw new Error('copy falhou'); ta.remove();
+      }
+      if(typeof window.mostrarToast==='function') window.mostrarToast('Código SIGEE copiado.');
+      else {
+        const aviso=document.createElement('div'); aviso.textContent='✓ Código SIGEE copiado'; aviso.className='fixed right-4 bottom-4 z-[99999] bg-emerald-700 text-white px-4 py-2 rounded-lg font-bold shadow-xl'; document.body.appendChild(aviso); setTimeout(()=>aviso.remove(),1800);
+      }
+    }catch(e){ prompt('Copie o Código SIGEE:',valor); }
+  }
+  document.addEventListener('click',e=>{
+    const b=e.target.closest('[data-sigee-codigo]'); if(!b) return;
+    e.preventDefault(); copiar(b.getAttribute('data-sigee-codigo'));
+  });
+  window.copiarCodigoSIGEE=copiar;
+  window.recarregarCentralProcessosSIGEE=recarregar;
+  window.iniciarRealtimeProcessosSIGEE=iniciarRealtime;
+
+  window.addEventListener('online',()=>{ iniciarRealtime(); recarregar(true); });
+  window.addEventListener('offline',()=>status('off','🔴 Offline'));
+  document.addEventListener('visibilitychange',()=>{ if(!document.hidden) recarregar(true); });
+  window.addEventListener('focus',()=>recarregar(true));
+  window.addEventListener('load',()=>{ indicador(); iniciarRealtime(); setTimeout(()=>recarregar(true),400); });
+})();
