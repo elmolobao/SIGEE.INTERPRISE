@@ -1,235 +1,195 @@
-/* =====================================================================
- * SIGEE — dashboard.js
- * Dashboard consolidado por perfil, com consultas diretas ao Supabase.
- * MASTER/SEC: visão global ou por NTE. Demais perfis: apenas seu NTE.
- * ===================================================================== */
-(function (window) {
+/* ================================================================
+   SIGEE Enterprise - Sprint 2.1 Núcleo/Dashboard Estável
+   Objetivo: consolidar a função global de Dashboard e evitar
+   sobrescritas/hotfixes paralelos. Deve ser a ÚLTIMA definição.
+   ================================================================ */
+(function(){
   'use strict';
+  if (window.__SIGEE_DASHBOARD_ESTAVEL_INSTALADO__) return;
+  window.__SIGEE_DASHBOARD_ESTAVEL_INSTALADO__ = true;
 
-  if (window.__SIGEE_DASHBOARD_V27__) return;
-  window.__SIGEE_DASHBOARD_V27__ = true;
-
-  const TABELAS = (window.SIGEE_CONFIG && window.SIGEE_CONFIG.supabase && window.SIGEE_CONFIG.supabase.tabelas) || {
-    escolas: 'escolas_sigee',
-    processos: 'processos',
-    usuarios: 'usuarios_sigee'
-  };
-
-  const texto = (v) => (v == null ? '' : String(v).trim());
+  const texto = (v) => (v === null || v === undefined) ? '' : String(v);
   const normalizar = (v) => texto(v)
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .toUpperCase().replace(/\s+/g, ' ').trim();
-  const digitos = (v) => (texto(v).match(/\d+/) || [''])[0];
-  const nteLabel = (id) => `NTE ${String(Number(id)).padStart(2, '0')}`;
+  const soDigitos = (v) => texto(v).match(/\d+/)?.[0] || '';
+  const nteLabel = (id) => id ? `NTE ${String(id).padStart(2,'0')}` : '';
 
-  let execucaoAtual = 0;
-  const cacheMunicipios = new Map();
+  function perfilAtual(){
+    const p = normalizar(window.usuarioLogado?.perfil);
+    if (p === 'MASTER') return 'Master';
+    if (p === 'SEC') return 'SEC';
+    if (p === 'ADMINISTRADOR') return 'Administrador';
+    if (p === 'TECNICO') return 'Tecnico';
+    if (p === 'CONSULTA') return 'Consulta';
+    return texto(window.usuarioLogado?.perfil || '');
+  }
 
-  function cliente() {
-    if (window.SIGEE_SUPABASE && typeof window.SIGEE_SUPABASE.criarCliente === 'function') {
-      return window.SIGEE_SUPABASE.criarCliente();
+  function isGlobal(){
+    const p = perfilAtual();
+    return p === 'Master' || p === 'SEC';
+  }
+
+  function nteIdUsuario(){
+    const u = window.usuarioLogado || {};
+    if (u.nte_id !== null && u.nte_id !== undefined && texto(u.nte_id) !== '') return Number(u.nte_id);
+    return Number(soDigitos(u.nte || u.grupo || u.nte_nome || '')) || null;
+  }
+
+  function nteTextoUsuario(){
+    const id = nteIdUsuario();
+    return id ? nteLabel(id) : texto(window.usuarioLogado?.nte || window.usuarioLogado?.grupo || '');
+  }
+
+  function itemNteId(item){
+    if (!item) return null;
+    if (item.nte_id !== null && item.nte_id !== undefined && texto(item.nte_id) !== '') return Number(item.nte_id);
+    return Number(soDigitos(item.nte || item.nte_nome || item.grupo || '')) || null;
+  }
+
+  function mesmoNteItem(item, alvo){
+    const alvoId = Number(alvo) || Number(soDigitos(alvo));
+    const itemId = itemNteId(item);
+    if (alvoId && itemId) return itemId === alvoId;
+    return normalizar(item?.nte).replace(/\s/g,'') === normalizar(alvo).replace(/\s/g,'');
+  }
+
+  function valorFiltro(){
+    const select = document.getElementById('filtro-dashboard-nte');
+    return texto(select?.value || window.filtroDashboardNteAtualSIGEE || 'TODOS');
+  }
+
+  function filtrarAbrangencia(lista){
+    const arr = Array.isArray(lista) ? lista : [];
+    if (isGlobal()) {
+      const filtro = valorFiltro();
+      if (!filtro || ['GLOBAL','TODOS','SEC - TODOS OS NTES','SEC - TODOS OS NTEs'].includes(filtro)) return arr;
+      return arr.filter(item => mesmoNteItem(item, filtro));
     }
-    return window.SIGEE_SUPABASE_CLIENT || null;
+    const id = nteIdUsuario();
+    if (id) return arr.filter(item => itemNteId(item) === id);
+    const nte = nteTextoUsuario();
+    return arr.filter(item => mesmoNteItem(item, nte));
   }
 
-  function usuario() {
-    return window.usuarioLogado || null;
+  function setText(id, valor){
+    const el = document.getElementById(id);
+    if (el) el.textContent = valor;
   }
 
-  function perfil() {
-    return normalizar(usuario() && usuario().perfil);
+  function acervoRecolhido(e){
+    const v = normalizar(e?.status_acervo || e?.acervo || '');
+    return v.includes('RECOLHIDO');
   }
 
-  function perfilGlobal() {
-    return ['MASTER', 'SEC'].includes(perfil());
+  function dependenciaEstadual(e){
+    return normalizar(e?.dependencia_adm || e?.dependencia || '').includes('ESTADUAL');
   }
 
-  function nteUsuarioId() {
-    const u = usuario() || {};
-    const direto = Number(u.nte_id);
-    if (Number.isFinite(direto) && direto > 0) return direto;
-    const extraido = Number(digitos(u.nte || u.grupo || u.nte_nome));
-    return Number.isFinite(extraido) && extraido > 0 ? extraido : null;
+  function etapa(p){
+    return normalizar(p?.etapa || p?.etapa_atual || p?.fase_atual || '');
   }
 
-  function filtroSelecionado() {
-    if (!perfilGlobal()) return nteUsuarioId();
-    const valor = texto(document.getElementById('filtro-dashboard-nte')?.value || 'TODOS');
-    if (!valor || ['TODOS', 'GLOBAL'].includes(normalizar(valor))) return null;
-    const id = Number(digitos(valor));
-    return Number.isFinite(id) && id > 0 ? id : null;
-  }
-
-  function configurarFiltro() {
+  function carregarFiltroMaster(){
     const box = document.getElementById('box-filtro-dashboard-master');
     const select = document.getElementById('filtro-dashboard-nte');
-    if (!box || !select) return;
+    if (!box || !select || !window.usuarioLogado) return;
 
-    if (!perfilGlobal()) {
+    if (!isGlobal()) {
       box.classList.add('hidden');
       return;
     }
 
     box.classList.remove('hidden');
-    const valorAnterior = select.value;
-    select.innerHTML = '<option value="TODOS">TODOS</option>' +
-      Array.from({ length: 27 }, (_, i) => {
-        const id = i + 1;
-        return `<option value="${id}">${nteLabel(id)}</option>`;
-      }).join('');
+    const anterior = valorFiltro();
+    const ntesSet = new Set();
+    [...(window.escolasDB || []), ...(window.processosDB || [])].forEach(item => {
+      const id = itemNteId(item);
+      if (id) ntesSet.add(id);
+    });
 
-    select.value = Array.from(select.options).some(o => o.value === valorAnterior) ? valorAnterior : 'TODOS';
-    select.onchange = () => window.carregarDadosDashboardReal();
+    select.innerHTML = '<option value="TODOS">TODOS</option>';
+    [...ntesSet].sort((a,b)=>a-b).forEach(id => {
+      const opt = document.createElement('option');
+      opt.value = String(id);
+      opt.textContent = nteLabel(id);
+      select.appendChild(opt);
+    });
+    select.value = [...select.options].some(o => o.value === anterior) ? anterior : 'TODOS';
+    window.filtroDashboardNteAtualSIGEE = select.value;
+    select.onchange = function(){
+      window.filtroDashboardNteAtualSIGEE = this.value;
+      window.carregarDadosDashboardReal();
+    };
   }
 
-  function setTexto(id, valor) {
-    const el = document.getElementById(id);
-    if (el) el.textContent = String(valor ?? 0);
-  }
-
-  function mostrarCarregando() {
-    [
-      'dash-escolas','dash-acervos','dash-estaduais','dash-municipios','dash-usuarios',
-      'dash-proc-desarquivamento','dash-proc-analise','dash-proc-pendencia','dash-proc-digitacao',
-      'dash-proc-conferencia','dash-proc-assinatura','dash-proc-aguardando','dash-proc-retirado'
-    ].forEach(id => setTexto(id, '…'));
-  }
-
-  async function contar(tabela, aplicarFiltro) {
-    const c = cliente();
-    if (!c) throw new Error('Cliente Supabase indisponível.');
-    let q = c.from(tabela).select('*', { count: 'exact', head: true });
-    if (typeof aplicarFiltro === 'function') q = aplicarFiltro(q);
-    const { count, error } = await q;
-    if (error) throw error;
-    return count || 0;
-  }
-
-  function filtrarEscolaPorNte(q, nteId) {
-    return nteId ? q.eq('nte_id', nteId) : q;
-  }
-
-  function filtrarUsuarioPorNte(q, nteId) {
-    return nteId ? q.eq('nte_id', nteId) : q;
-  }
-
-  function filtrarProcessoPorNte(q, nteId) {
-    return nteId ? q.eq('nte', nteLabel(nteId)) : q;
-  }
-
-  async function contarMunicipios(nteId) {
-    const chave = nteId || 'GLOBAL';
-    const salvo = cacheMunicipios.get(chave);
-    if (salvo && Date.now() - salvo.em < 10 * 60 * 1000) return salvo.total;
-
-    const c = cliente();
-    if (!c) return 0;
-
-    const encontrados = new Set();
-    const tamanhoPagina = 1000;
-    let inicio = 0;
-
-    while (true) {
-      let q = c.from(TABELAS.escolas)
-        .select('municipio')
-        .order('id', { ascending: true })
-        .range(inicio, inicio + tamanhoPagina - 1);
-      q = filtrarEscolaPorNte(q, nteId);
-      const { data, error } = await q;
-      if (error) throw error;
-      const lista = data || [];
-      lista.forEach(item => {
-        const nome = normalizar(item.municipio);
-        if (nome) encontrados.add(nome);
+  function atualizarIndicadoresTecnicos(processos){
+    const topBox = document.getElementById('dash-tec-top-escolas');
+    if (topBox) {
+      const mapa = {};
+      processos.forEach(p => {
+        const nome = texto(p.escola || p.escola_nome || p.nome_escola || 'NÃO INFORMADA').toUpperCase();
+        if (!mapa[nome]) mapa[nome] = { nome, nte: p.nte || '', qtd: 0 };
+        mapa[nome].qtd++;
       });
-      if (lista.length < tamanhoPagina) break;
-      inicio += tamanhoPagina;
+      const top = Object.values(mapa).sort((a,b)=>b.qtd-a.qtd).slice(0,5);
+      topBox.innerHTML = top.length ? top.map((x,i)=>`<div class="flex justify-between gap-2 border-b border-gray-100 py-1"><span>${i+1}. ${x.nome}<br><small class="text-gray-400">${x.nte || '-'}</small></span><strong>${x.qtd}</strong></div>`).join('') : 'Sem dados';
     }
-
-    const total = encontrados.size;
-    cacheMunicipios.set(chave, { total, em: Date.now() });
-    return total;
+    setText('dash-tec-media-entrega', '0 dias');
+    setText('dash-tec-media-pedidos-dia', processos.length ? String(processos.length).replace('.', ',') : '0');
+    setText('dash-tec-media-pasta-dia', '0');
   }
 
-  async function contarEtapa(nteId, etapa) {
-    return contar(TABELAS.processos, q => filtrarProcessoPorNte(q, nteId).eq('etapa_atual', etapa));
-  }
+  function carregarDadosDashboardReal(){
+    if (!window.usuarioLogado) return;
+    carregarFiltroMaster();
 
-  async function carregarDashboard() {
-    const u = usuario();
-    if (!u) return;
+    const escolas = filtrarAbrangencia(window.escolasDB || []);
+    const processos = filtrarAbrangencia(window.processosDB || []);
 
-    const minhaExecucao = ++execucaoAtual;
-    configurarFiltro();
-    mostrarCarregando();
+    setText('dash-escolas', escolas.length);
+    setText('dash-acervos', escolas.filter(acervoRecolhido).length);
+    setText('dash-estaduais', escolas.filter(dependenciaEstadual).length);
+    setText('dash-municipios', new Set(escolas.map(e => normalizar(e.municipio)).filter(Boolean)).size);
+    setText('dash-usuarios', Array.isArray(window.usuariosDB) ? window.usuariosDB.length : 0);
 
-    const nteId = filtroSelecionado();
-
-    try {
-      const resultados = await Promise.all([
-        contar(TABELAS.escolas, q => filtrarEscolaPorNte(q, nteId)),
-        contar(TABELAS.escolas, q => filtrarEscolaPorNte(q, nteId).ilike('status_acervo', 'RECOLHIDO')),
-        contar(TABELAS.escolas, q => filtrarEscolaPorNte(q, nteId).ilike('dependencia_adm', '%ESTADUAL%')),
-        contarMunicipios(nteId),
-        contar(TABELAS.usuarios, q => filtrarUsuarioPorNte(q, nteId).eq('ativo', true)),
-        contarEtapa(nteId, 'Desarquivamento'),
-        contarEtapa(nteId, 'Análise'),
-        contarEtapa(nteId, 'Pendência'),
-        contarEtapa(nteId, 'Digitação'),
-        contarEtapa(nteId, 'Conferência'),
-        contarEtapa(nteId, 'Assinatura'),
-        contarEtapa(nteId, 'Aguardando Retirada'),
-        contarEtapa(nteId, 'Retirado')
-      ]);
-
-      if (minhaExecucao !== execucaoAtual) return;
-
-      const [
-        escolas, acervos, estaduais, municipios, usuarios,
-        desarquivamento, analise, pendencia, digitacao,
-        conferencia, assinatura, aguardando, retirado
-      ] = resultados;
-
-      setTexto('dash-escolas', escolas);
-      setTexto('dash-acervos', acervos);
-      setTexto('dash-estaduais', estaduais);
-      setTexto('dash-municipios', municipios);
-      setTexto('dash-usuarios', usuarios);
-      setTexto('dash-proc-desarquivamento', desarquivamento);
-      setTexto('dash-proc-analise', analise);
-      setTexto('dash-proc-pendencia', pendencia);
-      setTexto('dash-proc-digitacao', digitacao);
-      setTexto('dash-proc-conferencia', conferencia);
-      setTexto('dash-proc-assinatura', assinatura);
-      setTexto('dash-proc-aguardando', aguardando);
-      setTexto('dash-proc-retirado', retirado);
-    } catch (erro) {
-      console.error('[SIGEE] Falha ao carregar Dashboard:', erro);
-      if (minhaExecucao !== execucaoAtual) return;
-      mostrarCarregando();
-    }
+    const mapaEtapas = {
+      'dash-proc-desarquivamento': ['DESARQUIVAMENTO'],
+      'dash-proc-analise': ['ANALISE'],
+      'dash-proc-pendencia': ['PENDENCIA'],
+      'dash-proc-digitacao': ['DIGITACAO'],
+      'dash-proc-conferencia': ['CONFERENCIA'],
+      'dash-proc-assinatura': ['ASSINATURA'],
+      'dash-proc-aguardando': ['AGUARDANDO RETIRADA','DEFERIDO'],
+      'dash-proc-retirado': ['RETIRADO']
+    };
+    Object.entries(mapaEtapas).forEach(([id, nomes]) => setText(id, processos.filter(p => nomes.includes(etapa(p))).length));
+    atualizarIndicadoresTecnicos(processos);
   }
 
   let timer = null;
-  window.carregarDadosDashboardReal = function () {
+  function carregarDashboardDebounced(){
     clearTimeout(timer);
-    timer = setTimeout(carregarDashboard, 40);
-  };
-  window.carregarDadosDashboardRealImediato = carregarDashboard;
-  window.inicializarFiltroDashboardMasterSIGEE = configurarFiltro;
-
-  const navegarAnterior = window.navegar;
-  if (!window.__SIGEE_DASHBOARD_NAV_V27__) {
-    window.__SIGEE_DASHBOARD_NAV_V27__ = true;
-    window.navegar = function (aba) {
-      const retorno = typeof navegarAnterior === 'function' ? navegarAnterior.apply(this, arguments) : undefined;
-      if (aba === 'painel') window.carregarDadosDashboardReal();
-      return retorno;
-    };
-    try { navegar = window.navegar; } catch (_) {}
+    timer = setTimeout(carregarDadosDashboardReal, 30);
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
-    if (usuario()) window.carregarDadosDashboardReal();
+  window.inicializarFiltroDashboardMasterSIGEE = carregarFiltroMaster;
+  window.carregarDadosDashboardReal = carregarDashboardDebounced;
+  window.carregarDadosDashboardRealImediato = carregarDadosDashboardReal;
+  window.atualizarDashboardTecnicoSIGEE = function(proc){ atualizarIndicadoresTecnicos(Array.isArray(proc) ? proc : []); };
+
+  const navAnterior = window.navegar;
+  if (!window.__SIGEE_NAV_DASHBOARD_ESTAVEL__) {
+    window.__SIGEE_NAV_DASHBOARD_ESTAVEL__ = true;
+    window.navegar = function(aba){
+      const ret = typeof navAnterior === 'function' ? navAnterior.apply(this, arguments) : undefined;
+      if (aba === 'painel') carregarDashboardDebounced();
+      return ret;
+    };
+    try { navegar = window.navegar; } catch(e) {}
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    if (window.usuarioLogado) carregarDashboardDebounced();
   });
-})(window);
+})();
