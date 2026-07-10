@@ -655,8 +655,14 @@
     el.querySelector('[data-voltar33]').addEventListener('click',()=>abrirAnalise(id));
     botao.addEventListener('click',async()=>{const aluno=marcados(el,'pendAluno'),inst=marcados(el,'pendInst');if(!aluno.length&&!inst.length)return alert('Selecione ao menos uma pendência.');if(!el.querySelector('#pend-email33')?.checked)return alert('Confirme a execução da tarefa obrigatória.');const ca=txt(el.querySelector('#pend-aluno-comp33').value),ci=txt(el.querySelector('#pend-inst-comp33').value),msg=mensagemPendencia(aluno,inst);if(aluno.includes('Outros')&&!ca)return alert('Informe a descrição da pendência “Outros” do Aluno/Requerente.');if(inst.includes('Outros')&&!ci)return alert('Informe a descrição da pendência “Outros” da Instituição.');botao.disabled=true;try{await substituirPendencias(p,aluno,inst,ca,ci,msg);p.pendencia_aluno_itens=aluno;p.pendencia_instituicao_itens=inst;p.pendencia_aluno_complemento=ca;p.pendencia_instituicao_complemento=ci;p.pendencia_aberta=true;p.etapa=p.etapa_atual='Pendência';p.data_etapa_atual=agoraISO();p.tecnico_responsavel=nomeUsuario();await salvar(p);const obs=[aluno.length?`Aluno: ${aluno.join(', ')}`:'',inst.length?`Instituição: ${inst.join(', ')}`:'',ca?`Complemento aluno: ${ca}`:'',ci?`Complemento instituição: ${ci}`:'',`Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}`].filter(Boolean).join(' | ');await registrarHistorico(p,'Pendência','Pendência registrada',obs,{aluno,instituicao:inst,mensagem:msg,tarefa_confirmada:true});
         fecharModal();
-        filtrarProcessosPorEtapa('Pendência');
-        atualizarContadoresProcessos();
+        if (typeof window.filtrarProcessosPorEtapa === 'function') {
+          window.filtrarProcessosPorEtapa('Pendência');
+        }
+        if (typeof window.carregarEContarProcessosHorizontais === 'function') {
+          window.carregarEContarProcessosHorizontais();
+        } else if (window.SIGEE_Processos && typeof window.SIGEE_Processos.contar === 'function') {
+          window.SIGEE_Processos.contar();
+        }
         toast('Pendência registrada. Processo movido para a aba Pendência.');}catch(e){console.error(e);alert('Não foi possível registrar a pendência: '+(e.message||e));botao.disabled=false;}});
   }
 
