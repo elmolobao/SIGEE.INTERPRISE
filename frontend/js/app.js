@@ -5407,7 +5407,53 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     }catch(err){ console.error('SIGEE V38 erro geral:',err); if(!silencioso) alert('Erro ao carregar dados do Supabase: '+(err.message||err)); return false; }
     finally{ carregando=false; }
   }
+  // Carregamento leve para a abertura do sistema.
+  // Não baixa o catálogo completo de escolas (mais de 40 mil registros).
+  // As escolas continuam sendo consultadas sob demanda pelo módulo escolas.js.
+  async function carregarEssencialV38(silencioso=true){
+    if(carregando) return false;
+    carregando=true;
+    try{
+      const [pr, so, nt] = await Promise.allSettled([
+        readAll(T.processos),
+        readAll(T.solicitacoes),
+        readAll(T.ntes)
+      ]);
+
+      if(pr.status==='fulfilled'){
+        processosDB=pr.value.map(mapProcesso).filter(p=>p.aluno||p.escola);
+        window.processosDB=processosDB;
+      }
+      if(so.status==='fulfilled'){
+        solicitacoesDB=so.value.map(mapProcesso).filter(p=>p.aluno||p.escola);
+        window.solicitacoesDB=solicitacoesDB;
+        if(!processosDB.length && solicitacoesDB.length){
+          processosDB=solicitacoesDB.slice();
+          window.processosDB=processosDB;
+        }
+      }
+      if(nt.status==='fulfilled' && nt.value.length && typeof LISTA_OFICIAL_27_NTES!=='undefined'){
+        const ntes=nt.value.map(n=>txt(n.nome||n.nte||n.codigo||n.descricao)).filter(Boolean);
+        if(ntes.length) LISTA_OFICIAL_27_NTES.splice(0,LISTA_OFICIAL_27_NTES.length,...ntes);
+      }
+
+      try{ inicializarSelectsNteEcosystem(); }catch(e){}
+      try{ window.aplicarPermissoesV37&&window.aplicarPermissoesV37(); }catch(e){}
+      window.sigEESupabaseOnline=true;
+      try{ sigEESupabaseOnline=true; }catch(e){}
+      try{ window.carregarEContarProcessosHorizontais(); }catch(e){}
+      return true;
+    }catch(err){
+      console.error('[SIGEE] Erro no carregamento essencial:',err);
+      if(!silencioso) alert('Erro ao carregar os processos: '+(err.message||err));
+      return false;
+    }finally{
+      carregando=false;
+    }
+  }
+
   window.SIGEE_V38_CARREGAR_BANCOS = carregarTudoV38;
+  window.SIGEE_CARREGAR_ESSENCIAL = carregarEssencialV38;
   const oldLogin=window.handleLogin;
   window.handleLogin = async function(event){
     if(event) event.preventDefault();
@@ -5423,7 +5469,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     try{ registrarLog('Acesso realizado ao painel operacional.'); }catch(e){}
     try{ window.aplicarPermissoesV37&&window.aplicarPermissoesV37(); }catch(e){}
     try{ navegar('painel'); }catch(e){}
-    setTimeout(()=>carregarTudoV38(true),50);
+    setTimeout(()=>carregarEssencialV38(true),50);
   };
   try{ handleLogin=window.handleLogin; }catch(e){}
   const oldNav=window.navegar;
@@ -5454,7 +5500,8 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     finally{ setTimeout(()=>{ if(card) card.classList.add('hidden'); if(event?.target) event.target.value=''; },800); }
   };
   try{ processarImportacaoOtimizada=window.processarImportacaoOtimizada; }catch(e){}
-  document.addEventListener('DOMContentLoaded',()=>{ setTimeout(()=>carregarTudoV38(true),400); });
+  // O carregamento completo foi removido da abertura da página.
+  // Isso evita baixar todo o catálogo de escolas antes mesmo do login.
   window.SIGEE_V38={versao:V,carregar:carregarTudoV38};
 })();
 
