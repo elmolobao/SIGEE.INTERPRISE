@@ -573,24 +573,22 @@
 
 
 /* =====================================================================
-   SIGEE Sprint 3.3 — Análise, Pendência, Indeferimento e Histórico
+   SIGEE Sprint 3.3.1A — Motor de Pendências e Checklist Operacional
+   Base funcional: Sprint 3.3
    ===================================================================== */
 (function(){
   'use strict';
-  if(window.__SIGEE_FLUXO_ANALISE_33__) return;
-  window.__SIGEE_FLUXO_ANALISE_33__=true;
+  if(window.__SIGEE_FLUXO_ANALISE_331A__) return;
+  window.__SIGEE_FLUXO_ANALISE_331A__=true;
 
   const MOTIVOS_INDEFERIMENTO=[
-    'Não encontrados registros de curso/aprovação',
-    'Aluno desistente',
-    'Abandono de matrícula',
-    'Indício de irregularidade',
-    'Matrícula cancelada',
-    'Solicitação fora da competência do Setor de Escolas Extintas',
-    'Outros'
+    'Não encontrados registros de curso/aprovação','Aluno desistente','Abandono de matrícula',
+    'Indício de irregularidade','Matrícula cancelada',
+    'Solicitação fora da competência do Setor de Escolas Extintas','Outros'
   ];
   const PEND_ALUNO=['RG','Histórico Ensino Fundamental','Histórico Ensino Médio'];
   const PEND_INST=['Atas','Caderneta','Diário de Classe'];
+  let contextoRetorno=null;
 
   function txt(v){return v===null||v===undefined?'':String(v).trim();}
   function norm(v){return txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();}
@@ -600,182 +598,70 @@
   function lista(){return Array.isArray(window.processosDB)?window.processosDB:[];}
   function processo(id){return lista().find(p=>String(p.id)===String(id));}
   function cliente(){try{return window.obterSupabaseSIGEE?.()||window.criarClienteSupabaseSIGEE?.()||window.SIGEE_SUPABASE?.criarCliente?.();}catch(e){return null;}}
-  function tabelaProcessos(){return window.SIGEE_SUPABASE_TABELAS?.processos||'processos';}
   function agoraISO(){return new Date().toISOString();}
-  function agoraBR(){return new Date().toLocaleString('pt-BR');}
   function escapar(v){return txt(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));}
   function nomeUsuario(){return txt(usuario().nome||usuario().email||'Usuário SIGEE');}
-
   function fecharModal(){document.getElementById('sigee-modal-fluxo33')?.remove();}
   function modal(titulo,conteudo,classe=''){
-    fecharModal();
-    const el=document.createElement('div');
-    el.id='sigee-modal-fluxo33';
-    el.className='sigee-modal33-backdrop';
-    el.innerHTML=`<section class="sigee-modal33 ${classe}">
-      <header class="sigee-modal33-header"><h2>${titulo}</h2><button type="button" data-fechar-modal33>×</button></header>
-      <div class="sigee-modal33-body">${conteudo}</div>
-    </section>`;
-    document.body.appendChild(el);
-    el.addEventListener('click',e=>{if(e.target===el||e.target.closest('[data-fechar-modal33]'))fecharModal();});
-    return el;
+    fecharModal(); const el=document.createElement('div'); el.id='sigee-modal-fluxo33'; el.className='sigee-modal33-backdrop';
+    el.innerHTML=`<section class="sigee-modal33 ${classe}"><header class="sigee-modal33-header"><h2>${titulo}</h2><button type="button" data-fechar-modal33>×</button></header><div class="sigee-modal33-body">${conteudo}</div></section>`;
+    document.body.appendChild(el); el.addEventListener('click',e=>{if(e.target===el||e.target.closest('[data-fechar-modal33]')) fecharModal();}); return el;
   }
-  function toast(msg,tipo='ok'){
-    if(typeof window.mostrarToast==='function') return window.mostrarToast(msg);
-    const el=document.createElement('div');el.className=`sigee-toast33 ${tipo}`;el.textContent=msg;document.body.appendChild(el);setTimeout(()=>el.remove(),2200);
-  }
+  function toast(msg,tipo='ok'){if(typeof window.mostrarToast==='function')return window.mostrarToast(msg);const el=document.createElement('div');el.className=`sigee-toast33 ${tipo}`;el.textContent=msg;document.body.appendChild(el);setTimeout(()=>el.remove(),2200);}
   async function registrarHistorico(p,etapa,acao,observacao='',dados={}){
-    const c=cliente();
-    const registro={
-      processo_id:p.id,
-      codigo_sigee:p.codigo_sigee||'',
-      etapa:etapa||p.etapa_atual||p.etapa||'',
-      acao,
-      observacao:observacao||null,
-      usuario_nome:nomeUsuario(),
-      usuario_email:txt(usuario().email)||null,
-      usuario_perfil:txt(usuario().perfil)||null,
-      nte:txt(p.nte||p.nte_nome)||null,
-      dados:dados||{},
-      created_at:agoraISO()
-    };
-    try{if(c){const {error}=await c.from('historico_processos').insert(registro);if(error)throw error;}}
-    catch(e){console.warn('[SIGEE] Histórico não gravado no Supabase.',e);}
-    try{window.registrarLog?.(`${acao} — ${p.codigo_sigee||p.id}`);}catch(e){}
+    const c=cliente(); const registro={processo_id:p.id,codigo_sigee:p.codigo_sigee||'',etapa:etapa||p.etapa_atual||p.etapa||'',acao,observacao:observacao||null,usuario_nome:nomeUsuario(),usuario_email:txt(usuario().email)||null,usuario_perfil:txt(usuario().perfil)||null,nte:txt(p.nte||p.nte_nome)||null,dados:dados||{},created_at:agoraISO()};
+    try{if(!c)throw new Error('Cliente Supabase indisponível');const {error}=await c.from('historico_processos').insert(registro);if(error)throw error;return true;}catch(e){console.error('[SIGEE] Histórico não gravado.',e);toast('A ação foi salva, mas o histórico não pôde ser registrado.','erro');return false;}
   }
-  async function salvar(p){
-    if(window.SIGEE_Processos?.salvar) await window.SIGEE_Processos.salvar(p);
-    if(window.recarregarCentralProcessosSIGEE) await window.recarregarCentralProcessosSIGEE(true);
-    else window.SIGEE_Processos?.contar?.();
+  async function salvar(p){if(window.SIGEE_Processos?.salvar)await window.SIGEE_Processos.salvar(p);if(window.recarregarCentralProcessosSIGEE)await window.recarregarCentralProcessosSIGEE(true);else window.SIGEE_Processos?.contar?.();}
+  function resumo(p){const etapa=txt(p.etapa_atual||p.etapa),dias=window.SIGEE_Processos?.diasDesde?.(p.data_etapa_atual||p.created_at)||0,limite=norm(etapa).includes('ANAL')?7:null;return `<div class="sigee-resumo33"><div><span>Aluno</span><strong>${escapar(p.aluno||p.aluno_nome||'-')}</strong></div><div><span>Escola</span><strong>${escapar(p.escola||p.escola_nome||'-')}</strong></div><div><span>Modalidade</span><strong>${escapar(p.modalidade||'-')}</strong></div><div><span>Prioridade</span><strong>${escapar(p.prioridade||'Normal')}</strong></div><div><span>Prazo da etapa</span><strong>${limite?`${dias}/${limite}`:`${dias} dias`}</strong></div><div><span>Quem analisou</span><strong>${escapar(p.tecnico_responsavel||p.responsavel||'Não atribuído')}</strong></div><div><span>Data da solicitação</span><strong>${escapar(p.data_solicitacao||p.created_at||'-')}</strong></div><div><span>Entrada na etapa</span><strong>${escapar(p.data_etapa_atual||'-')}</strong></div></div>`;}
+  function mensagemPendencia(aluno,inst){if(aluno.length&&inst.length)return {codigo:'09',texto:'09 - Aluno Pendência (INSTITUIÇÃO e REQUERENTE)'};if(inst.length)return {codigo:'08',texto:'08 - Aluno Pendência (INSTITUIÇÃO)'};return {codigo:'07',texto:'07 - Aluno Pendência (Aluno)'};}
+  function cardTarefa(msg,confirmado=false){return `<section class="sigee-tarefa-obrigatoria33"><div class="sigee-tarefa-icone33">📧</div><div class="sigee-tarefa-conteudo33"><span>TAREFA OBRIGATÓRIA</span><strong>ENVIAR E-MAIL: ${escapar(msg.texto)}</strong><p>Execute a mensagem institucional na ferramenta de e-mail e confirme abaixo antes de registrar a pendência.</p><label><input type="checkbox" id="pend-email33" ${confirmado?'checked':''}> Confirmo que executei esta tarefa.</label></div></section>`;}
+  function checks(valores,nome,selecionados=[]){return valores.map(v=>`<label class="sigee-check33"><input type="checkbox" name="${nome}" value="${escapar(v)}" ${selecionados.includes(v)?'checked':''}><span>${escapar(v)}</span></label>`).join('');}
+  function marcados(el,nome){return [...el.querySelectorAll(`input[name="${nome}"]:checked`)].map(i=>i.value);}
+
+  async function carregarPendencias(id){const c=cliente();if(!c)return [];try{const {data,error}=await c.from('processo_pendencias').select('*').eq('processo_id',id).order('id',{ascending:true});if(error)throw error;return data||[];}catch(e){console.error('[SIGEE] Falha ao carregar pendências.',e);return [];}}
+  async function substituirPendencias(p,aluno,inst,compAluno,compInst,msg){
+    const c=cliente();if(!c)throw new Error('Cliente Supabase indisponível');
+    const {error:delError}=await c.from('processo_pendencias').delete().eq('processo_id',p.id).eq('status','pendente');if(delError)throw delError;
+    const linhas=[...aluno.map(item=>({processo_id:p.id,codigo_sigee:p.codigo_sigee||'',grupo:'aluno',item,complemento:compAluno||null,status:'pendente',mensagem_codigo:msg.codigo,mensagem_texto:msg.texto,tarefa_confirmada:true,criado_por:nomeUsuario(),criado_por_email:txt(usuario().email)||null})),...inst.map(item=>({processo_id:p.id,codigo_sigee:p.codigo_sigee||'',grupo:'instituicao',item,complemento:compInst||null,status:'pendente',mensagem_codigo:msg.codigo,mensagem_texto:msg.texto,tarefa_confirmada:true,criado_por:nomeUsuario(),criado_por_email:txt(usuario().email)||null}))];
+    const {error}=await c.from('processo_pendencias').insert(linhas);if(error)throw error;
   }
-  function resumo(p){
-    const etapa=txt(p.etapa_atual||p.etapa);
-    const dias=window.SIGEE_Processos?.diasDesde?.(p.data_etapa_atual||p.created_at)||0;
-    const limite=norm(etapa).includes('ANAL')?7:null;
-    return `<div class="sigee-resumo33">
-      <div><span>Aluno</span><strong>${escapar(p.aluno||p.aluno_nome||'-')}</strong></div>
-      <div><span>Escola</span><strong>${escapar(p.escola||p.escola_nome||'-')}</strong></div>
-      <div><span>Modalidade</span><strong>${escapar(p.modalidade||'-')}</strong></div>
-      <div><span>Prioridade</span><strong>${escapar(p.prioridade||'Normal')}</strong></div>
-      <div><span>Prazo da etapa</span><strong>${limite?`${dias}/${limite}`:`${dias} dias`}</strong></div>
-      <div><span>Quem analisou</span><strong>${escapar(p.tecnico_responsavel||p.responsavel||'Não atribuído')}</strong></div>
-      <div><span>Data da solicitação</span><strong>${escapar(p.data_solicitacao||p.created_at||'-')}</strong></div>
-      <div><span>Entrada na etapa</span><strong>${escapar(p.data_etapa_atual||'-')}</strong></div>
-    </div>`;
-  }
-  async function prosseguirAnalise(id){
-    const p=processo(id);if(!p)return;
-    p.etapa=p.etapa_atual='Digitação';p.data_etapa_atual=agoraISO();p.tecnico_responsavel=nomeUsuario();p.pendencia_aberta=false;
-    await registrarHistorico(p,'Análise','Análise concluída','Processo encaminhado para Digitação.');
-    await salvar(p);fecharModal();toast('Processo encaminhado para Digitação.');
-  }
-  function abrirAnalise(id){
-    const p=processo(id);if(!p)return;
-    const bloqueio=somenteLeitura()?'<p class="sigee-aviso33">Perfil com acesso somente para consulta.</p>':'';
-    const acoes=somenteLeitura()?'':`<div class="sigee-acoes33">
-      <button class="btn33 btn33-amarelo" data-prosseguir33>✍️ Prosseguir para Digitação</button>
-      <button class="btn33 btn33-roxo" data-pendencia33>⚠️ Registrar Pendência</button>
-      <button class="btn33 btn33-vermelho" data-indeferir33>⛔ Indeferir Processo</button>
-    </div>`;
-    const el=modal(`🔍 Análise — ${escapar(p.codigo_sigee||p.id)}`,`${resumo(p)}${bloqueio}${acoes}<div class="sigee-linkhistorico33"><button data-historico33>📜 Ver histórico completo</button></div>`,'analise');
-    el.querySelector('[data-prosseguir33]')?.addEventListener('click',()=>prosseguirAnalise(id));
-    el.querySelector('[data-pendencia33]')?.addEventListener('click',()=>abrirFormularioPendencia(id));
-    el.querySelector('[data-indeferir33]')?.addEventListener('click',()=>abrirFormularioIndeferimento(id));
-    el.querySelector('[data-historico33]')?.addEventListener('click',()=>abrirHistorico(id));
-  }
-  function checks(lista,nome,selecionados=[]){return lista.map(v=>`<label class="sigee-check33"><input type="checkbox" name="${nome}" value="${escapar(v)}" ${selecionados.includes(v)?'checked':''}><span>${escapar(v)}</span></label>`).join('');}
-  function valoresMarcados(el,nome){return [...el.querySelectorAll(`input[name="${nome}"]:checked`)].map(i=>i.value);}
-  function abrirFormularioPendencia(id){
-    const p=processo(id);if(!p||somenteLeitura())return;
-    const el=modal(`⚠️ Registrar Pendência — ${escapar(p.codigo_sigee||p.id)}`,`
-      ${resumo(p)}
-      <div class="sigee-gridpend33">
-        <fieldset><legend>Pendência do Aluno</legend>${checks(PEND_ALUNO,'pendAluno',p.pendencia_aluno_itens||[])}<label>Complemento (opcional)<textarea id="pend-aluno-comp33">${escapar(p.pendencia_aluno_complemento||'')}</textarea></label></fieldset>
-        <fieldset><legend>Pendência da Instituição</legend>${checks(PEND_INST,'pendInst',p.pendencia_instituicao_itens||[])}<label>Complemento (opcional)<textarea id="pend-inst-comp33">${escapar(p.pendencia_instituicao_complemento||'')}</textarea></label></fieldset>
-      </div>
-      <label class="sigee-email33"><input type="checkbox" id="pend-email33"> Confirmo o envio da mensagem de e-mail padronizada correspondente à pendência.</label>
-      <div class="sigee-acoes33"><button class="btn33 btn33-cinza" data-voltar33>Voltar</button><button class="btn33 btn33-roxo" data-salvar-pend33>Registrar Pendência</button></div>`,'pendencia');
+  async function marcarRecebidas(ids){if(!ids.length)return;const c=cliente();if(!c)throw new Error('Cliente Supabase indisponível');const {error}=await c.from('processo_pendencias').update({status:'recebido',recebido_em:agoraISO(),recebido_por:nomeUsuario(),recebido_por_email:txt(usuario().email)||null}).in('id',ids);if(error)throw error;}
+
+  async function prosseguirAnalise(id){const p=processo(id);if(!p)return;p.etapa=p.etapa_atual='Digitação';p.data_etapa_atual=agoraISO();p.tecnico_responsavel=nomeUsuario();p.pendencia_aberta=false;await salvar(p);await registrarHistorico(p,'Análise Realizada','Análise realizada','Processo encaminhado para Digitação.');fecharModal();toast('Processo encaminhado para Digitação.');}
+  function abrirAnalise(id){const p=processo(id);if(!p)return;contextoRetorno=()=>abrirAnalise(id);const bloqueio=somenteLeitura()?'<p class="sigee-aviso33">Perfil com acesso somente para consulta.</p>':'';const acoes=somenteLeitura()?'':`<div class="sigee-acoes33"><button class="btn33 btn33-amarelo" data-prosseguir33>✍️ Prosseguir para Digitação</button><button class="btn33 btn33-roxo" data-pendencia33>⚠️ Registrar Pendência</button><button class="btn33 btn33-vermelho" data-indeferir33>⛔ Indeferir Processo</button></div>`;const el=modal(`🔍 Análise Realizada — ${escapar(p.codigo_sigee||p.id)}`,`${resumo(p)}${bloqueio}${acoes}<div class="sigee-linkhistorico33"><button data-historico33>📜 Ver histórico completo</button></div>`,'analise');el.querySelector('[data-prosseguir33]')?.addEventListener('click',()=>prosseguirAnalise(id));el.querySelector('[data-pendencia33]')?.addEventListener('click',()=>abrirFormularioPendencia(id));el.querySelector('[data-indeferir33]')?.addEventListener('click',()=>abrirFormularioIndeferimento(id));el.querySelector('[data-historico33]')?.addEventListener('click',()=>abrirHistorico(id,()=>abrirAnalise(id)));}
+
+  async function abrirFormularioPendencia(id){
+    const p=processo(id);if(!p||somenteLeitura())return; contextoRetorno=()=>abrirFormularioPendencia(id);
+    const atuais=await carregarPendencias(id); const pendentes=atuais.filter(x=>x.status==='pendente');
+    const selecionadosAluno=pendentes.filter(x=>x.grupo==='aluno').map(x=>x.item); const selecionadosInst=pendentes.filter(x=>x.grupo==='instituicao').map(x=>x.item);
+    const compAluno=pendentes.find(x=>x.grupo==='aluno'&&x.complemento)?.complemento||p.pendencia_aluno_complemento||''; const compInst=pendentes.find(x=>x.grupo==='instituicao'&&x.complemento)?.complemento||p.pendencia_instituicao_complemento||'';
+    const inicial=mensagemPendencia(selecionadosAluno,selecionadosInst);
+    const el=modal(`⚠️ Registrar Pendência — ${escapar(p.codigo_sigee||p.id)}`,`${resumo(p)}<div class="sigee-gridpend33"><fieldset><legend>Pendência do Aluno</legend>${checks(PEND_ALUNO,'pendAluno',selecionadosAluno)}<label>Complemento (opcional)<textarea id="pend-aluno-comp33">${escapar(compAluno)}</textarea></label></fieldset><fieldset><legend>Pendência da Instituição</legend>${checks(PEND_INST,'pendInst',selecionadosInst)}<label>Complemento (opcional)<textarea id="pend-inst-comp33">${escapar(compInst)}</textarea></label></fieldset></div><div id="tarefa-email33">${cardTarefa(inicial,false)}</div><div class="sigee-acoes33"><button class="btn33 btn33-cinza" data-voltar33>Voltar</button><button class="btn33 btn33-roxo" data-salvar-pend33 disabled>Registrar Pendência</button></div>`,'pendencia');
+    const botao=el.querySelector('[data-salvar-pend33]');
+    function atualizarTarefa(){const a=marcados(el,'pendAluno'),i=marcados(el,'pendInst'),m=mensagemPendencia(a,i);el.querySelector('#tarefa-email33').innerHTML=cardTarefa(m,false);const check=el.querySelector('#pend-email33');check?.addEventListener('change',()=>{botao.disabled=!check.checked;});botao.disabled=true;}
+    el.querySelectorAll('input[name="pendAluno"],input[name="pendInst"]').forEach(i=>i.addEventListener('change',atualizarTarefa)); atualizarTarefa();
     el.querySelector('[data-voltar33]').addEventListener('click',()=>abrirAnalise(id));
-    el.querySelector('[data-salvar-pend33]').addEventListener('click',async()=>{
-      const aluno=valoresMarcados(el,'pendAluno'),inst=valoresMarcados(el,'pendInst');
-      if(!aluno.length&&!inst.length)return alert('Selecione ao menos uma pendência.');
-      if(!el.querySelector('#pend-email33').checked)return alert('Confirme o envio da mensagem de e-mail.');
-      p.pendencia_aluno_itens=aluno;p.pendencia_instituicao_itens=inst;
-      p.pendencia_aluno_complemento=txt(el.querySelector('#pend-aluno-comp33').value);
-      p.pendencia_instituicao_complemento=txt(el.querySelector('#pend-inst-comp33').value);
-      p.pendencia_aberta=true;p.etapa=p.etapa_atual='Pendência';p.data_etapa_atual=agoraISO();p.tecnico_responsavel=nomeUsuario();
-      const obs=[aluno.length?`Aluno: ${aluno.join(', ')}`:'',inst.length?`Instituição: ${inst.join(', ')}`:'',p.pendencia_aluno_complemento?`Complemento aluno: ${p.pendencia_aluno_complemento}`:'',p.pendencia_instituicao_complemento?`Complemento instituição: ${p.pendencia_instituicao_complemento}`:''].filter(Boolean).join(' | ');
-      await registrarHistorico(p,'Pendência','Pendência registrada',obs,{aluno,instituicao:inst});
-      await salvar(p);fecharModal();toast('Pendência registrada.');
-    });
-  }
-  function formatarSEI(v){
-    const d=txt(v).replace(/\D/g,'').slice(0,20);let o='';
-    if(d.length)o+=d.slice(0,3);if(d.length>3)o+='.'+d.slice(3,7);if(d.length>7)o+='.'+d.slice(7,11);if(d.length>11)o+='.'+d.slice(11,18);if(d.length>18)o+='-'+d.slice(18,20);return o;
-  }
-  function seiValido(v){return /^\d{3}\.\d{4}\.\d{4}\.\d{7}-\d{2}$/.test(txt(v));}
-  function abrirFormularioIndeferimento(id){
-    const p=processo(id);if(!p||somenteLeitura())return;
-    const radios=MOTIVOS_INDEFERIMENTO.map((m,i)=>`<label class="sigee-radio33"><input type="radio" name="motivoInd33" value="${escapar(m)}"><span>${escapar(m)}</span></label>`).join('');
-    const el=modal(`⛔ Indeferir Processo — ${escapar(p.codigo_sigee||p.id)}`,`${resumo(p)}<fieldset class="sigee-field33"><legend>Motivo do indeferimento (selecione apenas um)</legend>${radios}</fieldset>
-      <div id="box-sei33" class="hidden sigee-condicional33"><label>Nº do Processo SEI *<input id="processo-sei33" maxlength="24" placeholder="011.7644.2025.0117641-86"></label><small>O número ficará clicável para cópia após o registro.</small></div>
-      <div id="box-outros33" class="hidden sigee-condicional33"><label>Justificativa *<textarea id="justificativa-ind33"></textarea></label></div>
-      <div class="sigee-acoes33"><button class="btn33 btn33-cinza" data-voltar33>Voltar</button><button class="btn33 btn33-vermelho" data-confirmar-ind33>Confirmar Indeferimento</button></div>`,'indeferimento');
-    const boxSei=el.querySelector('#box-sei33'),boxOutros=el.querySelector('#box-outros33'),inpSei=el.querySelector('#processo-sei33');
-    el.querySelectorAll('input[name="motivoInd33"]').forEach(r=>r.addEventListener('change',()=>{
-      boxSei.classList.toggle('hidden',!r.value.startsWith('Solicitação fora'));
-      boxOutros.classList.toggle('hidden',r.value!=='Outros');
-    }));
-    inpSei.addEventListener('input',()=>{inpSei.value=formatarSEI(inpSei.value);});
-    el.querySelector('[data-voltar33]').addEventListener('click',()=>abrirAnalise(id));
-    el.querySelector('[data-confirmar-ind33]').addEventListener('click',async()=>{
-      const motivo=el.querySelector('input[name="motivoInd33"]:checked')?.value;
-      if(!motivo)return alert('Selecione um motivo de indeferimento.');
-      const fora=motivo.startsWith('Solicitação fora'),outros=motivo==='Outros';
-      const sei=txt(inpSei.value),just=txt(el.querySelector('#justificativa-ind33').value);
-      if(fora&&!seiValido(sei))return alert('Informe um Processo SEI válido no padrão 011.7644.2025.0117641-86.');
-      if(outros&&!just)return alert('Informe a justificativa do indeferimento.');
-      if(!confirm('Confirma o indeferimento? O processo será finalizado imediatamente.'))return;
-      p.motivo_indeferimento=motivo;p.processo_sei_indeferimento=fora?sei:null;p.justificativa_indeferimento=outros?just:null;
-      p.etapa=p.etapa_atual='Indeferido';p.data_etapa_atual=agoraISO();p.finalizado_em=agoraISO();p.tecnico_responsavel=nomeUsuario();p.pendencia_aberta=false;
-      await registrarHistorico(p,'Indeferido','Processo indeferido',[motivo,fora?`Processo SEI: ${sei}`:'',outros?just:''].filter(Boolean).join(' | '),{motivo,processo_sei:sei||null});
-      await salvar(p);fecharModal();toast('Processo indeferido e finalizado.');
-    });
-  }
-  function abrirPendencia(id){
-    const p=processo(id);if(!p)return;
-    const aluno=p.pendencia_aluno_itens||[],inst=p.pendencia_instituicao_itens||[];
-    const leitura=`<div class="sigee-pend-atual33"><h3>Pendências registradas</h3>${aluno.length?`<p><strong>Aluno:</strong> ${escapar(aluno.join(', '))}</p>`:''}${inst.length?`<p><strong>Instituição:</strong> ${escapar(inst.join(', '))}</p>`:''}${p.pendencia_aluno_complemento?`<p><strong>Complemento aluno:</strong> ${escapar(p.pendencia_aluno_complemento)}</p>`:''}${p.pendencia_instituicao_complemento?`<p><strong>Complemento instituição:</strong> ${escapar(p.pendencia_instituicao_complemento)}</p>`:''}</div>`;
-    if(somenteLeitura())return modal(`⚠️ Pendência — ${escapar(p.codigo_sigee||p.id)}`,`${resumo(p)}${leitura}<div class="sigee-linkhistorico33"><button data-hist>📜 Ver histórico</button></div>`).querySelector('[data-hist]').addEventListener('click',()=>abrirHistorico(id));
-    const itens=[...aluno,...inst];
-    const el=modal(`⚠️ Tratar Pendência — ${escapar(p.codigo_sigee||p.id)}`,`${resumo(p)}${leitura}<fieldset class="sigee-field33"><legend>Documentos/Registros recebidos</legend>${checks(itens,'recebidos33')}</fieldset>
-      <label>Complemento sobre o recebimento<textarea id="receb-comp33" placeholder="Informe, se necessário, o que foi recebido ou o que ainda falta."></textarea></label>
-      <label class="sigee-email33"><input type="checkbox" id="receb-email33"> Confirmo o envio da mensagem de e-mail padronizada.</label>
-      <div class="sigee-acoes33"><button class="btn33 btn33-cinza" data-hist33>Histórico</button><button class="btn33 btn33-roxo" data-salvar-receb33>Registrar Documento Recebido</button></div>`,'pendencia');
-    el.querySelector('[data-hist33]').addEventListener('click',()=>abrirHistorico(id));
-    el.querySelector('[data-salvar-receb33]').addEventListener('click',async()=>{
-      const recebidos=valoresMarcados(el,'recebidos33');if(!recebidos.length)return alert('Selecione ao menos um item recebido.');
-      if(!el.querySelector('#receb-email33').checked)return alert('Confirme o envio da mensagem de e-mail.');
-      const restantesAluno=aluno.filter(x=>!recebidos.includes(x)),restantesInst=inst.filter(x=>!recebidos.includes(x));
-      p.pendencia_aluno_itens=restantesAluno;p.pendencia_instituicao_itens=restantesInst;
-      const completo=!restantesAluno.length&&!restantesInst.length;
-      p.pendencia_aberta=!completo;p.etapa=p.etapa_atual=completo?'Digitação':'Pendência';p.data_etapa_atual=agoraISO();
-      const comp=txt(el.querySelector('#receb-comp33').value);
-      await registrarHistorico(p,completo?'Digitação':'Pendência','Documento recebido',`Recebido: ${recebidos.join(', ')}${comp?' | '+comp:''}${completo?' | Pendência concluída; encaminhado para Digitação.':' | Permanecem pendências.'}`,{recebidos,restantes:[...restantesAluno,...restantesInst]});
-      await salvar(p);fecharModal();toast(completo?'Pendência concluída. Processo enviado para Digitação.':'Recebimento registrado. Processo permanece pendente.');
-    });
-  }
-  async function abrirHistorico(id){
-    const p=processo(id);if(!p)return;
-    const el=modal(`📜 Histórico — ${escapar(p.codigo_sigee||p.id)}`,'<div class="sigee-loading33">Carregando histórico...</div>','historico');
-    let dados=[];try{const c=cliente();if(c){const {data,error}=await c.from('historico_processos').select('*').eq('processo_id',p.id).order('created_at',{ascending:false});if(error)throw error;dados=data||[];}}catch(e){console.warn(e);}
-    const body=el.querySelector('.sigee-modal33-body');
-    if(!dados.length){body.innerHTML='<p class="sigee-vazio33">Ainda não existem movimentações registradas para este processo.</p>';return;}
-    body.innerHTML=`<div class="sigee-timeline33">${dados.map(h=>`<article><span class="sigee-timeline-dot33"></span><div><time>${escapar(new Date(h.created_at).toLocaleString('pt-BR'))}</time><h3>${escapar(h.acao)}</h3><p><strong>${escapar(h.etapa||'')}</strong> — ${escapar(h.usuario_nome||'Usuário')}</p>${h.observacao?`<p>${escapar(h.observacao)}</p>`:''}${h.dados?.processo_sei?`<button class="sigee-sei-copy33" data-sei-copy="${escapar(h.dados.processo_sei)}">📋 ${escapar(h.dados.processo_sei)}</button>`:''}</div></article>`).join('')}</div>`;
-    body.querySelectorAll('[data-sei-copy]').forEach(b=>b.addEventListener('click',()=>window.copiarCodigoSIGEE?.(b.dataset.seiCopy)));
+    botao.addEventListener('click',async()=>{const aluno=marcados(el,'pendAluno'),inst=marcados(el,'pendInst');if(!aluno.length&&!inst.length)return alert('Selecione ao menos uma pendência.');if(!el.querySelector('#pend-email33')?.checked)return alert('Confirme a execução da tarefa obrigatória.');const ca=txt(el.querySelector('#pend-aluno-comp33').value),ci=txt(el.querySelector('#pend-inst-comp33').value),msg=mensagemPendencia(aluno,inst);botao.disabled=true;try{await substituirPendencias(p,aluno,inst,ca,ci,msg);p.pendencia_aluno_itens=aluno;p.pendencia_instituicao_itens=inst;p.pendencia_aluno_complemento=ca;p.pendencia_instituicao_complemento=ci;p.pendencia_aberta=true;p.etapa=p.etapa_atual='Pendência';p.data_etapa_atual=agoraISO();p.tecnico_responsavel=nomeUsuario();await salvar(p);const obs=[aluno.length?`Aluno: ${aluno.join(', ')}`:'',inst.length?`Instituição: ${inst.join(', ')}`:'',ca?`Complemento aluno: ${ca}`:'',ci?`Complemento instituição: ${ci}`:'',`Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}`].filter(Boolean).join(' | ');await registrarHistorico(p,'Pendência','Pendência registrada',obs,{aluno,instituicao:inst,mensagem:msg,tarefa_confirmada:true});toast('Pendência registrada.');await abrirTratarPendencia(id);}catch(e){console.error(e);alert('Não foi possível registrar a pendência: '+(e.message||e));botao.disabled=false;}});
   }
 
+  async function abrirTratarPendencia(id){
+    const p=processo(id);if(!p)return;contextoRetorno=()=>abrirTratarPendencia(id);const dados=await carregarPendencias(id);const pendentes=dados.filter(x=>x.status==='pendente'),recebidos=dados.filter(x=>x.status==='recebido');
+    if(!pendentes.length){modal(`⚠️ Pendência — ${escapar(p.codigo_sigee||p.id)}`,`${resumo(p)}<div class="sigee-vazio33">Não há pendências abertas para este processo.</div><div class="sigee-acoes33"><button class="btn33 btn33-cinza" data-hist33>Histórico</button></div>`).querySelector('[data-hist33]')?.addEventListener('click',()=>abrirHistorico(id,()=>abrirTratarPendencia(id)));return;}
+    const itens=pendentes.map(x=>`<label class="sigee-pend-item331"><input type="checkbox" name="receb331" value="${x.id}"><span><strong>${escapar(x.item)}</strong><small>${x.grupo==='aluno'?'Aluno/Requerente':'Instituição'}${x.complemento?` — ${escapar(x.complemento)}`:''}</small></span></label>`).join('');
+    const msg=pendentes[0]?.mensagem_texto||mensagemPendencia(pendentes.filter(x=>x.grupo==='aluno'),pendentes.filter(x=>x.grupo==='instituicao')).texto;
+    const el=modal(`⚠️ Tratar Pendência — ${escapar(p.codigo_sigee||p.id)}`,`${resumo(p)}<section class="sigee-pend-atual33"><h3>Pendências abertas</h3>${itens}</section><section class="sigee-tarefa-status331"><strong>Mensagem institucional confirmada:</strong><span>ENVIAR E-MAIL: ${escapar(msg)}</span></section>${recebidos.length?`<p class="sigee-recebidos331">Já recebidos: ${escapar(recebidos.map(x=>x.item).join(', '))}</p>`:''}<div class="sigee-acoes33"><button class="btn33 btn33-cinza" data-hist33>📜 Histórico</button>${somenteLeitura()?'':`<button class="btn33 btn33-roxo" data-salvar-receb33>Registrar Documento Recebido</button>`}</div>`,'pendencia');
+    el.querySelector('[data-hist33]')?.addEventListener('click',()=>abrirHistorico(id,()=>abrirTratarPendencia(id)));
+    el.querySelector('[data-salvar-receb33]')?.addEventListener('click',async()=>{const ids=[...el.querySelectorAll('input[name="receb331"]:checked')].map(x=>Number(x.value));if(!ids.length)return alert('Marque ao menos um item recebido.');try{await marcarRecebidas(ids);const restantes=pendentes.filter(x=>!ids.includes(Number(x.id)));const completo=restantes.length===0;p.pendencia_aberta=!completo;p.etapa=p.etapa_atual=completo?'Digitação':'Pendência';p.data_etapa_atual=agoraISO();p.pendencia_aluno_itens=restantes.filter(x=>x.grupo==='aluno').map(x=>x.item);p.pendencia_instituicao_itens=restantes.filter(x=>x.grupo==='instituicao').map(x=>x.item);await salvar(p);const recebidosAgora=pendentes.filter(x=>ids.includes(Number(x.id))).map(x=>x.item);await registrarHistorico(p,completo?'Digitação':'Pendência',completo?'Pendência resolvida':'Recebimento parcial',`Recebido: ${recebidosAgora.join(', ')}`,{itens_recebidos:recebidosAgora,pendencia_resolvida:completo});if(completo){fecharModal();toast('Pendência totalmente resolvida. Processo enviado para Digitação.');}else{toast('Recebimento parcial registrado.');await abrirTratarPendencia(id);}}catch(e){console.error(e);alert('Não foi possível registrar o recebimento: '+(e.message||e));}});
+  }
+
+  function formatarSEI(v){const d=txt(v).replace(/\D/g,'').slice(0,20);let o='';if(d.length)o+=d.slice(0,3);if(d.length>3)o+='.'+d.slice(3,7);if(d.length>7)o+='.'+d.slice(7,11);if(d.length>11)o+='.'+d.slice(11,18);if(d.length>18)o+='-'+d.slice(18,20);return o;}
+  function seiValido(v){return /^\d{3}\.\d{4}\.\d{4}\.\d{7}-\d{2}$/.test(txt(v));}
+  function abrirFormularioIndeferimento(id){const p=processo(id);if(!p||somenteLeitura())return;contextoRetorno=()=>abrirFormularioIndeferimento(id);const radios=MOTIVOS_INDEFERIMENTO.map(m=>`<label class="sigee-radio33"><input type="radio" name="motivoInd33" value="${escapar(m)}"><span>${escapar(m)}</span></label>`).join('');const el=modal(`⛔ Indeferir Processo — ${escapar(p.codigo_sigee||p.id)}`,`${resumo(p)}<fieldset class="sigee-field33"><legend>Motivo do indeferimento (selecione apenas um)</legend>${radios}</fieldset><div id="box-sei33" class="hidden sigee-condicional33"><label>Nº do Processo SEI *<input id="processo-sei33" maxlength="24" placeholder="011.7644.2025.0117641-86"></label></div><div id="box-outros33" class="hidden sigee-condicional33"><label>Justificativa *<textarea id="justificativa-ind33"></textarea></label></div><div class="sigee-acoes33"><button class="btn33 btn33-cinza" data-voltar33>Voltar</button><button class="btn33 btn33-vermelho" data-confirmar-ind33>Confirmar Indeferimento</button></div>`,'indeferimento');const boxSei=el.querySelector('#box-sei33'),boxOutros=el.querySelector('#box-outros33'),inpSei=el.querySelector('#processo-sei33');el.querySelectorAll('input[name="motivoInd33"]').forEach(r=>r.addEventListener('change',()=>{const v=el.querySelector('input[name="motivoInd33"]:checked')?.value||'';boxSei.classList.toggle('hidden',!v.startsWith('Solicitação fora'));boxOutros.classList.toggle('hidden',v!=='Outros');}));inpSei.addEventListener('input',()=>inpSei.value=formatarSEI(inpSei.value));el.querySelector('[data-voltar33]').addEventListener('click',()=>abrirAnalise(id));el.querySelector('[data-confirmar-ind33]').addEventListener('click',async()=>{const motivo=el.querySelector('input[name="motivoInd33"]:checked')?.value;if(!motivo)return alert('Selecione um motivo de indeferimento.');const fora=motivo.startsWith('Solicitação fora'),outros=motivo==='Outros',sei=txt(inpSei.value),just=txt(el.querySelector('#justificativa-ind33').value);if(fora&&!seiValido(sei))return alert('Informe um número de Processo SEI válido.');if(outros&&!just)return alert('Informe a justificativa do indeferimento.');if(!confirm('Confirma o indeferimento? O processo será finalizado imediatamente.'))return;p.motivo_indeferimento=motivo;p.processo_sei_indeferimento=fora?sei:null;p.justificativa_indeferimento=outros?just:null;p.etapa=p.etapa_atual='Indeferido';p.data_etapa_atual=agoraISO();p.finalizado_em=agoraISO();p.tecnico_responsavel=nomeUsuario();p.pendencia_aberta=false;await salvar(p);await registrarHistorico(p,'Indeferido','Processo indeferido',[motivo,fora?`Processo SEI: ${sei}`:'',outros?just:''].filter(Boolean).join(' | '),{motivo,processo_sei:sei||null});fecharModal();toast('Processo indeferido e registrado no histórico.');});}
+
+  async function abrirHistorico(id,retorno){const p=processo(id);if(!p)return;const voltar=retorno||contextoRetorno;const el=modal(`📜 Histórico — ${escapar(p.codigo_sigee||p.id)}`,'<div class="sigee-loading33">Carregando histórico...</div>','historico');let dados=[];try{const c=cliente();if(c){const {data,error}=await c.from('historico_processos').select('*').eq('processo_id',p.id).order('created_at',{ascending:false});if(error)throw error;dados=data||[];}}catch(e){console.error(e);}const corpo=el.querySelector('.sigee-modal33-body');corpo.innerHTML=`${dados.length?`<div class="sigee-timeline33">${dados.map(h=>`<article><span class="sigee-timeline-dot33"></span><time>${escapar(new Date(h.created_at).toLocaleString('pt-BR'))}</time><h3>${escapar(h.acao)}</h3><p><strong>${escapar(h.etapa||'')}</strong> — ${escapar(h.usuario_nome||'')}</p>${h.observacao?`<p>${escapar(h.observacao)}</p>`:''}</article>`).join('')}</div>`:'<div class="sigee-vazio33">Nenhuma movimentação registrada.</div>'}<div class="sigee-acoes33"><button class="btn33 btn33-cinza" data-voltar-hist331>Voltar</button></div>`;corpo.querySelector('[data-voltar-hist331]').addEventListener('click',()=>{if(typeof voltar==='function')voltar();else fecharModal();});}
+
   window.abrirAnaliseSIGEE=abrirAnalise;
-  window.abrirPendenciaSIGEE=abrirPendencia;
-  window.abrirHistoricoSIGEE=abrirHistorico;
+  window.abrirPendenciaSIGEE=abrirTratarPendencia;
+  window.abrirHistoricoProcessoSIGEE=abrirHistorico;
 })();
