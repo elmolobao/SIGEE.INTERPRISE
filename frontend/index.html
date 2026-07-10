@@ -50,12 +50,12 @@
                     <p id="user-perfil" class="italic text-amber-500"></p>
                 </div>
             </div>
-            <nav class="flex-1 p-4 space-y-2">
-                <button onclick="navegar('painel')" class="w-full text-left px-4 py-2.5 rounded-lg font-medium hover:bg-blue-800 transition cursor-pointer">📊 Dashboard</button>
-                <button onclick="navegar('processos')" class="w-full text-left px-4 py-2.5 rounded-lg font-medium hover:bg-blue-800 transition cursor-pointer">📁 Processos (Fluxo)</button>
-                <button onclick="navegar('escolas')" class="w-full text-left px-4 py-2.5 rounded-lg font-medium hover:bg-blue-800 transition cursor-pointer">🗄️ Catálogo de Escolas</button>
-                <button id="menu-usuarios" onclick="navegar('usuarios')" class="hidden w-full text-left px-4 py-2.5 rounded-lg font-medium hover:bg-blue-800 transition cursor-pointer">👥 Controle de Usuários</button>
-                <button id="menu-logs" onclick="navegar('logs')" class="hidden w-full text-left px-4 py-2.5 rounded-lg font-medium hover:bg-blue-800 transition cursor-pointer">📜 Aba de Registros (Logs)</button>
+            <nav class="flex-1 p-4 space-y-2" aria-label="Menu principal do SIGEE">
+                <button id="menu-central-processos" onclick="navegar('processos')" class="sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer">📋 Central de Processos</button>
+                <button onclick="navegar('escolas')" class="sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer">🏫 Catálogo de Escolas</button>
+                <button id="menu-usuarios" onclick="navegar('usuarios')" class="hidden sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer">👥 Usuários</button>
+                <button id="menu-relatorios" onclick="navegar('painel')" class="sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer">📊 Relatórios</button>
+                <button id="menu-logs" onclick="navegar('logs')" class="hidden sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer">⚙️ Configurações</button>
             </nav>
             <div class="p-4 border-t border-blue-900">
                 <button onclick="logout()" class="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2 rounded-lg text-sm transition cursor-pointer">Sair</button>
@@ -120,33 +120,34 @@
 
             <section id="aba-processos" class="hidden space-y-4">
                 <div class="flex flex-wrap justify-between items-center bg-white p-4 rounded-xl border shadow-xs gap-3">
-                    <div><h2 class="text-lg font-bold text-blue-900">Gerenciamento de Fluxos Dinâmicos</h2></div>
+                    <div><h1 class="text-2xl font-black text-blue-950">📋 Central de Processos</h1><p class="text-xs text-gray-500 mt-1">Visão ampla dos pedidos e das etapas de produção.</p></div>
                     <div class="flex flex-wrap gap-2 items-center">
                         <div class="export-only hidden flex flex-wrap gap-2">
                             <button onclick="exportarProcessosSIGEE('xlsx')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-2 rounded-lg text-xs shadow cursor-pointer">📤 Exportar Excel</button>
                             <button onclick="exportarProcessosSIGEE('pdf')" class="bg-red-600 hover:bg-red-700 text-white font-bold px-3 py-2 rounded-lg text-xs shadow cursor-pointer">📄 Exportar PDF</button>
                         </div>
-                        <button onclick="abrirFormularioNovaSolicitacao()" class="bg-amber-500 hover:bg-amber-600 text-white font-bold px-4 py-2.5 rounded-lg text-xs flex items-center gap-1.5 shadow-md cursor-pointer transition">➕ 📥 Nova Solicitação</button>
+                        <button onclick="abrirFormularioNovaSolicitacao()" class="bg-amber-500 hover:bg-amber-600 text-white font-bold px-4 py-2.5 rounded-lg text-xs flex items-center gap-1.5 shadow-md cursor-pointer transition">➕ Nova Solicitação</button>
                     </div>
                 </div>
 
                 <div class="bg-white p-3 rounded-xl border shadow-sm space-y-2">
-                    <div class="flex flex-wrap items-center gap-1.5 w-full">
-                        <button onclick="filtrarProcessosPorEtapa('TODOS')" id="btn-fase-todos" class="px-2.5 py-1.5 bg-blue-900 text-white rounded-lg font-bold text-[11px] cursor-pointer transition"><span class="status-ico">📋</span> Todos (<span id="count-horiz-todos">0</span>)</button>
-                        <button onclick="filtrarProcessosPorEtapa('Desarquivamento')" id="btn-fase-desarquivamento" class="px-2.5 py-1.5 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg font-semibold text-[11px] border cursor-pointer transition"><span class="status-ico">📂</span> Desarq (<span id="count-horiz-desarquivamento">0</span>)</button>
-                        <button onclick="filtrarProcessosPorEtapa('Análise')" id="btn-fase-analise" class="px-2.5 py-1.5 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg font-semibold text-[11px] border cursor-pointer transition"><span class="status-ico">🔍</span> Análise (<span id="count-horiz-analise">0</span>)</button>
-                        <button onclick="filtrarProcessosPorEtapa('Pendência')" id="btn-fase-pendencia" class="px-2.5 py-1.5 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg font-semibold text-[11px] border cursor-pointer transition"><span class="status-ico">⚠️</span> Pend (<span id="count-horiz-pendencia">0</span>)</button>
-                        <button onclick="filtrarProcessosPorEtapa('Digitação')" id="btn-fase-digitacao" class="px-2.5 py-1.5 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg font-semibold text-[11px] border cursor-pointer transition"><span class="status-ico">⌨️</span> Digit (<span id="count-horiz-digitacao">0</span>)</button>
-                        <button onclick="filtrarProcessosPorEtapa('Conferência')" id="btn-fase-conferencia" class="px-2.5 py-1.5 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg font-semibold text-[11px] border cursor-pointer transition"><span class="status-ico">🧐</span> Conf (<span id="count-horiz-conferencia">0</span>)</button>
-                        <button onclick="filtrarProcessosPorEtapa('Assinatura')" id="btn-fase-assinatura" class="px-2.5 py-1.5 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg font-semibold text-[11px] border cursor-pointer transition"><span class="status-ico">✍️</span> Assin (<span id="count-horiz-assinatura">0</span>)</button>
-                        <button onclick="filtrarProcessosPorEtapa('Aguardando Retirada')" id="btn-fase-aguardando" class="px-2.5 py-1.5 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg font-semibold text-[11px] border cursor-pointer transition"><span class="status-ico">🎁</span> Aguard (<span id="count-horiz-aguardando">0</span>)</button>
-                        <button onclick="filtrarProcessosPorEtapa('Retirado')" id="btn-fase-retirado" class="px-2.5 py-1.5 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg font-semibold text-[11px] border cursor-pointer transition"><span class="status-ico">✅</span> Retirado (<span id="count-horiz-retirado">0</span>)</button>
+                    <div class="flex flex-wrap items-center gap-2 w-full" id="central-processos-abas">
+                        <button onclick="filtrarProcessosPorEtapa('TODOS')" id="btn-fase-todos" class="sigee-etapa-tab etapa-todos"><span>📋</span> Todos (<span id="count-horiz-todos">0</span>)</button>
+                        <button onclick="filtrarProcessosPorEtapa('Desarquivamento')" id="btn-fase-desarquivamento" class="sigee-etapa-tab etapa-desarquivamento"><span>🗂️🔍</span> Desarquivamento (<span id="count-horiz-desarquivamento">0</span>)</button>
+                        <button onclick="filtrarProcessosPorEtapa('Análise')" id="btn-fase-analise" class="sigee-etapa-tab etapa-analise"><span>🔍</span> Análise (<span id="count-horiz-analise">0</span>)</button>
+                        <button onclick="filtrarProcessosPorEtapa('Pendência')" id="btn-fase-pendencia" class="sigee-etapa-tab etapa-pendencia"><span>⚠️</span> Pendência (<span id="count-horiz-pendencia">0</span>)</button>
+                        <button onclick="filtrarProcessosPorEtapa('Digitação')" id="btn-fase-digitacao" class="sigee-etapa-tab etapa-digitacao"><span>✍️</span> Digitação (<span id="count-horiz-digitacao">0</span>)</button>
+                        <button onclick="filtrarProcessosPorEtapa('Conferência')" id="btn-fase-conferencia" class="sigee-etapa-tab etapa-conferencia"><span>✔️</span> Conferência (<span id="count-horiz-conferencia">0</span>)</button>
+                        <button onclick="filtrarProcessosPorEtapa('Assinatura')" id="btn-fase-assinatura" class="sigee-etapa-tab etapa-assinatura"><span>🖋️</span> Assinatura (<span id="count-horiz-assinatura">0</span>)</button>
+                        <button onclick="filtrarProcessosPorEtapa('Aguardando Retirada')" id="btn-fase-aguardando" class="sigee-etapa-tab etapa-deferido"><span>✅</span> Deferido (<span id="count-horiz-aguardando">0</span>)</button>
+                        <button onclick="filtrarProcessosPorEtapa('Retirado')" id="btn-fase-retirado" class="sigee-etapa-tab etapa-retirado"><span>📤</span> Retirado (<span id="count-horiz-retirado">0</span>)</button>
+                        <button onclick="filtrarProcessosPorEtapa('Indeferido')" id="btn-fase-indeferido" class="sigee-etapa-tab etapa-indeferido"><span>⛔</span> Indeferido (<span id="count-horiz-indeferido">0</span>)</button>
                     </div>
                 </div>
 
                 <div class="space-y-2">
                     <div class="bg-white p-2 border rounded-xl shadow-xs">
-                        <input type="text" id="busca-proc-nome" placeholder="🔍 Filtrar processos por nome do aluno..." oninput="renderizarProcessosFlutuantes()" class="w-full p-2 bg-gray-50 text-xs border rounded-lg focus:outline-none font-medium">
+                        <input type="text" id="busca-proc-nome" placeholder="🔎 Pesquisar por Código SIGEE, aluno ou escola..." oninput="renderizarProcessosFlutuantes()" class="w-full p-2 bg-gray-50 text-xs border rounded-lg focus:outline-none font-medium">
                     </div>
                     
                     <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
