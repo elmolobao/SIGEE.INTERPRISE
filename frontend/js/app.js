@@ -278,12 +278,24 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         let sigEESincronizandoSupabase = false;
 
         function obterSupabaseSIGEE() {
-            if (sigEESupabaseClient) return sigEESupabaseClient;
+            const existente = window.SIGEE_SUPABASE_CLIENT || window.sigEESupabaseClient || window.supabaseClient || window.__SIGEE_V38_CLIENT || sigEESupabaseClient;
+            if (existente) {
+                sigEESupabaseClient = existente;
+                window.SIGEE_SUPABASE_CLIENT = existente;
+                window.sigEESupabaseClient = existente;
+                window.supabaseClient = existente;
+                window.__SIGEE_V38_CLIENT = existente;
+                return existente;
+            }
             if (!window.supabase || !window.supabase.createClient) {
                 console.warn('Biblioteca Supabase não carregada. Usando cache local.');
                 return null;
             }
             sigEESupabaseClient = window.supabase.createClient(SIGEE_SUPABASE_URL, SIGEE_SUPABASE_ANON_KEY);
+            window.SIGEE_SUPABASE_CLIENT = sigEESupabaseClient;
+            window.sigEESupabaseClient = sigEESupabaseClient;
+            window.supabaseClient = sigEESupabaseClient;
+            window.__SIGEE_V38_CLIENT = sigEESupabaseClient;
             return sigEESupabaseClient;
         }
 
@@ -5280,8 +5292,13 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   }
   function client(){
     try{ if(typeof obterSupabaseSIGEE==='function'){ const c=obterSupabaseSIGEE(); if(c) return c; } }catch(e){}
-    if(window.__SIGEE_V38_CLIENT) return window.__SIGEE_V38_CLIENT;
-    if(window.supabase&&window.supabase.createClient){ window.__SIGEE_V38_CLIENT=window.supabase.createClient(URL,KEY); return window.__SIGEE_V38_CLIENT; }
+    const existente = window.SIGEE_SUPABASE_CLIENT || window.sigEESupabaseClient || window.supabaseClient || window.__SIGEE_V38_CLIENT;
+    if(existente) return existente;
+    if(window.supabase&&window.supabase.createClient){
+      const novo = window.supabase.createClient(URL,KEY);
+      window.SIGEE_SUPABASE_CLIENT = novo; window.sigEESupabaseClient = novo; window.supabaseClient = novo; window.__SIGEE_V38_CLIENT = novo;
+      return novo;
+    }
     return null;
   }
   async function readAll(table){
@@ -6515,7 +6532,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     setTimeout(aplicarPermissoesV43, 500);
     setTimeout(aplicarPermissoesV43, 1500);
   });
-  setInterval(aplicarPermissoesV43, 5000);
+  // Removido polling: permissões são aplicadas no login e na navegação.
 })();
 
 
@@ -6669,7 +6686,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     setTimeout(aplicarPermissoesV44, 1200);
   });
   window.addEventListener('load', ()=>setTimeout(aplicarPermissoesV44, 100));
-  setInterval(aplicarPermissoesV44, 1200);
+  // Removido polling: evitava repintura contínua da interface.
 
   window.SIGEE_PERMISSOES_V44 = {perfil, isSEC, isMaster, isAdmin, isTecnico, isConsulta, global, canUsers, canLogs, canImport, canExport, aplicarPermissoesV44};
 })();
@@ -6951,7 +6968,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   window.navegar=function(){ const r=typeof navPrev==='function'?navPrev.apply(this,arguments):undefined; setTimeout(aplicarV45,30); return r; };
   try{ navegar=window.navegar; }catch(e){}
   document.addEventListener('DOMContentLoaded',()=>setTimeout(aplicarV45,500));
-  setInterval(aplicarV45,3000);
+  // Removido polling: catálogo é atualizado somente ao abrir/pesquisar.
   window.SIGEE_V45 = { aplicarV45, editarEscolaSIGEEV45, excluirUsuarioSistemaMasterV45, editarProcessoMasterV45, avancarProcessoMasterV45, regredirProcessoMasterV45, excluirProcessoMasterV45 };
 })();
 
@@ -7128,7 +7145,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
       .range(offset, offset + limit - 1);
     if(!isGlobal(u)){
       const id = nteIdUsuario(u);
-      q = q.eq('nte_id', id);
+      if(id) q = q.eq('nte_id', id);
     }
     if(txt(termo).length >= 2){
       const t = txt(termo).replace(/[%_]/g, '');
@@ -7152,7 +7169,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         })(),
         (async()=>{
           let q = c.from(T.usuarios).select('*').order('nome', { ascending: true });
-          if(!isGlobal(u)) q = q.eq('nte_id', nteIdUsuario(u));
+          if(!isGlobal(u)){ const id = nteIdUsuario(u); if(id) q = q.eq('nte_id', id); }
           const {data,error} = await q; if(error) throw error; return (data||[]).map(normalizarUsuario);
         })()
       ]);
@@ -7173,12 +7190,18 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   }
   function filtroNteQuery(q){
     const u = usuario();
-    if(!isGlobal(u)) q = q.eq('nte_id', nteIdUsuario(u));
+    if(!isGlobal(u)){
+      const id = nteIdUsuario(u);
+      if(id) q = q.eq('nte_id', id);
+    }
     return q;
   }
   function filtroNteProcessoQuery(q){
     const u = usuario();
-    if(!isGlobal(u)) q = q.eq('nte', nteTexto(nteIdUsuario(u)));
+    if(!isGlobal(u)){
+      const id = nteIdUsuario(u);
+      if(id) q = q.eq('nte', nteTexto(id));
+    }
     return q;
   }
 
@@ -7191,11 +7214,11 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
       const nteFiltroId = globalComFiltro ? nteIdFrom(filtroSelecionado) : nteIdUsuario(u);
       const filtroEscola = q => {
         if(isGlobal(u) && filtroSelecionado === 'TODOS') return q;
-        return q.eq('nte_id', nteFiltroId);
+        return nteFiltroId ? q.eq('nte_id', nteFiltroId) : q;
       };
       const filtroProc = q => {
         if(isGlobal(u) && filtroSelecionado === 'TODOS') return q;
-        return q.eq('nte', nteTexto(nteFiltroId));
+        return nteFiltroId ? q.eq('nte', nteTexto(nteFiltroId)) : q;
       };
       const [totalEscolas, acervos, estaduais, procTotal] = await Promise.all([
         countTabela(T.escolas, filtroEscola),

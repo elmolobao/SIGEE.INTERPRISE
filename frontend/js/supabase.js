@@ -20,13 +20,24 @@
       console.warn('[SIGEE] Biblioteca Supabase ainda não carregada.');
       return null;
     }
-    if (window.SIGEE_SUPABASE_CLIENT) return window.SIGEE_SUPABASE_CLIENT;
+    const existente = window.SIGEE_SUPABASE_CLIENT || window.sigEESupabaseClient || window.supabaseClient || window.__SIGEE_V38_CLIENT;
+    if (existente) {
+      window.SIGEE_SUPABASE_CLIENT = existente;
+      window.sigEESupabaseClient = existente;
+      window.supabaseClient = existente;
+      window.__SIGEE_V38_CLIENT = existente;
+      return existente;
+    }
 
-    window.SIGEE_SUPABASE_CLIENT = window.supabase.createClient(
+    const cliente = window.supabase.createClient(
       cfg.supabase.url,
       cfg.supabase.anonKey
     );
-    return window.SIGEE_SUPABASE_CLIENT;
+    window.SIGEE_SUPABASE_CLIENT = cliente;
+    window.sigEESupabaseClient = cliente;
+    window.supabaseClient = cliente;
+    window.__SIGEE_V38_CLIENT = cliente;
+    return cliente;
   }
 
   async function selecionarTabelaSIGEE(tabela, colunas = '*', limite = 5000) {

@@ -23,6 +23,7 @@
     if (p === 'TECNICO' || p === 'TÉCNICO') return 'TECNICO';
     if (p === 'ADMINISTRADOR') return 'ADMINISTRADOR';
     if (p === 'CONSULTA') return 'CONSULTA';
+    if (p === 'ESTAGIARIO' || p === 'ESTAGIÁRIO') return 'ESTAGIARIO';
     if (p === 'MASTER') return 'MASTER';
     if (p === 'SEC') return 'SEC';
     return p;
@@ -88,7 +89,10 @@
     const nteId = nteIdUsuario();
     if (!isGlobal()) {
       if (nteId) query = query.eq('nte_id', nteId);
-      else if (nteTextoUsuario()) query = query.eq('nte', nteTextoUsuario());
+      else {
+        const nteTexto = nteTextoUsuario();
+        if (nteTexto) query = query.eq('nte', nteTexto);
+      }
     }
     const busca = texto(termo);
     if (busca) {
