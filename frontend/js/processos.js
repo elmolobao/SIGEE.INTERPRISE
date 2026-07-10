@@ -8,7 +8,7 @@
 (function () {
     'use strict';
 
-    const ETAPAS = ['Desarquivamento', 'Análise', 'Pendência', 'Digitação', 'Conferência', 'Assinatura', 'Aguardando Retirada', 'Retirado'];
+    const ETAPAS = ['Desarquivamento', 'Análise', 'Pendência', 'Digitação', 'Conferência', 'Assinatura', 'Aguardando Retirada', 'Retirado', 'Indeferido'];
     const GRUPO_SEC = 'SEC - TODOS OS NTEs';
     let filtroEtapaModulo = 'TODOS';
 
@@ -57,6 +57,60 @@
     function processoAluno(p) { return texto(p && (p.aluno || p.aluno_nome || p.nome_solicitante)); }
     function processoEscola(p) { return texto(p && (p.escola || p.escola_nome || p.nome_escola || p.instituicao)); }
     function processoDocumento(p) { return texto(p && (p.documento || p.documento_tipo || p.documento_solicitado)); }
+    function processoModalidade(p) { return texto(p && (p.modalidade || p.oferta_modalidade || p.nivel_oferta || p.ensino)); }
+    function processoPrioridade(p) { return texto(p && p.prioridade) || 'Normal'; }
+    function processoResponsavel(p) { return texto(p && (p.tecnico_responsavel || p.responsavel || p.usuario_responsavel || p.criado_por)) || 'Não atribuído'; }
+    function anoProcesso(p) {
+        const bruto = texto(p && (p.data_solicitacao || p.created_at || p.criado_em || p.data_abertura));
+        const m = bruto.match(/(20\d{2})/);
+        return m ? m[1].slice(-2) : String(new Date().getFullYear()).slice(-2);
+    }
+    function codigoDocumento(documento) {
+        const d = normalizar(documento);
+        if (d.includes('DECLAR')) return 'DECL';
+        if (d.includes('VERAC')) return 'VERA';
+        if (d.includes('ATEST')) return 'ATES';
+        if (d.includes('CERT')) return 'CERT';
+        return 'HIST';
+    }
+    function codigoSIGEE(p) {
+        if (texto(p && p.codigo_sigee)) return texto(p.codigo_sigee).toUpperCase();
+        const doc = codigoDocumento(processoDocumento(p));
+        const ano = anoProcesso(p);
+        const nte = String(numeroNte(processoNte(p)) || 0).padStart(2, '0');
+        const seq = String(Number(p && p.id) || 1).padStart(4, '0');
+        return `SEEX.${doc}.${ano}${nte}.${seq}`;
+    }
+    function prazoEtapa(etapa) {
+        const e = normalizar(etapa);
+        if (e.includes('ANAL')) return 7;
+        if (e.includes('DIGIT')) return 15;
+        if (e.includes('CONFER')) return 10;
+        if (e.includes('ASSIN')) return 7;
+        return null;
+    }
+    function prazoVisual(p) {
+        const dias = diasDesde(p.data_etapa_atual || p.created_at || p.criado_em);
+        const limite = prazoEtapa(processoEtapa(p));
+        if (!limite) return `${dias} dias`;
+        const classe = dias > limite ? 'text-red-300' : dias >= Math.ceil(limite * .8) ? 'text-amber-300' : 'text-emerald-300';
+        return `<span class="font-black ${classe}">${dias}/${limite}</span>`;
+    }
+    function prioridadeBadge(valor) {
+        const p = normalizar(valor);
+        if (p.includes('ALTA') || p.includes('URG')) return '<span class="sigee-prioridade sigee-prioridade-alta">Alta</span>';
+        if (p.includes('BAIX')) return '<span class="sigee-prioridade sigee-prioridade-baixa">Baixa</span>';
+        return '<span class="sigee-prioridade sigee-prioridade-normal">Normal</span>';
+    }
+    function copiarCodigoSIGEE(codigo) {
+        const valor = texto(codigo);
+        if (!valor) return;
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(valor).catch(()=>{});
+        else {
+            const ta=document.createElement('textarea'); ta.value=valor; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+        }
+        try { if (typeof mostrarToast === 'function') mostrarToast('Código SIGEE copiado.'); } catch(e) {}
+    }
 
     function listaProcessos() {
         const base = Array.isArray(window.processosDB) ? window.processosDB : (typeof processosDB !== 'undefined' && Array.isArray(processosDB) ? processosDB : []);
@@ -72,7 +126,7 @@
         const etapa = filtroEtapaModulo || (typeof etapaFiltroAtual !== 'undefined' ? etapaFiltroAtual : 'TODOS');
         if (etapa && etapa !== 'TODOS') lista = lista.filter(p => normalizar(processoEtapa(p)) === normalizar(etapa));
         const busca = normalizar(document.getElementById('busca-proc-nome')?.value || '');
-        if (busca) lista = lista.filter(p => normalizar(processoAluno(p) + ' ' + processoEscola(p) + ' ' + processoDocumento(p)).includes(busca));
+        if (busca) lista = lista.filter(p => normalizar(codigoSIGEE(p) + ' ' + processoAluno(p) + ' ' + processoEscola(p) + ' ' + processoDocumento(p) + ' ' + processoModalidade(p)).includes(busca));
         return lista;
     }
 
@@ -95,7 +149,10 @@
             nte: processoNte(p),
             modalidade: p.modalidade || p.oferta_modalidade || null,
             nivel_oferta: p.ensino || p.nivel_oferta || p.oferta_nivel || null,
-            dias_decorridos: Number(p.dias_decorridos || 0)
+            dias_decorridos: Number(p.dias_decorridos || 0),
+            codigo_sigee: codigoSIGEE(p),
+            prioridade: processoPrioridade(p),
+            tecnico_responsavel: processoResponsavel(p)
         };
     }
     async function salvarProcesso(p) {
@@ -139,14 +196,16 @@
     }
     function corEtapa(etapa) {
         const e = normalizar(etapa);
-        if (e.includes('ANAL')) return 'bg-purple-600';
-        if (e.includes('PEND')) return 'bg-red-600';
-        if (e.includes('DIGIT')) return 'bg-orange-500';
-        if (e.includes('CONFER')) return 'bg-green-600';
-        if (e.includes('ASSIN')) return 'bg-blue-700';
-        if (e.includes('AGUARD')) return 'bg-teal-600';
-        if (e.includes('RETIR')) return 'bg-gray-700';
-        return 'bg-sky-600';
+        if (e.includes('DESARQ')) return 'sigee-etapa-desarquivamento';
+        if (e.includes('ANAL')) return 'sigee-etapa-analise';
+        if (e.includes('PEND')) return 'sigee-etapa-pendencia';
+        if (e.includes('DIGIT')) return 'sigee-etapa-digitacao';
+        if (e.includes('CONFER')) return 'sigee-etapa-conferencia';
+        if (e.includes('ASSIN')) return 'sigee-etapa-assinatura';
+        if (e.includes('AGUARD')) return 'sigee-etapa-deferido';
+        if (e.includes('RETIR')) return 'sigee-etapa-retirado';
+        if (e.includes('INDEFER')) return 'sigee-etapa-indeferido';
+        return 'sigee-etapa-nova';
     }
     function alertaPrazo(p) {
         const etapa = normalizar(processoEtapa(p));
@@ -184,8 +243,15 @@
         const corpo = document.getElementById('tabela-processos-corpo');
         if (!corpo) return;
         corpo.innerHTML = '';
-        processosVisiveis().forEach(p => {
+        const lista = processosVisiveis();
+        if (!lista.length) {
+            corpo.innerHTML = '<tr><td colspan="8" class="p-8 text-center text-gray-400 font-bold">Nenhum processo encontrado.</td></tr>';
+            return;
+        }
+        lista.forEach(p => {
             const etapa = processoEtapa(p);
+            const codigo = codigoSIGEE(p);
+            if (!p.codigo_sigee) p.codigo_sigee = codigo;
             const botoesMaster = podeGerirProcessos(usuario()) ? `
                 <div class="mt-1 flex flex-wrap justify-center gap-1">
                     <button onclick="editarProcessoMasterSIGEE(${p.id})" class="bg-blue-600 text-white text-[9px] px-2 py-0.5 rounded font-bold">Editar</button>
@@ -194,20 +260,20 @@
                     <button onclick="excluirProcessoMasterSIGEE(${p.id})" class="bg-red-700 text-white text-[9px] px-2 py-0.5 rounded font-bold">Excluir</button>
                 </div>` : '';
             corpo.insertAdjacentHTML('beforeend', `
-                <tr class="hover:bg-white/10 text-white">
-                    <td class="p-2.5 font-bold truncate">
-                        <span class="block uppercase truncate">${processoAluno(p)}</span>
-                        <span class="text-[10px] text-cyan-200 font-extrabold">${processoDocumento(p)}</span>
+                <tr class="hover:bg-blue-950/70 text-white transition-colors">
+                    <td class="p-2.5">
+                        <button type="button" onclick="copiarCodigoSIGEE('${codigo}')" class="font-black text-cyan-200 hover:text-white text-[10px] tracking-wide" title="Clique para copiar">${codigo}</button>
+                        <span class="block uppercase font-bold truncate mt-1">${processoAluno(p)}</span>
                     </td>
                     <td class="p-2.5 truncate">
                         <span class="block font-bold text-white truncate text-[10px]">${processoEscola(p)}</span>
                         <span class="text-[9px] text-cyan-200 block font-semibold uppercase truncate">${processoNte(p)}</span>
                     </td>
-                    <td class="p-2.5 text-center">
-                        <span class="px-2 py-1 ${corEtapa(etapa)} text-white font-black rounded text-[9px] uppercase block">${etapa}</span>
-                        ${alertaPrazo(p)}
-                    </td>
-                    <td class="p-2.5 text-center font-bold">${diasDesde(p.data_etapa_atual || p.created_at || p.criado_em)} dias</td>
+                    <td class="p-2.5 text-center text-[10px] font-semibold">${processoModalidade(p) || '-'}</td>
+                    <td class="p-2.5 text-center">${prioridadeBadge(processoPrioridade(p))}</td>
+                    <td class="p-2.5 text-center">${prazoVisual(p)}${alertaPrazo(p)}</td>
+                    <td class="p-2.5 text-center text-[10px] font-semibold">${processoResponsavel(p)}</td>
+                    <td class="p-2.5 text-center"><span class="sigee-etapa-badge ${corEtapa(etapa)}">${etapa}</span></td>
                     <td class="p-2.5 text-center">${acaoFluxo(p)}${botoesMaster}</td>
                 </tr>`);
         });
@@ -293,6 +359,7 @@
         window.regredirProcessoMasterV45 = id => moverMaster(id, -1);
         window.excluirProcessoMasterSIGEE = excluirProcessoMaster;
         window.excluirProcessoMasterV45 = excluirProcessoMaster;
+        window.copiarCodigoSIGEE = copiarCodigoSIGEE;
     }
 
     window.SIGEE_Processos = {
@@ -303,7 +370,8 @@
         salvar: salvarProcesso,
         diasDesde,
         podeMovimentar,
-        podeGerirProcessos
+        podeGerirProcessos,
+        codigoSIGEE
     };
 
     window.addEventListener('load', aplicarModuloProcessos);
