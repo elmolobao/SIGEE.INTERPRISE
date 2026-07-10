@@ -227,7 +227,8 @@
             'count-horiz-conferencia': 'Conferência',
             'count-horiz-assinatura': 'Assinatura',
             'count-horiz-aguardando': 'Aguardando Retirada',
-            'count-horiz-retirado': 'Retirado'
+            'count-horiz-retirado': 'Retirado',
+            'count-horiz-indeferido': 'Indeferido'
         };
         Object.entries(mapa).forEach(([id, etapa]) => set(id, lista.filter(p => normalizar(processoEtapa(p)) === normalizar(etapa)).length));
         renderizarProcessos();
@@ -343,7 +344,7 @@
     setTimeout(ocultarBotaoEditar, 20);
     return r;
   };
-  document.addEventListener('DOMContentLoaded', ()=>setInterval(ocultarBotaoEditar, 1200));
-  window.addEventListener('load', ()=>setTimeout(ocultarBotaoEditar, 500));
+  document.addEventListener('DOMContentLoaded', ocultarBotaoEditar);
+  window.addEventListener('load', ()=>setTimeout(ocultarBotaoEditar, 300));
 })();
 

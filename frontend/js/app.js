@@ -1013,8 +1013,8 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                     document.getElementById('menu-logs').classList.add('hidden');
                 }
                 
-                registrarLog("Acesso realizado ao painel operacional.");
-                navegar('painel');
+                registrarLog("Acesso realizado à Central de Processos.");
+                navegar('processos');
                 // V17: sincronização pesada somente depois que a tela já abriu.
                 setTimeout(() => sincronizarSupabaseSegundoPlanoSIGEE(), 1200);
             } else {
@@ -5750,11 +5750,11 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     // Se um Técnico/Consulta estiver numa aba administrativa por cache/navegação direta, volta ao Dashboard.
     const abaUsuarios = document.getElementById('aba-usuarios');
     if(abaUsuarios && !abaUsuarios.classList.contains('hidden') && !podeVerUsuariosV40(u)){
-      if(typeof navegar === 'function') navegar('painel');
+      if(typeof navegar === 'function') navegar('processos');
     }
     const abaLogs = document.getElementById('aba-logs');
     if(abaLogs && !abaLogs.classList.contains('hidden') && !podeVerLogsV40(u)){
-      if(typeof navegar === 'function') navegar('painel');
+      if(typeof navegar === 'function') navegar('processos');
     }
   }
 
@@ -7111,7 +7111,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
       await carregarBaseUsuarioCore();
       aplicarPermissoesCore();
       await registrarLogCore('LOGIN', `Perfil ${u.perfil} / ${u.nte}`);
-      if(typeof navegar === 'function') navegar('painel'); else await carregarDashboardCore();
+      if(typeof navegar === 'function') navegar('processos'); else await carregarDashboardCore();
     }catch(e){
       console.error('[SIGEE] Erro login', e);
       alert('Erro no login: ' + (e.message || e));
