@@ -372,7 +372,60 @@
     if (esc) preencherAutofillNovaSolicitacao(esc);
   }
 
+  function protegerCamposPesquisaEscolaContraAutofill() {
+    const ids = [
+      'busca-escola',
+      'novo-proc-escola-busca-v23',
+      'novo-proc-escola-busca-sigee'
+    ];
+
+    const emailLogado = texto((window.usuarioLogado || {}).email).toLowerCase();
+
+    ids.forEach((id) => {
+      const input = document.getElementById(id);
+      if (!input) return;
+
+      // Impede que gerenciadores de senha tratem a pesquisa de escola como login.
+      input.type = 'search';
+      input.autocomplete = 'new-password';
+      input.setAttribute('autocapitalize', 'none');
+      input.setAttribute('spellcheck', 'false');
+      input.setAttribute('inputmode', 'search');
+      input.setAttribute('role', 'searchbox');
+      input.setAttribute('data-form-type', 'other');
+      input.setAttribute('data-lpignore', 'true');
+      input.setAttribute('data-1p-ignore', 'true');
+      input.name = `sigee_pesquisa_escola_${id}`;
+
+      const limparEmailPreenchido = () => {
+        const valor = texto(input.value).toLowerCase();
+        const pareceEmailInstitucional = valor.includes('@enova.educacao.ba.gov.br');
+        if ((emailLogado && valor === emailLogado) || pareceEmailInstitucional) {
+          input.value = '';
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      };
+
+      limparEmailPreenchido();
+      setTimeout(limparEmailPreenchido, 50);
+      setTimeout(limparEmailPreenchido, 300);
+      input.addEventListener('focus', limparEmailPreenchido, { passive: true });
+    });
+  }
+
+  function observarCamposPesquisaEscola() {
+    protegerCamposPesquisaEscolaContraAutofill();
+    if (window.__SIGEE_OBSERVER_PESQUISA_ESCOLA__) return;
+    window.__SIGEE_OBSERVER_PESQUISA_ESCOLA__ = true;
+
+    const observer = new MutationObserver(() => {
+      protegerCamposPesquisaEscolaContraAutofill();
+    });
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+  }
+
   function aplicarModulo() {
+    observarCamposPesquisaEscola();
     window.renderizarListaEscolasBufferMemoria = renderizarLista;
     window.filtrarPorBusca = filtrar;
     window.mudarPaginaEscola = mudarPagina;
@@ -596,6 +649,7 @@
         modal.classList.remove('hidden');
 
         prepararCampoEscolaNovaSolicitacao();
+        protegerCamposPesquisaEscolaContraAutofill();
 
         const input = campo('novo-proc-escola-busca-v23');
         const select = campo('novo-proc-escola');
@@ -628,41 +682,3 @@
     };
 })();
 })();
-
-/* =====================================================================
-   SIGEE Sprint 2.6.3 - Escolas/Nova Solicitação: filtro NTE e autofill seguro
-   ===================================================================== */
-(function(){
-  'use strict';
-  function txt(v){ return (v===null||v===undefined)?'':String(v).trim(); }
-  function semAcento(v){ return txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
-  function up(v){ return semAcento(v).toUpperCase(); }
-  function perfil(){ const p=up((window.usuarioLogado||{}).perfil); if(p.includes('SEC'))return'SEC'; if(p.includes('MASTER'))return'Master'; if(p.includes('ADMIN'))return'Administrador'; if(p.includes('ESTAG'))return'Estagiario'; if(p.includes('CONSULT'))return'Consulta'; if(p.includes('TECNIC'))return'Tecnico'; return p; }
-  function isGlobal(){ const p=perfil(); return p==='Master'||p==='SEC'; }
-  function nteIdUsuario(){ const u=window.usuarioLogado||{}; const m=txt(u.nte_id||u.nte||'').match(/(\d{1,2})/); return m?Number(m[1]):null; }
-  function limparEmailCampoEscola(){
-    const input = document.getElementById('novo-proc-escola-busca-v23') || document.getElementById('novo-proc-escola-busca-sigee');
-    if (!input) return;
-    input.setAttribute('autocomplete','off');
-    input.setAttribute('name','pesquisa_escola_sigee_' + Date.now());
-    input.setAttribute('inputmode','search');
-    if (/@/.test(input.value)) input.value = '';
-  }
-  const oldAbrir = window.abrirFormularioNovaSolicitacao;
-  window.abrirFormularioNovaSolicitacao = function(){
-    const r = typeof oldAbrir === 'function' ? oldAbrir.apply(this, arguments) : undefined;
-    setTimeout(limparEmailCampoEscola, 80);
-    setTimeout(limparEmailCampoEscola, 400);
-    return r;
-  };
-  const oldCore = window.SIGEE_CORE_V2 && window.SIGEE_CORE_V2.queryEscolasBase;
-  if (window.SIGEE_CORE_V2 && typeof oldCore === 'function') {
-    window.SIGEE_CORE_V2.queryEscolasBase = async function(params){
-      const p = Object.assign({}, params || {});
-      if (!isGlobal()) p.nte_id = nteIdUsuario();
-      return oldCore.call(this, p);
-    };
-  }
-  document.addEventListener('DOMContentLoaded', ()=>setInterval(limparEmailCampoEscola, 1500));
-})();
-
