@@ -312,6 +312,8 @@
     [0, 80, 200, 500].forEach(ms => setTimeout(instalarCampoDigitavel, ms));
   }
 
+  let logInicializacaoExibido = false;
+
   function instalarOverride() {
     window.abrirFormularioNovaSolicitacao = abrirNovaSolicitacaoSprint23;
     try { abrirFormularioNovaSolicitacao = window.abrirFormularioNovaSolicitacao; } catch (_) {}
@@ -342,7 +344,10 @@
       }
     });
 
-    console.info('[SIGEE] Sprint 2.3 Nova Solicitação autocomplete ativo');
+    if (!logInicializacaoExibido) {
+      logInicializacaoExibido = true;
+      console.info('[SIGEE] Sprint 2.3 Nova Solicitação autocomplete ativo');
+    }
   }
 
   if (document.readyState === 'loading') {
@@ -352,6 +357,6 @@
   }
 
   // Reinstala após carregamentos tardios dos scripts legados.
-  setTimeout(instalarOverride, 500);
-  setTimeout(instalarOverride, 1500);
+  // Uma única verificação tardia para elementos criados pelo app legado.
+  setTimeout(instalarOverride, 800);
 })();
