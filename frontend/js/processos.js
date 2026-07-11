@@ -58,6 +58,7 @@
     function processoEtapa(p) { return texto(p && (p.etapa || p.etapa_atual || p.fase_atual)) || 'Desarquivamento'; }
     function processoAluno(p) { return texto(p && (p.aluno || p.aluno_nome || p.nome_solicitante)); }
     function processoEscola(p) { return texto(p && (p.escola || p.escola_nome || p.nome_escola || p.instituicao)); }
+    function processoCodigoSec(p) { return texto(p && (p.codigo_sec || p.cod_sec || p.codigo_sec_escola || p.escola_codigo_sec || p.codigo_escola || p.cod_escola)); }
     function processoDocumento(p) { return texto(p && (p.documento || p.documento_tipo || p.documento_solicitado)); }
     function processoModalidade(p) { return texto(p && (p.modalidade || p.oferta_modalidade || p.nivel_oferta || p.ensino)); }
     function processoPrioridade(p) { return texto(p && p.prioridade) || 'Normal'; }
@@ -274,12 +275,14 @@
             corpo.insertAdjacentHTML('beforeend', `
                 <tr class="hover:bg-blue-950/70 text-white transition-colors">
                     <td class="p-2.5">
-                        <button type="button" data-sigee-codigo="${codigo}" class="sigee-codigo-copiavel font-black text-cyan-200 hover:text-white text-[10px] tracking-wide" title="Clique para copiar">${codigo} <span aria-hidden="true">📋</span></button>
-                        <span class="block uppercase font-bold truncate mt-1">${processoAluno(p)}</span>
+                        <span class="sigee-aluno-nome" title="${processoAluno(p)}">${processoAluno(p)}</span>
+                        <span class="sigee-codigo-linha">
+                            <button type="button" data-sigee-codigo="${codigo}" class="sigee-codigo-copiavel font-black text-cyan-200 hover:text-white tracking-wide" title="Clique para copiar">${codigo} <span aria-hidden="true">📋</span></button>
+                        </span>
                     </td>
-                    <td class="p-2.5 truncate">
-                        <span class="block font-bold text-white truncate text-[10px]">${processoEscola(p)}</span>
-                        <span class="text-[9px] text-cyan-200 block font-semibold uppercase truncate">${processoNte(p)}</span>
+                    <td class="p-2.5">
+                        <span class="sigee-escola-nome" title="${processoEscola(p)}">${processoEscola(p)}</span>
+                        <span class="sigee-escola-meta">${processoNte(p) || '-'}${processoCodigoSec(p) ? ` - Cód. SEC ${processoCodigoSec(p)}` : ''}</span>
                     </td>
                     <td class="p-2.5 text-center text-[10px] font-semibold">${processoModalidade(p) || '-'}</td>
                     <td class="p-2.5 text-center">${prioridadeBadge(processoPrioridade(p))}</td>
