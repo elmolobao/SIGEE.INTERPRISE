@@ -691,4 +691,216 @@
   window.abrirAnaliseSIGEE=abrirAnalise;
   window.abrirPendenciaSIGEE=abrirTratarPendencia;
   window.abrirHistoricoProcessoSIGEE=abrirHistorico;
+  window.abrirHistoricoSIGEE=abrirHistorico;
+})();
+
+/* =====================================================================
+   SIGEE Enterprise v0.9.3 — Workflow Operacional Consolidado
+   Regras: comunicação institucional é uma trava de segurança; o SIGEE
+   não envia e-mail automaticamente. O técnico confirma a execução.
+   ===================================================================== */
+(function(){
+  'use strict';
+  if(window.__SIGEE_WORKFLOW_093__) return;
+  window.__SIGEE_WORKFLOW_093__ = true;
+
+  const MENSAGENS = {
+    digitacao:   {codigo:'03', texto:'03 - Aluno (Digitação)'},
+    conferencia: {codigo:'04', texto:'04 - Aluno (Conferência)'},
+    assinatura:  {codigo:'05', texto:'05 - Aluno (Assinatura)'},
+    deferido:    {codigo:'06', texto:'06 - Aluno (Deferido)'}
+  };
+
+  function txt(v){ return v === null || v === undefined ? '' : String(v).trim(); }
+  function norm(v){ return txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase(); }
+  function esc(v){ return txt(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c])); }
+  function usuario(){ return window.usuarioLogado || {}; }
+  function somenteLeitura(){ const p=norm(usuario().perfil); return p.includes('ESTAG') || p.includes('CONSULT'); }
+  function processos(){ return Array.isArray(window.processosDB) ? window.processosDB : []; }
+  function processo(id){ return processos().find(p=>String(p.id)===String(id)); }
+  function agora(){ return new Date().toISOString(); }
+  function nomeUsuario(){ return txt(usuario().nome || usuario().email || 'Usuário SIGEE'); }
+  function cliente(){ try{return window.obterSupabaseSIGEE?.() || window.criarClienteSupabaseSIGEE?.() || window.SIGEE_SUPABASE?.criarCliente?.();}catch(e){return null;} }
+  function nteNumero(v){ const m=txt(v).match(/NTE\s*[- ]?\s*(\d{1,2})/i); return m?Number(m[1]):null; }
+  function mesmoNte(a,b){ const x=nteNumero(a),y=nteNumero(b); return x&&y ? x===y : norm(a)===norm(b); }
+
+  function fechar(){ document.getElementById('sigee-modal-workflow093')?.remove(); }
+  function modal(titulo,conteudo){
+    fechar();
+    const el=document.createElement('div');
+    el.id='sigee-modal-workflow093';
+    el.className='sigee-modal33-backdrop';
+    el.innerHTML=`<section class="sigee-modal33 workflow093"><header class="sigee-modal33-header"><h2>${titulo}</h2><button type="button" data-fechar093>×</button></header><div class="sigee-modal33-body">${conteudo}</div></section>`;
+    document.body.appendChild(el);
+    el.addEventListener('click',e=>{ if(e.target===el || e.target.closest('[data-fechar093]')) fechar(); });
+    return el;
+  }
+  function toast(msg){ if(typeof window.mostrarToast==='function') return window.mostrarToast(msg); alert(msg); }
+  function cabecalho(p){
+    const codigo=txt(p.codigo_sigee || p.id);
+    return `<div class="sigee-resumo33"><div><span>Aluno</span><strong>${esc(p.aluno||p.aluno_nome||'-')}</strong></div><div><span>Código SIGEE</span><strong>${esc(codigo)}</strong></div><div><span>Escola</span><strong>${esc(p.escola||p.escola_nome||'-')}</strong></div><div><span>NTE</span><strong>${esc(p.nte||p.nte_nome||'-')}</strong></div></div>`;
+  }
+  function tarefa(msg,id='wf-email093'){
+    return `<section class="sigee-tarefa-obrigatoria33"><div class="sigee-tarefa-icone33">📧</div><div class="sigee-tarefa-conteudo33"><span>TAREFA OBRIGATÓRIA</span><strong>ENVIAR E-MAIL: ${esc(msg.texto)}</strong><p>Execute a mensagem institucional na ferramenta de e-mail. Em seguida, confirme a realização da tarefa para liberar o avanço.</p><label><input type="checkbox" id="${id}"> Confirmo que executei esta tarefa.</label></div></section>`;
+  }
+  function usuariosElegiveis(p){
+    let base=Array.isArray(window.usuariosDB)?window.usuariosDB.slice():[];
+    base=base.filter(u=>u && u.ativo!==false && !norm(u.perfil).includes('CONSULT') && !norm(u.perfil).includes('ESTAG') && !norm(u.perfil).includes('SEC'));
+    const mesmo=base.filter(u=>mesmoNte(u.nte||u.nte_nome||u.grupo,p.nte||p.nte_nome||p.grupo));
+    return (mesmo.length?mesmo:base).sort((a,b)=>txt(a.nome).localeCompare(txt(b.nome),'pt-BR'));
+  }
+  function selectTecnico(p,id,rotulo){
+    const op=usuariosElegiveis(p).map(u=>`<option value="${esc(u.nome||u.email)}">${esc(u.nome||u.email)}${u.nte?` — ${esc(u.nte)}`:''}</option>`).join('');
+    return `<label class="sigee-workflow-campo093"><span>${esc(rotulo)} *</span><select id="${id}"><option value="">Selecione...</option>${op}</select></label>`;
+  }
+  async function historico(p,etapa,acao,observacao,dados={}){
+    const c=cliente();
+    const reg={processo_id:p.id,codigo_sigee:p.codigo_sigee||'',etapa,acao,observacao:observacao||null,usuario_nome:nomeUsuario(),usuario_email:txt(usuario().email)||null,usuario_perfil:txt(usuario().perfil)||null,nte:txt(p.nte||p.nte_nome)||null,dados,created_at:agora()};
+    try{ if(!c) throw new Error('Cliente indisponível'); const {error}=await c.from('historico_processos').insert(reg); if(error) throw error; }
+    catch(e){ console.error('[SIGEE] Falha ao registrar histórico do workflow.',e); }
+  }
+  async function salvar(p){
+    if(window.SIGEE_Processos?.salvar) await window.SIGEE_Processos.salvar(p);
+    if(window.recarregarCentralProcessosSIGEE) await window.recarregarCentralProcessosSIGEE(true);
+    else window.SIGEE_Processos?.contar?.();
+  }
+  function bloquearLeitura(){ if(!somenteLeitura()) return false; alert('Este perfil possui acesso somente para consulta.'); return true; }
+
+  function abrirEncaminharDigitacao(id,opcoes={}){
+    const p=processo(id); if(!p || bloquearLeitura()) return;
+    const msg=MENSAGENS.digitacao;
+    const origem=txt(opcoes.origem||'Análise realizada');
+    const el=modal(`✍️ Enviar para Digitação — ${esc(p.codigo_sigee||p.id)}`,`${cabecalho(p)}${selectTecnico(p,'wf-digitador093','Responsável pela Digitação')}${tarefa(msg)}<div class="sigee-acoes33"><button class="btn33 btn33-cinza" data-cancelar093>Cancelar</button><button class="btn33 btn33-amarelo" data-confirmar093 disabled>Enviar para Digitação</button></div>`);
+    const sel=el.querySelector('#wf-digitador093'),chk=el.querySelector('#wf-email093'),btn=el.querySelector('[data-confirmar093]');
+    const validar=()=>btn.disabled=!(sel.value&&chk.checked); sel.addEventListener('change',validar); chk.addEventListener('change',validar);
+    el.querySelector('[data-cancelar093]').addEventListener('click',fechar);
+    btn.addEventListener('click',async()=>{
+      if(!sel.value||!chk.checked) return;
+      btn.disabled=true;
+      p.etapa=p.etapa_atual='Digitação'; p.data_etapa_atual=agora(); p.tecnico_responsavel=sel.value; p.digitador=sel.value; p.pendencia_aberta=false;
+      await salvar(p);
+      await historico(p,'Digitação','Encaminhado para Digitação',`${origem}. Digitador: ${sel.value}. Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}.`,{digitador:sel.value,mensagem:msg,tarefa_confirmada:true});
+      fechar(); if(window.filtrarProcessosPorEtapa) window.filtrarProcessosPorEtapa('Digitação'); toast('Processo encaminhado para Digitação.');
+    });
+  }
+
+  function abrirDigitacao(id){
+    const p=processo(id); if(!p || bloquearLeitura()) return;
+    const msg=MENSAGENS.conferencia;
+    const el=modal(`✍️ Digitação Concluída — ${esc(p.codigo_sigee||p.id)}`,`${cabecalho(p)}${selectTecnico(p,'wf-conferente093','Responsável pela Conferência')}${tarefa(msg)}<div class="sigee-acoes33"><button class="btn33 btn33-cinza" data-cancelar093>Cancelar</button><button class="btn33 btn33-verde" data-confirmar093 disabled>Enviar para Conferência</button></div>`);
+    const sel=el.querySelector('#wf-conferente093'),chk=el.querySelector('#wf-email093'),btn=el.querySelector('[data-confirmar093]');
+    const validar=()=>btn.disabled=!(sel.value&&chk.checked); sel.addEventListener('change',validar); chk.addEventListener('change',validar);
+    el.querySelector('[data-cancelar093]').addEventListener('click',fechar);
+    btn.addEventListener('click',async()=>{btn.disabled=true;p.etapa=p.etapa_atual='Conferência';p.data_etapa_atual=agora();p.tecnico_responsavel=sel.value;p.conferente=sel.value;await salvar(p);await historico(p,'Conferência','Encaminhado para Conferência',`Digitação concluída. Conferente: ${sel.value}. Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}.`,{conferente:sel.value,mensagem:msg,tarefa_confirmada:true});fechar();if(window.filtrarProcessosPorEtapa)window.filtrarProcessosPorEtapa('Conferência');toast('Processo encaminhado para Conferência.');});
+  }
+
+  function abrirConferencia(id){
+    const p=processo(id); if(!p || bloquearLeitura()) return;
+    const msg=MENSAGENS.assinatura;
+    const el=modal(`✔️ Conferência Concluída — ${esc(p.codigo_sigee||p.id)}`,`${cabecalho(p)}${tarefa(msg)}<div class="sigee-acoes33"><button class="btn33 btn33-cinza" data-cancelar093>Cancelar</button><button class="btn33 btn33-verde" data-confirmar093 disabled>Enviar para Assinatura</button></div>`);
+    const chk=el.querySelector('#wf-email093'),btn=el.querySelector('[data-confirmar093]'); chk.addEventListener('change',()=>btn.disabled=!chk.checked);
+    el.querySelector('[data-cancelar093]').addEventListener('click',fechar);
+    btn.addEventListener('click',async()=>{btn.disabled=true;p.etapa=p.etapa_atual='Assinatura';p.data_etapa_atual=agora();p.tecnico_responsavel=nomeUsuario();p.enviado_assinatura_por=nomeUsuario();await salvar(p);await historico(p,'Assinatura','Encaminhado para Assinatura',`Conferência concluída. Enviado para assinatura por ${nomeUsuario()}. Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}.`,{enviado_por:nomeUsuario(),mensagem:msg,tarefa_confirmada:true});fechar();if(window.filtrarProcessosPorEtapa)window.filtrarProcessosPorEtapa('Assinatura');toast('Processo encaminhado para Assinatura.');});
+  }
+
+  function abrirAssinatura(id){
+    const p=processo(id); if(!p || bloquearLeitura()) return;
+    const msg=MENSAGENS.deferido;
+    const el=modal(`🖋️ Documento Assinado — ${esc(p.codigo_sigee||p.id)}`,`${cabecalho(p)}<p class="sigee-aviso33">Confirme somente após o retorno do documento assinado pelo Diretor do NTE.</p>${tarefa(msg)}<div class="sigee-acoes33"><button class="btn33 btn33-cinza" data-cancelar093>Cancelar</button><button class="btn33 btn33-verde" data-confirmar093 disabled>Deferido</button></div>`);
+    const chk=el.querySelector('#wf-email093'),btn=el.querySelector('[data-confirmar093]'); chk.addEventListener('change',()=>btn.disabled=!chk.checked);
+    el.querySelector('[data-cancelar093]').addEventListener('click',fechar);
+    btn.addEventListener('click',async()=>{btn.disabled=true;p.etapa=p.etapa_atual='Aguardando Retirada';p.data_etapa_atual=agora();p.tecnico_responsavel=nomeUsuario();p.deferido_em=agora();await salvar(p);await historico(p,'Aguardando Retirada','Processo deferido',`Documento retornou assinado e está disponível para retirada. Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}.`,{mensagem:msg,tarefa_confirmada:true});fechar();if(window.filtrarProcessosPorEtapa)window.filtrarProcessosPorEtapa('Aguardando Retirada');toast('Processo deferido e disponível para retirada.');});
+  }
+
+  function abrirRetirada(id){
+    const p=processo(id); if(!p || bloquearLeitura()) return;
+    const el=modal(`📤 Registrar Retirada — ${esc(p.codigo_sigee||p.id)}`,`${cabecalho(p)}<fieldset class="sigee-field33"><legend>Quem retirou o documento?</legend><label class="sigee-radio33"><input type="radio" name="wf-retirada093" value="Titular"><span>Titular / Requerente</span></label><label class="sigee-radio33"><input type="radio" name="wf-retirada093" value="Terceiro"><span>Terceiro</span></label></fieldset><div id="wf-terceiro-box093" class="hidden sigee-condicional33"><label>Nome completo *<input id="wf-terceiro-nome093"></label><label>RG *<input id="wf-terceiro-rg093"></label><label>Telefone *<input id="wf-terceiro-telefone093"></label></div><div class="sigee-acoes33"><button class="btn33 btn33-cinza" data-cancelar093>Cancelar</button><button class="btn33 btn33-verde" data-confirmar093 disabled>Concluir Retirada</button></div>`);
+    const box=el.querySelector('#wf-terceiro-box093'),btn=el.querySelector('[data-confirmar093]');
+    const validar=()=>{const tipo=el.querySelector('input[name="wf-retirada093"]:checked')?.value;if(!tipo){btn.disabled=true;return;}if(tipo==='Titular'){btn.disabled=false;return;}btn.disabled=!(txt(el.querySelector('#wf-terceiro-nome093').value)&&txt(el.querySelector('#wf-terceiro-rg093').value)&&txt(el.querySelector('#wf-terceiro-telefone093').value));};
+    el.querySelectorAll('input[name="wf-retirada093"]').forEach(r=>r.addEventListener('change',()=>{box.classList.toggle('hidden',r.value!=='Terceiro'||!r.checked);validar();}));
+    ['#wf-terceiro-nome093','#wf-terceiro-rg093','#wf-terceiro-telefone093'].forEach(s=>el.querySelector(s).addEventListener('input',validar));
+    el.querySelector('[data-cancelar093]').addEventListener('click',fechar);
+    btn.addEventListener('click',async()=>{const tipo=el.querySelector('input[name="wf-retirada093"]:checked')?.value;if(!tipo)return;const terceiro=tipo==='Terceiro'?{nome:txt(el.querySelector('#wf-terceiro-nome093').value),rg:txt(el.querySelector('#wf-terceiro-rg093').value),telefone:txt(el.querySelector('#wf-terceiro-telefone093').value)}:null;btn.disabled=true;p.etapa=p.etapa_atual='Retirado';p.data_etapa_atual=agora();p.finalizado_em=agora();p.tecnico_responsavel=nomeUsuario();await salvar(p);await historico(p,'Retirado','Documento retirado',tipo==='Terceiro'?`Retirada por terceiro. Nome: ${terceiro.nome} | RG: ${terceiro.rg} | Telefone: ${terceiro.telefone}`:'Retirada pelo titular/requerente.',{tipo,terceiro,entregue_por:nomeUsuario()});fechar();if(window.filtrarProcessosPorEtapa)window.filtrarProcessosPorEtapa('Retirado');toast('Retirada registrada. Processo concluído.');});
+  }
+
+  /* Sobrescreve somente as entradas públicas do fluxo legado. */
+  window.abrirEncaminharDigitacaoSIGEE=abrirEncaminharDigitacao;
+  window.abrirModalFluxoDigitacao=abrirDigitacao;
+  window.abrirModalFluxoConferencia=abrirConferencia;
+  window.abrirModalFluxoAssinatura=abrirAssinatura;
+  window.abrirModalFluxoAguardando=abrirRetirada;
+
+  /* Análise moderna: mantém Pendência, Indeferimento e Histórico já homologados. */
+  const abrirAnaliseAnterior=window.abrirAnaliseSIGEE;
+  function abrirAnaliseWorkflow093(id){
+    const p=processo(id); if(!p) return;
+    if(somenteLeitura() && typeof abrirAnaliseAnterior==='function') return abrirAnaliseAnterior(id);
+    const el=modal(`🔍 Análise Realizada — ${esc(p.codigo_sigee||p.id)}`,`${cabecalho(p)}<div class="sigee-acoes33"><button class="btn33 btn33-amarelo" data-dig093>✍️ Prosseguir para Digitação</button><button class="btn33 btn33-roxo" data-pend093>⚠️ Registrar Pendência</button><button class="btn33 btn33-vermelho" data-ind093>⛔ Indeferir Processo</button></div><div class="sigee-linkhistorico33"><button data-hist093>📜 Ver histórico completo</button></div>`);
+    el.querySelector('[data-dig093]').addEventListener('click',()=>abrirEncaminharDigitacao(id,{origem:'Análise realizada'}));
+    el.querySelector('[data-pend093]').addEventListener('click',()=>{fechar(); if(typeof abrirAnaliseAnterior==='function'){abrirAnaliseAnterior(id);setTimeout(()=>document.querySelector('[data-pendencia33]')?.click(),0);}});
+    el.querySelector('[data-ind093]').addEventListener('click',()=>{fechar(); if(typeof abrirAnaliseAnterior==='function'){abrirAnaliseAnterior(id);setTimeout(()=>document.querySelector('[data-indeferir33]')?.click(),0);}});
+    el.querySelector('[data-hist093]').addEventListener('click',()=>{fechar(); if(typeof window.abrirHistoricoProcessoSIGEE==='function')window.abrirHistoricoProcessoSIGEE(id,()=>abrirAnaliseWorkflow093(id));});
+  }
+
+  function instalarInterceptadores093(){
+    if(window.__SIGEE_WORKFLOW_093_INTERCEPTADORES__) return;
+    window.__SIGEE_WORKFLOW_093_INTERCEPTADORES__=true;
+    document.addEventListener('click',function(evento){
+      const botao=evento.target && evento.target.closest ? evento.target.closest('button[onclick]') : null;
+      if(!botao) return;
+      const codigo=botao.getAttribute('onclick')||'';
+      let achou=codigo.match(/(?:window\.)?abrirAnaliseSIGEE\((\d+)\)/);
+      if(achou){
+        evento.preventDefault();
+        evento.stopPropagation();
+        evento.stopImmediatePropagation();
+        abrirAnaliseWorkflow093(Number(achou[1]));
+        return;
+      }
+      achou=codigo.match(/(?:window\.)?abrirHistoricoSIGEE\((\d+)\)/);
+      if(achou){
+        evento.preventDefault();
+        evento.stopPropagation();
+        evento.stopImmediatePropagation();
+        if(typeof window.abrirHistoricoProcessoSIGEE==='function'){
+          window.abrirHistoricoProcessoSIGEE(Number(achou[1]));
+        }
+      }
+    },true);
+  }
+
+  function instalarWorkflow093(){
+    window.abrirEncaminharDigitacaoSIGEE=abrirEncaminharDigitacao;
+    window.abrirModalFluxoDigitacao=abrirDigitacao;
+    window.abrirModalFluxoConferencia=abrirConferencia;
+    window.abrirModalFluxoAssinatura=abrirAssinatura;
+    window.abrirModalFluxoAguardando=abrirRetirada;
+    window.abrirAnaliseSIGEE=abrirAnaliseWorkflow093;
+    if(typeof window.abrirHistoricoProcessoSIGEE==='function'){
+      window.abrirHistoricoSIGEE=window.abrirHistoricoProcessoSIGEE;
+    }
+    window.SIGEE_WORKFLOW_093={
+      abrirAnalise:abrirAnaliseWorkflow093,
+      abrirHistorico:function(id){
+        if(typeof window.abrirHistoricoProcessoSIGEE==='function') return window.abrirHistoricoProcessoSIGEE(id);
+      },
+      abrirDigitacao:abrirDigitacao,
+      abrirConferencia:abrirConferencia,
+      abrirAssinatura:abrirAssinatura,
+      abrirRetirada:abrirRetirada
+    };
+    instalarInterceptadores093();
+    try{
+      if(typeof window.carregarEContarProcessosHorizontais==='function') window.carregarEContarProcessosHorizontais();
+      else if(typeof window.renderizarProcessosFlutuantes==='function') window.renderizarProcessosFlutuantes();
+    }catch(e){ console.warn('[SIGEE] Não foi possível atualizar imediatamente a lista do workflow.',e); }
+  }
+
+  instalarWorkflow093();
+  window.addEventListener('DOMContentLoaded',()=>setTimeout(instalarWorkflow093,0));
+  window.addEventListener('load',()=>{
+    setTimeout(instalarWorkflow093,0);
+    setTimeout(instalarWorkflow093,400);
+    setTimeout(instalarWorkflow093,1200);
+  });
 })();
