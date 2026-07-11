@@ -691,6 +691,7 @@
   window.abrirAnaliseSIGEE=abrirAnalise;
   window.abrirPendenciaSIGEE=abrirTratarPendencia;
   window.abrirHistoricoProcessoSIGEE=abrirHistorico;
+  window.abrirHistoricoSIGEE=abrirHistorico;
 })();
 
 /* =====================================================================
@@ -831,13 +832,33 @@
 
   /* Análise moderna: mantém Pendência, Indeferimento e Histórico já homologados. */
   const abrirAnaliseAnterior=window.abrirAnaliseSIGEE;
-  window.abrirAnaliseSIGEE=function(id){
+  function abrirAnaliseWorkflow093(id){
     const p=processo(id); if(!p) return;
     if(somenteLeitura() && typeof abrirAnaliseAnterior==='function') return abrirAnaliseAnterior(id);
     const el=modal(`🔍 Análise Realizada — ${esc(p.codigo_sigee||p.id)}`,`${cabecalho(p)}<div class="sigee-acoes33"><button class="btn33 btn33-amarelo" data-dig093>✍️ Prosseguir para Digitação</button><button class="btn33 btn33-roxo" data-pend093>⚠️ Registrar Pendência</button><button class="btn33 btn33-vermelho" data-ind093>⛔ Indeferir Processo</button></div><div class="sigee-linkhistorico33"><button data-hist093>📜 Ver histórico completo</button></div>`);
     el.querySelector('[data-dig093]').addEventListener('click',()=>abrirEncaminharDigitacao(id,{origem:'Análise realizada'}));
     el.querySelector('[data-pend093]').addEventListener('click',()=>{fechar(); if(typeof abrirAnaliseAnterior==='function'){abrirAnaliseAnterior(id);setTimeout(()=>document.querySelector('[data-pendencia33]')?.click(),0);}});
     el.querySelector('[data-ind093]').addEventListener('click',()=>{fechar(); if(typeof abrirAnaliseAnterior==='function'){abrirAnaliseAnterior(id);setTimeout(()=>document.querySelector('[data-indeferir33]')?.click(),0);}});
-    el.querySelector('[data-hist093]').addEventListener('click',()=>{fechar(); if(typeof window.abrirHistoricoProcessoSIGEE==='function')window.abrirHistoricoProcessoSIGEE(id,()=>window.abrirAnaliseSIGEE(id));});
-  };
+    el.querySelector('[data-hist093]').addEventListener('click',()=>{fechar(); if(typeof window.abrirHistoricoProcessoSIGEE==='function')window.abrirHistoricoProcessoSIGEE(id,()=>abrirAnaliseWorkflow093(id));});
+  }
+
+  function instalarWorkflow093(){
+    window.abrirEncaminharDigitacaoSIGEE=abrirEncaminharDigitacao;
+    window.abrirModalFluxoDigitacao=abrirDigitacao;
+    window.abrirModalFluxoConferencia=abrirConferencia;
+    window.abrirModalFluxoAssinatura=abrirAssinatura;
+    window.abrirModalFluxoAguardando=abrirRetirada;
+    window.abrirAnaliseSIGEE=abrirAnaliseWorkflow093;
+    if(typeof window.abrirHistoricoProcessoSIGEE==='function'){
+      window.abrirHistoricoSIGEE=window.abrirHistoricoProcessoSIGEE;
+    }
+  }
+
+  instalarWorkflow093();
+  window.addEventListener('DOMContentLoaded',()=>setTimeout(instalarWorkflow093,0));
+  window.addEventListener('load',()=>{
+    setTimeout(instalarWorkflow093,0);
+    setTimeout(instalarWorkflow093,400);
+    setTimeout(instalarWorkflow093,1200);
+  });
 })();
