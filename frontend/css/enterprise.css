@@ -425,103 +425,10 @@ button[id^="btn-fase-"] span:not(.status-ico){
 .sigee-pend-item331{display:flex!important;align-items:flex-start;gap:10px;padding:11px 10px!important;margin:7px 0;border:1px solid #475569;border-radius:10px;background:#0f172a!important;color:#fff!important;cursor:pointer}.sigee-pend-item331 input{margin-top:3px;accent-color:#22c55e;transform:scale(1.12)}.sigee-pend-item331 span{display:flex;flex-direction:column;gap:3px}.sigee-pend-item331 strong{font-size:13px}.sigee-pend-item331 small{color:#94a3b8;font-size:11px}
 .sigee-tarefa-status331{display:flex;flex-direction:column;gap:5px;margin:12px 0;padding:12px 14px;border-left:5px solid #38bdf8;border-radius:10px;background:#082f49}.sigee-tarefa-status331 strong{color:#7dd3fc;font-size:11px;text-transform:uppercase}.sigee-tarefa-status331 span{color:#fff;font-weight:900}.sigee-recebidos331{padding:10px 12px;border-radius:9px;background:#064e3b;color:#d1fae5;font-weight:800}
 
-
 /* =========================================================
-   SIGEE Enterprise v0.9.2 — Layout fixo da área de trabalho
-   Menu, cabeçalho, abas e pesquisa permanecem visíveis.
-   Apenas a lista central de processos possui rolagem.
+   SIGEE Enterprise v0.9.2 — Revisão 02
+   Layout corporativo com rodapé institucional fixo
    ========================================================= */
-@media (min-width: 769px){
-    html, body{
-        height:100%;
-        overflow:hidden;
-    }
-
-    #sistema-dashboard.sigee-app-shell{
-        height:100vh;
-        min-height:0 !important;
-        overflow:hidden;
-    }
-
-    #sistema-dashboard .sigee-sidebar{
-        height:100vh;
-        min-height:0;
-        flex:0 0 16rem;
-        overflow:hidden;
-    }
-
-    #sistema-dashboard .sigee-sidebar-nav{
-        min-height:0;
-        overflow-y:auto;
-        overscroll-behavior:contain;
-    }
-
-    #sistema-dashboard .sigee-sidebar-logout{
-        flex:0 0 auto;
-        margin-top:auto;
-        position:relative;
-        z-index:3;
-    }
-
-    #sistema-dashboard .sigee-main{
-        height:100vh;
-        min-width:0;
-        min-height:0;
-        overflow:hidden !important;
-        display:block;
-    }
-
-    #sistema-dashboard .sigee-main > section:not(#aba-processos){
-        height:100%;
-        overflow-y:auto;
-        overscroll-behavior:contain;
-        padding-right:4px;
-    }
-
-    #aba-processos.sigee-central:not(.hidden){
-        display:flex !important;
-        flex-direction:column;
-        gap:1rem;
-        height:100%;
-        min-height:0;
-        overflow:hidden;
-    }
-
-    #aba-processos .sigee-central-topo,
-    #aba-processos .sigee-central-abas,
-    #aba-processos .sigee-central-pesquisa{
-        flex:0 0 auto;
-        position:relative;
-        z-index:5;
-    }
-
-    #aba-processos .sigee-central-conteudo{
-        flex:1 1 auto;
-        min-height:0;
-        display:flex;
-        flex-direction:column;
-        gap:.5rem;
-        overflow:hidden;
-    }
-
-    #aba-processos .sigee-central-lista{
-        flex:1 1 auto;
-        min-height:0;
-        overflow:auto !important;
-        overscroll-behavior:contain;
-        scrollbar-gutter:stable;
-    }
-
-    #aba-processos .sigee-central-lista table{
-        min-width:1050px;
-    }
-
-    #aba-processos .sigee-central-lista thead{
-        position:sticky;
-        top:0;
-        z-index:4;
-    }
-}
 
 /* Hierarquia visual dos dados principais na lista de processos */
 .sigee-aluno-nome{
@@ -542,9 +449,7 @@ button[id^="btn-fase-"] span:not(.status-ico){
     gap:.35rem;
     margin-top:.3rem;
 }
-.sigee-codigo-linha .sigee-codigo-copiavel{
-    font-size:10px;
-}
+.sigee-codigo-linha .sigee-codigo-copiavel{ font-size:10px; }
 .sigee-escola-nome{
     display:block;
     font-size:11px;
@@ -568,10 +473,294 @@ button[id^="btn-fase-"] span:not(.status-ico){
     white-space:nowrap;
 }
 
+@media (min-width:769px){
+    /* O rodapé institucional ocupa 86px e a barra de sessão 46px. */
+    :root{ --sigee-area-inferior:132px; }
+
+    html,
+    body{
+        width:100%;
+        height:100%;
+        overflow:hidden !important;
+    }
+
+    body{
+        padding-bottom:var(--sigee-area-inferior) !important;
+    }
+
+    #sistema-dashboard.sigee-app-shell{
+        display:flex !important;
+        flex-direction:row !important;
+        width:100% !important;
+        height:calc(100vh - var(--sigee-area-inferior)) !important;
+        min-height:0 !important;
+        overflow:hidden !important;
+    }
+
+    /* MENU LATERAL */
+    #sistema-dashboard .sigee-sidebar{
+        display:flex !important;
+        flex-direction:column !important;
+        flex:0 0 16rem !important;
+        width:16rem !important;
+        height:100% !important;
+        min-height:0 !important;
+        overflow:hidden !important;
+        position:relative !important;
+        top:auto !important;
+    }
+
+    #sistema-dashboard .sigee-sidebar > div:first-child{
+        flex:0 0 auto !important;
+    }
+
+    #sistema-dashboard .sigee-sidebar-nav{
+        flex:1 1 auto !important;
+        min-height:0 !important;
+        overflow-y:auto !important;
+        overflow-x:hidden !important;
+    }
+
+    #sistema-dashboard .sigee-sidebar-logout{
+        flex:0 0 auto !important;
+        margin-top:auto !important;
+        position:relative !important;
+        bottom:auto !important;
+        z-index:20 !important;
+        padding-bottom:12px !important;
+        background:linear-gradient(180deg, rgba(5,14,30,.98), rgba(9,20,48,.98)) !important;
+        box-shadow:0 -8px 20px rgba(0,0,0,.20);
+    }
+
+    /* ÁREA PRINCIPAL */
+    #sistema-dashboard .sigee-main{
+        flex:1 1 auto !important;
+        min-width:0 !important;
+        min-height:0 !important;
+        height:100% !important;
+        overflow:hidden !important;
+        display:flex !important;
+        flex-direction:column !important;
+    }
+
+    /* Todas as abas, exceto Processos, continuam rolando normalmente dentro do centro. */
+    #sistema-dashboard .sigee-main > section:not(#aba-processos):not(.hidden){
+        display:block !important;
+        flex:1 1 auto !important;
+        min-height:0 !important;
+        overflow-y:auto !important;
+        overflow-x:hidden !important;
+        padding-bottom:1rem;
+        scrollbar-gutter:stable;
+    }
+
+    /* CENTRAL DE PROCESSOS: topo, abas e pesquisa fixos; só a lista rola. */
+    #aba-processos.sigee-central:not(.hidden){
+        flex:1 1 auto !important;
+        min-height:0 !important;
+        height:100% !important;
+        overflow:hidden !important;
+        display:grid !important;
+        grid-template-rows:auto auto minmax(0,1fr) !important;
+        gap:1rem !important;
+    }
+
+    #aba-processos .sigee-central-topo,
+    #aba-processos .sigee-central-abas{
+        position:relative !important;
+        top:auto !important;
+        z-index:20 !important;
+        flex:0 0 auto !important;
+    }
+
+    #aba-processos .sigee-central-conteudo{
+        min-height:0 !important;
+        height:100% !important;
+        overflow:hidden !important;
+        display:grid !important;
+        grid-template-rows:auto minmax(0,1fr) !important;
+        gap:.5rem !important;
+    }
+
+    #aba-processos .sigee-central-pesquisa{
+        position:relative !important;
+        top:auto !important;
+        z-index:19 !important;
+        flex:0 0 auto !important;
+    }
+
+    #aba-processos .sigee-central-lista{
+        min-height:0 !important;
+        height:100% !important;
+        overflow:auto !important;
+        position:relative !important;
+        isolation:isolate;
+        overscroll-behavior:contain;
+        scrollbar-gutter:stable;
+    }
+
+    #aba-processos .sigee-central-lista table{
+        min-width:1050px;
+        border-collapse:separate !important;
+        border-spacing:0 !important;
+    }
+
+    #aba-processos .sigee-central-lista thead{
+        position:static !important;
+    }
+
+    #aba-processos .sigee-central-lista thead th{
+        position:sticky !important;
+        top:0 !important;
+        z-index:30 !important;
+        background:#0b1f3a !important;
+        box-shadow:0 1px 0 rgba(56,189,248,.30), 0 5px 12px rgba(0,0,0,.22);
+    }
+}
+
 @media (max-width:768px){
-    html, body{overflow:auto;}
-    #sistema-dashboard.sigee-app-shell{min-height:100vh;overflow:visible;}
-    #sistema-dashboard .sigee-sidebar{height:auto;overflow:visible;}
-    #sistema-dashboard .sigee-main{height:auto;overflow:visible !important;}
-    #aba-processos .sigee-central-lista{overflow-x:auto;}
+    html,
+    body{
+        height:auto;
+        overflow:auto !important;
+    }
+
+    body{ padding-bottom:205px !important; }
+
+    #sistema-dashboard.sigee-app-shell{
+        min-height:100vh !important;
+        height:auto !important;
+        overflow:visible !important;
+    }
+
+    #sistema-dashboard .sigee-sidebar,
+    #sistema-dashboard .sigee-main{
+        height:auto !important;
+        overflow:visible !important;
+    }
+
+    #aba-processos .sigee-central-lista{
+        overflow-x:auto !important;
+    }
+}
+
+
+/* ==========================================================
+   SIGEE Enterprise v0.9.2 - Revisão 03
+   - Sair fixo imediatamente acima da barra/rodapé institucional
+   - Catálogo e Usuários com cabeçalho/pesquisa fixos
+   - Rolagem apenas nas listas/tabelas desses módulos
+   ========================================================== */
+@media (min-width:769px){
+    /* O botão Sair fica ancorado acima da área inferior institucional. */
+    #sistema-dashboard .sigee-sidebar-logout{
+        position:fixed !important;
+        left:0 !important;
+        bottom:var(--sigee-area-inferior) !important;
+        width:16rem !important;
+        margin:0 !important;
+        z-index:9997 !important;
+        box-sizing:border-box !important;
+        background:linear-gradient(180deg, rgba(5,14,30,.99), rgba(9,20,48,.99)) !important;
+        border-top:1px solid rgba(56,189,248,.22) !important;
+        box-shadow:0 -10px 24px rgba(0,0,0,.28) !important;
+    }
+
+    #sistema-dashboard .sigee-sidebar-nav{
+        padding-bottom:76px !important;
+    }
+
+    /* Estrutura fixa compartilhada por Catálogo e Usuários. */
+    #aba-escolas.sigee-modulo-fixo:not(.hidden),
+    #aba-usuarios.sigee-modulo-fixo:not(.hidden){
+        display:grid !important;
+        grid-template-rows:auto auto minmax(0,1fr) !important;
+        gap:1rem !important;
+        flex:1 1 auto !important;
+        min-height:0 !important;
+        height:100% !important;
+        overflow:hidden !important;
+    }
+
+    /* No catálogo, o cartão de progresso só ocupa linha quando visível. */
+    #aba-escolas.sigee-modulo-fixo:not(.hidden):has(#card-progresso-importacao:not(.hidden)){
+        grid-template-rows:auto auto auto minmax(0,1fr) !important;
+    }
+
+    #aba-escolas .sigee-modulo-cabecalho,
+    #aba-escolas .sigee-modulo-pesquisa,
+    #aba-usuarios .sigee-modulo-cabecalho,
+    #aba-usuarios .sigee-modulo-pesquisa,
+    #aba-escolas .sigee-modulo-progresso{
+        min-height:0 !important;
+        position:relative !important;
+        top:auto !important;
+        z-index:25 !important;
+        margin:0 !important;
+    }
+
+    #aba-escolas .sigee-modulo-lista,
+    #aba-usuarios .sigee-modulo-lista{
+        min-height:0 !important;
+        height:100% !important;
+        overflow:hidden !important;
+        display:grid !important;
+        grid-template-rows:minmax(0,1fr) auto !important;
+        position:relative !important;
+        isolation:isolate;
+    }
+
+    #aba-usuarios .sigee-modulo-lista{
+        grid-template-rows:minmax(0,1fr) !important;
+    }
+
+    #aba-escolas .sigee-modulo-tabela-scroll,
+    #aba-usuarios .sigee-modulo-tabela-scroll{
+        min-height:0 !important;
+        height:100% !important;
+        overflow:auto !important;
+        overscroll-behavior:contain;
+        scrollbar-gutter:stable;
+    }
+
+    #aba-escolas .sigee-modulo-tabela-scroll table,
+    #aba-usuarios .sigee-modulo-tabela-scroll table{
+        border-collapse:separate !important;
+        border-spacing:0 !important;
+        min-width:900px;
+    }
+
+    #aba-escolas .sigee-modulo-tabela-scroll thead th,
+    #aba-usuarios .sigee-modulo-tabela-scroll thead th{
+        position:sticky !important;
+        top:0 !important;
+        z-index:30 !important;
+        background:#0b1f3a !important;
+        box-shadow:0 1px 0 rgba(56,189,248,.30), 0 5px 12px rgba(0,0,0,.22);
+    }
+}
+
+@media (max-width:768px){
+    #sistema-dashboard .sigee-sidebar-logout{
+        position:relative !important;
+        left:auto !important;
+        bottom:auto !important;
+        width:auto !important;
+    }
+
+    #aba-escolas.sigee-modulo-fixo:not(.hidden),
+    #aba-usuarios.sigee-modulo-fixo:not(.hidden){
+        display:block !important;
+        height:auto !important;
+        overflow:visible !important;
+    }
+
+    #aba-escolas .sigee-modulo-lista,
+    #aba-usuarios .sigee-modulo-lista,
+    #aba-escolas .sigee-modulo-tabela-scroll,
+    #aba-usuarios .sigee-modulo-tabela-scroll{
+        height:auto !important;
+        overflow-x:auto !important;
+        overflow-y:visible !important;
+    }
 }
