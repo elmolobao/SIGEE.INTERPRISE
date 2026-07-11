@@ -743,15 +743,47 @@
   function tarefa(msg,id='wf-email093'){
     return `<section class="sigee-tarefa-obrigatoria33"><div class="sigee-tarefa-icone33">📧</div><div class="sigee-tarefa-conteudo33"><span>TAREFA OBRIGATÓRIA</span><strong>ENVIAR E-MAIL: ${esc(msg.texto)}</strong><p>Execute a mensagem institucional na ferramenta de e-mail. Em seguida, confirme a realização da tarefa para liberar o avanço.</p><label><input type="checkbox" id="${id}"> Confirmo que executei esta tarefa.</label></div></section>`;
   }
+  function usuarioTemAcessoGlobal(){
+    const p=norm(usuario().perfil);
+    return p.includes('MASTER') || p.includes('SEC');
+  }
   function usuariosElegiveis(p){
     let base=Array.isArray(window.usuariosDB)?window.usuariosDB.slice():[];
-    base=base.filter(u=>u && u.ativo!==false && !norm(u.perfil).includes('CONSULT') && !norm(u.perfil).includes('ESTAG') && !norm(u.perfil).includes('SEC'));
-    const mesmo=base.filter(u=>mesmoNte(u.nte||u.nte_nome||u.grupo,p.nte||p.nte_nome||p.grupo));
-    return (mesmo.length?mesmo:base).sort((a,b)=>txt(a.nome).localeCompare(txt(b.nome),'pt-BR'));
+    /* Digitador/Conferente: somente usuários técnicos ativos. */
+    base=base.filter(u=>u && u.ativo!==false && norm(u.perfil).includes('TECNIC'));
+
+    /* Master e SEC visualizam técnicos de todos os 27 NTEs.
+       Administrador e Técnico ficam limitados ao NTE do processo. */
+    if(!usuarioTemAcessoGlobal()){
+      base=base.filter(u=>mesmoNte(u.nte||u.nte_nome||u.grupo,p.nte||p.nte_nome||p.grupo));
+    }
+    return base.sort((a,b)=>{
+      const na=nteNumero(a.nte||a.nte_nome||a.grupo)||99;
+      const nb=nteNumero(b.nte||b.nte_nome||b.grupo)||99;
+      return na-nb || txt(a.nome||a.email).localeCompare(txt(b.nome||b.email),'pt-BR');
+    });
   }
   function selectTecnico(p,id,rotulo){
-    const op=usuariosElegiveis(p).map(u=>`<option value="${esc(u.nome||u.email)}">${esc(u.nome||u.email)}${u.nte?` — ${esc(u.nte)}`:''}</option>`).join('');
-    return `<label class="sigee-workflow-campo093"><span>${esc(rotulo)} *</span><select id="${id}"><option value="">Selecione...</option>${op}</select></label>`;
+    const lista=usuariosElegiveis(p);
+    const op=lista.map(u=>`<option value="${esc(u.nome||u.email)}">${esc(u.nome||u.email)}${(u.nte||u.nte_nome||u.grupo)?` — ${esc(u.nte||u.nte_nome||u.grupo)}`:''}</option>`).join('');
+    const escopo=usuarioTemAcessoGlobal()?'Todos os NTEs':'NTE do processo';
+    return `<section class="sigee-selecao-obrigatoria093" data-selecao-tecnico093>
+      <div class="sigee-selecao-cabecalho093">
+        <span class="sigee-selecao-icone093">👤</span>
+        <div><strong>SELEÇÃO OBRIGATÓRIA</strong><small>${esc(rotulo)} — ${esc(escopo)}</small></div>
+      </div>
+      <label class="sigee-workflow-campo093"><span>${esc(rotulo)} *</span><select id="${id}"><option value="">Selecione o profissional...</option>${op}</select></label>
+      <p class="sigee-selecao-aviso093" data-aviso-tecnico093>⚠ Selecione um profissional para liberar o avanço.</p>
+      ${lista.length?'':`<p class="sigee-selecao-semusuarios093">Nenhum técnico ativo foi localizado para este escopo.</p>`}
+    </section>`;
+  }
+  function atualizarDestaqueTecnico(el,sel){
+    const box=el.querySelector('[data-selecao-tecnico093]');
+    const aviso=el.querySelector('[data-aviso-tecnico093]');
+    if(!box||!aviso) return;
+    const ok=Boolean(sel.value);
+    box.classList.toggle('selecionado',ok);
+    aviso.textContent=ok?`✓ Profissional selecionado: ${sel.value}`:'⚠ Selecione um profissional para liberar o avanço.';
   }
   async function historico(p,etapa,acao,observacao,dados={}){
     const c=cliente();
@@ -772,7 +804,7 @@
     const origem=txt(opcoes.origem||'Análise realizada');
     const el=modal(`✍️ Enviar para Digitação — ${esc(p.codigo_sigee||p.id)}`,`${cabecalho(p)}${selectTecnico(p,'wf-digitador093','Responsável pela Digitação')}${tarefa(msg)}<div class="sigee-acoes33"><button class="btn33 btn33-cinza" data-cancelar093>Cancelar</button><button class="btn33 btn33-amarelo" data-confirmar093 disabled>Enviar para Digitação</button></div>`);
     const sel=el.querySelector('#wf-digitador093'),chk=el.querySelector('#wf-email093'),btn=el.querySelector('[data-confirmar093]');
-    const validar=()=>btn.disabled=!(sel.value&&chk.checked); sel.addEventListener('change',validar); chk.addEventListener('change',validar);
+    const validar=()=>{atualizarDestaqueTecnico(el,sel);btn.disabled=!(sel.value&&chk.checked);}; sel.addEventListener('change',validar); chk.addEventListener('change',validar); validar();
     el.querySelector('[data-cancelar093]').addEventListener('click',fechar);
     btn.addEventListener('click',async()=>{
       if(!sel.value||!chk.checked) return;
@@ -842,6 +874,33 @@
     el.querySelector('[data-hist093]').addEventListener('click',()=>{fechar(); if(typeof window.abrirHistoricoProcessoSIGEE==='function')window.abrirHistoricoProcessoSIGEE(id,()=>abrirAnaliseWorkflow093(id));});
   }
 
+  function instalarInterceptadores093(){
+    if(window.__SIGEE_WORKFLOW_093_INTERCEPTADORES__) return;
+    window.__SIGEE_WORKFLOW_093_INTERCEPTADORES__=true;
+    document.addEventListener('click',function(evento){
+      const botao=evento.target && evento.target.closest ? evento.target.closest('button[onclick]') : null;
+      if(!botao) return;
+      const codigo=botao.getAttribute('onclick')||'';
+      let achou=codigo.match(/(?:window\.)?abrirAnaliseSIGEE\((\d+)\)/);
+      if(achou){
+        evento.preventDefault();
+        evento.stopPropagation();
+        evento.stopImmediatePropagation();
+        abrirAnaliseWorkflow093(Number(achou[1]));
+        return;
+      }
+      achou=codigo.match(/(?:window\.)?abrirHistoricoSIGEE\((\d+)\)/);
+      if(achou){
+        evento.preventDefault();
+        evento.stopPropagation();
+        evento.stopImmediatePropagation();
+        if(typeof window.abrirHistoricoProcessoSIGEE==='function'){
+          window.abrirHistoricoProcessoSIGEE(Number(achou[1]));
+        }
+      }
+    },true);
+  }
+
   function instalarWorkflow093(){
     window.abrirEncaminharDigitacaoSIGEE=abrirEncaminharDigitacao;
     window.abrirModalFluxoDigitacao=abrirDigitacao;
@@ -852,8 +911,39 @@
     if(typeof window.abrirHistoricoProcessoSIGEE==='function'){
       window.abrirHistoricoSIGEE=window.abrirHistoricoProcessoSIGEE;
     }
+    window.SIGEE_WORKFLOW_093={
+      abrirAnalise:abrirAnaliseWorkflow093,
+      abrirHistorico:function(id){
+        if(typeof window.abrirHistoricoProcessoSIGEE==='function') return window.abrirHistoricoProcessoSIGEE(id);
+      },
+      abrirDigitacao:abrirDigitacao,
+      abrirConferencia:abrirConferencia,
+      abrirAssinatura:abrirAssinatura,
+      abrirRetirada:abrirRetirada
+    };
+    instalarInterceptadores093();
+    try{
+      if(typeof window.carregarEContarProcessosHorizontais==='function') window.carregarEContarProcessosHorizontais();
+      else if(typeof window.renderizarProcessosFlutuantes==='function') window.renderizarProcessosFlutuantes();
+    }catch(e){ console.warn('[SIGEE] Não foi possível atualizar imediatamente a lista do workflow.',e); }
   }
 
+  function instalarEstilosWorkflow093(){
+    if(document.getElementById('sigee-workflow093-estilos')) return;
+    const st=document.createElement('style');
+    st.id='sigee-workflow093-estilos';
+    st.textContent=`
+      .sigee-selecao-obrigatoria093{padding:16px;border:2px solid rgba(245,158,11,.72);border-radius:16px;background:linear-gradient(135deg,rgba(120,53,15,.26),rgba(30,41,59,.72));box-shadow:0 0 0 3px rgba(245,158,11,.08),0 12px 28px rgba(0,0,0,.18);transition:.2s ease}
+      .sigee-selecao-obrigatoria093.selecionado{border-color:rgba(16,185,129,.85);background:linear-gradient(135deg,rgba(6,78,59,.28),rgba(30,41,59,.72));box-shadow:0 0 0 3px rgba(16,185,129,.09),0 12px 28px rgba(0,0,0,.18)}
+      .sigee-selecao-cabecalho093{display:flex;align-items:center;gap:11px;margin-bottom:12px}.sigee-selecao-icone093{display:grid;place-items:center;width:38px;height:38px;border-radius:12px;background:rgba(245,158,11,.18);font-size:21px}
+      .sigee-selecao-cabecalho093 strong{display:block;color:#fef3c7;font-size:12px;letter-spacing:.08em}.sigee-selecao-cabecalho093 small{display:block;color:#cbd5e1;margin-top:2px;font-size:11px}
+      .sigee-selecao-obrigatoria093 select{width:100%;min-height:44px;font-weight:800;border-width:2px!important;border-color:rgba(245,158,11,.68)!important}.sigee-selecao-obrigatoria093.selecionado select{border-color:rgba(16,185,129,.8)!important}
+      .sigee-selecao-aviso093{margin-top:9px;font-size:11px;font-weight:800;color:#fde68a}.sigee-selecao-obrigatoria093.selecionado .sigee-selecao-aviso093{color:#a7f3d0}.sigee-selecao-semusuarios093{margin-top:8px;color:#fecaca;font-size:11px;font-weight:800}
+    `;
+    document.head.appendChild(st);
+  }
+
+  instalarEstilosWorkflow093();
   instalarWorkflow093();
   window.addEventListener('DOMContentLoaded',()=>setTimeout(instalarWorkflow093,0));
   window.addEventListener('load',()=>{
