@@ -424,3 +424,154 @@ button[id^="btn-fase-"] span:not(.status-ico){
 .btn33:disabled{cursor:not-allowed;filter:grayscale(.45);opacity:.45;box-shadow:none}
 .sigee-pend-item331{display:flex!important;align-items:flex-start;gap:10px;padding:11px 10px!important;margin:7px 0;border:1px solid #475569;border-radius:10px;background:#0f172a!important;color:#fff!important;cursor:pointer}.sigee-pend-item331 input{margin-top:3px;accent-color:#22c55e;transform:scale(1.12)}.sigee-pend-item331 span{display:flex;flex-direction:column;gap:3px}.sigee-pend-item331 strong{font-size:13px}.sigee-pend-item331 small{color:#94a3b8;font-size:11px}
 .sigee-tarefa-status331{display:flex;flex-direction:column;gap:5px;margin:12px 0;padding:12px 14px;border-left:5px solid #38bdf8;border-radius:10px;background:#082f49}.sigee-tarefa-status331 strong{color:#7dd3fc;font-size:11px;text-transform:uppercase}.sigee-tarefa-status331 span{color:#fff;font-weight:900}.sigee-recebidos331{padding:10px 12px;border-radius:9px;background:#064e3b;color:#d1fae5;font-weight:800}
+
+
+/* =========================================================
+   SIGEE Enterprise v0.9.2 — Layout fixo da área de trabalho
+   Menu, cabeçalho, abas e pesquisa permanecem visíveis.
+   Apenas a lista central de processos possui rolagem.
+   ========================================================= */
+@media (min-width: 769px){
+    html, body{
+        height:100%;
+        overflow:hidden;
+    }
+
+    #sistema-dashboard.sigee-app-shell{
+        height:100vh;
+        min-height:0 !important;
+        overflow:hidden;
+    }
+
+    #sistema-dashboard .sigee-sidebar{
+        height:100vh;
+        min-height:0;
+        flex:0 0 16rem;
+        overflow:hidden;
+    }
+
+    #sistema-dashboard .sigee-sidebar-nav{
+        min-height:0;
+        overflow-y:auto;
+        overscroll-behavior:contain;
+    }
+
+    #sistema-dashboard .sigee-sidebar-logout{
+        flex:0 0 auto;
+        margin-top:auto;
+        position:relative;
+        z-index:3;
+    }
+
+    #sistema-dashboard .sigee-main{
+        height:100vh;
+        min-width:0;
+        min-height:0;
+        overflow:hidden !important;
+        display:block;
+    }
+
+    #sistema-dashboard .sigee-main > section:not(#aba-processos){
+        height:100%;
+        overflow-y:auto;
+        overscroll-behavior:contain;
+        padding-right:4px;
+    }
+
+    #aba-processos.sigee-central:not(.hidden){
+        display:flex !important;
+        flex-direction:column;
+        gap:1rem;
+        height:100%;
+        min-height:0;
+        overflow:hidden;
+    }
+
+    #aba-processos .sigee-central-topo,
+    #aba-processos .sigee-central-abas,
+    #aba-processos .sigee-central-pesquisa{
+        flex:0 0 auto;
+        position:relative;
+        z-index:5;
+    }
+
+    #aba-processos .sigee-central-conteudo{
+        flex:1 1 auto;
+        min-height:0;
+        display:flex;
+        flex-direction:column;
+        gap:.5rem;
+        overflow:hidden;
+    }
+
+    #aba-processos .sigee-central-lista{
+        flex:1 1 auto;
+        min-height:0;
+        overflow:auto !important;
+        overscroll-behavior:contain;
+        scrollbar-gutter:stable;
+    }
+
+    #aba-processos .sigee-central-lista table{
+        min-width:1050px;
+    }
+
+    #aba-processos .sigee-central-lista thead{
+        position:sticky;
+        top:0;
+        z-index:4;
+    }
+}
+
+/* Hierarquia visual dos dados principais na lista de processos */
+.sigee-aluno-nome{
+    display:block;
+    font-size:14px;
+    line-height:1.25;
+    font-weight:900;
+    letter-spacing:.015em;
+    color:#fff;
+    text-transform:uppercase;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+.sigee-codigo-linha{
+    display:flex;
+    align-items:center;
+    gap:.35rem;
+    margin-top:.3rem;
+}
+.sigee-codigo-linha .sigee-codigo-copiavel{
+    font-size:10px;
+}
+.sigee-escola-nome{
+    display:block;
+    font-size:11px;
+    line-height:1.3;
+    font-weight:800;
+    color:#fff;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+.sigee-escola-meta{
+    display:block;
+    margin-top:.28rem;
+    font-size:9px;
+    line-height:1.25;
+    font-weight:800;
+    color:#a5f3fc;
+    text-transform:uppercase;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+
+@media (max-width:768px){
+    html, body{overflow:auto;}
+    #sistema-dashboard.sigee-app-shell{min-height:100vh;overflow:visible;}
+    #sistema-dashboard .sigee-sidebar{height:auto;overflow:visible;}
+    #sistema-dashboard .sigee-main{height:auto;overflow:visible !important;}
+    #aba-processos .sigee-central-lista{overflow-x:auto;}
+}
