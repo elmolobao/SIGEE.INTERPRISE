@@ -41,8 +41,8 @@
         </div>
     </div>
 
-    <div id="sistema-dashboard" class="hidden min-h-screen flex flex-col md:flex-row">
-        <aside class="w-full md:w-64 bg-blue-950 text-white flex flex-col shadow-xl">
+    <div id="sistema-dashboard" class="hidden min-h-screen flex flex-col md:flex-row sigee-app-shell">
+        <aside class="w-full md:w-64 bg-blue-950 text-white flex flex-col shadow-xl sigee-sidebar">
             <div class="p-5 bg-blue-900 border-b border-blue-800">
                 <h2 class="text-2xl font-black tracking-wider text-amber-400">SIGEE</h2>
                 <div class="mt-2 text-xs text-blue-200">
@@ -50,19 +50,19 @@
                     <p id="user-perfil" class="italic text-amber-500"></p>
                 </div>
             </div>
-            <nav class="flex-1 p-4 space-y-2" aria-label="Menu principal do SIGEE">
+            <nav class="flex-1 p-4 space-y-2 sigee-sidebar-nav" aria-label="Menu principal do SIGEE">
                 <button id="menu-central-processos" onclick="navegar('processos')" class="sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer">📋 Central de Processos</button>
                 <button onclick="navegar('escolas')" class="sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer">🏫 Catálogo de Escolas</button>
                 <button id="menu-usuarios" onclick="navegar('usuarios')" class="hidden sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer">👥 Usuários</button>
                 <button id="menu-relatorios" onclick="navegar('painel')" class="sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer">📊 Relatórios</button>
                 <button id="menu-logs" onclick="navegar('logs')" class="hidden sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer">⚙️ Configurações</button>
             </nav>
-            <div class="p-4 border-t border-blue-900">
+            <div class="p-4 border-t border-blue-900 sigee-sidebar-logout">
                 <button onclick="logout()" class="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2 rounded-lg text-sm transition cursor-pointer">Sair</button>
             </div>
         </aside>
 
-        <main class="flex-1 p-4 md:p-6 overflow-y-auto">
+        <main class="flex-1 p-4 md:p-6 overflow-y-auto sigee-main">
             
             <section id="aba-painel" class="space-y-6">
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-4 gap-4">
@@ -118,8 +118,8 @@
                 </div>
             </section>
 
-            <section id="aba-processos" class="hidden space-y-4">
-                <div class="flex flex-wrap justify-between items-center bg-white p-4 rounded-xl border shadow-xs gap-3">
+            <section id="aba-processos" class="hidden space-y-4 sigee-central">
+                <div class="flex flex-wrap justify-between items-center bg-white p-4 rounded-xl border shadow-xs gap-3 sigee-central-topo">
                     <div><h1 class="text-2xl font-black text-blue-950">📋 Central de Processos</h1><p class="text-xs text-gray-500 mt-1">Visão ampla dos pedidos e das etapas de produção.</p></div>
                     <div class="flex flex-wrap gap-2 items-center">
                         <div class="export-only hidden flex flex-wrap gap-2">
@@ -130,7 +130,7 @@
                     </div>
                 </div>
 
-                <div class="bg-white p-3 rounded-xl border shadow-sm space-y-2">
+                <div class="bg-white p-3 rounded-xl border shadow-sm space-y-2 sigee-central-abas">
                     <div class="flex flex-wrap items-center gap-2 w-full" id="central-processos-abas">
                         <button onclick="filtrarProcessosPorEtapa('TODOS')" id="btn-fase-todos" class="sigee-etapa-tab etapa-todos"><span>📋</span> Todos (<span id="count-horiz-todos">0</span>)</button>
                         <button onclick="filtrarProcessosPorEtapa('Desarquivamento')" id="btn-fase-desarquivamento" class="sigee-etapa-tab etapa-desarquivamento"><span>🗂️🔍</span> Desarquivamento (<span id="count-horiz-desarquivamento">0</span>)</button>
@@ -145,17 +145,17 @@
                     </div>
                 </div>
 
-                <div class="space-y-2">
-                    <div class="bg-white p-2 border rounded-xl shadow-xs">
+                <div class="space-y-2 sigee-central-conteudo">
+                    <div class="bg-white p-2 border rounded-xl shadow-xs sigee-central-pesquisa">
                         <input type="text" id="busca-proc-nome" placeholder="🔎 Pesquisar por Código SIGEE, aluno ou escola..." oninput="renderizarProcessosFlutuantes()" class="w-full p-2 bg-gray-50 text-xs border rounded-lg focus:outline-none font-medium">
                     </div>
                     
-                    <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
+                    <div class="bg-white rounded-xl border shadow-sm overflow-hidden sigee-central-lista">
                         <table class="w-full text-left border-collapse table-fixed text-[11px]">
                             <thead class="bg-gray-100 font-bold border-b text-gray-600 uppercase">
                                 <tr>
-                                    <th class="p-2.5 w-[18%]">Código SIGEE / Aluno</th>
-                                    <th class="p-2.5 w-[18%]">Escola / NTE</th>
+                                    <th class="p-2.5 w-[18%]">Aluno / Código SIGEE</th>
+                                    <th class="p-2.5 w-[18%]">Escola / NTE - Cód. SEC</th>
                                     <th class="p-2.5 w-[10%] text-center">Modalidade</th>
                                     <th class="p-2.5 w-[9%] text-center">Prioridade</th>
                                     <th class="p-2.5 w-[9%] text-center">Prazo</th>
