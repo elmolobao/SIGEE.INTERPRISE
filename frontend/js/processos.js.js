@@ -676,7 +676,7 @@
     const msg=pendentes[0]?.mensagem_texto||mensagemPendencia(pendentes.filter(x=>x.grupo==='aluno'),pendentes.filter(x=>x.grupo==='instituicao')).texto;
     const el=modal(`⚠️ Tratar Pendência — ${escapar(p.codigo_sigee||p.id)}`,`${resumo(p)}<section class="sigee-pend-atual33"><h3>Pendências abertas</h3>${itens}</section><section class="sigee-tarefa-status331"><strong>Mensagem institucional confirmada:</strong><span>ENVIAR E-MAIL: ${escapar(msg)}</span></section>${recebidos.length?`<p class="sigee-recebidos331">Já recebidos: ${escapar(recebidos.map(x=>x.item).join(', '))}</p>`:''}<div class="sigee-acoes33"><button class="btn33 btn33-cinza" data-hist33>📜 Histórico</button>${somenteLeitura()?'':`<button class="btn33 btn33-roxo" data-salvar-receb33>Registrar Documento Recebido</button>`}</div>`,'pendencia');
     el.querySelector('[data-hist33]')?.addEventListener('click',()=>abrirHistorico(id,()=>abrirTratarPendencia(id)));
-    el.querySelector('[data-salvar-receb33]')?.addEventListener('click',async()=>{const ids=[...el.querySelectorAll('input[name="receb331"]:checked')].map(x=>Number(x.value));if(!ids.length)return alert('Marque ao menos um item recebido.');try{await marcarRecebidas(ids);const restantes=pendentes.filter(x=>!ids.includes(Number(x.id)));const completo=restantes.length===0;p.pendencia_aberta=!completo;p.etapa=p.etapa_atual=completo?'Digitação':'Pendência';p.data_etapa_atual=agoraISO();p.pendencia_aluno_itens=restantes.filter(x=>x.grupo==='aluno').map(x=>x.item);p.pendencia_instituicao_itens=restantes.filter(x=>x.grupo==='instituicao').map(x=>x.item);await salvar(p);const recebidosAgora=pendentes.filter(x=>ids.includes(Number(x.id))).map(x=>x.item);await registrarHistorico(p,completo?'Digitação':'Pendência',completo?'Pendência resolvida':'Recebimento parcial',`Recebido: ${recebidosAgora.join(', ')}`,{itens_recebidos:recebidosAgora,pendencia_resolvida:completo});if(completo){fecharModal();toast('Pendência totalmente resolvida. Processo enviado para Digitação.');}else{toast('Recebimento parcial registrado.');await abrirTratarPendencia(id);}}catch(e){console.error(e);alert('Não foi possível registrar o recebimento: '+(e.message||e));}});
+    el.querySelector('[data-salvar-receb33]')?.addEventListener('click',async()=>{const ids=[...el.querySelectorAll('input[name="receb331"]:checked')].map(x=>Number(x.value));if(!ids.length)return alert('Marque ao menos um item recebido.');try{await marcarRecebidas(ids);const restantes=pendentes.filter(x=>!ids.includes(Number(x.id)));const completo=restantes.length===0;p.pendencia_aberta=!completo;p.etapa=p.etapa_atual='Pendência';p.data_etapa_atual=agoraISO();p.pendencia_aluno_itens=restantes.filter(x=>x.grupo==='aluno').map(x=>x.item);p.pendencia_instituicao_itens=restantes.filter(x=>x.grupo==='instituicao').map(x=>x.item);await salvar(p);const recebidosAgora=pendentes.filter(x=>ids.includes(Number(x.id))).map(x=>x.item);await registrarHistorico(p,'Pendência',completo?'Pendência resolvida':'Recebimento parcial',`Recebido: ${recebidosAgora.join(', ')}`,{itens_recebidos:recebidosAgora,pendencia_resolvida:completo});if(completo){fecharModal();toast('Pendência totalmente resolvida. Selecione o digitador e confirme a mensagem obrigatória.');setTimeout(()=>window.abrirEncaminharDigitacaoSIGEE?.(id,{origem:'Pendência resolvida'}),0);}else{toast('Recebimento parcial registrado.');await abrirTratarPendencia(id);}}catch(e){console.error(e);alert('Não foi possível registrar o recebimento: '+(e.message||e));}});
   }
 
   function formatarSEI(v){const d=txt(v).replace(/\D/g,'').slice(0,20);let o='';if(d.length)o+=d.slice(0,3);if(d.length>3)o+='.'+d.slice(3,7);if(d.length>7)o+='.'+d.slice(7,11);if(d.length>11)o+='.'+d.slice(11,18);if(d.length>18)o+='-'+d.slice(18,20);return o;}
@@ -747,24 +747,62 @@
     const p=norm(usuario().perfil);
     return p.includes('MASTER') || p.includes('SEC');
   }
-  function usuariosElegiveis(p){
-    let base=Array.isArray(window.usuariosDB)?window.usuariosDB.slice():[];
-    /* Digitador/Conferente: somente usuários técnicos ativos. */
-    base=base.filter(u=>u && u.ativo!==false && norm(u.perfil).includes('TECNIC'));
+  function nteCadastroUsuario(){
+    const u=usuario();
+    return txt(u.nte || u.nte_nome || u.nte_vinculado || u.grupo);
+  }
+  function normalizarUsuarioTecnico(u){
+    if(!u) return null;
+    return {
+      ...u,
+      nome: txt(u.nome || u.nome_completo || u.display_name || u.email),
+      email: txt(u.email),
+      perfil: txt(u.perfil || u.role || u.tipo_perfil),
+      nte: txt(u.nte || u.nte_nome || u.nte_vinculado || u.grupo),
+      ativo: u.ativo !== false && norm(u.status || 'ATIVO') !== 'INATIVO'
+    };
+  }
+  async function usuariosElegiveis(p){
+    const mapa=new Map();
+    const adicionar=(u)=>{
+      const item=normalizarUsuarioTecnico(u);
+      if(!item) return;
+      const chave=norm(item.email || item.nome) + '|' + norm(item.nte);
+      if(chave && !mapa.has(chave)) mapa.set(chave,item);
+    };
+    (Array.isArray(window.usuariosDB)?window.usuariosDB:[]).forEach(adicionar);
 
-    /* Master e SEC visualizam técnicos de todos os 27 NTEs.
-       Administrador e Técnico ficam limitados ao NTE do processo. */
+    /* Para Master e SEC, garante a leitura de todos os técnicos no Supabase,
+       mesmo quando o cache local foi carregado apenas com o NTE do último acesso. */
+    if(usuarioTemAcessoGlobal()){
+      try{
+        const c=cliente();
+        if(c){
+          const {data,error}=await c.from('usuarios_sigee').select('*');
+          if(error) throw error;
+          (data||[]).forEach(adicionar);
+        }
+      }catch(e){
+        console.warn('[SIGEE] Não foi possível complementar a lista global de técnicos.',e);
+      }
+    }
+
+    let base=[...mapa.values()].filter(u=>u.ativo && norm(u.perfil).includes('TECNIC'));
+
+    /* Somente Master e SEC têm visão global. Todos os demais perfis ficam
+       limitados ao NTE cadastrado no próprio usuário, e não ao NTE do processo. */
     if(!usuarioTemAcessoGlobal()){
-      base=base.filter(u=>mesmoNte(u.nte||u.nte_nome||u.grupo,p.nte||p.nte_nome||p.grupo));
+      const ntePermitido=nteCadastroUsuario();
+      base=base.filter(u=>mesmoNte(u.nte,ntePermitido));
     }
     return base.sort((a,b)=>{
-      const na=nteNumero(a.nte||a.nte_nome||a.grupo)||99;
-      const nb=nteNumero(b.nte||b.nte_nome||b.grupo)||99;
+      const na=nteNumero(a.nte)||99;
+      const nb=nteNumero(b.nte)||99;
       return na-nb || txt(a.nome||a.email).localeCompare(txt(b.nome||b.email),'pt-BR');
     });
   }
-  function selectTecnico(p,id,rotulo){
-    const lista=usuariosElegiveis(p);
+  function selectTecnico(p,id,rotulo,lista){
+    lista=Array.isArray(lista)?lista:[];
     const op=lista.map(u=>`<option value="${esc(u.nome||u.email)}">${esc(u.nome||u.email)}${(u.nte||u.nte_nome||u.grupo)?` — ${esc(u.nte||u.nte_nome||u.grupo)}`:''}</option>`).join('');
     const escopo=usuarioTemAcessoGlobal()?'Todos os NTEs':'NTE do processo';
     return `<section class="sigee-selecao-obrigatoria093" data-selecao-tecnico093>
@@ -798,11 +836,12 @@
   }
   function bloquearLeitura(){ if(!somenteLeitura()) return false; alert('Este perfil possui acesso somente para consulta.'); return true; }
 
-  function abrirEncaminharDigitacao(id,opcoes={}){
+  async function abrirEncaminharDigitacao(id,opcoes={}){
     const p=processo(id); if(!p || bloquearLeitura()) return;
     const msg=MENSAGENS.digitacao;
     const origem=txt(opcoes.origem||'Análise realizada');
-    const el=modal(`✍️ Enviar para Digitação — ${esc(p.codigo_sigee||p.id)}`,`${cabecalho(p)}${selectTecnico(p,'wf-digitador093','Responsável pela Digitação')}${tarefa(msg)}<div class="sigee-acoes33"><button class="btn33 btn33-cinza" data-cancelar093>Cancelar</button><button class="btn33 btn33-amarelo" data-confirmar093 disabled>Enviar para Digitação</button></div>`);
+    const listaTecnicos=await usuariosElegiveis(p);
+    const el=modal(`✍️ Enviar para Digitação — ${esc(p.codigo_sigee||p.id)}`,`${cabecalho(p)}${selectTecnico(p,'wf-digitador093','Responsável pela Digitação',listaTecnicos)}${tarefa(msg)}<div class="sigee-acoes33"><button class="btn33 btn33-cinza" data-cancelar093>Cancelar</button><button class="btn33 btn33-amarelo" data-confirmar093 disabled>Enviar para Digitação</button></div>`);
     const sel=el.querySelector('#wf-digitador093'),chk=el.querySelector('#wf-email093'),btn=el.querySelector('[data-confirmar093]');
     const validar=()=>{atualizarDestaqueTecnico(el,sel);btn.disabled=!(sel.value&&chk.checked);}; sel.addEventListener('change',validar); chk.addEventListener('change',validar); validar();
     el.querySelector('[data-cancelar093]').addEventListener('click',fechar);
@@ -816,10 +855,11 @@
     });
   }
 
-  function abrirDigitacao(id){
+  async function abrirDigitacao(id){
     const p=processo(id); if(!p || bloquearLeitura()) return;
     const msg=MENSAGENS.conferencia;
-    const el=modal(`✍️ Digitação Concluída — ${esc(p.codigo_sigee||p.id)}`,`${cabecalho(p)}${selectTecnico(p,'wf-conferente093','Responsável pela Conferência')}${tarefa(msg)}<div class="sigee-acoes33"><button class="btn33 btn33-cinza" data-cancelar093>Cancelar</button><button class="btn33 btn33-verde" data-confirmar093 disabled>Enviar para Conferência</button></div>`);
+    const listaTecnicos=await usuariosElegiveis(p);
+    const el=modal(`✍️ Digitação Concluída — ${esc(p.codigo_sigee||p.id)}`,`${cabecalho(p)}${selectTecnico(p,'wf-conferente093','Responsável pela Conferência',listaTecnicos)}${tarefa(msg)}<div class="sigee-acoes33"><button class="btn33 btn33-cinza" data-cancelar093>Cancelar</button><button class="btn33 btn33-verde" data-confirmar093 disabled>Enviar para Conferência</button></div>`);
     const sel=el.querySelector('#wf-conferente093'),chk=el.querySelector('#wf-email093'),btn=el.querySelector('[data-confirmar093]');
     const validar=()=>btn.disabled=!(sel.value&&chk.checked); sel.addEventListener('change',validar); chk.addEventListener('change',validar);
     el.querySelector('[data-cancelar093]').addEventListener('click',fechar);
@@ -933,12 +973,13 @@
     const st=document.createElement('style');
     st.id='sigee-workflow093-estilos';
     st.textContent=`
-      .sigee-selecao-obrigatoria093{padding:16px;border:2px solid rgba(245,158,11,.72);border-radius:16px;background:linear-gradient(135deg,rgba(120,53,15,.26),rgba(30,41,59,.72));box-shadow:0 0 0 3px rgba(245,158,11,.08),0 12px 28px rgba(0,0,0,.18);transition:.2s ease}
-      .sigee-selecao-obrigatoria093.selecionado{border-color:rgba(16,185,129,.85);background:linear-gradient(135deg,rgba(6,78,59,.28),rgba(30,41,59,.72));box-shadow:0 0 0 3px rgba(16,185,129,.09),0 12px 28px rgba(0,0,0,.18)}
+      .sigee-selecao-obrigatoria093{margin:18px 0;padding:20px;border:3px solid #f59e0b;border-radius:18px;background:linear-gradient(135deg,rgba(146,64,14,.48),rgba(30,41,59,.94));box-shadow:0 0 0 5px rgba(245,158,11,.14),0 16px 34px rgba(0,0,0,.34);transition:.2s ease}
+      .sigee-selecao-obrigatoria093.selecionado{border-color:#10b981;background:linear-gradient(135deg,rgba(6,95,70,.52),rgba(30,41,59,.94));box-shadow:0 0 0 5px rgba(16,185,129,.14),0 16px 34px rgba(0,0,0,.34)}
       .sigee-selecao-cabecalho093{display:flex;align-items:center;gap:11px;margin-bottom:12px}.sigee-selecao-icone093{display:grid;place-items:center;width:38px;height:38px;border-radius:12px;background:rgba(245,158,11,.18);font-size:21px}
       .sigee-selecao-cabecalho093 strong{display:block;color:#fef3c7;font-size:12px;letter-spacing:.08em}.sigee-selecao-cabecalho093 small{display:block;color:#cbd5e1;margin-top:2px;font-size:11px}
       .sigee-selecao-obrigatoria093 select{width:100%;min-height:44px;font-weight:800;border-width:2px!important;border-color:rgba(245,158,11,.68)!important}.sigee-selecao-obrigatoria093.selecionado select{border-color:rgba(16,185,129,.8)!important}
       .sigee-selecao-aviso093{margin-top:9px;font-size:11px;font-weight:800;color:#fde68a}.sigee-selecao-obrigatoria093.selecionado .sigee-selecao-aviso093{color:#a7f3d0}.sigee-selecao-semusuarios093{margin-top:8px;color:#fecaca;font-size:11px;font-weight:800}
+      .sigee-selecao-cabecalho093{display:flex;align-items:center;gap:12px;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid rgba(251,191,36,.4)}.sigee-selecao-cabecalho093 strong{display:block;color:#fff7ed;font-size:14px;letter-spacing:.08em}.sigee-selecao-cabecalho093 small{display:block;margin-top:3px;color:#fde68a;font-weight:800}.sigee-selecao-icone093{display:grid;place-items:center;width:44px;height:44px;border-radius:14px;background:#f59e0b;color:#111827;font-size:24px;box-shadow:0 0 18px rgba(245,158,11,.45)}.sigee-selecao-obrigatoria093.selecionado .sigee-selecao-icone093{background:#10b981}.sigee-selecao-obrigatoria093 select{font-size:14px!important;padding:10px 12px!important}
     `;
     document.head.appendChild(st);
   }
