@@ -1,43 +1,52 @@
-/* SIGEE WFE-001-R2
- * Resolver do Workflow Externo
- * Regra: eventos temporais não alteram a etapa do processo.
- */
+/*
+ SIGEE Enterprise
+ WFE-001-R3
+ Workflow Externo Resolver
+
+ Regra:
+ - Etapa permanece DESARQUIVAMENTO
+ - Alerta e ação são derivados pelo tempo
+ - Eventos não alteram etapa
+*/
 (function(window){
     'use strict';
 
-    function calcularAcao(processo){
-        const inicio = new Date(
+    const REGRAS = [
+        {dias: 52, alerta: "PEDIDO_ATAS_SEM_PASTA", acao: "SOLICITAR_ATAS"},
+        {dias: 45, alerta: "CONFIRMACAO_DOS_DADOS_DA_BUSCA", acao: "CONFIRMAR_DADOS"},
+        {dias: 38, alerta: "REITERACAO_URGENTE", acao: "EXECUTAR_REITERACAO_URGENTE"},
+        {dias: 31, alerta: "REITERACAO", acao: "EXECUTAR_REITERACAO"}
+    ];
+
+    function diasDecorridos(processo){
+        const data = new Date(
             processo.data_inicio_desarquivamento ||
+            processo.data_desarquivamento ||
             processo.data_etapa_atual ||
             processo.created_at
         );
 
-        if (isNaN(inicio.getTime())) {
-            return {
-                etapa: 'DESARQUIVAMENTO',
-                acao: 'AGUARDANDO_DATA'
-            };
-        }
+        if (isNaN(data.getTime())) return 0;
 
-        const hoje = new Date();
-        const dias = Math.floor((hoje - inicio) / 86400000);
+        return Math.floor((new Date() - data) / 86400000);
+    }
 
-        let acao = 'AGUARDANDO_PRAZO';
+    function resolver(processo){
+        const dias = diasDecorridos(processo);
 
-        if (dias >= 52) acao = 'PEDIDO_ATAS';
-        else if (dias >= 45) acao = 'CONFIRMACAO_DADOS';
-        else if (dias >= 38) acao = 'REITERACAO_URGENTE';
-        else if (dias >= 31) acao = 'REITERACAO';
+        let regra = REGRAS.find(r => dias >= r.dias);
 
         return {
-            etapa: 'DESARQUIVAMENTO',
-            acao,
+            etapa: "DESARQUIVAMENTO",
+            alerta: regra ? regra.alerta : "AGUARDANDO_PRAZO",
+            acao: regra ? regra.acao : "SEM_ACAO",
             diasDecorridos: dias
         };
     }
 
     window.WorkflowExternoResolver = {
-        calcularAcao
+        resolver,
+        diasDecorridos
     };
 
 })(window);
