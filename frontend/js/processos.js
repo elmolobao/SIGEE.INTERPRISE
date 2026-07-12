@@ -19,7 +19,10 @@
     function hojeBR() { return new Date().toLocaleDateString('pt-BR'); }
     function usuario() { return window.usuarioLogado || (typeof usuarioLogado !== 'undefined' ? usuarioLogado : null); }
 
+    function permissoes() { return window.SIGEE_PERMISSOES || window.SIGEE_PERMISSOES_0931 || null; }
     function perfil(u) {
+        const api = permissoes();
+        if (api && typeof api.perfilLegado === 'function') return api.perfilLegado(u || usuario());
         const p = normalizar(u && u.perfil || 'Tecnico');
         if (p.includes('SEC')) return 'SEC';
         if (p.includes('MASTER')) return 'Master';
@@ -28,14 +31,14 @@
         if (p.includes('ESTAG')) return 'Estagiario';
         return 'Tecnico';
     }
-    function isSEC(u) { return perfil(u) === 'SEC' || minusculo(u && u.email) === 'sec@enova.educacao.ba.gov.br'; }
-    function isMaster(u) { return perfil(u) === 'Master'; }
-    function isAdmin(u) { return perfil(u) === 'Administrador'; }
-    function isTecnico(u) { return perfil(u) === 'Tecnico'; }
-    function isConsulta(u) { return perfil(u) === 'Consulta'; }
-    function isEstagiario(u) { return perfil(u) === 'Estagiario'; }
-    function isGlobal(u) { return isSEC(u) || isMaster(u); }
-    function podeGerirProcessos(u) { return isSEC(u) || isMaster(u); }
+    function isSEC(u) { const api=permissoes(); return api ? api.isSEC(u || usuario()) : perfil(u) === 'SEC' || minusculo(u && u.email) === 'sec@enova.educacao.ba.gov.br'; }
+    function isMaster(u) { const api=permissoes(); return api ? api.isMaster(u || usuario()) : perfil(u) === 'Master'; }
+    function isAdmin(u) { const api=permissoes(); return api ? api.isAdministrador(u || usuario()) : perfil(u) === 'Administrador'; }
+    function isTecnico(u) { const api=permissoes(); return api ? api.isTecnico(u || usuario()) : perfil(u) === 'Tecnico'; }
+    function isConsulta(u) { const api=permissoes(); return api ? api.isConsulta(u || usuario()) : perfil(u) === 'Consulta'; }
+    function isEstagiario(u) { const api=permissoes(); return api ? api.isEstagiario(u || usuario()) : perfil(u) === 'Estagiario'; }
+    function isGlobal(u) { const api=permissoes(); return api ? api.ehGlobal(u || usuario()) : isSEC(u) || isMaster(u); }
+    function podeGerirProcessos(u) { const api=permissoes(); return api ? api.pode(api.ACOES.EDITAR_PROCESSO, u || usuario()) && api.pode(api.ACOES.EXCLUIR_PROCESSO, u || usuario()) : isSEC(u) || isMaster(u); }
 
     function numeroNte(v) {
         const m = texto(v).match(/NTE\s*[- ]?\s*(\d{1,2})/i);
@@ -746,11 +749,10 @@
     return `<section class="sigee-tarefa-obrigatoria33"><div class="sigee-tarefa-icone33">📧</div><div class="sigee-tarefa-conteudo33"><span>TAREFA OBRIGATÓRIA</span><strong>ENVIAR E-MAIL: ${esc(msg.texto)}</strong><p>Execute a mensagem institucional na ferramenta de e-mail. Em seguida, confirme a realização da tarefa para liberar o avanço.</p><label><input type="checkbox" id="${id}"> Confirmo que executei esta tarefa.</label></div></section>`;
   }
   function perfilAtualWorkflow(){
+    const api=window.SIGEE_PERMISSOES || window.SIGEE_PERMISSOES_0931;
+    if(api && typeof api.perfilAtual==='function') return api.perfilAtual();
     const u=usuario();
-    const email=norm(u.email);
     const bruto=norm(u.perfil || u.role || u.tipo_perfil || u.tipo || u.nivel || u.acesso);
-    if(email==='ELMO.LOBAO@ENOVA.EDUCACAO.BA.GOV.BR') return 'MASTER';
-    if(email==='SEC@ENOVA.EDUCACAO.BA.GOV.BR') return 'SEC';
     if(bruto.includes('MASTER')) return 'MASTER';
     if(bruto==='SEC' || bruto.includes('TODOS OS NTES')) return 'SEC';
     if(bruto.includes('ADMIN')) return 'ADMINISTRADOR';
