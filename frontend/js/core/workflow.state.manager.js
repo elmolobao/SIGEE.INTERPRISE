@@ -19,12 +19,12 @@
     RET: Object.freeze({
       code: 'RET', name: 'Reiteração', order: 2, deadline: 7,
       color: '#F9A825', icon: 'mail',
-      allowedEvents: Object.freeze(['SEND_REITERACAO_URGENTE', 'LOCALIZAR_PASTA', 'DOCUMENTO_RECEBIDO'])
+      allowedEvents: Object.freeze(['SEND_REITERACAO_URGENTE', 'RETIFICAR_DADOS', 'LOCALIZAR_PASTA', 'DOCUMENTO_RECEBIDO'])
     }),
     REU: Object.freeze({
       code: 'REU', name: 'Reiteração Urgente', order: 3, deadline: 7,
       color: '#EF6C00', icon: 'alert-triangle',
-      allowedEvents: Object.freeze(['CONFIRMAR_DADOS', 'LOCALIZAR_PASTA', 'DOCUMENTO_RECEBIDO'])
+      allowedEvents: Object.freeze(['CONFIRMAR_DADOS', 'RETIFICAR_DADOS', 'LOCALIZAR_PASTA', 'DOCUMENTO_RECEBIDO'])
     }),
     CFD: Object.freeze({
       code: 'CFD', name: 'Confirmação dos Dados', order: 4, deadline: 7,
