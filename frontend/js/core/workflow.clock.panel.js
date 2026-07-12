@@ -22,6 +22,25 @@
     document.head.appendChild(style);
   }
 
+
+  function refreshOperationalViews() {
+    window.setTimeout(function () {
+      const refreshers = [
+        'carregarEContarProcessosHorizontais',
+        'renderizarProcessosFlutuantes',
+        'carregarDadosDashboardReal',
+        'atualizarDashboard'
+      ];
+      refreshers.forEach(function (name) {
+        try {
+          if (typeof window[name] === 'function') window[name]();
+        } catch (error) {
+          console.warn('SIGEE WorkflowClock: falha ao atualizar ' + name + '.', error);
+        }
+      });
+    }, 30);
+  }
+
   function render() {
     const isMaster = clock.isMaster();
     let toggle = document.getElementById('sigee-clock-toggle');
@@ -77,7 +96,10 @@
     panel.querySelector('#sigee-clock-off').addEventListener('click', function () { clock.disable(); });
   }
 
-  clock.subscribe(render);
+  clock.subscribe(function () {
+    render();
+    refreshOperationalViews();
+  });
   window.addEventListener('load', render);
   window.setInterval(render, 1500);
 })(window, document);
