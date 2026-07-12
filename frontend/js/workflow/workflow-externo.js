@@ -59,6 +59,7 @@
 
   let originalOpenDesarquivamento = null;
   let configured = false;
+  const actionHistoryCache = new Map();
 
   function text(value) {
     return value == null ? '' : String(value).trim();
@@ -164,6 +165,42 @@
     return null;
   }
 
+  function currentCycle(process) {
+    return Math.max(1, Number(process && (process.workflow_ciclo || process.ciclo) || 1));
+  }
+
+  function actionKey(processId, cycle, eventCode) {
+    return String(processId) + '::' + String(cycle) + '::' + String(eventCode);
+  }
+
+  async function loadExecutedActions(process, force) {
+    const cycle = currentCycle(process);
+    const prefix = String(process.id) + '::' + String(cycle) + '::';
+    if (!force && Array.from(actionHistoryCache.keys()).some(function (key) { return key.startsWith(prefix); })) {
+      return actionHistoryCache;
+    }
+    try {
+      const client = typeof window.obterSupabaseSIGEE === 'function' ? window.obterSupabaseSIGEE() : null;
+      if (!client) return actionHistoryCache;
+      const response = await client.from('historico_processos')
+        .select('acao,dados')
+        .eq('processo_id', process.id);
+      if (response.error) throw response.error;
+      (response.data || []).forEach(function (item) {
+        const itemCycle = Number(item && item.dados && item.dados.ciclo || 1);
+        const eventCode = text(item && item.acao);
+        if (eventCode) actionHistoryCache.set(actionKey(process.id, itemCycle, eventCode), true);
+      });
+    } catch (error) {
+      console.warn('[WorkflowExterno] Não foi possível consultar bloqueios persistidos:', error);
+    }
+    return actionHistoryCache;
+  }
+
+  function wasExecuted(process, eventCode) {
+    return actionHistoryCache.has(actionKey(process.id, currentCycle(process), eventCode));
+  }
+
   function availableActions(process) {
     const stateCode = processState(process);
     const elapsed = elapsedDays(process);
@@ -174,14 +211,21 @@
     if (primary) {
       result.push({
         action: primary,
-        enabled: deadline == null || elapsed >= deadline,
+        enabled: (deadline == null || elapsed >= deadline) && !wasExecuted(process, primary.event),
+        executed: wasExecuted(process, primary.event),
         remainingDays: deadline == null ? 0 : Math.max(0, deadline - elapsed),
         primary: true
       });
     }
 
     if (['RET', 'REU', 'CFD'].includes(stateCode)) {
-      result.push({ action: ACTIONS.RETIFICAR_DADOS, enabled: true, remainingDays: 0, primary: false });
+      result.push({
+        action: ACTIONS.RETIFICAR_DADOS,
+        enabled: !wasExecuted(process, ACTIONS.RETIFICAR_DADOS.event),
+        executed: wasExecuted(process, ACTIONS.RETIFICAR_DADOS.event),
+        remainingDays: 0,
+        primary: false
+      });
     }
 
     return result;
@@ -286,6 +330,7 @@
           };
           const response = await client.from('historico_processos').insert(payload).select('id').maybeSingle();
           if (response.error) throw response.error;
+          actionHistoryCache.set(actionKey(record.processId, record.cycle, record.event), true);
           return response.data || null;
         } catch (error) {
           console.warn('[WorkflowExterno] Histórico não registrado:', error);
@@ -301,6 +346,11 @@
           console.warn('[WorkflowExterno] Auditoria não registrada:', error);
         }
         return null;
+      },
+      hasActionExecuted: async function (query) {
+        const process = findProcess(query.processId);
+        if (process) await loadExecutedActions(process, true);
+        return actionHistoryCache.has(actionKey(query.processId, query.cycle, query.event));
       },
       now: function () {
         return window.SIGEE_WORKFLOW_CLOCK && typeof window.SIGEE_WORKFLOW_CLOCK.now === 'function'
@@ -353,13 +403,14 @@
           confirmed: payload.confirmed,
           messageCode: message.code
         });
+        actionHistoryCache.set(actionKey(process.id, result.event === 'RETIFICAR_DADOS' ? result.cycle - 1 : result.cycle, result.event), true);
         await refreshScreens();
         toast(result.message + ' Nova etapa: ' + result.nextStateName + '.');
       }
     });
   }
 
-  function open(id) {
+  async function open(id) {
     configureTransitionManager();
     ensureMenuStyle();
 
@@ -369,6 +420,7 @@
       return;
     }
 
+    await loadExecutedActions(process, true);
     const stateCode = processState(process);
     if (!EXTERNAL_STATES.includes(stateCode)) {
       return openLegacyDocumentReceived(id);
@@ -384,9 +436,11 @@
     root.className = 'sigee-wfe-backdrop';
 
     const actionsHtml = actions.map(function (entry, index) {
-      const statusText = entry.enabled
-        ? 'Ação disponível'
-        : 'Disponível em ' + entry.remainingDays + ' dia' + (entry.remainingDays === 1 ? '' : 's');
+      const statusText = entry.executed
+        ? 'Ação já executada neste ciclo'
+        : entry.enabled
+          ? 'Ação disponível'
+          : 'Disponível em ' + entry.remainingDays + ' dia' + (entry.remainingDays === 1 ? '' : 's');
       return `
         <div class="sigee-wfe-action">
           <div>
@@ -394,7 +448,7 @@
             <p>${statusText}</p>
           </div>
           <button type="button" class="sigee-wfe-btn" data-wfe-action="${index}" ${entry.enabled ? '' : 'disabled'}>
-            ${entry.enabled ? 'Abrir' : 'Aguardando'}
+            ${entry.executed ? 'Executada' : (entry.enabled ? 'Abrir' : 'Aguardando')}
           </button>
         </div>`;
     }).join('');
