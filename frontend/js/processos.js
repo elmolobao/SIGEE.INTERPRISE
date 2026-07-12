@@ -268,6 +268,27 @@
         }
         return '';
     }
+
+    function alertaChave(p) {
+        const dias = diasDesde(dataInicioCiclo(p));
+        const etapa = normalizar(processoEtapa(p));
+        if (!pertenceCicloDesarquivamento(etapa)) return '';
+        if (dias >= 52) return 'PEDIDO_ATAS_SEM_PASTA';
+        if (dias >= 45) return 'CONFIRMAR_DADOS';
+        if (dias >= 38) return 'REITERACAO_URGENTE';
+        if (dias >= 31) return 'REITERACAO';
+        return 'DESARQUIVAMENTO';
+    }
+
+    function acaoJaExecutada(p, chave) {
+        return Array.isArray(p.acoes_executadas) && p.acoes_executadas.includes(chave);
+    }
+
+    function registrarAcaoExecutada(p, chave) {
+        p.acoes_executadas = Array.isArray(p.acoes_executadas) ? p.acoes_executadas : [];
+        if (!p.acoes_executadas.includes(chave)) p.acoes_executadas.push(chave);
+    }
+
     function podeMovimentar(p) {
         const u = usuario();
         return isSEC(u) || isMaster(u) || isAdmin(u) || (isTecnico(u) && mesmoNte(nteUsuario(u), processoNte(p))); // Estagiário é somente leitura
@@ -284,7 +305,23 @@
         if (e.includes('ASSIN')) return `<button onclick="abrirModalFluxoAssinatura(${p.id})" class="bg-blue-700 text-white font-bold px-2 py-1 rounded text-[10px]">Deferido</button>`;
         if (e.includes('AGUARD')) return `<button onclick="abrirModalFluxoAguardando(${p.id})" class="bg-gray-700 text-white font-bold px-2 py-1 rounded text-[10px]">Retirado</button>`;
         if (e.includes('RETIR')) return '<span class="text-gray-300 font-bold">Finalizado</span>';
-        return `<button onclick="abrirModalFluxoDesarquivamento(${p.id})" class="bg-sky-700 text-white font-bold px-2 py-1 rounded text-[10px]">Documento Recebido</button>`;
+
+        const alerta = alertaChave(p);
+        const executada = acaoJaExecutada(p, alerta);
+        if (alerta === 'REITERACAO') return executada
+            ? '<span class="text-gray-400 font-bold">Reiteração executada</span>'
+            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'REITERACAO')" class="bg-amber-600 text-white font-bold px-2 py-1 rounded text-[10px]">Executar Reiteração</button>`;
+        if (alerta === 'REITERACAO_URGENTE') return executada
+            ? '<span class="text-gray-400 font-bold">Reiteração urgente executada</span>'
+            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'REITERACAO_URGENTE')" class="bg-orange-600 text-white font-bold px-2 py-1 rounded text-[10px]">Executar Reiteração Urgente</button>`;
+        if (alerta === 'CONFIRMAR_DADOS') return executada
+            ? '<span class="text-gray-400 font-bold">Dados confirmados</span>'
+            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'CONFIRMAR_DADOS')" class="bg-red-600 text-white font-bold px-2 py-1 rounded text-[10px]">Confirmar Dados da Busca</button>`;
+        if (alerta === 'PEDIDO_ATAS_SEM_PASTA') return executada
+            ? '<span class="text-gray-400 font-bold">Atas solicitadas</span>'
+            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'PEDIDO_ATAS_SEM_PASTA')" class="bg-red-800 text-white font-bold px-2 py-1 rounded text-[10px]">Solicitar Atas sem Pasta</button>`;
+
+        return `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'DESARQUIVAMENTO')" class="bg-sky-700 text-white font-bold px-2 py-1 rounded text-[10px]">Documento Recebido</button>`;
     }
 
     function renderizarProcessos() {
