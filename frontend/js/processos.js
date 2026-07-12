@@ -16,7 +16,11 @@
     function semAcento(v) { return texto(v).normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
     function normalizar(v) { return semAcento(v).toUpperCase().replace(/\s+/g, ' '); }
     function minusculo(v) { return texto(v).toLowerCase(); }
-    function hojeBR() { return new Date().toLocaleDateString('pt-BR'); }
+    function agoraWorkflow() {
+        const clock = window.SIGEE_WORKFLOW_CLOCK;
+        return clock && typeof clock.now === 'function' ? clock.now() : new Date();
+    }
+    function hojeBR() { return agoraWorkflow().toLocaleDateString('pt-BR'); }
     function usuario() { return window.usuarioLogado || (typeof usuarioLogado !== 'undefined' ? usuarioLogado : null); }
 
     function perfil(u) {
@@ -201,7 +205,7 @@
             data = new Date(s);
         }
         if (!data || Number.isNaN(data.getTime())) return 0;
-        const hoje = new Date();
+        const hoje = agoraWorkflow();
         hoje.setHours(0, 0, 0, 0);
         data.setHours(0, 0, 0, 0);
         return Math.max(0, Math.floor((hoje - data) / 86400000));

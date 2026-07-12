@@ -1087,8 +1087,13 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             });
         }
 
+        function obterAgoraWorkflowSIGEE() {
+            const clock = window.SIGEE_WORKFLOW_CLOCK;
+            return clock && typeof clock.now === 'function' ? clock.now() : new Date();
+        }
+
         function obterDataAtualFormatada() {
-            const hoje = new Date();
+            const hoje = obterAgoraWorkflowSIGEE();
             return String(hoje.getDate()).padStart(2, '0') + '/' + String(hoje.getMonth() + 1).padStart(2, '0') + '/' + hoje.getFullYear();
         }
 
@@ -1120,7 +1125,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
 
                 if (!dataInicio || Number.isNaN(dataInicio.getTime())) return 0;
 
-                const dataHoje = new Date();
+                const dataHoje = obterAgoraWorkflowSIGEE();
                 const inicioDia = new Date(dataInicio.getFullYear(), dataInicio.getMonth(), dataInicio.getDate());
                 const hojeDia = new Date(dataHoje.getFullYear(), dataHoje.getMonth(), dataHoje.getDate());
                 const diferencaTempo = hojeDia.getTime() - inicioDia.getTime();
