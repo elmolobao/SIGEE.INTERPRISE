@@ -1,3 +1,14 @@
+# SIGEE Enterprise 0.9.3.2 — Sprint 1.0 / S1-E2.1
+
+- Evoluído `frontend/js/core/workflow-engine.js` para uma PoC declarativa em memória.
+- Adicionados estados, eventos, transições, validações e execução simulada.
+- Implementado o fluxo `DES → RET → REU → CFD → DES`.
+- Evento global `DOCUMENTO_RECEBIDO` preserva o estado atual.
+- Retificação sinaliza reinício do prazo de 30 dias.
+- Mantida a API de compatibilidade da versão 0.9.3.1.
+- Adicionado teste técnico em `tests/workflow-engine.poc.test.js`.
+- Nenhuma tela, tabela ou integração Supabase foi alterada.
+
 # SIGEE Enterprise V31.5 - Correções reais
 
 - Mantidos os perfis Master, Administrador, Técnico, SEC e Consulta.
