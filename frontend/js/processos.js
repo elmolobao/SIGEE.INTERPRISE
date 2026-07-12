@@ -177,7 +177,13 @@
         catch (e) { return null; }
     }
     function processoPayload(p) {
-        try { if (typeof processoParaSupabaseSIGEE === 'function') return processoParaSupabaseSIGEE(p); } catch (e) {}
+        try {
+            if (typeof processoParaSupabaseSIGEE === 'function') {
+                const payload = processoParaSupabaseSIGEE(p);
+                payload.workflow_instance_id = p.workflow_instance_id || payload.workflow_instance_id || null;
+                return payload;
+            }
+        } catch (e) {}
         return {
             id: p.id,
             aluno_nome: processoAluno(p),
@@ -210,6 +216,7 @@
             ultimo_evento_workflow: p.ultimo_evento_workflow || null,
             ultima_mensagem_workflow: p.ultima_mensagem_workflow || null,
             contexto_analise: p.contexto_analise || null,
+            workflow_instance_id: p.workflow_instance_id || null,
             updated_at: p.updated_at || new Date().toISOString()
         };
     }

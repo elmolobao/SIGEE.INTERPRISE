@@ -468,7 +468,19 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 nivel_oferta: normalizarTextoSIGEE(p.nivel_oferta || p.ensino || null) || null,
                 modalidade: normalizarTextoSIGEE(p.modalidade || null) || null,
                 etapa_atual: normalizarTextoSIGEE(p.etapa || p.etapa_atual || 'Desarquivamento'),
-                nte: normalizarTextoSIGEE(p.nte || 'NTE-26 Salvador')
+                nte: normalizarTextoSIGEE(p.nte || 'NTE-26 Salvador'),
+                workflow_instance_id: p.workflow_instance_id || null,
+                workflow_ciclo: Number(p.workflow_ciclo || p.ciclo || 1),
+                ciclo: Number(p.ciclo || p.workflow_ciclo || 1),
+                etapa_codigo: p.etapa_codigo || null,
+                data_etapa_atual: p.data_etapa_atual || null,
+                prazo_etapa: p.prazo_etapa == null ? null : Number(p.prazo_etapa),
+                prazo_inicio: p.prazo_inicio || null,
+                prazo_fim: p.prazo_fim || null,
+                ultimo_evento_workflow: p.ultimo_evento_workflow || null,
+                ultima_mensagem_workflow: p.ultima_mensagem_workflow || null,
+                contexto_analise: p.contexto_analise || null,
+                updated_at: p.updated_at || new Date().toISOString()
             };
         }
 
@@ -481,7 +493,17 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 etapa: normalizarTextoSIGEE(p.etapa_atual || p.etapa || p.status || 'Desarquivamento'),
                 data_etapa_atual: normalizarTextoSIGEE(p.data_etapa_atual || p.created_at || obterDataAtualFormatada()),
                 nte: normalizarTextoSIGEE(p.nte || p.nte_vinculado || 'NTE-26 Salvador'),
-                municipio: normalizarMaiusculoSIGEE(p.municipio || p.cidade || '')
+                municipio: normalizarMaiusculoSIGEE(p.municipio || p.cidade || ''),
+                workflow_instance_id: p.workflow_instance_id || null,
+                workflow_ciclo: Number(p.workflow_ciclo || p.ciclo || 1),
+                ciclo: Number(p.ciclo || p.workflow_ciclo || 1),
+                etapa_codigo: p.etapa_codigo || null,
+                prazo_etapa: p.prazo_etapa == null ? null : Number(p.prazo_etapa),
+                prazo_inicio: p.prazo_inicio || null,
+                prazo_fim: p.prazo_fim || null,
+                ultimo_evento_workflow: p.ultimo_evento_workflow || null,
+                ultima_mensagem_workflow: p.ultima_mensagem_workflow || null,
+                contexto_analise: p.contexto_analise || null
             };
         }
 
