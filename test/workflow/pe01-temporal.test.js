@@ -57,7 +57,7 @@ assert.strictEqual(result.availableEvent, 'CONFIRMAR_DADOS');
 const cfdStart = clock.now().toISOString();
 clock.advanceDays(7);
 result = timer.calculate('CFD', cfdStart);
-assert.strictEqual(result.availableEvent, 'PEDIR_ATAS');
+assert.strictEqual(result.availableEvent, 'PEDIDO_ATAS_DESARQUIVAMENTO');
 
 clock.disable();
 assert.strictEqual(clock.status().enabled, false);
