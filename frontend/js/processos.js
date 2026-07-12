@@ -4,10 +4,31 @@
  Arquivo de integração para correção do fluxo externo.
 
  Regras:
- - manter REITERAÇÃO como etapa real do workflow;
- - considerar todas as etapas do ciclo na aba Desarquivamento;
- - vincular alerta -> ação -> mensagem;
- - bloquear ações já executadas.
+ 1) Aba Desarquivamento considera o ciclo:
+    DESARQUIVAMENTO
+    REITERAÇÃO
+    REITERAÇÃO URGENTE
+    CONFIRMAÇÃO DOS DADOS DA BUSCA
+    PEDIDO DE ATAS SEM PASTA
 
- Este arquivo deve substituir o processos.js oficial após homologação.
+ 2) Alertas continuam baseados no ciclo temporal.
+
+ 3) Ação deve seguir:
+    ALERTA -> AÇÃO -> MENSAGEM
+
+ 4) Ação executada uma única vez.
 */
+
+const SIGEE_CICLO_DESARQUIVAMENTO = [
+ "DESARQUIVAMENTO",
+ "REITERAÇÃO",
+ "REITERAÇÃO URGENTE",
+ "CONFIRMAÇÃO DOS DADOS DA BUSCA",
+ "PEDIDO DE ATAS SEM PASTA"
+];
+
+function pertenceCicloDesarquivamento(etapa){
+ return SIGEE_CICLO_DESARQUIVAMENTO.includes(
+   String(etapa || "").toUpperCase()
+ );
+}
