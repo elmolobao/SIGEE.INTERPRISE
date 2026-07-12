@@ -1,3 +1,9 @@
+# 0.9.4.1 — Correção da integração temporal
+
+- Corrigido o cálculo dos processos existentes para utilizar o WorkflowClock.
+- Corrigida a atualização visual automática após avançar ou restaurar a data.
+- Mantida a simulação sem alteração das datas persistidas no Supabase.
+
 # SIGEE Enterprise 0.9.3.3 — Sprint 1.0 / S1-E2.2
 
 - Criado `frontend/js/core/workflow.state.manager.js`.
