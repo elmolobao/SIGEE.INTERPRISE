@@ -23,6 +23,7 @@
     consequence: '',
     requireConfirmation: true,
     confirmationText: 'Confirmo que a mensagem institucional foi enviada ao requerente.',
+    confirmations: null,
     allowObservation: true,
     observationRequired: false,
     observationLabel: 'Observações',
@@ -117,10 +118,7 @@
             <label for="sigee-wam-observation"></label>
             <textarea id="sigee-wam-observation"></textarea>
           </div>
-          <label class="sigee-wam-confirm" id="sigee-wam-confirm-wrap">
-            <input type="checkbox" id="sigee-wam-confirm">
-            <span></span>
-          </label>
+          <div id="sigee-wam-confirm-wrap"></div>
           <div class="sigee-wam-error" id="sigee-wam-error" role="alert"></div>
         </div>
         <footer class="sigee-wam-footer">
@@ -141,7 +139,8 @@
 
   function isValid() {
     const observation = byId('sigee-wam-observation')?.value.trim() || '';
-    const confirmed = byId('sigee-wam-confirm')?.checked || false;
+    const confirmations = [...document.querySelectorAll('#sigee-wam-confirm-wrap .sigee-wam-confirm-input')];
+    const confirmed = confirmations.length === 0 || confirmations.every(input => input.checked);
     if (options.requireConfirmation && !confirmed) return false;
     if (options.observationRequired && !observation) return false;
     return true;
@@ -178,7 +177,16 @@
 
     const confirmWrap = byId('sigee-wam-confirm-wrap');
     confirmWrap.hidden = !options.requireConfirmation;
-    confirmWrap.querySelector('span').textContent = options.confirmationText;
+    const confirmationItems = Array.isArray(options.confirmations) && options.confirmations.length
+      ? options.confirmations
+      : [{ code: options.messageCode || '', text: options.confirmationText }];
+    confirmWrap.innerHTML = options.requireConfirmation
+      ? confirmationItems.map((item, index) => `
+          <label class="sigee-wam-confirm">
+            <input class="sigee-wam-confirm-input" type="checkbox" value="${String(item.code || index)}">
+            <span>${String(item.text || options.confirmationText)}</span>
+          </label>`).join('')
+      : '';
 
     byId('sigee-wam-cancel').textContent = options.cancelLabel;
     byId('sigee-wam-execute').textContent = options.executeLabel;
@@ -217,7 +225,8 @@
       processId: options.processId,
       event: options.event,
       observation: byId('sigee-wam-observation')?.value.trim() || '',
-      confirmed: byId('sigee-wam-confirm')?.checked || false
+      confirmed: [...document.querySelectorAll('#sigee-wam-confirm-wrap .sigee-wam-confirm-input')].every(input => input.checked),
+      confirmations: [...document.querySelectorAll('#sigee-wam-confirm-wrap .sigee-wam-confirm-input')].map(input => ({ code: input.value, confirmed: input.checked }))
     };
 
     const executeButton = byId('sigee-wam-execute');
@@ -258,7 +267,7 @@
 
       byId('sigee-wam-cancel').addEventListener('click', () => close('cancel'));
       byId('sigee-wam-execute').addEventListener('click', execute);
-      byId('sigee-wam-confirm').addEventListener('change', updateExecuteState);
+      byId('sigee-wam-confirm-wrap').addEventListener('change', updateExecuteState);
       byId('sigee-wam-observation').addEventListener('input', updateExecuteState);
 
       root.addEventListener('click', (event) => {
@@ -279,7 +288,7 @@
       setTimeout(() => {
         const focusTarget = options.allowObservation
           ? byId('sigee-wam-observation')
-          : byId('sigee-wam-confirm');
+          : document.querySelector('#sigee-wam-confirm-wrap .sigee-wam-confirm-input');
         focusTarget?.focus();
       }, 0);
 
