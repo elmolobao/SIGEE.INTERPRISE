@@ -1,6 +1,6 @@
 /* =====================================================================
  * SIGEE — Workflow Engine declarativo.
- * Sprint 1.0 — S1-E2.1 / versão 0.9.3.2
+ * Sprint 1.0 — I-001 / versão 0.9.5.0
  *
  * Núcleo em memória responsável por validar estados, eventos e transições.
  * Mantém integralmente a API de compatibilidade criada na versão 0.9.3.1.
@@ -9,7 +9,7 @@
 (function (window) {
   'use strict';
 
-  const VERSION = '0.9.4.0';
+  const VERSION = '0.9.5.0';
 
   const stateManager = window.SIGEE_STATE_MANAGER || null;
 
@@ -28,7 +28,8 @@
     DOCUMENTO_RECEBIDO: Object.freeze({ code: 'DOCUMENTO_RECEBIDO', type: 'GLOBAL' }),
     LOCALIZAR_PASTA: Object.freeze({ code: 'LOCALIZAR_PASTA', type: 'MANUAL' }),
     INICIAR_ANALISE: Object.freeze({ code: 'INICIAR_ANALISE', type: 'MANUAL' }),
-    PEDIR_ATAS: Object.freeze({ code: 'PEDIR_ATAS', type: 'MANUAL' }),
+    PEDIDO_ATAS_DESARQUIVAMENTO: Object.freeze({ code: 'PEDIDO_ATAS_DESARQUIVAMENTO', type: 'MANUAL', workflow: 'EXTERNO', messageCode: '36', analysisContext: 'ATAS_SEM_PASTA' }),
+    PEDIDO_ATAS_ANALISE: Object.freeze({ code: 'PEDIDO_ATAS_ANALISE', type: 'MANUAL', workflow: 'INTERNO', messageCode: null, analysisContext: 'PENDENCIA_ATAS' }),
     ABRIR_PENDENCIA: Object.freeze({ code: 'ABRIR_PENDENCIA', type: 'MANUAL' })
   });
 
@@ -36,10 +37,10 @@
     DES: Object.freeze({ SEND_REITERACAO: 'RET', LOCALIZAR_PASTA: 'PLA' }),
     RET: Object.freeze({ SEND_REITERACAO_URGENTE: 'REU', LOCALIZAR_PASTA: 'PLA' }),
     REU: Object.freeze({ CONFIRMAR_DADOS: 'CFD', LOCALIZAR_PASTA: 'PLA' }),
-    CFD: Object.freeze({ RETIFICAR_DADOS: 'DES', DADOS_CONFIRMADOS: 'CFD', PEDIR_ATAS: 'PEN', LOCALIZAR_PASTA: 'PLA' }),
+    CFD: Object.freeze({ RETIFICAR_DADOS: 'DES', DADOS_CONFIRMADOS: 'CFD', PEDIDO_ATAS_DESARQUIVAMENTO: 'ANA', LOCALIZAR_PASTA: 'PLA' }),
     PLA: Object.freeze({ INICIAR_ANALISE: 'ANA' }),
-    ANA: Object.freeze({ ABRIR_PENDENCIA: 'PEN' }),
-    PEN: Object.freeze({})
+    ANA: Object.freeze({ ABRIR_PENDENCIA: 'PEN', PEDIDO_ATAS_ANALISE: 'PEN' }),
+    PEN: Object.freeze({ PEDIDO_ATAS_ANALISE: 'PEN' })
   });
 
   function normalizeCode(value) {
@@ -106,7 +107,10 @@
       nextState: nextState,
       changed: nextState !== state,
       global: isGlobal,
-      resetDeadlineDays: event === 'RETIFICAR_DADOS' ? 30 : null
+      resetDeadlineDays: event === 'RETIFICAR_DADOS' ? 30 : null,
+      workflow: EVENTS[event].workflow || null,
+      messageCode: EVENTS[event].messageCode || null,
+      analysisContext: EVENTS[event].analysisContext || null
     });
   }
 
@@ -199,7 +203,7 @@
   }
 
   window.SIGEE_WORKFLOW = Object.freeze({
-    // Workflow Engine 0.9.3.3
+    // Workflow Engine 0.9.5.0
     states: STATES,
     events: EVENTS,
     transitions: TRANSITIONS,

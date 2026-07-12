@@ -19,7 +19,7 @@
     DES: Object.freeze({ afterDays: 30, event: 'SEND_REITERACAO' }),
     RET: Object.freeze({ afterDays: 7, event: 'SEND_REITERACAO_URGENTE' }),
     REU: Object.freeze({ afterDays: 7, event: 'CONFIRMAR_DADOS' }),
-    CFD: Object.freeze({ afterDays: 7, event: 'PEDIR_ATAS' })
+    CFD: Object.freeze({ afterDays: 7, event: 'PEDIDO_ATAS_DESARQUIVAMENTO' })
   });
 
   const DAY_MS = 24 * 60 * 60 * 1000;

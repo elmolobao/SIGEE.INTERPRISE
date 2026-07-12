@@ -1,6 +1,6 @@
 /* =====================================================================
  * SIGEE — Workflow State Manager.
- * Sprint 1.0 — S1-E2.2 / versão 0.9.3.3
+ * Sprint 1.0 — I-001 / versão 0.9.5.0
  *
  * Catálogo central e imutável dos estados oficiais do Workflow.
  * Não persiste dados, não altera telas e não executa transições.
@@ -8,7 +8,7 @@
 (function (window) {
   'use strict';
 
-  const VERSION = '0.9.3.3';
+  const VERSION = '0.9.5.0';
 
   const STATE_CATALOG = Object.freeze({
     DES: Object.freeze({
@@ -29,7 +29,7 @@
     CFD: Object.freeze({
       code: 'CFD', name: 'Confirmação dos Dados', order: 4, deadline: 7,
       color: '#8E24AA', icon: 'clipboard-check',
-      allowedEvents: Object.freeze(['RETIFICAR_DADOS', 'DADOS_CONFIRMADOS', 'PEDIR_ATAS', 'LOCALIZAR_PASTA', 'DOCUMENTO_RECEBIDO'])
+      allowedEvents: Object.freeze(['RETIFICAR_DADOS', 'DADOS_CONFIRMADOS', 'PEDIDO_ATAS_DESARQUIVAMENTO', 'LOCALIZAR_PASTA', 'DOCUMENTO_RECEBIDO'])
     }),
     PLA: Object.freeze({
       code: 'PLA', name: 'Pasta Localizada', order: 5, deadline: null,
@@ -39,12 +39,12 @@
     ANA: Object.freeze({
       code: 'ANA', name: 'Análise', order: 6, deadline: 7,
       color: '#3949AB', icon: 'search',
-      allowedEvents: Object.freeze(['ABRIR_PENDENCIA', 'DOCUMENTO_RECEBIDO'])
+      allowedEvents: Object.freeze(['ABRIR_PENDENCIA', 'PEDIDO_ATAS_ANALISE', 'DOCUMENTO_RECEBIDO'])
     }),
     PEN: Object.freeze({
       code: 'PEN', name: 'Pendência', order: 7, deadline: null,
       color: '#D81B60', icon: 'clock',
-      allowedEvents: Object.freeze(['DOCUMENTO_RECEBIDO'])
+      allowedEvents: Object.freeze(['PEDIDO_ATAS_ANALISE', 'DOCUMENTO_RECEBIDO'])
     }),
     DIG: Object.freeze({
       code: 'DIG', name: 'Digitação', order: 8, deadline: null,
