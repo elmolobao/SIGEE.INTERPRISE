@@ -376,7 +376,7 @@
       hasActionExecuted: async function (query) {
         const process = findProcess(query.processId);
         if (process) await loadExecutedActions(process, true);
-        return actionHistoryCache.has(actionKey(query.processId, query.cycle, query.event));
+        return actionHistoryCache.has(actionKey(workflowInstanceId(process), query.cycle, query.event));
       },
       now: function () {
         return window.SIGEE_WORKFLOW_CLOCK && typeof window.SIGEE_WORKFLOW_CLOCK.now === 'function'
@@ -429,7 +429,7 @@
           confirmed: payload.confirmed,
           messageCode: message.code
         });
-        actionHistoryCache.set(actionKey(process.id, result.event === 'RETIFICAR_DADOS' ? result.cycle - 1 : result.cycle, result.event), true);
+        actionHistoryCache.set(actionKey(workflowInstanceId(findProcess(process.id) || process), result.event === 'RETIFICAR_DADOS' ? result.cycle - 1 : result.cycle, result.event), true);
         await refreshScreens();
         toast(result.message + ' Nova etapa: ' + result.nextStateName + '.');
       }
