@@ -9,7 +9,7 @@
 (function (window) {
   'use strict';
 
-  const VERSION = '0.9.3.3';
+  const VERSION = '0.9.4.0';
 
   const stateManager = window.SIGEE_STATE_MANAGER || null;
 
@@ -116,7 +116,7 @@
 
     return Object.freeze(Object.assign({}, result, {
       context: clone(context || {}),
-      executedAt: new Date().toISOString()
+      executedAt: (window.SIGEE_WORKFLOW_CLOCK ? window.SIGEE_WORKFLOW_CLOCK.now() : new Date()).toISOString()
     }));
   }
 
@@ -212,6 +212,8 @@
     canExecute: canExecute,
     preview: preview,
     execute: execute,
+    clock: window.SIGEE_WORKFLOW_CLOCK || null,
+    timer: window.SIGEE_TIMER_MANAGER || null,
 
     // Compatibilidade 0.9.3.1
     obterPop: obterPop,
