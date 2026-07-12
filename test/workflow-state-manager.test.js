@@ -14,7 +14,7 @@ vm.runInContext(source, context, { filename: 'workflow.state.manager.js' });
 
 const manager = context.window.SIGEE_STATE_MANAGER;
 assert(manager, 'SIGEE_STATE_MANAGER não foi carregado.');
-assert.strictEqual(manager.version, '0.9.3.3');
+assert.strictEqual(manager.version, '0.9.5.0');
 assert.strictEqual(manager.exists('DES'), true);
 assert.strictEqual(manager.exists('des'), true);
 assert.strictEqual(manager.exists('ABC'), false);
@@ -32,4 +32,4 @@ const state = manager.get('DES');
 state.name = 'ALTERADO';
 assert.strictEqual(manager.get('DES').name, 'Desarquivamento', 'O catálogo interno deve permanecer imutável.');
 
-console.log('State Manager 0.9.3.3: todos os testes passaram.');
+console.log('State Manager 0.9.5.0: todos os testes passaram.');

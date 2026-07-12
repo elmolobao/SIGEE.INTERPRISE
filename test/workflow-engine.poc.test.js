@@ -16,7 +16,7 @@ vm.createContext(context);
 
 const workflow = context.window.SIGEE_WORKFLOW;
 assert(workflow, 'SIGEE_WORKFLOW não foi carregado.');
-assert.strictEqual(workflow.versao, '0.9.3.3');
+assert.strictEqual(workflow.versao, '0.9.5.0');
 
 const expectedFlow = [
   ['DES', 'SEND_REITERACAO', 'RET'],
@@ -47,4 +47,4 @@ assert.strictEqual(invalidTransition.error, 'TRANSITION_NOT_ALLOWED');
 assert.strictEqual(workflow.validarConfirmacoes('POP-DES-002', { 43: true, 45: true }).valido, true);
 assert.strictEqual(workflow.eventoDisponivel('POP-DES-003', 'DOCUMENTO_RECEBIDO'), true);
 
-console.log('Workflow Engine PoC 0.9.3.3: todos os testes passaram.');
+console.log('Workflow Engine PoC 0.9.5.0: todos os testes passaram.');
