@@ -33,3 +33,7 @@ Centralizar o catálogo oficial de estados do Workflow e fazer o Workflow Engine
 - Banco de dados e Supabase.
 - Regras operacionais já homologadas.
 - Fluxo visual de Pasta Localizada.
+
+
+## v0.9.3.4
+- Added workflow.event.manager.js
