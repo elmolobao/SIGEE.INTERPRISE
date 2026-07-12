@@ -9,14 +9,14 @@ const root = path.resolve(__dirname, '..');
 const context = { window: {}, console, Date };
 vm.createContext(context);
 
-['mensagens-config.js', 'pop-config.js', 'workflow-engine.js'].forEach((file) => {
+['mensagens-config.js', 'pop-config.js', 'workflow.state.manager.js', 'workflow-engine.js'].forEach((file) => {
   const source = fs.readFileSync(path.join(root, 'frontend/js/core', file), 'utf8');
   vm.runInContext(source, context, { filename: file });
 });
 
 const workflow = context.window.SIGEE_WORKFLOW;
 assert(workflow, 'SIGEE_WORKFLOW não foi carregado.');
-assert.strictEqual(workflow.versao, '0.9.3.2');
+assert.strictEqual(workflow.versao, '0.9.3.3');
 
 const expectedFlow = [
   ['DES', 'SEND_REITERACAO', 'RET'],
@@ -47,4 +47,4 @@ assert.strictEqual(invalidTransition.error, 'TRANSITION_NOT_ALLOWED');
 assert.strictEqual(workflow.validarConfirmacoes('POP-DES-002', { 43: true, 45: true }).valido, true);
 assert.strictEqual(workflow.eventoDisponivel('POP-DES-003', 'DOCUMENTO_RECEBIDO'), true);
 
-console.log('Workflow Engine PoC 0.9.3.2: todos os testes passaram.');
+console.log('Workflow Engine PoC 0.9.3.3: todos os testes passaram.');
