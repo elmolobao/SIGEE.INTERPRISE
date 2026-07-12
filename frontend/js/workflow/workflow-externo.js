@@ -169,27 +169,49 @@
     return Math.max(1, Number(process && (process.workflow_ciclo || process.ciclo) || 1));
   }
 
-  function actionKey(processId, cycle, eventCode) {
-    return String(processId) + '::' + String(cycle) + '::' + String(eventCode);
+  function workflowInstanceId(process) {
+    return text(process && process.workflow_instance_id);
+  }
+
+  function actionKey(instanceId, cycle, eventCode) {
+    return String(instanceId || '') + '::' + String(cycle) + '::' + String(eventCode);
+  }
+
+  function clearProcessActionCache(process) {
+    const instanceId = workflowInstanceId(process);
+    if (!instanceId) return;
+    const prefix = instanceId + '::';
+    Array.from(actionHistoryCache.keys()).forEach(function (key) {
+      if (key.startsWith(prefix)) actionHistoryCache.delete(key);
+    });
   }
 
   async function loadExecutedActions(process, force) {
+    const instanceId = workflowInstanceId(process);
+    if (!instanceId) {
+      console.warn('[WorkflowExterno] Processo sem workflow_instance_id; nenhum bloqueio legado será aplicado.', process && process.id);
+      return actionHistoryCache;
+    }
     const cycle = currentCycle(process);
-    const prefix = String(process.id) + '::' + String(cycle) + '::';
+    const prefix = instanceId + '::' + String(cycle) + '::';
     if (!force && Array.from(actionHistoryCache.keys()).some(function (key) { return key.startsWith(prefix); })) {
       return actionHistoryCache;
     }
+    if (force) clearProcessActionCache(process);
     try {
       const client = typeof window.obterSupabaseSIGEE === 'function' ? window.obterSupabaseSIGEE() : null;
       if (!client) return actionHistoryCache;
       const response = await client.from('historico_processos')
-        .select('acao,dados')
-        .eq('processo_id', process.id);
+        .select('acao,dados,workflow_instance_id,workflow_bloqueio_ativo,workflow_model_version,execution_status')
+        .eq('workflow_instance_id', instanceId)
+        .eq('workflow_bloqueio_ativo', true)
+        .eq('execution_status', 'EXECUTADA')
+        .eq('workflow_model_version', '1.0.1a');
       if (response.error) throw response.error;
       (response.data || []).forEach(function (item) {
         const itemCycle = Number(item && item.dados && item.dados.ciclo || 1);
         const eventCode = text(item && item.acao);
-        if (eventCode) actionHistoryCache.set(actionKey(process.id, itemCycle, eventCode), true);
+        if (eventCode) actionHistoryCache.set(actionKey(instanceId, itemCycle, eventCode), true);
       });
     } catch (error) {
       console.warn('[WorkflowExterno] Não foi possível consultar bloqueios persistidos:', error);
@@ -198,7 +220,7 @@
   }
 
   function wasExecuted(process, eventCode) {
-    return actionHistoryCache.has(actionKey(process.id, currentCycle(process), eventCode));
+    return actionHistoryCache.has(actionKey(workflowInstanceId(process), currentCycle(process), eventCode));
   }
 
   function availableActions(process) {
@@ -312,6 +334,10 @@
           if (!client) return null;
           const payload = {
             processo_id: record.processId,
+            workflow_instance_id: findProcess(record.processId)?.workflow_instance_id || null,
+            workflow_model_version: '1.0.1a',
+            execution_status: 'EXECUTADA',
+            workflow_bloqueio_ativo: true,
             codigo_sigee: findProcess(record.processId)?.codigo_sigee || '',
             etapa: record.etapa_destino,
             acao: record.event,
@@ -330,7 +356,7 @@
           };
           const response = await client.from('historico_processos').insert(payload).select('id').maybeSingle();
           if (response.error) throw response.error;
-          actionHistoryCache.set(actionKey(record.processId, record.cycle, record.event), true);
+          actionHistoryCache.set(actionKey(findProcess(record.processId)?.workflow_instance_id, record.cycle, record.event), true);
           return response.data || null;
         } catch (error) {
           console.warn('[WorkflowExterno] Histórico não registrado:', error);
