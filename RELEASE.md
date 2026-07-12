@@ -1,39 +1,25 @@
-# SIGEE Enterprise 0.9.3.3
-
-## Sprint
-S1-E2.2 — Workflow State Manager
+# SIGEE Enterprise 0.9.4.0 — PE-01 Infraestrutura Temporal
 
 ## Objetivo
-Centralizar o catálogo oficial de estados do Workflow e fazer o Workflow Engine consumir esse componente, sem alterar telas, banco de dados ou integrações existentes.
+Permitir a homologação acelerada dos prazos do Workflow sem alterar datas reais do banco de dados.
 
-## Arquivos criados
-- `frontend/js/core/workflow.state.manager.js`
-- `tests/workflow-state-manager.test.js`
+## Entregas
+- `workflow.clock.js`: fonte temporal única, com modo oficial e simulado.
+- `workflow.timer.manager.js`: cálculo declarativo dos gatilhos 30/7/7/7.
+- `workflow.clock.panel.js`: painel visual exclusivo do perfil Master.
+- Integração do Workflow Engine ao relógio e ao Timer Manager.
+- Carregamento efetivo do Event Manager no `index.html`.
+- Teste automatizado do ciclo temporal.
 
-## Arquivos alterados
-- `frontend/js/core/workflow-engine.js`
-- `frontend/index.html`
-- `tests/workflow-engine.poc.test.js`
-- `CHANGELOG.md`
+## Segurança
+- Modo Homologação restrito ao perfil Master.
+- Simulação armazenada somente no navegador.
+- Nenhuma data persistida no Supabase é alterada.
+- Aviso visual permanente enquanto a simulação estiver ativa.
 
-## Implementado
-- Catálogo central com 12 estados oficiais.
-- API pública: `get`, `getState`, `getStateConfig`, `exists`, `list`, `listStates`, `getAllowedEvents` e `getDeadline`.
-- Catálogo protegido contra alteração externa por clonagem dos retornos.
-- Integração do Workflow Engine ao State Manager.
-- Preservação integral da API legada da versão 0.9.3.1.
-
-## Testes executados
-- Teste unitário do State Manager.
-- Teste da PoC do Workflow Engine.
-- Verificação de sintaxe de todos os arquivos JavaScript do frontend.
-
-## Não alterado
-- Telas e estilos.
-- Banco de dados e Supabase.
-- Regras operacionais já homologadas.
-- Fluxo visual de Pasta Localizada.
-
-
-## v0.9.3.4
-- Added workflow.event.manager.js
+## Homologação H-001
+1. Entrar com perfil Master.
+2. Abrir `Testar prazos`, no canto inferior direito.
+3. Definir uma data-base ou usar a data atual.
+4. Validar os botões +1, +7, +30 e +90 dias.
+5. Retornar à data oficial.

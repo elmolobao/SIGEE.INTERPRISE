@@ -37,3 +37,11 @@
 - Extração do JavaScript para `frontend/js/app.js`.
 - Criação dos módulos preparados para edição futura.
 - Sem alteração intencional da base Supabase.
+
+## 0.9.4.0 — PE-01 Infraestrutura Temporal
+- Adicionado WorkflowClock com modo de homologação exclusivo para Master.
+- Adicionado TimerManager com gatilhos temporais do ciclo de Desarquivamento.
+- Adicionado painel visual para avanço rápido de datas simuladas.
+- Workflow Engine passa a utilizar o relógio central em suas execuções.
+- Event Manager passa a ser carregado pelo index principal.
+- Incluído teste automatizado dos gatilhos 30/7/7/7.
