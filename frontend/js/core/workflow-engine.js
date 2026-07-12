@@ -9,22 +9,15 @@
 (function (window) {
   'use strict';
 
-  const VERSION = '0.9.3.2';
+  const VERSION = '0.9.3.3';
 
-  const STATES = Object.freeze({
-    DES: Object.freeze({ code: 'DES', name: 'Desarquivamento', deadline: 30 }),
-    RET: Object.freeze({ code: 'RET', name: 'Reiteração', deadline: 7 }),
-    REU: Object.freeze({ code: 'REU', name: 'Reiteração Urgente', deadline: 7 }),
-    CFD: Object.freeze({ code: 'CFD', name: 'Confirmação dos Dados', deadline: 7 }),
-    PLA: Object.freeze({ code: 'PLA', name: 'Pasta Localizada', deadline: null }),
-    ANA: Object.freeze({ code: 'ANA', name: 'Análise', deadline: 7 }),
-    PEN: Object.freeze({ code: 'PEN', name: 'Pendência', deadline: null }),
-    DIG: Object.freeze({ code: 'DIG', name: 'Digitação', deadline: null }),
-    CON: Object.freeze({ code: 'CON', name: 'Conferência', deadline: null }),
-    ASS: Object.freeze({ code: 'ASS', name: 'Assinatura', deadline: null }),
-    DEF: Object.freeze({ code: 'DEF', name: 'Deferido', deadline: null }),
-    RTR: Object.freeze({ code: 'RTR', name: 'Retirado', deadline: null })
-  });
+  const stateManager = window.SIGEE_STATE_MANAGER || null;
+
+  if (!stateManager) {
+    throw new Error('SIGEE_STATE_MANAGER deve ser carregado antes do Workflow Engine.');
+  }
+
+  const STATES = stateManager.catalog;
 
   const EVENTS = Object.freeze({
     SEND_REITERACAO: Object.freeze({ code: 'SEND_REITERACAO', type: 'MANUAL' }),
@@ -59,7 +52,7 @@
   }
 
   function stateExists(stateCode) {
-    return Object.prototype.hasOwnProperty.call(STATES, normalizeCode(stateCode));
+    return stateManager.exists(stateCode);
   }
 
   function eventExists(eventCode) {
@@ -67,8 +60,7 @@
   }
 
   function getState(stateCode) {
-    const code = normalizeCode(stateCode);
-    return stateExists(code) ? clone(STATES[code]) : null;
+    return stateManager.get(stateCode);
   }
 
   function getEvent(eventCode) {
@@ -77,15 +69,9 @@
   }
 
   function allowedEvents(stateCode) {
-    const code = normalizeCode(stateCode);
-    if (!stateExists(code)) return [];
-
-    const localEvents = Object.keys(TRANSITIONS[code] || {});
-    const globalEvents = Object.keys(EVENTS).filter(function (eventCode) {
-      return EVENTS[eventCode].type === 'GLOBAL';
+    return stateManager.getAllowedEvents(stateCode).filter(function (eventCode) {
+      return eventExists(eventCode);
     });
-
-    return Array.from(new Set(localEvents.concat(globalEvents)));
   }
 
   function canExecute(stateCode, eventCode) {
@@ -213,7 +199,7 @@
   }
 
   window.SIGEE_WORKFLOW = Object.freeze({
-    // Workflow Engine 0.9.3.2
+    // Workflow Engine 0.9.3.3
     states: STATES,
     events: EVENTS,
     transitions: TRANSITIONS,
