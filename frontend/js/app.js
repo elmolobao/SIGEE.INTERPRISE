@@ -2275,17 +2275,38 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
 
         async function salvarNovaSolicitacaoSupabaseSIGEE_V19(proc, solicitacao) {
             const client = obterSupabaseSIGEE();
-            if (!client) return false;
-            try {
-                const processoPayload = processoParaSupabaseSIGEE(proc);
-                delete processoPayload.id;
-                await client.from(SIGEE_SUPABASE_TABELAS.processos).insert([processoPayload]);
-            } catch (e) { console.warn('Processo ainda não confirmado no Supabase:', e); }
-            try {
-                const solPayload = solicitacaoParaSupabaseSIGEE(solicitacao || proc);
-                await client.from(SIGEE_SUPABASE_TABELAS.solicitacoes).insert([solPayload]);
-            } catch (e) { console.warn('Solicitação ainda não confirmada no Supabase:', e); }
-            return true;
+            if (!client) throw new Error('Cliente Supabase indisponível.');
+
+            const processoPayload = processoParaSupabaseSIGEE(proc);
+            delete processoPayload.id;
+            if (!processoPayload.workflow_instance_id && proc.workflow_instance_id) {
+                processoPayload.workflow_instance_id = proc.workflow_instance_id;
+            }
+
+            const respostaProcesso = await client
+                .from(SIGEE_SUPABASE_TABELAS.processos)
+                .insert([processoPayload])
+                .select('id,workflow_instance_id,workflow_ciclo,ciclo')
+                .single();
+            if (respostaProcesso.error) throw respostaProcesso.error;
+
+            const salvo = respostaProcesso.data || {};
+            const idLocalAnterior = proc.id;
+            proc.id = salvo.id;
+            proc.workflow_instance_id = salvo.workflow_instance_id || proc.workflow_instance_id;
+            proc.workflow_ciclo = Number(salvo.workflow_ciclo || proc.workflow_ciclo || 1);
+            proc.ciclo = Number(salvo.ciclo || proc.ciclo || proc.workflow_ciclo || 1);
+
+            const lista = Array.isArray(window.processosDB) ? window.processosDB : processosDB;
+            const indice = lista.findIndex(item => String(item.id) === String(idLocalAnterior) || item === proc);
+            if (indice >= 0) lista[indice] = proc;
+
+            const solPayload = solicitacaoParaSupabaseSIGEE(solicitacao || proc);
+            const respostaSolicitacao = await client.from(SIGEE_SUPABASE_TABELAS.solicitacoes).insert([solPayload]);
+            if (respostaSolicitacao.error) console.warn('Processo salvo, mas a cópia em solicitações não foi confirmada:', respostaSolicitacao.error);
+
+            try { salvarBancoLocalSIGEE(); } catch (_) {}
+            return proc;
         }
 
         abrirFormularioNovaSolicitacao = function() {
@@ -2735,7 +2756,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 }, 80);
             };
 
-            window.salvarNovaSolicitacao = function(event){
+            window.salvarNovaSolicitacao = async function(event){
                 if(event && event.preventDefault) event.preventDefault();
                 if(event && event.stopPropagation) event.stopPropagation();
 
@@ -2779,7 +2800,11 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                         data_etapa_atual: dataHoje,
                         nte: nteVinculo,
                         municipio: municipio,
-                        cod_mec: mec
+                        cod_mec: mec,
+                        workflow_instance_id: (window.crypto && typeof window.crypto.randomUUID === 'function') ? window.crypto.randomUUID() : null,
+                        workflow_ciclo: 1,
+                        ciclo: 1,
+                        acoes_executadas: []
                     };
                     processosDB.unshift(novoProcesso);
 
@@ -2797,22 +2822,17 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                     };
                     if(typeof solicitacoesDB !== 'undefined') solicitacoesDB.unshift(novaSol);
 
+                    // A criação só é concluída depois que o Supabase devolver o ID real.
+                    // Isso impede processos temporários de sumirem após fechar ou atualizar a página.
+                    const processoSalvo = await salvarNovaSolicitacaoSupabaseSIGEE_V19(novoProcesso, novaSol);
+                    if (processoSalvo) {
+                        novaSol.id = processoSalvo.id;
+                        novaSol.workflow_instance_id = processoSalvo.workflow_instance_id;
+                    }
                     registrarLog(`Nova solicitação cadastrada para ${aluno} e enviada para Desarquivamento.`);
                     fecharModalNovaSolicitacao();
                     if(typeof carregarEContarProcessosHorizontais === 'function') carregarEContarProcessosHorizontais();
                     if(typeof carregarDadosDashboardReal === 'function') carregarDadosDashboardReal();
-
-                    // Salva no Supabase em segundo plano para não travar a tela.
-                    setTimeout(async () => {
-                        try {
-                            if(typeof salvarNovaSolicitacaoSupabaseSIGEE_V19 === 'function') {
-                                await salvarNovaSolicitacaoSupabaseSIGEE_V19(novoProcesso, novaSol);
-                            }
-                        } catch(e) {
-                            console.warn('Solicitação salva localmente; falha ao confirmar no Supabase:', e);
-                            try { localStorage.setItem('SIGEE_ULTIMO_ERRO_SOLICITACAO', String(e?.message || e)); } catch(_) {}
-                        }
-                    }, 10);
                 } catch(e) {
                     console.error('Erro ao enviar para Desarquivamento:', e);
                     alert('Não foi possível enviar para Desarquivamento. Detalhe: ' + (e?.message || e));
