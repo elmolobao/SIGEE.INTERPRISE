@@ -1,3 +1,14 @@
+# SIGEE Enterprise 0.9.3.3 — Sprint 1.0 / S1-E2.2
+
+- Criado `frontend/js/core/workflow.state.manager.js`.
+- Centralizado o catálogo dos 12 estados oficiais do Workflow.
+- Adicionada API pública de consulta, validação, listagem, eventos permitidos e prazos.
+- Refatorado o `workflow-engine.js` para consumir o State Manager.
+- Mantida a compatibilidade integral com a versão 0.9.3.2 e com a API legada 0.9.3.1.
+- Adicionado teste unitário em `tests/workflow-state-manager.test.js`.
+- Atualizada a PoC do Workflow Engine para a versão 0.9.3.3.
+- Nenhuma tela, tabela ou integração Supabase foi alterada.
+
 # SIGEE Enterprise 0.9.3.2 — Sprint 1.0 / S1-E2.1
 
 - Evoluído `frontend/js/core/workflow-engine.js` para uma PoC declarativa em memória.
