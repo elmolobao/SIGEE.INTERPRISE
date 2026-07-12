@@ -280,8 +280,26 @@
         return 'DESARQUIVAMENTO';
     }
 
+
+    function marcarAcaoWorkflowExecutada(p, chave) {
+        p.acoes_executadas = Array.isArray(p.acoes_executadas) ? p.acoes_executadas : [];
+        if (!p.acoes_executadas.includes(chave)) {
+            p.acoes_executadas.push(chave);
+        }
+        p.ultima_acao_workflow = chave;
+        p.data_ultima_acao_workflow = new Date().toISOString();
+    }
+
+    function retificacaoDisponivel(alerta) {
+        return [
+            'REITERACAO',
+            'REITERACAO_URGENTE',
+            'CONFIRMAR_DADOS'
+        ].includes(alerta);
+    }
+
     function acaoJaExecutada(p, chave) {
-        return Array.isArray(p.acoes_executadas) && p.acoes_executadas.includes(chave);
+        return (Array.isArray(p.acoes_executadas) && p.acoes_executadas.includes(chave)) || p.ultima_acao_workflow === chave;
     }
 
     function registrarAcaoExecutada(p, chave) {
@@ -307,16 +325,19 @@
         if (e.includes('RETIR')) return '<span class="text-gray-300 font-bold">Finalizado</span>';
 
         const alerta = alertaChave(p);
+        const permiteRetificacao = retificacaoDisponivel(alerta);
+        
         const executada = acaoJaExecutada(p, alerta);
+        const botaoRetificacao = permiteRetificacao ? `<button onclick="abrirRetificacaoDadosSIGEE(${p.id})" class="ml-1 bg-purple-700 text-white font-bold px-2 py-1 rounded text-[10px]">Retificar Dados</button>` : '';
         if (alerta === 'REITERACAO') return executada
             ? '<span class="text-gray-400 font-bold">Reiteração executada</span>'
-            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'REITERACAO')" class="bg-amber-600 text-white font-bold px-2 py-1 rounded text-[10px]">Executar Reiteração</button>`;
+            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'REITERACAO')" class="bg-amber-600 text-white font-bold px-2 py-1 rounded text-[10px]">Executar Reiteração</button>${botaoRetificacao}`;
         if (alerta === 'REITERACAO_URGENTE') return executada
             ? '<span class="text-gray-400 font-bold">Reiteração urgente executada</span>'
-            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'REITERACAO_URGENTE')" class="bg-orange-600 text-white font-bold px-2 py-1 rounded text-[10px]">Executar Reiteração Urgente</button>`;
+            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'REITERACAO_URGENTE')" class="bg-orange-600 text-white font-bold px-2 py-1 rounded text-[10px]">Executar Reiteração Urgente</button>${botaoRetificacao}`;
         if (alerta === 'CONFIRMAR_DADOS') return executada
             ? '<span class="text-gray-400 font-bold">Dados confirmados</span>'
-            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'CONFIRMAR_DADOS')" class="bg-red-600 text-white font-bold px-2 py-1 rounded text-[10px]">Confirmar Dados da Busca</button>`;
+            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'CONFIRMAR_DADOS')" class="bg-red-600 text-white font-bold px-2 py-1 rounded text-[10px]">Confirmar Dados da Busca</button>${botaoRetificacao}`;
         if (alerta === 'PEDIDO_ATAS_SEM_PASTA') return executada
             ? '<span class="text-gray-400 font-bold">Atas solicitadas</span>'
             : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'PEDIDO_ATAS_SEM_PASTA')" class="bg-red-800 text-white font-bold px-2 py-1 rounded text-[10px]">Solicitar Atas sem Pasta</button>`;
