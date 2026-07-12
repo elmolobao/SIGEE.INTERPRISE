@@ -26,7 +26,8 @@
     WF007: 'Workflow Engine indisponível.',
     WF008: 'A confirmação obrigatória não foi realizada.',
     WF009: 'Falha ao persistir a transição.',
-    WF010: 'Evento inválido.'
+    WF010: 'Evento inválido.',
+    WF011: 'Esta ação já foi executada neste ciclo.'
   });
 
   const STATE_NAME_TO_CODE = Object.freeze({
@@ -79,6 +80,7 @@
     async saveProcess(process) { return process; },
     async addHistory() { return null; },
     async addAudit() { return null; },
+    async hasActionExecuted() { return false; },
     getCurrentUser() { return null; },
     now() { return new Date(); }
   };
@@ -354,6 +356,16 @@
       });
     }
 
+    const currentCycle = Number(process.workflow_ciclo || process.ciclo || 1);
+    const alreadyExecuted = await adapter.hasActionExecuted({
+      processId: process.id,
+      event: eventCode,
+      cycle: currentCycle
+    });
+    if (alreadyExecuted) {
+      throw error('WF011', { processId: process.id, event: eventCode, cycle: currentCycle });
+    }
+
     const user = command.user || adapter.getCurrentUser();
     if (!isProfileAllowed(eventCode, user)) {
       throw error('WF003', {
@@ -428,8 +440,8 @@
       mensagem: context.messageCode,
       observation: context.observation || null,
       observacao: context.observation || null,
-      cycle: Number(updatedProcess.ciclo || updatedProcess.workflow_ciclo || 1),
-      ciclo: Number(updatedProcess.ciclo || updatedProcess.workflow_ciclo || 1),
+      cycle: currentCycle,
+      ciclo: currentCycle,
       user: clone(user || null),
       usuario: user && (user.nome || user.name || user.email) || null,
       perfil: userProfile(user) || null,
