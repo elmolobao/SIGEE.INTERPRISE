@@ -12,6 +12,7 @@
   const VERSION = '0.9.5.0';
 
   const stateManager = window.SIGEE_STATE_MANAGER || null;
+  const eventManager = window.SIGEE_EVENT_MANAGER || window.EventManager || null;
 
   if (!stateManager) {
     throw new Error('SIGEE_STATE_MANAGER deve ser carregado antes do Workflow Engine.');
@@ -19,11 +20,11 @@
 
   const STATES = stateManager.catalog;
 
-  const EVENTS = Object.freeze({
-    SEND_REITERACAO: Object.freeze({ code: 'SEND_REITERACAO', type: 'MANUAL' }),
-    SEND_REITERACAO_URGENTE: Object.freeze({ code: 'SEND_REITERACAO_URGENTE', type: 'MANUAL' }),
-    CONFIRMAR_DADOS: Object.freeze({ code: 'CONFIRMAR_DADOS', type: 'MANUAL' }),
-    RETIFICAR_DADOS: Object.freeze({ code: 'RETIFICAR_DADOS', type: 'MANUAL' }),
+  const FALLBACK_EVENTS = Object.freeze({
+    SEND_REITERACAO: Object.freeze({ code: 'SEND_REITERACAO', type: 'MANUAL', messageCode: '13' }),
+    SEND_REITERACAO_URGENTE: Object.freeze({ code: 'SEND_REITERACAO_URGENTE', type: 'MANUAL', messageCode: '14' }),
+    CONFIRMAR_DADOS: Object.freeze({ code: 'CONFIRMAR_DADOS', type: 'MANUAL', messageCode: '37' }),
+    RETIFICAR_DADOS: Object.freeze({ code: 'RETIFICAR_DADOS', type: 'MANUAL', messageCode: '14/37' }),
     DADOS_CONFIRMADOS: Object.freeze({ code: 'DADOS_CONFIRMADOS', type: 'MANUAL' }),
     DOCUMENTO_RECEBIDO: Object.freeze({ code: 'DOCUMENTO_RECEBIDO', type: 'GLOBAL' }),
     LOCALIZAR_PASTA: Object.freeze({ code: 'LOCALIZAR_PASTA', type: 'MANUAL' }),
@@ -32,6 +33,17 @@
     PEDIDO_ATAS_ANALISE: Object.freeze({ code: 'PEDIDO_ATAS_ANALISE', type: 'MANUAL', workflow: 'INTERNO', messageCode: null, analysisContext: 'PENDENCIA_ATAS' }),
     ABRIR_PENDENCIA: Object.freeze({ code: 'ABRIR_PENDENCIA', type: 'MANUAL' })
   });
+
+  const EVENTS = Object.freeze((eventManager && typeof eventManager.list === 'function')
+    ? eventManager.list().reduce(function (catalog, event) {
+        const code = normalizeCode(event.code);
+        catalog[code] = Object.freeze(Object.assign({ type: event.global ? 'GLOBAL' : 'MANUAL' }, event));
+        if (FALLBACK_EVENTS[code]) {
+          catalog[code] = Object.freeze(Object.assign({}, FALLBACK_EVENTS[code], catalog[code]));
+        }
+        return catalog;
+      }, {})
+    : FALLBACK_EVENTS);
 
   const TRANSITIONS = Object.freeze({
     DES: Object.freeze({ SEND_REITERACAO: 'RET', LOCALIZAR_PASTA: 'PLA' }),
@@ -108,6 +120,10 @@
       changed: nextState !== state,
       global: isGlobal,
       resetDeadlineDays: event === 'RETIFICAR_DADOS' ? 30 : null,
+      deadlineDays: (function () {
+        const next = stateManager.get(nextState);
+        return next && Number.isFinite(next.deadline) ? next.deadline : null;
+      })(),
       workflow: EVENTS[event].workflow || null,
       messageCode: EVENTS[event].messageCode || null,
       analysisContext: EVENTS[event].analysisContext || null
@@ -218,6 +234,7 @@
     execute: execute,
     clock: window.SIGEE_WORKFLOW_CLOCK || null,
     timer: window.SIGEE_TIMER_MANAGER || null,
+    transitionManager: function () { return window.SIGEE_TRANSITION_MANAGER || window.TransitionManager || null; },
 
     // Compatibilidade 0.9.3.1
     obterPop: obterPop,
