@@ -15,7 +15,7 @@
   if (window.__SIGEE_WORKFLOW_EXTERNO_095__) return;
   window.__SIGEE_WORKFLOW_EXTERNO_095__ = true;
 
-  const VERSION = '0.9.5.0';
+  const VERSION = '1.0.1c';
   const EXTERNAL_STATES = Object.freeze(['DES', 'RET', 'REU', 'CFD']);
 
   const ACTIONS = Object.freeze({
@@ -201,15 +201,16 @@
     try {
       const client = typeof window.obterSupabaseSIGEE === 'function' ? window.obterSupabaseSIGEE() : null;
       if (!client) return actionHistoryCache;
-      const response = await client.from('historico_processos')
-        .select('acao,dados,workflow_instance_id,workflow_bloqueio_ativo,workflow_model_version,execution_status')
-        .eq('workflow_instance_id', instanceId)
-        .eq('workflow_bloqueio_ativo', true)
-        .eq('execution_status', 'EXECUTADA')
-        .eq('workflow_model_version', '1.0.1a');
+      // A leitura direta da tabela podia retornar vazio por causa das políticas RLS,
+      // mesmo quando o histórico havia sido gravado. A função RPC é SECURITY DEFINER
+      // e devolve exclusivamente as ações válidas da instância/ciclo informados.
+      const response = await client.rpc('sigee_workflow_acoes_executadas', {
+        p_workflow_instance_id: instanceId,
+        p_ciclo: cycle
+      });
       if (response.error) throw response.error;
       (response.data || []).forEach(function (item) {
-        const itemCycle = Number(item && item.dados && item.dados.ciclo || 1);
+        const itemCycle = Number(item && item.ciclo || cycle);
         const eventCode = text(item && item.acao);
         if (eventCode) actionHistoryCache.set(actionKey(instanceId, itemCycle, eventCode), true);
       });
@@ -335,7 +336,7 @@
           const payload = {
             processo_id: record.processId,
             workflow_instance_id: findProcess(record.processId)?.workflow_instance_id || null,
-            workflow_model_version: '1.0.1a',
+            workflow_model_version: '1.0.1c',
             execution_status: 'EXECUTADA',
             workflow_bloqueio_ativo: true,
             codigo_sigee: findProcess(record.processId)?.codigo_sigee || '',
@@ -354,13 +355,33 @@
             },
             created_at: record.createdAt
           };
-          const response = await client.from('historico_processos').insert(payload).select('id').maybeSingle();
+          // Registro atômico por RPC: não depende das políticas RLS da tabela e
+          // preserva a restrição de uma única execução por instância/ciclo/ação.
+          const response = await client.rpc('sigee_registrar_acao_workflow', {
+            p_processo_id: payload.processo_id,
+            p_workflow_instance_id: payload.workflow_instance_id,
+            p_ciclo: Number(record.cycle || 1),
+            p_acao: payload.acao,
+            p_etapa: payload.etapa,
+            p_codigo_sigee: payload.codigo_sigee,
+            p_observacao: payload.observacao,
+            p_usuario_nome: payload.usuario_nome,
+            p_usuario_email: payload.usuario_email,
+            p_usuario_perfil: payload.usuario_perfil,
+            p_nte: payload.nte,
+            p_dados: payload.dados
+          });
           if (response.error) throw response.error;
-          actionHistoryCache.set(actionKey(findProcess(record.processId)?.workflow_instance_id, record.cycle, record.event), true);
-          return response.data || null;
+          const result = Array.isArray(response.data) ? response.data[0] : response.data;
+          if (!result || result.sucesso !== true) {
+            throw new Error((result && result.mensagem) || 'O Supabase não confirmou o registro da ação.');
+          }
+          actionHistoryCache.set(actionKey(payload.workflow_instance_id, record.cycle, record.event), true);
+          return { id: result.historico_id || null };
         } catch (error) {
-          console.warn('[WorkflowExterno] Histórico não registrado:', error);
-          return null;
+          console.error('[WorkflowExterno] Histórico não registrado:', error);
+          // Não sinaliza sucesso silencioso quando o bloqueio persistente falhar.
+          throw error;
         }
       },
       addAudit: async function (record) {
