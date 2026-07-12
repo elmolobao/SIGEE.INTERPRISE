@@ -199,7 +199,18 @@
             motivo_indeferimento: p.motivo_indeferimento || null,
             justificativa_indeferimento: p.justificativa_indeferimento || null,
             processo_sei_indeferimento: p.processo_sei_indeferimento || null,
-            finalizado_em: p.finalizado_em || null
+            finalizado_em: p.finalizado_em || null,
+            etapa_codigo: p.etapa_codigo || null,
+            data_etapa_atual: p.data_etapa_atual || null,
+            prazo_etapa: p.prazo_etapa == null ? null : Number(p.prazo_etapa),
+            prazo_inicio: p.prazo_inicio || null,
+            prazo_fim: p.prazo_fim || null,
+            workflow_ciclo: Number(p.workflow_ciclo || p.ciclo || 1),
+            ciclo: Number(p.ciclo || p.workflow_ciclo || 1),
+            ultimo_evento_workflow: p.ultimo_evento_workflow || null,
+            ultima_mensagem_workflow: p.ultima_mensagem_workflow || null,
+            contexto_analise: p.contexto_analise || null,
+            updated_at: p.updated_at || new Date().toISOString()
         };
     }
     async function salvarProcesso(p) {
@@ -207,8 +218,9 @@
         try {
             const c = supabaseClient();
             if (!c || !p) return;
-            await c.from((window.SIGEE_SUPABASE_TABELAS && window.SIGEE_SUPABASE_TABELAS.processos) || 'processos')
+            const { error } = await c.from((window.SIGEE_SUPABASE_TABELAS && window.SIGEE_SUPABASE_TABELAS.processos) || 'processos')
                 .upsert(processoPayload(p), { onConflict: 'id' });
+            if (error) throw error;
         } catch (e) { console.warn('SIGEE Parte 4: processo salvo localmente; Supabase não confirmou.', e); }
     }
     async function excluirProcessoSupabase(id) {
