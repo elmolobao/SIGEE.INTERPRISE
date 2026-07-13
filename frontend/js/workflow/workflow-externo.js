@@ -113,8 +113,15 @@
 
   function stageDate(process) {
     return process && (
-      process.data_etapa_atual || process.data_etapa || process.etapa_iniciada_em ||
-      process.updated_at || process.created_at || process.criado_em
+      process.data_inicio_desarquivamento ||
+      process.data_inicio_ciclo ||
+      process.inicio_ciclo ||
+      process.data_etapa_atual ||
+      process.data_etapa ||
+      process.etapa_iniciada_em ||
+      process.updated_at ||
+      process.created_at ||
+      process.criado_em
     );
   }
 
