@@ -275,12 +275,25 @@
         toISO(now);
     }
 
+    // O prazo operacional da etapa pode mudar, porém o relógio do ciclo
+    // de Desarquivamento NUNCA reinicia nas transições RET/REU/CFD.
+    // Mantém a data inicial do ciclo para cálculo sequencial.
+    if (!updated.data_inicio_desarquivamento) {
+      updated.data_inicio_desarquivamento =
+        process.data_inicio_desarquivamento ||
+        process.data_inicio_ciclo ||
+        process.inicio_ciclo ||
+        process.created_at ||
+        toISO(now);
+    }
+
     if (deadlineDays != null) {
-      updated.prazo_inicio = toISO(now);
-      updated.prazo_fim = toISO(addDays(now, deadlineDays));
+      // Prazo da etapa atual (exibição), sem substituir o início do ciclo.
+      updated.prazo_inicio = updated.prazo_inicio || toISO(now);
+      updated.prazo_fim = addDays(updated.prazo_inicio, deadlineDays).toISOString();
     } else {
-      updated.prazo_inicio = process.prazo_inicio || null;
-      updated.prazo_fim = process.prazo_fim || null;
+      updated.prazo_inicio = process.prazo_inicio || updated.prazo_inicio || null;
+      updated.prazo_fim = process.prazo_fim || updated.prazo_fim || null;
     }
 
     if (eventCode === 'RETIFICAR_DADOS') {
@@ -291,6 +304,11 @@
 
     if (preview.analysisContext) {
       updated.contexto_analise = preview.analysisContext;
+    }
+
+    // Pedido de Atas sem Pasta gera análise diferenciada.
+    if (eventCode === 'PEDIDO_ATAS_DESARQUIVAMENTO') {
+      updated.contexto_analise = 'DESARQUIVAMENTO_ATAS_SEM_PASTA';
     }
 
     updated.ultimo_evento_workflow = eventCode;
