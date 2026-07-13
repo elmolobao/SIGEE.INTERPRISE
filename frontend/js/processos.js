@@ -20,7 +20,11 @@
         'PEDIDO DE ATAS SEM PASTA'
     ];
 
-    function pertenceCicloDesarquivamento(etapa) {
+    function pertenceCicloDesarquivamento(etapaOuProcesso) {
+        const p = etapaOuProcesso && typeof etapaOuProcesso === 'object' ? etapaOuProcesso : null;
+        const codigo = normalizar(p && p.etapa_codigo);
+        if (['DES', 'RET', 'REU', 'CFD'].includes(codigo)) return true;
+        const etapa = p ? processoEtapa(p) : etapaOuProcesso;
         const e = normalizar(etapa);
         return CICLO_DESARQUIVAMENTO.includes(e);
     }
@@ -158,7 +162,7 @@
         const etapa = filtroEtapaModulo || (typeof etapaFiltroAtual !== 'undefined' ? etapaFiltroAtual : 'TODOS');
         if (etapa && etapa !== 'TODOS') {
             if (normalizar(etapa) === 'DESARQUIVAMENTO') {
-                lista = lista.filter(p => pertenceCicloDesarquivamento(processoEtapa(p)));
+                lista = lista.filter(p => pertenceCicloDesarquivamento(p));
             } else {
                 lista = lista.filter(p => normalizar(processoEtapa(p)) === normalizar(etapa));
             }
@@ -343,20 +347,24 @@
         if (e.includes('AGUARD')) return `<button onclick="abrirModalFluxoAguardando(${p.id})" class="bg-gray-700 text-white font-bold px-2 py-1 rounded text-[10px]">Retirado</button>`;
         if (e.includes('RETIR')) return '<span class="text-gray-300 font-bold">Finalizado</span>';
 
-        const alerta = alertaChave(p);
-        const permiteRetificacao = retificacaoDisponivel(alerta);
-        
+        const codigoEtapa = normalizar(p.etapa_codigo);
+        const alertaPorEtapa = codigoEtapa === 'RET' ? 'REITERACAO'
+            : codigoEtapa === 'REU' ? 'REITERACAO_URGENTE'
+            : codigoEtapa === 'CFD' ? 'CONFIRMAR_DADOS'
+            : null;
+        const alerta = alertaPorEtapa || alertaChave(p);
+        const permiteRetificacao = ['RET', 'REU', 'CFD'].includes(codigoEtapa) || retificacaoDisponivel(alerta);
         const executada = acaoJaExecutada(p, alerta);
-        const botaoRetificacao = permiteRetificacao ? `<button onclick="abrirRetificacaoDadosSIGEE(${p.id})" class="ml-1 bg-purple-700 text-white font-bold px-2 py-1 rounded text-[10px]">Retificar Dados</button>` : '';
-        if (alerta === 'REITERACAO') return executada
+        const botaoRetificacao = permiteRetificacao ? `<button onclick="abrirRetificacaoDadosSIGEE(${p.id})" class="ml-1 bg-gray-600 hover:bg-gray-500 text-white font-bold px-2 py-1 rounded text-[10px]">Retificação dos Dados</button>` : '';
+        if (alerta === 'REITERACAO') return (executada
             ? '<span class="text-gray-400 font-bold">Reiteração executada</span>'
-            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'REITERACAO')" class="bg-amber-600 text-white font-bold px-2 py-1 rounded text-[10px]">Executar Reiteração</button>${botaoRetificacao}`;
-        if (alerta === 'REITERACAO_URGENTE') return executada
+            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'REITERACAO')" class="bg-amber-600 text-white font-bold px-2 py-1 rounded text-[10px]">Executar Reiteração</button>`) + botaoRetificacao;
+        if (alerta === 'REITERACAO_URGENTE') return (executada
             ? '<span class="text-gray-400 font-bold">Reiteração urgente executada</span>'
-            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'REITERACAO_URGENTE')" class="bg-orange-600 text-white font-bold px-2 py-1 rounded text-[10px]">Executar Reiteração Urgente</button>${botaoRetificacao}`;
-        if (alerta === 'CONFIRMAR_DADOS') return executada
+            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'REITERACAO_URGENTE')" class="bg-orange-600 text-white font-bold px-2 py-1 rounded text-[10px]">Executar Reiteração Urgente</button>`) + botaoRetificacao;
+        if (alerta === 'CONFIRMAR_DADOS') return (executada
             ? '<span class="text-gray-400 font-bold">Dados confirmados</span>'
-            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'CONFIRMAR_DADOS')" class="bg-red-600 text-white font-bold px-2 py-1 rounded text-[10px]">Confirmar Dados da Busca</button>${botaoRetificacao}`;
+            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'CONFIRMAR_DADOS')" class="bg-red-600 text-white font-bold px-2 py-1 rounded text-[10px]">Confirmar Dados da Busca</button>`) + botaoRetificacao;
         if (alerta === 'PEDIDO_ATAS_SEM_PASTA') return executada
             ? '<span class="text-gray-400 font-bold">Atas solicitadas</span>'
             : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'PEDIDO_ATAS_SEM_PASTA')" class="bg-red-800 text-white font-bold px-2 py-1 rounded text-[10px]">Solicitar Atas sem Pasta</button>`;
@@ -425,7 +433,7 @@
         };
         Object.entries(mapa).forEach(([id, etapa]) => {
             const total = normalizar(etapa) === 'DESARQUIVAMENTO'
-                ? lista.filter(p => pertenceCicloDesarquivamento(processoEtapa(p))).length
+                ? lista.filter(p => pertenceCicloDesarquivamento(p)).length
                 : lista.filter(p => normalizar(processoEtapa(p)) === normalizar(etapa)).length;
             set(id, total);
         });
