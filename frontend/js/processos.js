@@ -31,14 +31,14 @@
 
     function dataInicioCiclo(p) {
         return p.data_inicio_desarquivamento ||
-               p.data_desarquivamento ||
                p.data_inicio_ciclo ||
                p.inicio_ciclo ||
+               p.data_desarquivamento ||
                p.data_etapa_inicial ||
-               p.prazo_inicio ||
                p.created_at ||
                p.criado_em ||
-               p.data_etapa_atual;
+               p.data_etapa_atual ||
+               p.prazo_inicio;
     }
 
     function garantirInicioCiclo(p) {
@@ -443,7 +443,7 @@
                     <td class="p-2.5 text-center">${prioridadeBadge(processoPrioridade(p))}</td>
                     <td class="p-2.5 text-center">${prazoVisual(p)}${alertaPrazo(p)}</td>
                     <td class="p-2.5 text-center text-[10px] font-semibold">${processoResponsavel(p)}</td>
-                    <td class="p-2.5 text-center"><span class="sigee-etapa-badge ${corEtapa(etapa)}">${etapa}</span></td>
+                    <td class="p-2.5 text-center"><span class="sigee-etapa-badge ${corEtapa(etapa)} ${normalizar(p.contexto_analise).includes("DESARQUIVAMENTO") ? "sigee-etapa-analise-desarquivamento" : ""}">${etapa}</span></td>
                     <td class="p-2.5 text-center">${acaoFluxo(p)}<button onclick="abrirHistoricoSIGEE(${p.id})" class="ml-1 bg-slate-700 hover:bg-slate-600 text-white font-bold px-2 py-1 rounded text-[10px]">Histórico</button>${botoesMaster}</td>
                 </tr>`);
         });
