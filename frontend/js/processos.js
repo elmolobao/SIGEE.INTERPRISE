@@ -180,7 +180,19 @@
         try { return (typeof obterSupabaseSIGEE === 'function') ? obterSupabaseSIGEE() : null; }
         catch (e) { return null; }
     }
-    function processoPayload(p) {
+    
+    function normalizarDataSupabaseSIGEE(valor) {
+        if (!valor) return null;
+        if (valor instanceof Date) return valor.toISOString();
+        const s = String(valor).trim();
+        if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) {
+            const [dia, mes, ano] = s.split('/');
+            return `${ano}-${mes}-${dia}`;
+        }
+        return s;
+    }
+
+function processoPayload(p) {
         try {
             if (typeof processoParaSupabaseSIGEE === 'function') {
                 const payload = processoParaSupabaseSIGEE(p);
@@ -211,17 +223,17 @@
             processo_sei_indeferimento: p.processo_sei_indeferimento || null,
             finalizado_em: p.finalizado_em || null,
             etapa_codigo: p.etapa_codigo || null,
-            data_etapa_atual: p.data_etapa_atual || null,
+            data_etapa_atual: normalizarDataSupabaseSIGEE(p.data_etapa_atual),
             prazo_etapa: p.prazo_etapa == null ? null : Number(p.prazo_etapa),
-            prazo_inicio: p.prazo_inicio || null,
-            prazo_fim: p.prazo_fim || null,
+            prazo_inicio: normalizarDataSupabaseSIGEE(p.prazo_inicio),
+            prazo_fim: normalizarDataSupabaseSIGEE(p.prazo_fim),
             workflow_ciclo: Number(p.workflow_ciclo || p.ciclo || 1),
             ciclo: Number(p.ciclo || p.workflow_ciclo || 1),
             ultimo_evento_workflow: p.ultimo_evento_workflow || null,
             ultima_mensagem_workflow: p.ultima_mensagem_workflow || null,
             contexto_analise: p.contexto_analise || null,
             workflow_instance_id: p.workflow_instance_id || null,
-            updated_at: p.updated_at || new Date().toISOString()
+            updated_at: normalizarDataSupabaseSIGEE(p.updated_at) || new Date().toISOString()
         };
     }
     async function salvarProcesso(p) {
