@@ -44,8 +44,6 @@
     u = u || {};
     const email = low(u.email);
     let perfil = perfilCanonico(u.perfil || u.tipo || u.role || 'Tecnico');
-    if (email === 'elmo.lobao@enova.educacao.ba.gov.br') perfil = 'Master';
-    if (email === EMAIL_SEC) perfil = 'SEC';
     let nte = txt(u.nte || u.nte_nome || u.nte_vinculado || u.grupo || u.nte_id || 'NTE-26 Salvador');
     if (perfil === 'SEC' || up(nte).includes('SEC') || up(nte).includes('TODOS OS NTES')) nte = GRUPO_SEC;
     return Object.assign({}, u, {
@@ -60,7 +58,7 @@
     });
   }
 
-  function isSEC(u){ u = u || usuarioAtual(); return perfilCanonico(u && u.perfil) === 'SEC' || low(u && u.email) === EMAIL_SEC || up(u && u.nte).includes('TODOS OS NTES'); }
+  function isSEC(u){ u = u || usuarioAtual(); return perfilCanonico(u && u.perfil) === 'SEC'; }
   function isMaster(u){ return perfilCanonico(u && u.perfil) === 'Master'; }
   function isAdmin(u){ return perfilCanonico(u && u.perfil) === 'Administrador'; }
   function isTecnico(u){ return perfilCanonico(u && u.perfil) === 'Tecnico'; }
@@ -96,10 +94,10 @@
     exportarDados: u => isSEC(u) || isMaster(u) || isAdmin(u),
     abrirSolicitacao: u => isSEC(u) || isMaster(u) || isAdmin(u) || isTecnico(u),
     movimentarFluxo: u => isSEC(u) || isMaster(u) || isAdmin(u) || isTecnico(u),
-    gerirUsuarios: u => isSEC(u) || isMaster(u),
-    alterarUsuarios: u => isSEC(u) || isMaster(u),
-    cadastrarUsuarios: u => isSEC(u) || isMaster(u),
-    excluirUsuarios: u => isSEC(u) || isMaster(u),
+    gerirUsuarios: u => isMaster(u),
+    alterarUsuarios: u => isMaster(u),
+    cadastrarUsuarios: u => isMaster(u),
+    excluirUsuarios: u => isMaster(u),
     acessarLogs: u => isSEC(u) || isMaster(u) || isAdmin(u),
     usuariosConectados: u => isSEC(u) || isMaster(u) || isAdmin(u)
   };
@@ -191,7 +189,6 @@
     const base = baseUsuarios();
     const existe = email => base.some(u => low(u.email) === low(email));
     const prox = start => Math.max(start, 0, ...base.map(u => Number(u.id)||0)) + 1;
-    if (!existe(EMAIL_SEC)) base.push({id:prox(900000), nome:'USUARIO SEC', email:EMAIL_SEC, senha:'123', perfil:'SEC', grupo:'SEC', nte:GRUPO_SEC, ativo:true});
     base.forEach((u,i) => base[i] = normalizarUsuario(u));
     window.usuariosDB = base;
     try { usuariosDB = base; } catch(e) {}
@@ -232,7 +229,7 @@
   };
 
   window.abrirModalCriarUsuarioMaster = function(){
-    if (!Perm.cadastrarUsuarios(usuarioAtual())) return alert('Cadastro de usuários permitido apenas para SEC e Master.');
+    if (!Perm.cadastrarUsuarios(usuarioAtual())) return alert('Cadastro de usuários permitido apenas para o perfil Master.');
     document.getElementById('titulo-modal-usuario').innerText = '👥 Cadastrar Técnico';
     document.getElementById('user-form-id').value = '';
     document.getElementById('user-form-nome').value = '';
@@ -247,7 +244,7 @@
   window.abrirModalEditarUsuarioMaster = function(id){
     const u = baseUsuarios().map(normalizarUsuario).find(x => String(x.id) === String(id));
     if (!u) return alert('Usuário não localizado.');
-    if (!Perm.alterarUsuarios(usuarioAtual())) return alert('Edição de usuários permitida apenas para SEC e Master.');
+    if (!Perm.alterarUsuarios(usuarioAtual())) return alert('Edição de usuários permitida apenas para o perfil Master.');
     document.getElementById('titulo-modal-usuario').innerText = '📝 Editar Informações do Usuário';
     document.getElementById('user-form-id').value = u.id;
     document.getElementById('user-form-nome').value = u.nome;
@@ -264,7 +261,7 @@
 
   window.salvarNovoUsuarioFormularioMaster = async function(event){
     if (event) event.preventDefault();
-    if (!Perm.cadastrarUsuarios(usuarioAtual())) return alert('Operação permitida apenas para SEC e Master.');
+    if (!Perm.cadastrarUsuarios(usuarioAtual())) return alert('Operação permitida apenas para o perfil Master.');
     const id = txt(document.getElementById('user-form-id')?.value);
     const nome = txt(document.getElementById('user-form-nome')?.value).toUpperCase();
     const email = low(document.getElementById('user-form-email')?.value);
@@ -286,7 +283,7 @@
   };
 
   window.toggleStatusUsuarioMaster = async function(id){
-    if (!Perm.alterarUsuarios(usuarioAtual())) return alert('Operação permitida apenas para SEC e Master.');
+    if (!Perm.alterarUsuarios(usuarioAtual())) return alert('Operação permitida apenas para o perfil Master.');
     const u = baseUsuarios().find(x => String(x.id) === String(id));
     if (!u) return;
     u.ativo = !(u.ativo !== false);
@@ -296,7 +293,7 @@
   };
 
   window.resetarSenhaUsuarioMaster = async function(id){
-    if (!Perm.alterarUsuarios(usuarioAtual())) return alert('Operação permitida apenas para SEC e Master.');
+    if (!Perm.alterarUsuarios(usuarioAtual())) return alert('Operação permitida apenas para o perfil Master.');
     const u = baseUsuarios().find(x => String(x.id) === String(id));
     if (!u) return;
     u.senha = '123';
@@ -307,7 +304,7 @@
   };
 
   window.excluirUsuarioSistemaSIGEE = async function(id){
-    if (!Perm.excluirUsuarios(usuarioAtual())) return alert('Exclusão de usuários permitida apenas para SEC e Master.');
+    if (!Perm.excluirUsuarios(usuarioAtual())) return alert('Exclusão de usuários permitida apenas para o perfil Master.');
     const base = baseUsuarios();
     const idx = base.findIndex(x => String(x.id) === String(id));
     if (idx < 0) return;
@@ -329,7 +326,7 @@
       window.__SIGEE_USUARIOS_NAV_PATCH = true;
       window.navegar = function(aba){
         const u = usuarioAtual();
-        if (aba === 'usuarios' && !Perm.gerirUsuarios(u)) { alert('Acesso ao Controle de Usuários permitido apenas para SEC e Master.'); aba = 'painel'; }
+        if (aba === 'usuarios' && !Perm.gerirUsuarios(u)) { alert('Acesso ao Controle de Usuários permitido apenas para o perfil Master.'); aba = 'painel'; }
         if (aba === 'logs' && !Perm.acessarLogs(u)) { alert('Acesso aos Logs permitido apenas para SEC, Master e Administrador.'); aba = 'painel'; }
         const r = navOriginal.call(this, aba);
         aplicarPermissoes();
@@ -442,7 +439,7 @@
   function podeGerirUsuarios(){
     const u = usuarioLogadoAtual() || {};
     const p = perfilCanonico(u.perfil);
-    return p === 'Master' || p === 'SEC';
+    return p === 'Master';
   }
 
   function getFormUsuario(){
@@ -700,9 +697,9 @@
   }
   function nteId(v, perfil){ return perfilCanonico(perfil) === 'SEC' ? null : numeroNte(v); }
   function ativo(u){ return u && u.ativo !== false && u.Ativo !== false; }
-  function podeGerir(){ const p = perfilCanonico((usuarioAtual()||{}).perfil); return p === 'Master' || p === 'SEC'; }
+  function podeGerir(){ const p = perfilCanonico((usuarioAtual()||{}).perfil); return p === 'Master'; }
   function isEstagiario(u){ return perfilCanonico((u||usuarioAtual()||{}).perfil) === 'Estagiario'; }
-  function isGlobal(u){ const p = perfilCanonico((u||usuarioAtual()||{}).perfil); return p === 'Master' || p === 'SEC'; }
+  function isGlobal(u){ const p = perfilCanonico((u||usuarioAtual()||{}).perfil); return p === 'Master'; }
 
   function normalizarUsuario(u){
     const perfil = perfilCanonico(u && u.perfil) || 'Tecnico';
@@ -853,14 +850,14 @@
   }
 
   window.abrirModalNovoUsuarioMaster = function(){
-    if (!podeGerir()) return alert('Apenas Master ou SEC podem cadastrar usuários.');
+    if (!podeGerir()) return alert('Apenas o perfil Master pode cadastrar usuários.');
     prepararSelectsUsuario('', '');
     const set = (id,val)=>{ const el=document.getElementById(id); if(el) el.value=val; };
     set('user-form-id',''); set('user-form-nome',''); set('user-form-email',''); set('user-form-senha', SENHA_PADRAO);
     const modal = document.getElementById('modal-cadastro-usuario'); if (modal) modal.classList.remove('hidden');
   };
   window.abrirModalEditarUsuarioMaster = function(id){
-    if (!podeGerir()) return alert('Apenas Master ou SEC podem editar usuários.');
+    if (!podeGerir()) return alert('Apenas o perfil Master pode editar usuários.');
     const u = normalizarUsuario(baseUsuarios().find(x => String(x.id) === String(id)) || {});
     if (!u.email) return alert('Usuário não localizado.');
     prepararSelectsUsuario(u.perfil, u.nte);
@@ -870,7 +867,7 @@
   };
   window.salvarNovoUsuarioFormularioMaster = async function(ev){
     if (ev) { ev.preventDefault(); ev.stopPropagation(); if (ev.stopImmediatePropagation) ev.stopImmediatePropagation(); }
-    if (!podeGerir()) return alert('Apenas Master ou SEC podem salvar usuários.');
+    if (!podeGerir()) return alert('Apenas o perfil Master pode salvar usuários.');
     const u = formUsuario();
     if (!u.nome) return alert('Informe o nome do usuário.');
     if (!u.email) return alert('Informe o e-mail do usuário.');
@@ -888,7 +885,7 @@
     }
   };
   window.resetarSenhaUsuarioMaster = async function(id){
-    if (!podeGerir()) return alert('Apenas Master ou SEC podem resetar senha.');
+    if (!podeGerir()) return alert('Apenas o perfil Master pode resetar senha.');
     const u = normalizarUsuario(baseUsuarios().find(x => String(x.id) === String(id)) || {});
     if (!u.email) return alert('Usuário não localizado.');
     try {
@@ -899,13 +896,13 @@
     } catch(e) { alert('Erro ao resetar senha: ' + (e.message || e)); }
   };
   window.toggleStatusUsuarioMaster = async function(id){
-    if (!podeGerir()) return alert('Apenas Master ou SEC podem ativar/desativar usuários.');
+    if (!podeGerir()) return alert('Apenas o perfil Master pode ativar/desativar usuários.');
     const u = normalizarUsuario(baseUsuarios().find(x => String(x.id) === String(id)) || {});
     if (!u.email) return alert('Usuário não localizado.');
     try { u.ativo = u.Ativo = !u.ativo; await salvarUsuario(u, 'editar'); await atualizarListaUsuarios(); } catch(e){ alert('Erro ao alterar usuário: ' + (e.message || e)); }
   };
   window.excluirUsuarioSistemaMasterV45 = window.excluirUsuarioSistemaSIGEE = async function(id){
-    if (!podeGerir()) return alert('Apenas Master ou SEC podem excluir usuários.');
+    if (!podeGerir()) return alert('Apenas o perfil Master pode excluir usuários.');
     const u = normalizarUsuario(baseUsuarios().find(x => String(x.id) === String(id)) || {});
     if (!u.email) return alert('Usuário não localizado.');
     if (!confirm(`Confirma excluir o usuário ${u.nome}?`)) return;
@@ -987,6 +984,7 @@
     if(menu){
       menu.classList.toggle('hidden',!permitido);
       menu.style.display=permitido?'':'none';
+      menu.style.visibility=permitido?'visible':'hidden';
       menu.setAttribute('aria-hidden',permitido?'false':'true');
     }
 
