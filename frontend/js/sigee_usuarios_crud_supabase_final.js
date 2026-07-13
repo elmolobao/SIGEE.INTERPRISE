@@ -40,7 +40,7 @@
   function podeGerenciarUsuarios(){
     const u = usuarioAtual() || {};
     const p = perfilCanonico(u.perfil);
-    return p === 'Master' || p === 'SEC';
+    return p === 'Master';
   }
   function client(){
     try { if (typeof obterSupabaseSIGEE === 'function') return obterSupabaseSIGEE(); } catch(e) {}
@@ -71,7 +71,7 @@
 
   function payloadUsuario({nome,email,senha,perfil,nte}){
     const p = perfilCanonico(perfil);
-    const nteId = (p === 'SEC') ? null : nteIdDeValor(nte);
+    const nteId = (p === 'SEC' || p === 'Master') ? null : nteIdDeValor(nte);
     const ativo = true;
     const senhaFinal = texto(senha) || SENHA_PADRAO;
     return {
@@ -81,7 +81,7 @@
       senha_hash: senhaFinal,
       perfil: p,
       nte_id: nteId,
-      nte: p === 'SEC' ? 'SEC - TODOS OS NTES' : nteTexto(nteId, nte),
+      nte: (p === 'SEC' || p === 'Master') ? 'SEC - TODOS OS NTES' : nteTexto(nteId, nte),
       ativo,
       Ativo: ativo,
       forcar_troca_senha: false
@@ -157,7 +157,7 @@
   };
 
   window.abrirModalCriarUsuarioMaster = function(){
-    if (!podeGerenciarUsuarios()) return alert('Cadastro de usuários permitido apenas para SEC e Master.');
+    if (!podeGerenciarUsuarios()) return alert('Cadastro de usuários permitido apenas para o perfil Master.');
     popularNtes();
     popularPerfis();
     document.getElementById('titulo-modal-usuario').innerText = '👥 Cadastrar Usuário';
@@ -171,7 +171,7 @@
   };
 
   window.abrirModalEditarUsuarioMaster = async function(id){
-    if (!podeGerenciarUsuarios()) return alert('Edição de usuários permitida apenas para SEC e Master.');
+    if (!podeGerenciarUsuarios()) return alert('Edição de usuários permitida apenas para o perfil Master.');
     let lista = window.usuariosDB || [];
     if (!lista.length) lista = await buscarUsuariosSupabase();
     const u = lista.map(mapUsuario).find(x => String(x.id) === String(id));
@@ -194,7 +194,7 @@
 
   window.salvarNovoUsuarioFormularioMaster = async function(event){
     if (event) event.preventDefault();
-    if (!podeGerenciarUsuarios()) return alert('Operação permitida apenas para SEC e Master.');
+    if (!podeGerenciarUsuarios()) return alert('Operação permitida apenas para o perfil Master.');
     const c = client();
     if (!c) return alert('Cliente Supabase não localizado.');
 
@@ -240,13 +240,14 @@
   };
 
   window.resetarSenhaUsuarioMaster = async function(id){
-    if (!podeGerenciarUsuarios()) return alert('Operação permitida apenas para SEC e Master.');
+    if (!podeGerenciarUsuarios()) return alert('Operação permitida apenas para o perfil Master.');
     const c = client();
     if (!c) return alert('Cliente Supabase não localizado.');
     try {
       const { error } = await c.from(TABELA).update({ senha: SENHA_PADRAO, senha_hash: SENHA_PADRAO, forcar_troca_senha: false }).eq('id', id);
       if (error) throw error;
       await window.carregarListaUsuarios();
+      try { window.registrarLog?.(`Senha resetada pelo Master para o usuário ${id}.`); } catch(e) {}
       alert('Senha resetada para: ' + SENHA_PADRAO);
     } catch(e) {
       console.error('Erro ao resetar senha:', e);
@@ -255,16 +256,30 @@
   };
 
   window.toggleStatusUsuarioMaster = async function(id){
-    if (!podeGerenciarUsuarios()) return alert('Operação permitida apenas para SEC e Master.');
+    if (!podeGerenciarUsuarios()) return alert('Operação permitida apenas para o perfil Master.');
     const lista = window.usuariosDB || [];
     const u = lista.map(mapUsuario).find(x => String(x.id) === String(id));
     if (!u) return alert('Usuário não localizado.');
+
+    const atual = usuarioAtual() || {};
+    if (String(u.id) === String(atual.id) && u.ativo) {
+      return alert('O Master não pode desativar a própria conta durante a sessão.');
+    }
+
+    if (u.perfil === 'Master' && u.ativo) {
+      const mastersAtivos = lista.map(mapUsuario).filter(x => x.perfil === 'Master' && x.ativo);
+      if (mastersAtivos.length <= 1) {
+        return alert('Não é possível desativar o último usuário Master ativo.');
+      }
+    }
+
     const novo = !u.ativo;
     const c = client();
     try {
       const { error } = await c.from(TABELA).update({ ativo: novo, Ativo: novo }).eq('id', id);
       if (error) throw error;
       await window.carregarListaUsuarios();
+      try { window.registrarLog?.(`${novo ? 'Ativou' : 'Desativou'} o usuário ${u.email}.`); } catch(e) {}
     } catch(e) {
       console.error('Erro ao alterar status:', e);
       alert('Erro ao alterar status: ' + (e.message || e));
@@ -272,16 +287,30 @@
   };
 
   window.excluirUsuarioSistemaSIGEE = async function(id){
-    if (!podeGerenciarUsuarios()) return alert('Exclusão de usuários permitida apenas para SEC e Master.');
+    if (!podeGerenciarUsuarios()) return alert('Exclusão de usuários permitida apenas para o perfil Master.');
     const lista = window.usuariosDB || [];
     const u = lista.map(mapUsuario).find(x => String(x.id) === String(id));
     if (!u) return alert('Usuário não localizado.');
+
+    const atual = usuarioAtual() || {};
+    if (String(u.id) === String(atual.id)) {
+      return alert('O Master não pode excluir a própria conta.');
+    }
+
+    if (u.perfil === 'Master') {
+      const mastersAtivos = lista.map(mapUsuario).filter(x => x.perfil === 'Master' && x.ativo);
+      if (mastersAtivos.length <= 1) {
+        return alert('Não é possível excluir o último usuário Master ativo.');
+      }
+    }
+
     if (!confirm(`Confirma excluir o usuário ${u.nome}?`)) return;
     const c = client();
     try {
       const { error } = await c.from(TABELA).delete().eq('id', id);
       if (error) throw error;
       await window.carregarListaUsuarios();
+      try { window.registrarLog?.(`Excluiu o usuário ${u.email}.`); } catch(e) {}
       alert('Usuário excluído do Supabase.');
     } catch(e) {
       console.error('Erro ao excluir usuário:', e);
