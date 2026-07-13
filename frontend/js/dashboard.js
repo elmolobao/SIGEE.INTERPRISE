@@ -119,6 +119,13 @@
   }
 
   function formatarDias(v){ return `${Number(v||0).toLocaleString('pt-BR',{maximumFractionDigits:1})} ${Number(v||0)===1?'dia':'dias'}`; }
+  function escaparHtml(v){ return texto(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c])); }
+  function renderizarTop10(id,registros,vazio='Sem dados'){
+    const box=document.getElementById(id);
+    if(!box)return;
+    const lista=(registros||[]).slice(0,10);
+    box.innerHTML=lista.length?lista.map(([nome,quantidade],indice)=>`<div class="flex justify-between gap-3 border-b border-gray-100 py-1.5 last:border-b-0"><span class="min-w-0 truncate" title="${escaparHtml(nome)}">${indice+1}. ${escaparHtml(nome)}</span><strong class="shrink-0">${Number(quantidade||0).toLocaleString('pt-BR')}</strong></div>`).join(''):vazio;
+  }
   function topPor(lista,chave){
     const mapa=new Map();
     lista.forEach(x=>{const k=chave(x);if(!k)return;mapa.set(k,(mapa.get(k)||0)+1)});
@@ -149,12 +156,16 @@
     setText('dash-ger-processos-concluidos',concluidos.length);
 
     const escolas=topPor(processos,nomeEscola);
-    setText('dash-ger-escola-demanda',escolas[0]?`${escolas[0][0]} (${escolas[0][1]})`:'Sem dados');
+    renderizarTop10('dash-ger-escola-demanda',escolas);
 
     const territorios=topPor(processos,p=>{const id=nteId(p);return id?nteLabel(id):''});
     const cardTerr=document.getElementById('card-territorio-demanda');
-    if(global()&&!alvo){cardTerr?.classList.remove('hidden');setText('dash-ger-territorio-demanda',territorios[0]?`${territorios[0][0]} (${territorios[0][1]})`:'Sem dados');}
-    else {cardTerr?.classList.add('hidden');}
+    if(global()&&!alvo){
+      cardTerr?.classList.remove('hidden');
+      renderizarTop10('dash-ger-territorio-demanda',territorios);
+    } else {
+      cardTerr?.classList.add('hidden');
+    }
 
     const hist=await obterHistoricoPendencias();
     const processoMap=new Map(processosTodos.map(p=>[String(p.id),p]));
@@ -168,8 +179,7 @@
       eventos=processos.filter(p=>etapa(p)==='PENDENCIA'||p.pendencia_aberta).map(p=>({processo_id:p.id}));
     }
     const recorrencias=topPor(eventos,h=>nomeEscola(processoMap.get(String(h.processo_id))||{}));
-    const box=document.getElementById('dash-ger-pendencias-escolas');
-    if(box)box.innerHTML=recorrencias.length?recorrencias.slice(0,5).map(([n,q],i)=>`<div class="flex justify-between gap-2 border-b border-gray-100 py-1"><span>${i+1}. ${n}</span><strong>${q}</strong></div>`).join(''):'Sem dados';
+    renderizarTop10('dash-ger-pendencias-escolas',recorrencias);
   }
 
   async function carregar(){
