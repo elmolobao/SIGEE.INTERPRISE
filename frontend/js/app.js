@@ -459,19 +459,26 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             };
         }
 
-        
+
         function normalizarDataSupabaseSIGEE(valor) {
-            if (!valor) return null;
-            if (valor instanceof Date) return valor.toISOString();
-            const s = String(valor).trim();
-            if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) {
-                const [dia, mes, ano] = s.split('/');
-                return `${ano}-${mes}-${dia}`;
-            }
-            return s;
+            if (!valor || typeof valor !== 'string') return valor || null;
+            const m = valor.trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+            if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+            return valor;
         }
 
-function processoParaSupabaseSIGEE(p) {
+        function limparDatasPayloadSupabaseSIGEE(payload) {
+            if (!payload || typeof payload !== 'object') return payload;
+            Object.keys(payload).forEach(chave => {
+                const nome = String(chave).toLowerCase();
+                if (nome.includes('data') || nome.includes('prazo') || nome.includes('inicio') || nome.includes('fim') || nome.includes('created') || nome.includes('updated') || nome.includes('finalizado')) {
+                    payload[chave] = normalizarDataSupabaseSIGEE(payload[chave]);
+                }
+            });
+            return payload;
+        }
+
+        function processoParaSupabaseSIGEE(p) {
             return {
                 id: Number(p.id) || gerarProximoIdSIGEE(processosDB, 101),
                 aluno_nome: normalizarMaiusculoSIGEE(p.aluno || p.aluno_nome),
@@ -485,16 +492,23 @@ function processoParaSupabaseSIGEE(p) {
                 workflow_ciclo: Number(p.workflow_ciclo || p.ciclo || 1),
                 ciclo: Number(p.ciclo || p.workflow_ciclo || 1),
                 etapa_codigo: p.etapa_codigo || null,
-                data_etapa_atual: normalizarDataSupabaseSIGEE(p.data_etapa_atual),
+                data_etapa_atual: p.data_etapa_atual || null,
                 prazo_etapa: p.prazo_etapa == null ? null : Number(p.prazo_etapa),
-                prazo_inicio: normalizarDataSupabaseSIGEE(p.prazo_inicio),
-                prazo_fim: normalizarDataSupabaseSIGEE(p.prazo_fim),
+                prazo_inicio: p.prazo_inicio || null,
+                prazo_fim: p.prazo_fim || null,
                 ultimo_evento_workflow: p.ultimo_evento_workflow || null,
                 ultima_mensagem_workflow: p.ultima_mensagem_workflow || null,
                 contexto_analise: p.contexto_analise || null,
-                updated_at: normalizarDataSupabaseSIGEE(p.updated_at) || new Date().toISOString()
+                updated_at: p.updated_at || new Date().toISOString()
             };
         }
+
+        // Protege a sincronização geral contra datas no formato brasileiro antes do upsert.
+        const processoParaSupabaseSIGEEOriginal = processoParaSupabaseSIGEE;
+        processoParaSupabaseSIGEE = function(p) {
+            const payload = processoParaSupabaseSIGEEOriginal(p);
+            return limparDatasPayloadSupabaseSIGEE(payload);
+        };
 
         function processoDoSupabaseParaLocalSIGEE(p, indice) {
             return {
@@ -511,8 +525,8 @@ function processoParaSupabaseSIGEE(p) {
                 ciclo: Number(p.ciclo || p.workflow_ciclo || 1),
                 etapa_codigo: p.etapa_codigo || null,
                 prazo_etapa: p.prazo_etapa == null ? null : Number(p.prazo_etapa),
-                prazo_inicio: normalizarDataSupabaseSIGEE(p.prazo_inicio),
-                prazo_fim: normalizarDataSupabaseSIGEE(p.prazo_fim),
+                prazo_inicio: p.prazo_inicio || null,
+                prazo_fim: p.prazo_fim || null,
                 ultimo_evento_workflow: p.ultimo_evento_workflow || null,
                 ultima_mensagem_workflow: p.ultima_mensagem_workflow || null,
                 contexto_analise: p.contexto_analise || null
@@ -705,7 +719,7 @@ function processoParaSupabaseSIGEE(p) {
                 // await salvarSeguro(SIGEE_SUPABASE_TABELAS.escolas, (estado.escolas || []).map(escolaParaSupabaseSIGEE).filter(e => e.cod_mec && e.nome_escola && e.municipio && e.nte_id), SIGEE_SUPABASE_CONFLITOS.escolas);
                 // V15: usuarios_sigee é usado para login/leitura. Não é salvo em lote pelo frontend,
                 // evitando erro PGRST204 quando o banco não possui colunas auxiliares como nte/ativo.
-                await salvarSeguro(SIGEE_SUPABASE_TABELAS.processos, (estado.processos || []).map(processoParaSupabaseSIGEE).filter(p => p.id && p.aluno_nome), SIGEE_SUPABASE_CONFLITOS.processos);
+                await salvarSeguro(SIGEE_SUPABASE_TABELAS.processos, (estado.processos || []).map(processoParaSupabaseSIGEE).map(limparDatasPayloadSupabaseSIGEE).filter(p => p.id && p.aluno_nome), SIGEE_SUPABASE_CONFLITOS.processos);
                 await salvarSeguro(SIGEE_SUPABASE_TABELAS.solicitacoes, (estado.solicitacoes || []).map(solicitacaoParaSupabaseSIGEE).filter(s => s.id && s.nome_solicitante), SIGEE_SUPABASE_CONFLITOS.solicitacoes);
                 // A tabela de NTEs é territorial/cadastral. Carrega do Supabase, mas não é sobrescrita pelo frontend.
 

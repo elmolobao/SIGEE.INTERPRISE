@@ -180,24 +180,28 @@
         try { return (typeof obterSupabaseSIGEE === 'function') ? obterSupabaseSIGEE() : null; }
         catch (e) { return null; }
     }
-    
-    function normalizarDataSupabaseSIGEE(valor) {
-        if (!valor) return null;
-        if (valor instanceof Date) return valor.toISOString();
-        const s = String(valor).trim();
-        if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) {
-            const [dia, mes, ano] = s.split('/');
-            return `${ano}-${mes}-${dia}`;
-        }
-        return s;
+
+    function normalizarDataSupabaseSIGEEProcesso(valor) {
+        if (!valor || typeof valor !== 'string') return valor || null;
+        const m = valor.trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+        return m ? `${m[3]}-${m[2]}-${m[1]}` : valor;
+    }
+    function protegerDatasPayloadSIGEE(payload) {
+        Object.keys(payload || {}).forEach(chave => {
+            const n = chave.toLowerCase();
+            if (n.includes('data') || n.includes('prazo') || n.includes('inicio') || n.includes('fim') || n.includes('created') || n.includes('updated') || n.includes('finalizado')) {
+                payload[chave] = normalizarDataSupabaseSIGEEProcesso(payload[chave]);
+            }
+        });
+        return payload;
     }
 
-function processoPayload(p) {
+    function processoPayload(p) {
         try {
             if (typeof processoParaSupabaseSIGEE === 'function') {
                 const payload = processoParaSupabaseSIGEE(p);
                 payload.workflow_instance_id = p.workflow_instance_id || payload.workflow_instance_id || null;
-                return payload;
+                return protegerDatasPayloadSIGEE(payload);
             }
         } catch (e) {}
         return {
@@ -223,17 +227,17 @@ function processoPayload(p) {
             processo_sei_indeferimento: p.processo_sei_indeferimento || null,
             finalizado_em: p.finalizado_em || null,
             etapa_codigo: p.etapa_codigo || null,
-            data_etapa_atual: normalizarDataSupabaseSIGEE(p.data_etapa_atual),
+            data_etapa_atual: p.data_etapa_atual || null,
             prazo_etapa: p.prazo_etapa == null ? null : Number(p.prazo_etapa),
-            prazo_inicio: normalizarDataSupabaseSIGEE(p.prazo_inicio),
-            prazo_fim: normalizarDataSupabaseSIGEE(p.prazo_fim),
+            prazo_inicio: p.prazo_inicio || null,
+            prazo_fim: p.prazo_fim || null,
             workflow_ciclo: Number(p.workflow_ciclo || p.ciclo || 1),
             ciclo: Number(p.ciclo || p.workflow_ciclo || 1),
             ultimo_evento_workflow: p.ultimo_evento_workflow || null,
             ultima_mensagem_workflow: p.ultima_mensagem_workflow || null,
             contexto_analise: p.contexto_analise || null,
             workflow_instance_id: p.workflow_instance_id || null,
-            updated_at: normalizarDataSupabaseSIGEE(p.updated_at) || new Date().toISOString()
+            updated_at: p.updated_at || new Date().toISOString()
         };
     }
     async function salvarProcesso(p) {
