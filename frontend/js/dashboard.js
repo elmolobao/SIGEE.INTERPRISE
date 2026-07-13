@@ -1,5 +1,5 @@
 /* ================================================================
-   SIGEE Enterprise 1.0.2 — PATCH 001E Dashboard — Contagens Exatas e Proteção contra Sobrescrita
+   SIGEE Enterprise 1.0.2 — PATCH 001F Dashboard — Indicadores Gerenciais e Pendências Históricas
    Fonte autoritativa do Dashboard. Este arquivo deve carregar depois
    de app.js e logs.js para impedir sobrescritas por rotinas legadas.
    ================================================================ */
@@ -207,15 +207,61 @@
     return [...mapa.entries()].sort((a,b)=>b[1]-a[1]);
   }
 
+  async function buscarPaginado(tabela,colunas,configurar){
+    const c=supabaseClient();
+    if(!c)return [];
+    const pagina=1000;
+    let inicio=0,resultado=[];
+    while(true){
+      let q=c.from(tabela).select(colunas).range(inicio,inicio+pagina-1);
+      if(typeof configurar==='function')q=configurar(q);
+      const {data,error}=await q;
+      if(error)throw error;
+      const lote=data||[];
+      resultado.push(...lote);
+      if(lote.length<pagina)break;
+      inicio+=pagina;
+      if(inicio>=50000)break;
+    }
+    return resultado;
+  }
+
   async function obterHistoricoPendencias(){
     if(historicoPendenciasCache&&Date.now()-historicoCacheEm<60000)return historicoPendenciasCache;
-    const c=window.SIGEE_SUPABASE_CLIENT||window.supabaseClient||window.__SIGEE_V38_CLIENT||null;
-    if(!c)return [];
     try{
-      const {data,error}=await c.from('historico_processos').select('processo_id,nte,etapa,acao,created_at').or('etapa.ilike.%Pend%,acao.ilike.%Pend%').limit(10000);
-      if(error)throw error;
-      historicoPendenciasCache=data||[];historicoCacheEm=Date.now();return historicoPendenciasCache;
-    }catch(e){console.warn('[SIGEE Dashboard] Histórico de pendências indisponível:',e);return [];}
+      const dados=await buscarPaginado(
+        'historico_processos',
+        'processo_id,nte,etapa,acao,created_at',
+        q=>q.or('etapa.ilike.%Pend%,acao.ilike.%Pend%').order('created_at',{ascending:false})
+      );
+      historicoPendenciasCache=dados;
+      historicoCacheEm=Date.now();
+      return dados;
+    }catch(e){
+      console.warn('[SIGEE Dashboard] Histórico de pendências indisponível:',e);
+      return [];
+    }
+  }
+
+  async function carregarProcessosParaPendencias(ids){
+    const unicos=[...new Set((ids||[]).filter(v=>v!==null&&v!==undefined).map(String))];
+    if(!unicos.length)return [];
+    const c=supabaseClient();
+    if(!c)return [];
+    const resultado=[];
+    for(let i=0;i<unicos.length;i+=200){
+      const lote=unicos.slice(i,i+200);
+      try{
+        const {data,error}=await c.from('processos')
+          .select('id,escola_nome,escola,nome_escola,instituicao,nte,nte_nome,nte_id')
+          .in('id',lote);
+        if(error)throw error;
+        resultado.push(...(data||[]));
+      }catch(e){
+        console.warn('[SIGEE Dashboard] Falha ao localizar escolas dos processos pendentes:',e);
+      }
+    }
+    return resultado;
   }
 
   async function atualizarGerenciais(processosTodos,alvo){
@@ -243,17 +289,30 @@
     }
 
     const hist=await obterHistoricoPendencias();
-    const processoMap=new Map(processosTodos.map(p=>[String(p.id),p]));
+    const idsHistorico=hist.map(h=>h.processo_id);
+    const processosHistoricos=await carregarProcessosParaPendencias(idsHistorico);
+    const processoMap=new Map([
+      ...processosTodos.map(p=>[String(p.id),p]),
+      ...processosHistoricos.map(p=>[String(p.id),p])
+    ]);
+
     let eventos=hist.filter(h=>{
       const p=processoMap.get(String(h.processo_id));
       if(!p)return false;
       if(alvo&&nteId(p)!==Number(alvo))return false;
       return noPeriodo(dataValida(h.created_at),periodo);
     });
+
     if(!eventos.length){
-      eventos=processos.filter(p=>etapa(p)==='PENDENCIA'||p.pendencia_aberta).map(p=>({processo_id:p.id}));
+      eventos=processos
+        .filter(p=>etapa(p)==='PENDENCIA'||p.pendencia_aberta)
+        .map(p=>({processo_id:p.id,created_at:p.data_etapa_atual||p.updated_at||p.created_at}));
     }
-    const recorrencias=topPor(eventos,h=>nomeEscola(processoMap.get(String(h.processo_id))||{}));
+
+    const recorrencias=topPor(
+      eventos,
+      h=>nomeEscola(processoMap.get(String(h.processo_id))||{})
+    );
     renderizarTop10('dash-ger-pendencias-escolas',recorrencias);
   }
 
