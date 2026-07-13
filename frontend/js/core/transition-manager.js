@@ -251,6 +251,12 @@
     const deadlineDays = nextDeadlineDays(nextCode, eventCode, preview);
     const updated = clone(process);
 
+    if (!updated.workflow_instance_id) {
+      updated.workflow_instance_id = (typeof crypto !== 'undefined' && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : ('WF-' + Date.now() + '-' + Math.random().toString(36).slice(2));
+    }
+
     updated.etapa_codigo = nextCode;
     updated.etapa = nextName;
     updated.etapa_atual = nextName;
