@@ -7727,3 +7727,147 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     if (window.usuarioLogado) carregarDashboardDebounced();
   });
 })();
+
+/* =====================================================================
+   SIGEE ENTERPRISE - HOTFIX EMERGENCIAL DASHBOARD OFICIAL
+   Corrige escopo por perfil/NTE, etapas, usuários e indicadores técnicos.
+   Não altera workflow, processos ou persistência.
+   ===================================================================== */
+(function(window){
+  'use strict';
+  if (window.__SIGEE_DASHBOARD_EMERGENCIAL_20260713__) return;
+  window.__SIGEE_DASHBOARD_EMERGENCIAL_20260713__ = true;
+
+  const txt = v => (v === null || v === undefined) ? '' : String(v).trim();
+  const norm = v => txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/\s+/g,' ');
+  const digits = v => (txt(v).match(/\d{1,2}/)||[])[0] || '';
+  const set = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=String(v); };
+  const usuario = () => window.usuarioLogado || null;
+  const perfil = () => {
+    const p=norm(usuario()?.perfil);
+    if(p.includes('SEC')) return 'SEC';
+    if(p.includes('MASTER')) return 'MASTER';
+    if(p.includes('ADMIN')) return 'ADMINISTRADOR';
+    if(p.includes('CONSULT')) return 'CONSULTA';
+    if(p.includes('ESTAG')) return 'ESTAGIARIO';
+    return 'TECNICO';
+  };
+  const global = () => ['SEC','MASTER'].includes(perfil());
+  const nteId = obj => {
+    if(!obj) return null;
+    const direto = obj.nte_id ?? obj.nteId;
+    if(direto !== null && direto !== undefined && txt(direto)!=='') return Number(direto)||null;
+    return Number(digits(obj.nte || obj.nte_nome || obj.nte_vinculado || obj.grupo || obj.territorio)) || null;
+  };
+  const mesmoNte = (obj, alvo) => {
+    const a = Number(alvo) || Number(digits(alvo));
+    const b = nteId(obj);
+    if(a && b) return a===b;
+    return norm(obj?.nte || obj?.nte_nome || obj?.grupo) === norm(alvo);
+  };
+  const filtroAtual = () => txt(document.getElementById('filtro-dashboard-nte')?.value || window.filtroDashboardNteAtualSIGEE || 'TODOS');
+  const filtrar = lista => {
+    const base=Array.isArray(lista)?lista:[];
+    if(global()){
+      const f=filtroAtual();
+      if(!f || ['TODOS','GLOBAL','SEC - TODOS OS NTES'].includes(norm(f))) return base;
+      return base.filter(x=>mesmoNte(x,f));
+    }
+    const u=usuario();
+    const id=nteId(u);
+    return id ? base.filter(x=>nteId(x)===id) : base.filter(x=>mesmoNte(x,u?.nte||u?.grupo||''));
+  };
+  const dataValida = v => {
+    if(!v) return null;
+    if(v instanceof Date && !isNaN(v)) return v;
+    const s=txt(v);
+    let d;
+    const br=s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+    if(br) d=new Date(Number(br[3]),Number(br[2])-1,Number(br[1])); else d=new Date(s);
+    return isNaN(d)?null:d;
+  };
+  const abertura = p => dataValida(p.data_abertura||p.data_solicitacao||p.created_at||p.criado_em||p.data_inicio);
+  const conclusao = p => dataValida(p.data_conclusao||p.finalizado_em||p.retirado_em||p.updated_at);
+  const diffDias = (a,b) => Math.max(0,Math.ceil((b-a)/86400000));
+  const etapa = p => norm(p?.etapa || p?.etapa_atual || p?.fase_atual || 'DESARQUIVAMENTO');
+  const ehDesarquivamento = p => {
+    const e=etapa(p), c=norm(p?.etapa_codigo);
+    return ['DES','RET','REU','CFD'].includes(c) || ['DESARQUIVAMENTO','REITERACAO','REITERACAO COM URGENCIA','REITERACAO URGENTE','CONFIRMACAO DOS DADOS DA BUSCA','CONFIRMAR DADOS DA BUSCA','PEDIDO DE ATAS SEM PASTA'].includes(e);
+  };
+
+  function preencherFiltro(){
+    const box=document.getElementById('box-filtro-dashboard-master');
+    const sel=document.getElementById('filtro-dashboard-nte');
+    if(!box||!sel||!usuario()) return;
+    if(!global()){ box.classList.add('hidden'); return; }
+    box.classList.remove('hidden');
+    const anterior=filtroAtual();
+    const ids=new Set();
+    [...(window.escolasDB||[]),...(window.processosDB||[]),...(window.usuariosDB||[])].forEach(x=>{const id=nteId(x);if(id)ids.add(id);});
+    sel.innerHTML='<option value="TODOS">GLOBAL - TODOS OS NTEs</option>';
+    [...ids].sort((a,b)=>a-b).forEach(id=>{
+      const o=document.createElement('option'); o.value=String(id); o.textContent='NTE-'+String(id).padStart(2,'0'); sel.appendChild(o);
+    });
+    sel.value=[...sel.options].some(o=>o.value===anterior)?anterior:'TODOS';
+    window.filtroDashboardNteAtualSIGEE=sel.value;
+    sel.onchange=function(){window.filtroDashboardNteAtualSIGEE=this.value;window.carregarDadosDashboardRealImediato();};
+  }
+
+  function atualizarTecnicos(processos){
+    const top=document.getElementById('dash-tec-top-escolas');
+    if(top){
+      const mapa=new Map();
+      processos.forEach(p=>{
+        const nome=txt(p.escola_nome||p.escola||p.nome_escola||p.instituicao||'Não informada');
+        const chave=norm(nome)+'|'+(nteId(p)||norm(p.nte));
+        const atual=mapa.get(chave)||{nome,nte:txt(p.nte||p.nte_nome||''),qtd:0}; atual.qtd++; mapa.set(chave,atual);
+      });
+      const lista=[...mapa.values()].sort((a,b)=>b.qtd-a.qtd||a.nome.localeCompare(b.nome,'pt-BR')).slice(0,5);
+      top.innerHTML=lista.length?lista.map((x,i)=>`<div class="flex justify-between gap-2 border-b border-gray-100 py-1"><span>${i+1}. ${x.nome}<br><small class="text-gray-400">${x.nte||'-'}</small></span><strong>${x.qtd}</strong></div>`).join(''):'Sem dados';
+    }
+    const concluidos=processos.map(p=>({a:abertura(p),b:conclusao(p),e:etapa(p)})).filter(x=>x.a&&x.b&&['RETIRADO','AGUARDANDO RETIRADA','DEFERIDO','INDEFERIDO'].includes(x.e));
+    const media=concluidos.length?Math.round(concluidos.reduce((s,x)=>s+diffDias(x.a,x.b),0)/concluidos.length):0;
+    set('dash-tec-media-entrega',`${media} ${media===1?'dia':'dias'}`);
+    const datasAbertura=processos.map(abertura).filter(Boolean);
+    let diasPeriodo=1;
+    if(datasAbertura.length){const min=new Date(Math.min(...datasAbertura));const max=new Date(Math.max(...datasAbertura));diasPeriodo=Math.max(1,diffDias(min,max)+1);}
+    set('dash-tec-media-pedidos-dia',(processos.length/diasPeriodo).toFixed(1).replace('.',','));
+    const pastas=processos.filter(p=>norm(p.tipo_arquivo||p.tipo_arquivo_recebido||p.arquivo_tipo).includes('PASTA'));
+    set('dash-tec-media-pasta-dia',(pastas.length/diasPeriodo).toFixed(1).replace('.',','));
+  }
+
+  function carregar(){
+    if(!usuario()) return;
+    preencherFiltro();
+    const escolas=filtrar(window.escolasDB||[]);
+    const processos=filtrar(window.processosDB||[]);
+    const usuarios=filtrar((window.usuariosDB||[]).filter(u=>u.ativo!==false && norm(u.status)!=='INATIVO'));
+    set('dash-escolas',escolas.length);
+    set('dash-acervos',escolas.filter(e=>norm(e.status_acervo||e.acervo).includes('RECOLHIDO')).length);
+    set('dash-estaduais',escolas.filter(e=>norm(e.dependencia_adm||e.dependencia).includes('ESTADUAL')).length);
+    set('dash-municipios',new Set(escolas.map(e=>norm(e.municipio)).filter(Boolean)).size);
+    set('dash-usuarios',usuarios.length);
+    set('dash-proc-desarquivamento',processos.filter(ehDesarquivamento).length);
+    const contar=n=>processos.filter(p=>etapa(p)===n).length;
+    set('dash-proc-analise',contar('ANALISE'));
+    set('dash-proc-pendencia',contar('PENDENCIA'));
+    set('dash-proc-digitacao',contar('DIGITACAO'));
+    set('dash-proc-conferencia',contar('CONFERENCIA'));
+    set('dash-proc-assinatura',contar('ASSINATURA'));
+    set('dash-proc-aguardando',processos.filter(p=>['AGUARDANDO RETIRADA','DEFERIDO'].includes(etapa(p))).length);
+    set('dash-proc-retirado',contar('RETIRADO'));
+    atualizarTecnicos(processos);
+  }
+
+  let timer;
+  function agendar(){clearTimeout(timer);timer=setTimeout(carregar,40);}
+  window.carregarDadosDashboardReal=agendar;
+  window.carregarDadosDashboardRealImediato=carregar;
+  window.inicializarFiltroDashboardMasterSIGEE=preencherFiltro;
+
+  const nav=window.navegar;
+  window.navegar=function(aba){const r=typeof nav==='function'?nav.apply(this,arguments):undefined;if(aba==='painel')agendar();return r;};
+  try{navegar=window.navegar;}catch(e){}
+  window.addEventListener('load',()=>setTimeout(carregar,900));
+  setInterval(()=>{const aba=document.getElementById('aba-painel');if(aba&&!aba.classList.contains('hidden'))carregar();},60000);
+})(window);
