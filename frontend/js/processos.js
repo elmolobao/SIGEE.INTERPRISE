@@ -20,33 +20,14 @@
         'PEDIDO DE ATAS SEM PASTA'
     ];
 
-    function obterEstadoBloqueioReal(p, acao) {
-    if (!p) return false;
-    // Camada 1: Estado local imediato da ação
-    if (p.workflow_estado && p.workflow_estado.ultima_acao_real === acao) return true;
-    // Camada 2: Histórico real vindo do banco
-    if (p.historico && Array.isArray(p.historico)) {
-        return p.historico.some(h => h.acao === acao);
+    function pertenceCicloDesarquivamento(etapaOuProcesso) {
+        const p = etapaOuProcesso && typeof etapaOuProcesso === 'object' ? etapaOuProcesso : null;
+        const codigo = normalizar(p && p.etapa_codigo);
+        if (['DES', 'RET', 'REU', 'CFD'].includes(codigo)) return true;
+        const etapa = p ? processoEtapa(p) : etapaOuProcesso;
+        const e = normalizar(etapa);
+        return CICLO_DESARQUIVAMENTO.includes(e);
     }
-    return false;
-}
-
-function pertenceCicloDesarquivamento(etapaOuProcesso) {
-    const p = etapaOuProcesso && typeof etapaOuProcesso === 'object' ? etapaOuProcesso : null;
-    
-    // Força a validação explícita do código da etapa antes de qualquer limpeza
-    if (p && p.etapa_codigo) {
-        if (['DES', 'RET', 'REU', 'CFD'].includes(p.etapa_codigo)) {
-            return true; // Garante que NUNCA suma após Reiteração/Confirmação
-        }
-    }
-    
-    const codigo = normalizar(p && p.etapa_codigo);
-    if (['DES', 'RET', 'REU', 'CFD'].includes(codigo)) return true;
-    const etapa = p ? processoEtapa(p) : etapaOuProcesso;
-    const e = normalizar(etapa);
-    return CICLO_DESARQUIVAMENTO.includes(e);
-}
 
     function dataInicioCiclo(p) {
         return p.data_inicio_desarquivamento ||
