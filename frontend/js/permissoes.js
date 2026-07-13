@@ -15,7 +15,18 @@
   const semAcento=v=>String(v??'').trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
   function normalizarPerfil(v){const p=semAcento(v).toUpperCase();if(p==='SEC'||p.includes('SECRETARIA'))return PERFIS.SEC;if(p.includes('MASTER'))return PERFIS.MASTER;if(p.includes('ADMIN'))return PERFIS.ADMIN;if(p.includes('ESTAG'))return PERFIS.ESTAGIARIO;if(p.includes('CONSULT'))return PERFIS.CONSULTA;if(p.includes('TECNIC'))return PERFIS.TECNICO;return String(v??'').trim();}
   function usuarioAtual(){return window.usuarioLogado||null;}
-  function pode(acao,u){const perfil=normalizarPerfil((u||usuarioAtual()||{}).perfil);return Boolean(MATRIZ[perfil]&&MATRIZ[perfil][acao]);}
+  const MAPA_ACOES={global:'dashboard.visualizar',usuarios:'usuarios.visualizar',logs:'logs.visualizar',importar:'importar',exportar:'exportar',abrirSolicitacao:'processos.criar',visualizarProcesso:'processos.visualizar',moverProcesso:'processos.movimentar',editarProcesso:'processos.editar',excluirProcesso:'processos.excluir',editarEscola:'escolas.editar'};
+  function pode(acao,u){
+    const alvo=u||usuarioAtual()||{};
+    const chave=MAPA_ACOES[acao]||acao;
+    try {
+      if (window.SIGEE_ACESSOS_INTEGRADO && typeof window.SIGEE_ACESSOS_INTEGRADO.pode==='function' && alvo===usuarioAtual()) {
+        return window.SIGEE_ACESSOS_INTEGRADO.pode(chave);
+      }
+    } catch(e){}
+    const perfil=normalizarPerfil(alvo.perfil);
+    return Boolean(MATRIZ[perfil]&&MATRIZ[perfil][acao]);
+  }
   function aplicarMenu(){const u=usuarioAtual();const toggle=(sel,vis)=>document.querySelectorAll(sel).forEach(el=>el.classList.toggle('hidden',!vis));toggle('#menu-usuarios',pode('usuarios',u));toggle('#menu-logs',pode('logs',u));toggle('#btn-importar-dados-master,.import-only',pode('importar',u));toggle('.export-only',pode('exportar',u));toggle('[onclick*="editarProcesso"],.btn-editar-processo',pode('editarProcesso',u));}
   window.SIGEE_PERMISSOES={PERFIS,MATRIZ,normalizarPerfil,perfilAtual:()=>normalizarPerfil((usuarioAtual()||{}).perfil),pode,ehGlobal:u=>pode('global',u),aplicarMenu};
   window.aplicarPermissoesMenuPorPerfil=aplicarMenu;
