@@ -12,6 +12,7 @@
   const dataValida=v=>{ if(!v)return null; const d=new Date(v); return Number.isNaN(d.getTime())?null:d; };
   const nteLabel=id=>`NTE-${String(id).padStart(2,'0')}`;
   let timer=null, historicoPendenciasCache=null, historicoCacheEm=0;
+  let metricasEscolasCache=new Map();
 
   function usuario(){ return window.usuarioLogado||null; }
   function perfil(){
@@ -118,6 +119,51 @@
     return porNte(window.usuariosDB||[],alvo).filter(u=>u.ativo!==false&&['TECNICO','ESTAGIARIO'].includes(normalizar(u.perfil))).length;
   }
 
+  function supabaseClient(){
+    try { if(typeof window.obterSupabaseSIGEE==='function') return window.obterSupabaseSIGEE(); } catch(e){}
+    try { if(window.SIGEE_SUPABASE&&typeof window.SIGEE_SUPABASE.criarCliente==='function') return window.SIGEE_SUPABASE.criarCliente(); } catch(e){}
+    return window.SIGEE_SUPABASE_CLIENT||window.supabaseClient||window.__SIGEE_V38_CLIENT||null;
+  }
+  function tabelaEscolas(){
+    return window.SIGEE_CONFIG?.supabase?.tabelas?.escolas||window.SIGEE_SUPABASE_TABELAS?.escolas||'escolas_sigee';
+  }
+  function aplicarNteQuery(query,alvo){
+    return alvo?query.eq('nte_id',Number(alvo)):query;
+  }
+  async function contarEscolasSupabase(alvo,tipo='TOTAL'){
+    const chave=`${alvo||'GLOBAL'}:${tipo}`;
+    const salvo=metricasEscolasCache.get(chave);
+    if(salvo&&Date.now()-salvo.em<60000)return salvo.valor;
+    const c=supabaseClient();
+    if(!c)return null;
+    try{
+      let q=c.from(tabelaEscolas()).select('id',{count:'exact',head:true});
+      q=aplicarNteQuery(q,alvo);
+      if(tipo==='ACERVO_RECOLHIDO') q=q.or('status_acervo.eq.RECOLHIDO,acervo.eq.RECOLHIDO');
+      if(tipo==='ESTADUAL') q=q.or('dependencia_adm.ilike.%ESTADUAL%,dependencia.ilike.%ESTADUAL%');
+      const {count,error}=await q;
+      if(error)throw error;
+      const valor=Number(count||0);
+      metricasEscolasCache.set(chave,{valor,em:Date.now()});
+      return valor;
+    }catch(e){
+      console.warn(`[SIGEE Dashboard] Contagem ${tipo} indisponível no Supabase:`,e);
+      return null;
+    }
+  }
+  async function obterMetricasEscolas(alvo,escolasLocais){
+    const [total,recolhidos,estaduais]=await Promise.all([
+      contarEscolasSupabase(alvo,'TOTAL'),
+      contarEscolasSupabase(alvo,'ACERVO_RECOLHIDO'),
+      contarEscolasSupabase(alvo,'ESTADUAL')
+    ]);
+    return {
+      total:total===null?escolasLocais.length:total,
+      recolhidos:recolhidos===null?escolasLocais.filter(acervoRecolhido).length:recolhidos,
+      estaduais:estaduais===null?escolasLocais.filter(dependenciaEstadual).length:estaduais
+    };
+  }
+
   function formatarDias(v){ return `${Number(v||0).toLocaleString('pt-BR',{maximumFractionDigits:1})} ${Number(v||0)===1?'dia':'dias'}`; }
   function escaparHtml(v){ return texto(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c])); }
   function renderizarTop10(id,registros,vazio='Sem dados'){
@@ -188,10 +234,11 @@
     const alvo=filtroNte();
     const escolas=porNte(window.escolasDB||[],alvo);
     const processos=porNte(window.processosDB||[],alvo);
+    const metricasEscolas=await obterMetricasEscolas(alvo,escolas);
 
-    setText('dash-escolas',escolas.length);
-    setText('dash-acervos',escolas.filter(acervoRecolhido).length);
-    setText('dash-estaduais',escolas.filter(dependenciaEstadual).length);
+    setText('dash-escolas',metricasEscolas.total.toLocaleString('pt-BR'));
+    setText('dash-acervos',metricasEscolas.recolhidos.toLocaleString('pt-BR'));
+    setText('dash-estaduais',metricasEscolas.estaduais.toLocaleString('pt-BR'));
     setText('dash-municipios',municipiosQuantidade(alvo));
     setText('dash-usuarios',usuariosTecnicosAtivos(alvo));
 
