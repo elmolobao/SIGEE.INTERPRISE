@@ -7802,8 +7802,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     if(!global()){ box.classList.add('hidden'); return; }
     box.classList.remove('hidden');
     const anterior=filtroAtual();
-    const ids=new Set();
-    [...(window.escolasDB||[]),...(window.processosDB||[]),...(window.usuariosDB||[])].forEach(x=>{const id=nteId(x);if(id)ids.add(id);});
+    const ids=new Set(Array.from({length:27},(_,i)=>i+1));
     sel.innerHTML='<option value="TODOS">GLOBAL - TODOS OS NTEs</option>';
     [...ids].sort((a,b)=>a-b).forEach(id=>{
       const o=document.createElement('option'); o.value=String(id); o.textContent='NTE-'+String(id).padStart(2,'0'); sel.appendChild(o);
@@ -7846,9 +7845,11 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     set('dash-acervos',escolas.filter(e=>norm(e.status_acervo||e.acervo).includes('RECOLHIDO')).length);
     set('dash-estaduais',escolas.filter(e=>norm(e.dependencia_adm||e.dependencia).includes('ESTADUAL')).length);
     const filtroMunicipios = filtroAtual();
-    const totalMunicipios = global() && (!filtroMunicipios || ['TODOS','GLOBAL','SEC - TODOS OS NTES'].includes(norm(filtroMunicipios)))
-      ? 417
-      : new Set(escolas.map(e=>norm(e.municipio)).filter(Boolean)).size;
+    const visaoGlobalMunicipios = global() && (!filtroMunicipios || ['TODOS','GLOBAL','SEC - TODOS OS NTES'].includes(norm(filtroMunicipios)));
+    const nteMunicipios = visaoGlobalMunicipios ? null : (global() ? Number(digits(filtroMunicipios)) : nteId(usuario()));
+    const totalMunicipios = visaoGlobalMunicipios
+      ? Number(window.SIGEE_TOTAL_MUNICIPIOS_BAHIA || 417)
+      : Number(window.SIGEE_MUNICIPIOS_POR_NTE?.[nteMunicipios] || 0);
     set('dash-municipios', totalMunicipios);
     set('dash-usuarios',usuarios.length);
     set('dash-proc-desarquivamento',processos.filter(ehDesarquivamento).length);
