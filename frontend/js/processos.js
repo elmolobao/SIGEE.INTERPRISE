@@ -213,12 +213,56 @@
         return payload;
     }
 
+    function gerarWorkflowInstanceIdSIGEE() {
+        try {
+            if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+                return window.crypto.randomUUID();
+            }
+        } catch (e) {}
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+            const r = Math.random() * 16 | 0;
+            const v = c === 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
+    }
+
+    async function garantirWorkflowInstanceIdSIGEE(p, cliente) {
+        if (!p) return null;
+        if (p.workflow_instance_id) return p.workflow_instance_id;
+
+        /*
+         * Em processos existentes, preserva a instância já registrada no banco.
+         * Para processos novos ou registros antigos sem instância, cria UUID.
+         */
+        if (p.id && cliente) {
+            try {
+                const tabela = (window.SIGEE_SUPABASE_TABELAS && window.SIGEE_SUPABASE_TABELAS.processos) || 'processos';
+                const { data, error } = await cliente
+                    .from(tabela)
+                    .select('workflow_instance_id')
+                    .eq('id', p.id)
+                    .maybeSingle();
+
+                if (!error && data && data.workflow_instance_id) {
+                    p.workflow_instance_id = data.workflow_instance_id;
+                    return p.workflow_instance_id;
+                }
+            } catch (e) {
+                console.warn('[SIGEE Processos] Não foi possível recuperar workflow_instance_id existente.', e);
+            }
+        }
+
+        p.workflow_instance_id = gerarWorkflowInstanceIdSIGEE();
+        return p.workflow_instance_id;
+    }
+
     function processoPayload(p) {
         garantirInicioCiclo(p);
         try {
             if (typeof processoParaSupabaseSIGEE === 'function') {
                 const payload = processoParaSupabaseSIGEE(p);
-                payload.workflow_instance_id = p.workflow_instance_id || payload.workflow_instance_id || null;
+                payload.workflow_instance_id = p.workflow_instance_id || payload.workflow_instance_id || gerarWorkflowInstanceIdSIGEE();
+                p.workflow_instance_id = payload.workflow_instance_id;
                 return protegerDatasPayloadSIGEE(payload);
             }
         } catch (e) {}
@@ -254,7 +298,7 @@
             ultimo_evento_workflow: p.ultimo_evento_workflow || null,
             ultima_mensagem_workflow: p.ultima_mensagem_workflow || null,
             contexto_analise: p.contexto_analise || null,
-            workflow_instance_id: p.workflow_instance_id || null,
+            workflow_instance_id: p.workflow_instance_id || gerarWorkflowInstanceIdSIGEE(),
             updated_at: p.updated_at || new Date().toISOString()
         };
     }
@@ -263,6 +307,7 @@
         try {
             const c = supabaseClient();
             if (!c || !p) return;
+            await garantirWorkflowInstanceIdSIGEE(p, c);
             const payload = processoPayload(p);
             const { error } = await c.from((window.SIGEE_SUPABASE_TABELAS && window.SIGEE_SUPABASE_TABELAS.processos) || 'processos')
                 .upsert(payload, { onConflict: 'id' });
