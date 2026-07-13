@@ -219,6 +219,9 @@
             ciclo: Number(p.ciclo || p.workflow_ciclo || 1),
             ultimo_evento_workflow: p.ultimo_evento_workflow || null,
             ultima_mensagem_workflow: p.ultima_mensagem_workflow || null,
+            acoes_executadas: Array.isArray(p.acoes_executadas) ? p.acoes_executadas : [],
+            ultima_acao_workflow: p.ultima_acao_workflow || null,
+            data_ultima_acao_workflow: p.data_ultima_acao_workflow || null,
             contexto_analise: p.contexto_analise || null,
             workflow_instance_id: p.workflow_instance_id || null,
             updated_at: p.updated_at || new Date().toISOString()
@@ -229,8 +232,12 @@
         try {
             const c = supabaseClient();
             if (!c || !p) return;
+            const payload = processoPayload(p);
+            payload.acoes_executadas = Array.isArray(p.acoes_executadas) ? p.acoes_executadas : (payload.acoes_executadas || []);
+            payload.ultima_acao_workflow = p.ultima_acao_workflow || payload.ultima_acao_workflow || null;
+            payload.data_ultima_acao_workflow = p.data_ultima_acao_workflow || payload.data_ultima_acao_workflow || null;
             const { error } = await c.from((window.SIGEE_SUPABASE_TABELAS && window.SIGEE_SUPABASE_TABELAS.processos) || 'processos')
-                .upsert(processoPayload(p), { onConflict: 'id' });
+                .upsert(payload, { onConflict: 'id' });
             if (error) throw error;
         } catch (e) { console.warn('SIGEE Parte 4: processo salvo localmente; Supabase não confirmou.', e); }
     }
