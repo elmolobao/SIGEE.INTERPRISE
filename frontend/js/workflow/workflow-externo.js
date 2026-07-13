@@ -320,9 +320,14 @@
         return findProcess(id);
       },
       saveProcess: async function (updated) {
+        if (!updated.workflow_instance_id) {
+          updated.workflow_instance_id = (typeof crypto !== 'undefined' && crypto.randomUUID)
+            ? crypto.randomUUID()
+            : ('WF-' + Date.now() + '-' + Math.random().toString(36).slice(2));
+        }
         const list = processList();
         const index = list.findIndex(function (item) { return String(item.id) === String(updated.id); });
-        if (index >= 0) list[index] = updated;
+        if (index >= 0) list[index] = Object.assign({}, list[index], updated);
         if (window.SIGEE_Processos && typeof window.SIGEE_Processos.salvar === 'function') {
           await window.SIGEE_Processos.salvar(updated);
         }
