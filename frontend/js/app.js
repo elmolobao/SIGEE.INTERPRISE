@@ -459,20 +459,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             };
         }
 
-        function garantirWorkflowInstanceSIGEE(p) {
-            if (!p) return null;
-            if (!p.workflow_instance_id) {
-                try {
-                    p.workflow_instance_id = (crypto && crypto.randomUUID) ? crypto.randomUUID() : ('wf-' + Date.now() + '-' + Math.random().toString(36).slice(2));
-                } catch (e) {
-                    p.workflow_instance_id = 'wf-' + Date.now() + '-' + Math.random().toString(36).slice(2);
-                }
-            }
-            return p.workflow_instance_id;
-        }
-
         function processoParaSupabaseSIGEE(p) {
-            garantirWorkflowInstanceSIGEE(p);
             return {
                 id: Number(p.id) || gerarProximoIdSIGEE(processosDB, 101),
                 aluno_nome: normalizarMaiusculoSIGEE(p.aluno || p.aluno_nome),
@@ -483,9 +470,6 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 etapa_atual: normalizarTextoSIGEE(p.etapa || p.etapa_atual || 'Desarquivamento'),
                 nte: normalizarTextoSIGEE(p.nte || 'NTE-26 Salvador'),
                 workflow_instance_id: p.workflow_instance_id || null,
-                acoes_executadas: Array.isArray(p.acoes_executadas) ? p.acoes_executadas : [],
-                ultima_acao_workflow: p.ultima_acao_workflow || null,
-                data_ultima_acao_workflow: p.data_ultima_acao_workflow || null,
                 workflow_ciclo: Number(p.workflow_ciclo || p.ciclo || 1),
                 ciclo: Number(p.ciclo || p.workflow_ciclo || 1),
                 etapa_codigo: p.etapa_codigo || null,
@@ -511,9 +495,6 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 nte: normalizarTextoSIGEE(p.nte || p.nte_vinculado || 'NTE-26 Salvador'),
                 municipio: normalizarMaiusculoSIGEE(p.municipio || p.cidade || ''),
                 workflow_instance_id: p.workflow_instance_id || null,
-                acoes_executadas: Array.isArray(p.acoes_executadas) ? p.acoes_executadas : [],
-                ultima_acao_workflow: p.ultima_acao_workflow || null,
-                data_ultima_acao_workflow: p.data_ultima_acao_workflow || null,
                 workflow_ciclo: Number(p.workflow_ciclo || p.ciclo || 1),
                 ciclo: Number(p.ciclo || p.workflow_ciclo || 1),
                 etapa_codigo: p.etapa_codigo || null,
@@ -941,7 +922,6 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         }
 
         async function salvarNovaSolicitacaoSupabaseSIGEE(registro) {
-            garantirWorkflowInstanceSIGEE(registro);
             // Salva apenas a nova solicitação nas tabelas operacionais.
             // Isso evita que o botão "Nova Solicitação" trave por erro em tabelas auxiliares.
             const erros = [];
@@ -2378,6 +2358,11 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             }
         };
 
+        function gerarWorkflowInstanceSIGEE(){
+            try { if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID(); } catch(e) {}
+            return 'WF-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+        }
+
         salvarNovaSolicitacao = function(event) {
             event.preventDefault();
             const botao = document.getElementById('btn-submeter-nova-solicitacao');
@@ -2398,7 +2383,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                     return;
                 }
                 const novoId = gerarProximoIdSIGEE(processosDB, 101);
-                const novoProcesso = { id: novoId, aluno: nomeAluno, escola: escolaNome, documento: docTipo, modalidade: modalidade, ensino: ensino, etapa: "Desarquivamento", data_etapa_atual: dataHoje, nte: nteVinculo, municipio: mun, cod_mec: mec };
+                const novoProcesso = { id: novoId, aluno: nomeAluno, aluno_nome: nomeAluno, escola: escolaNome, escola_nome: escolaNome, documento: docTipo, documento_tipo: docTipo, modalidade: modalidade, ensino: ensino, nivel_oferta: ensino, etapa: "Desarquivamento", etapa_atual: "Desarquivamento", etapa_codigo: "DES", workflow_instance_id: gerarWorkflowInstanceSIGEE(), workflow_ciclo: 1, ciclo: 1, data_etapa_atual: dataHoje, created_at: new Date().toISOString(), nte: nteVinculo, municipio: mun, cod_mec: mec };
                 processosDB.push(novoProcesso);
                 solicitacoesDB.push({ ...novoProcesso, nome_solicitante: nomeAluno, documento_solicitado: docTipo, oferta_nivel: ensino, oferta_modalidade: modalidade, fase_atual: 'Desarquivamento' });
                 registrarLog(`Nova solicitação cadastrada para ${nomeAluno} e enviada para Desarquivamento.`);
@@ -2641,6 +2626,11 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             }
         };
 
+        function gerarWorkflowInstanceSIGEE(){
+            try { if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID(); } catch(e) {}
+            return 'WF-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+        }
+
         salvarNovaSolicitacao = function(event) {
             event.preventDefault();
             const botao = document.getElementById('btn-submeter-nova-solicitacao');
@@ -2662,7 +2652,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 }
                 const dataHoje = obterDataAtualFormatada();
                 const novoId = gerarProximoIdSIGEE(processosDB, 101);
-                const novoProcesso = { id: novoId, aluno: nomeAluno, escola: escolaNome, documento: docTipo, modalidade: modalidade, ensino: ensino, etapa: "Desarquivamento", data_etapa_atual: dataHoje, nte: nteVinculo, municipio: mun, cod_mec: mec };
+                const novoProcesso = { id: novoId, aluno: nomeAluno, aluno_nome: nomeAluno, escola: escolaNome, escola_nome: escolaNome, documento: docTipo, documento_tipo: docTipo, modalidade: modalidade, ensino: ensino, nivel_oferta: ensino, etapa: "Desarquivamento", etapa_atual: "Desarquivamento", etapa_codigo: "DES", workflow_instance_id: gerarWorkflowInstanceSIGEE(), workflow_ciclo: 1, ciclo: 1, data_etapa_atual: dataHoje, created_at: new Date().toISOString(), nte: nteVinculo, municipio: mun, cod_mec: mec };
                 processosDB.push(novoProcesso);
                 const novaSol = { ...novoProcesso, nome_solicitante: nomeAluno, documento_solicitado: docTipo, oferta_nivel: ensino, oferta_modalidade: modalidade, fase_atual: 'Desarquivamento' };
                 solicitacoesDB.push(novaSol);

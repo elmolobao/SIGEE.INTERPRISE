@@ -351,6 +351,10 @@
         const proc = {
             id: novoId,
             aluno, aluno_nome: aluno,
+            workflow_instance_id: gerarWorkflowInstanceSIGEE(),
+            etapa_codigo: 'DES',
+            workflow_ciclo: 1,
+            ciclo: 1,
             escola: escolaNome, escola_nome: escolaNome,
             cod_mec: texto(document.getElementById('novo-autofill-mec').value),
             documento: texto(document.getElementById('novo-proc-documento').value), documento_tipo: texto(document.getElementById('novo-proc-documento').value),
