@@ -1,5 +1,5 @@
 /* ================================================================
-   SIGEE Enterprise 1.0.2 — PATCH 001F Dashboard — Indicadores Gerenciais e Pendências Históricas
+   SIGEE Enterprise 1.0.2 — PATCH 001F1 Dashboard — Colunas Reais da Tabela Processos
    Fonte autoritativa do Dashboard. Este arquivo deve carregar depois
    de app.js e logs.js para impedir sobrescritas por rotinas legadas.
    ================================================================ */
@@ -253,7 +253,7 @@
       const lote=unicos.slice(i,i+200);
       try{
         const {data,error}=await c.from('processos')
-          .select('id,escola_nome,escola,nome_escola,instituicao,nte,nte_nome,nte_id')
+          .select('id,escola_nome,escola_id,nte')
           .in('id',lote);
         if(error)throw error;
         resultado.push(...(data||[]));
