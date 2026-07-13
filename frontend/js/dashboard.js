@@ -1,5 +1,5 @@
 /* ================================================================
-   SIGEE Enterprise 1.0.2 — PATCH 001 Dashboard
+   SIGEE Enterprise 1.0.2 — PATCH 001D Dashboard — Contagens Supabase Compatíveis
    Fonte autoritativa do Dashboard. Este arquivo deve carregar depois
    de app.js e logs.js para impedir sobrescritas por rotinas legadas.
    ================================================================ */
@@ -125,24 +125,92 @@
     return window.SIGEE_SUPABASE_CLIENT||window.supabaseClient||window.__SIGEE_V38_CLIENT||null;
   }
   function tabelaEscolas(){
-    return window.SIGEE_CONFIG?.supabase?.tabelas?.escolas||window.SIGEE_SUPABASE_TABELAS?.escolas||'escolas_sigee';
+    return window.SIGEE_CONFIG?.supabase?.tabelas?.escolas
+      || window.SIGEE_SUPABASE_TABELAS?.escolas
+      || 'escolas_sigee';
   }
-  function aplicarNteQuery(query,alvo){
-    return alvo?query.eq('nte_id',Number(alvo)):query;
+
+  let estruturaEscolasCache=null;
+
+  async function detectarEstruturaEscolas(){
+    if(estruturaEscolasCache)return estruturaEscolasCache;
+    const c=supabaseClient();
+    if(!c)return null;
+    try{
+      const {data,error}=await c.from(tabelaEscolas()).select('*').limit(1);
+      if(error)throw error;
+      const colunas=Object.keys((data&&data[0])||{});
+      const encontrar=candidatas=>candidatas.find(nome=>colunas.includes(nome))||null;
+      estruturaEscolasCache={
+        id:encontrar(['id','escola_id','uuid','codigo_sec','cod_sec']),
+        nte:encontrar(['nte_id','nte','codigo_nte','cod_nte','territorio','nte_nome','grupo']),
+        acervo:encontrar(['status_acervo','acervo','situacao_acervo','status_do_acervo']),
+        dependencia:encontrar(['dependencia_adm','dependencia','dependencia_administrativa','rede']),
+        colunas
+      };
+      return estruturaEscolasCache;
+    }catch(e){
+      console.warn('[SIGEE Dashboard] Não foi possível detectar a estrutura de escolas:',e);
+      return null;
+    }
   }
+
+  function valorNteConsulta(alvo,coluna){
+    if(!alvo||!coluna)return null;
+    if(coluna==='nte_id'||coluna==='codigo_nte'||coluna==='cod_nte')return Number(alvo);
+    if(coluna==='nte_nome'||coluna==='nte'||coluna==='grupo'||coluna==='territorio'){
+      return `${nteLabel(Number(alvo))}`;
+    }
+    return Number(alvo);
+  }
+
+  function aplicarNteQuery(query,alvo,estrutura){
+    if(!alvo||!estrutura?.nte)return query;
+    const valor=valorNteConsulta(alvo,estrutura.nte);
+    if(['nte','nte_nome','grupo','territorio'].includes(estrutura.nte)){
+      return query.or(`${estrutura.nte}.eq.${valor},${estrutura.nte}.ilike.%${String(alvo).padStart(2,'0')}%`);
+    }
+    return query.eq(estrutura.nte,valor);
+  }
+
   async function contarEscolasSupabase(alvo,tipo='TOTAL'){
     const chave=`${alvo||'GLOBAL'}:${tipo}`;
     const salvo=metricasEscolasCache.get(chave);
     if(salvo&&Date.now()-salvo.em<60000)return salvo.valor;
+
     const c=supabaseClient();
     if(!c)return null;
+
     try{
-      let q=c.from(tabelaEscolas()).select('id',{count:'exact',head:true});
-      q=aplicarNteQuery(q,alvo);
-      if(tipo==='ACERVO_RECOLHIDO') q=q.or('status_acervo.eq.Recolhido,status_acervo.eq.RECOLHIDO,status_acervo.eq.recolhido,acervo.eq.Recolhido,acervo.eq.RECOLHIDO,acervo.eq.recolhido');
-      if(tipo==='ESTADUAL') q=q.or('dependencia_adm.ilike.%ESTADUAL%,dependencia.ilike.%ESTADUAL%');
+      const estrutura=await detectarEstruturaEscolas();
+      if(!estrutura)return null;
+
+      const campoContagem=estrutura.id||'*';
+      let q=c.from(tabelaEscolas()).select(campoContagem,{count:'exact',head:true});
+      q=aplicarNteQuery(q,alvo,estrutura);
+
+      if(tipo==='ACERVO_RECOLHIDO'){
+        if(!estrutura.acervo)return null;
+        const col=estrutura.acervo;
+        q=q.or([
+          `${col}.ilike.Recolhido`,
+          `${col}.ilike.RECOLHIDO`,
+          `${col}.ilike.recolhido`,
+          `${col}.ilike.Recolhido%`,
+          `${col}.ilike.RECOLHIDO%`,
+          `${col}.ilike.recolhido%`
+        ].join(','));
+      }
+
+      if(tipo==='ESTADUAL'){
+        if(!estrutura.dependencia)return null;
+        const col=estrutura.dependencia;
+        q=q.ilike(col,'%ESTADUAL%');
+      }
+
       const {count,error}=await q;
       if(error)throw error;
+
       const valor=Number(count||0);
       metricasEscolasCache.set(chave,{valor,em:Date.now()});
       return valor;
@@ -151,6 +219,7 @@
       return null;
     }
   }
+
   async function obterMetricasEscolas(alvo,escolasLocais){
     const [total,recolhidos,estaduais]=await Promise.all([
       contarEscolasSupabase(alvo,'TOTAL'),
