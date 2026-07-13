@@ -1,5 +1,5 @@
 /* ================================================================
-   SIGEE Enterprise 1.0.2 — PATCH 001D Dashboard — Contagens Supabase Compatíveis
+   SIGEE Enterprise 1.0.2 — PATCH 001E Dashboard — Contagens Exatas e Proteção contra Sobrescrita
    Fonte autoritativa do Dashboard. Este arquivo deve carregar depois
    de app.js e logs.js para impedir sobrescritas por rotinas legadas.
    ================================================================ */
@@ -13,6 +13,9 @@
   const nteLabel=id=>`NTE-${String(id).padStart(2,'0')}`;
   let timer=null, historicoPendenciasCache=null, historicoCacheEm=0;
   let metricasEscolasCache=new Map();
+  let valoresEstruturaisEsperados={};
+  let restaurandoDashboard=false;
+  let observadorDashboard=null;
 
   function usuario(){ return window.usuarioLogado||null; }
   function perfil(){
@@ -51,13 +54,30 @@
     const sel=document.getElementById('filtro-dashboard-nte');
     const contexto=document.getElementById('dashboard-contexto-nte');
     if(!sel||!usuario())return;
+
     if(global()){
       box?.classList.remove('hidden');
-      const anterior=sel.value||'TODOS';
+      const anterior=sel.value||window.filtroDashboardNteAtualSIGEE||'TODOS';
       sel.innerHTML='<option value="TODOS">Todos os NTEs</option>';
       for(let i=1;i<=27;i++)sel.insertAdjacentHTML('beforeend',`<option value="${i}">${nteLabel(i)}</option>`);
-      sel.value=[...sel.options].some(o=>o.value===anterior)?anterior:'TODOS';
-      sel.onchange=()=>agendar();
+      sel.value=[...sel.options].some(o=>o.value===String(anterior))?String(anterior):'TODOS';
+      window.filtroDashboardNteAtualSIGEE=sel.value;
+
+      /*
+       * O app.js possui handlers antigos ligados ao mesmo select.
+       * O listener em captura impede que eles regravem os cartões com
+       * o recorte local de 500 escolas.
+       */
+      if(!sel.dataset.dashboardAutoritativo){
+        sel.addEventListener('change',event=>{
+          event.stopImmediatePropagation();
+          window.filtroDashboardNteAtualSIGEE=sel.value;
+          metricasEscolasCache.clear();
+          agendar();
+        },true);
+        sel.dataset.dashboardAutoritativo='1';
+      }
+      sel.onchange=null;
       if(contexto)contexto.textContent=sel.value==='TODOS'?'Todos os NTEs':nteLabel(Number(sel.value));
     }else{
       box?.classList.add('hidden');
@@ -130,107 +150,47 @@
       || 'escolas_sigee';
   }
 
-  let estruturaEscolasCache=null;
-
-  async function detectarEstruturaEscolas(){
-    if(estruturaEscolasCache)return estruturaEscolasCache;
-    const c=supabaseClient();
-    if(!c)return null;
-    try{
-      const {data,error}=await c.from(tabelaEscolas()).select('*').limit(1);
-      if(error)throw error;
-      const colunas=Object.keys((data&&data[0])||{});
-      const encontrar=candidatas=>candidatas.find(nome=>colunas.includes(nome))||null;
-      estruturaEscolasCache={
-        id:encontrar(['id','escola_id','uuid','codigo_sec','cod_sec']),
-        nte:encontrar(['nte_id','nte','codigo_nte','cod_nte','territorio','nte_nome','grupo']),
-        acervo:encontrar(['status_acervo','acervo','situacao_acervo','status_do_acervo']),
-        dependencia:encontrar(['dependencia_adm','dependencia','dependencia_administrativa','rede']),
-        colunas
-      };
-      return estruturaEscolasCache;
-    }catch(e){
-      console.warn('[SIGEE Dashboard] Não foi possível detectar a estrutura de escolas:',e);
-      return null;
-    }
-  }
-
-  function valorNteConsulta(alvo,coluna){
-    if(!alvo||!coluna)return null;
-    if(coluna==='nte_id'||coluna==='codigo_nte'||coluna==='cod_nte')return Number(alvo);
-    if(coluna==='nte_nome'||coluna==='nte'||coluna==='grupo'||coluna==='territorio'){
-      return `${nteLabel(Number(alvo))}`;
-    }
-    return Number(alvo);
-  }
-
-  function aplicarNteQuery(query,alvo,estrutura){
-    if(!alvo||!estrutura?.nte)return query;
-    const valor=valorNteConsulta(alvo,estrutura.nte);
-    if(['nte','nte_nome','grupo','territorio'].includes(estrutura.nte)){
-      return query.or(`${estrutura.nte}.eq.${valor},${estrutura.nte}.ilike.%${String(alvo).padStart(2,'0')}%`);
-    }
-    return query.eq(estrutura.nte,valor);
-  }
-
-  async function contarEscolasSupabase(alvo,tipo='TOTAL'){
+  async function contarExatoEscolas(alvo,tipo='TOTAL'){
     const chave=`${alvo||'GLOBAL'}:${tipo}`;
     const salvo=metricasEscolasCache.get(chave);
-    if(salvo&&Date.now()-salvo.em<60000)return salvo.valor;
+    if(salvo&&Date.now()-salvo.em<30000)return salvo.valor;
 
     const c=supabaseClient();
-    if(!c)return null;
+    if(!c)throw new Error('Cliente Supabase indisponível.');
 
-    try{
-      const estrutura=await detectarEstruturaEscolas();
-      if(!estrutura)return null;
+    let q=c.from(tabelaEscolas()).select('id',{count:'exact',head:true});
+    if(alvo)q=q.eq('nte_id',Number(alvo));
 
-      const campoContagem=estrutura.id||'*';
-      let q=c.from(tabelaEscolas()).select(campoContagem,{count:'exact',head:true});
-      q=aplicarNteQuery(q,alvo,estrutura);
-
-      if(tipo==='ACERVO_RECOLHIDO'){
-        if(!estrutura.acervo)return null;
-        const col=estrutura.acervo;
-        q=q.or([
-          `${col}.ilike.Recolhido`,
-          `${col}.ilike.RECOLHIDO`,
-          `${col}.ilike.recolhido`,
-          `${col}.ilike.Recolhido%`,
-          `${col}.ilike.RECOLHIDO%`,
-          `${col}.ilike.recolhido%`
-        ].join(','));
-      }
-
-      if(tipo==='ESTADUAL'){
-        if(!estrutura.dependencia)return null;
-        const col=estrutura.dependencia;
-        q=q.ilike(col,'%ESTADUAL%');
-      }
-
-      const {count,error}=await q;
-      if(error)throw error;
-
-      const valor=Number(count||0);
-      metricasEscolasCache.set(chave,{valor,em:Date.now()});
-      return valor;
-    }catch(e){
-      console.warn(`[SIGEE Dashboard] Contagem ${tipo} indisponível no Supabase:`,e);
-      return null;
+    if(tipo==='ACERVO_RECOLHIDO'){
+      /*
+       * A base possui registros em status_acervo e/ou acervo.
+       * "recolhido%" evita contar "Não Recolhido".
+       */
+      q=q.or([
+        'status_acervo.ilike.recolhido%',
+        'acervo.ilike.recolhido%'
+      ].join(','));
     }
+
+    if(tipo==='ESTADUAL'){
+      q=q.ilike('dependencia_adm','%estadual%');
+    }
+
+    const {count,error}=await q;
+    if(error)throw error;
+
+    const valor=Number(count||0);
+    metricasEscolasCache.set(chave,{valor,em:Date.now()});
+    return valor;
   }
 
-  async function obterMetricasEscolas(alvo,escolasLocais){
+  async function obterMetricasEscolas(alvo){
     const [total,recolhidos,estaduais]=await Promise.all([
-      contarEscolasSupabase(alvo,'TOTAL'),
-      contarEscolasSupabase(alvo,'ACERVO_RECOLHIDO'),
-      contarEscolasSupabase(alvo,'ESTADUAL')
+      contarExatoEscolas(alvo,'TOTAL'),
+      contarExatoEscolas(alvo,'ACERVO_RECOLHIDO'),
+      contarExatoEscolas(alvo,'ESTADUAL')
     ]);
-    return {
-      total:total===null?escolasLocais.length:total,
-      recolhidos:recolhidos===null?escolasLocais.filter(acervoRecolhido).length:recolhidos,
-      estaduais:estaduais===null?escolasLocais.filter(dependenciaEstadual).length:estaduais
-    };
+    return {total,recolhidos,estaduais};
   }
 
   function formatarDias(v){ return `${Number(v||0).toLocaleString('pt-BR',{maximumFractionDigits:1})} ${Number(v||0)===1?'dia':'dias'}`; }
@@ -303,11 +263,24 @@
     const alvo=filtroNte();
     const escolas=porNte(window.escolasDB||[],alvo);
     const processos=porNte(window.processosDB||[],alvo);
-    const metricasEscolas=await obterMetricasEscolas(alvo,escolas);
+    let metricasEscolas;
+    try{
+      metricasEscolas=await obterMetricasEscolas(alvo);
+    }catch(e){
+      console.error('[SIGEE Dashboard] Falha nas contagens exatas:',e);
+      metricasEscolas={
+        total:Number((document.getElementById('dash-escolas')?.textContent||'').replace(/\D/g,''))||0,
+        recolhidos:Number((document.getElementById('dash-acervos')?.textContent||'').replace(/\D/g,''))||0,
+        estaduais:Number((document.getElementById('dash-estaduais')?.textContent||'').replace(/\D/g,''))||0
+      };
+    }
 
-    setText('dash-escolas',metricasEscolas.total.toLocaleString('pt-BR'));
-    setText('dash-acervos',metricasEscolas.recolhidos.toLocaleString('pt-BR'));
-    setText('dash-estaduais',metricasEscolas.estaduais.toLocaleString('pt-BR'));
+    valoresEstruturaisEsperados={
+      'dash-escolas':metricasEscolas.total.toLocaleString('pt-BR'),
+      'dash-acervos':metricasEscolas.recolhidos.toLocaleString('pt-BR'),
+      'dash-estaduais':metricasEscolas.estaduais.toLocaleString('pt-BR')
+    };
+    Object.entries(valoresEstruturaisEsperados).forEach(([id,valor])=>setText(id,valor));
     setText('dash-municipios',municipiosQuantidade(alvo));
     setText('dash-usuarios',usuariosTecnicosAtivos(alvo));
 
@@ -324,6 +297,30 @@
     Object.entries(contagens).forEach(([id,v])=>setText(id,v));
     await atualizarGerenciais(processos,alvo);
     setText('dashboard-ultima-atualizacao',new Date().toLocaleString('pt-BR'));
+    instalarProtecaoContraSobrescrita();
+  }
+
+  function instalarProtecaoContraSobrescrita(){
+    if(observadorDashboard)return;
+    const ids=['dash-escolas','dash-acervos','dash-estaduais'];
+    const elementos=ids.map(id=>document.getElementById(id)).filter(Boolean);
+    if(!elementos.length)return;
+
+    observadorDashboard=new MutationObserver(()=>{
+      if(restaurandoDashboard||!Object.keys(valoresEstruturaisEsperados).length)return;
+      const divergente=Object.entries(valoresEstruturaisEsperados).some(([id,esperado])=>{
+        const atual=document.getElementById(id)?.textContent?.trim();
+        return atual!==String(esperado);
+      });
+      if(divergente){
+        restaurandoDashboard=true;
+        setTimeout(()=>{
+          Object.entries(valoresEstruturaisEsperados).forEach(([id,valor])=>setText(id,valor));
+          restaurandoDashboard=false;
+        },0);
+      }
+    });
+    elementos.forEach(el=>observadorDashboard.observe(el,{childList:true,characterData:true,subtree:true}));
   }
 
   function configurarPeriodo(){
@@ -336,14 +333,30 @@
   }
   function agendar(){ clearTimeout(timer);timer=setTimeout(()=>carregar().catch(console.error),40); }
 
-  window.inicializarFiltroDashboardMasterSIGEE=configurarFiltroNte;
-  window.carregarDadosDashboardReal=agendar;
-  window.carregarDadosDashboardRealImediato=carregar;
+  function publicarFuncoesAutoritativas(){
+    window.carregarDadosDashboardReal=agendar;
+    window.carregarDadosDashboardRealImediato=carregar;
+    window.inicializarFiltroDashboardMasterSIGEE=configurarFiltroNte;
+    try{
+      carregarDadosDashboardReal=agendar;
+      carregarDadosDashboardRealImediato=carregar;
+    }catch(e){}
+  }
+  publicarFuncoesAutoritativas();
 
   const navAnterior=window.navegar;
   window.navegar=function(aba){const r=typeof navAnterior==='function'?navAnterior.apply(this,arguments):undefined;if(aba==='painel')agendar();return r;};
   try{navegar=window.navegar}catch(e){}
 
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{configurarPeriodo();agendar();});
-  else {configurarPeriodo();agendar();}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{
+    publicarFuncoesAutoritativas();
+    configurarPeriodo();
+    agendar();
+  });
+  else {
+    publicarFuncoesAutoritativas();
+    configurarPeriodo();
+    agendar();
+  }
+  setInterval(publicarFuncoesAutoritativas,2000);
 })();
