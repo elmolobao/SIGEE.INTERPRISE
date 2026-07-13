@@ -30,80 +30,15 @@
       editarEscola:true
     },
 
-    SEC:{
-      global:true,
-      usuarios:false,
-      logs:true,
-      importar:false,
-      exportar:true,
-      abrirSolicitacao:false,
-      visualizarProcesso:true,
-      moverProcesso:false,
-      editarProcesso:false,
-      excluirProcesso:false,
-      regredirProcesso:false,
-      editarEscola:false
-    },
+    SEC:{global:true,usuarios:false,logs:true,importar:false,exportar:true,abrirSolicitacao:false,visualizarProcesso:true,moverProcesso:false,editarProcesso:false,excluirProcesso:false,regredirProcesso:false,editarEscola:false},
 
-    Administrador:{
-      global:false,
-      usuarios:false,
-      logs:true,
-      importar:true,
-      exportar:true,
-      abrirSolicitacao:true,
-      visualizarProcesso:true,
-      moverProcesso:true,
-      editarProcesso:true,
-      excluirProcesso:false,
-      regredirProcesso:false,
-      editarEscola:true
-    },
+    Administrador:{global:false,usuarios:false,logs:true,importar:true,exportar:true,abrirSolicitacao:true,visualizarProcesso:true,moverProcesso:true,editarProcesso:true,excluirProcesso:false,regredirProcesso:false,editarEscola:true},
 
-    Tecnico:{
-      global:false,
-      usuarios:false,
-      logs:false,
-      importar:false,
-      exportar:false,
-      abrirSolicitacao:true,
-      visualizarProcesso:true,
-      moverProcesso:true,
-      editarProcesso:false,
-      excluirProcesso:false,
-      regredirProcesso:false,
-      editarEscola:true
-    },
+    Tecnico:{global:false,usuarios:false,logs:false,importar:false,exportar:false,abrirSolicitacao:true,visualizarProcesso:true,moverProcesso:true,editarProcesso:false,excluirProcesso:false,regredirProcesso:false,editarEscola:true},
 
-    Estagiario:{
-      global:false,
-      usuarios:false,
-      logs:false,
-      importar:false,
-      exportar:false,
-      abrirSolicitacao:true,
-      visualizarProcesso:true,
-      moverProcesso:false,
-      editarProcesso:false,
-      excluirProcesso:false,
-      regredirProcesso:false,
-      editarEscola:false
-    },
+    Estagiario:{global:false,usuarios:false,logs:false,importar:false,exportar:false,abrirSolicitacao:true,visualizarProcesso:true,moverProcesso:false,editarProcesso:false,excluirProcesso:false,regredirProcesso:false,editarEscola:false},
 
-    Consulta:{
-      global:false,
-      usuarios:false,
-      logs:false,
-      importar:false,
-      exportar:false,
-      abrirSolicitacao:false,
-      visualizarProcesso:true,
-      moverProcesso:false,
-      editarProcesso:false,
-      excluirProcesso:false,
-      regredirProcesso:false,
-      editarEscola:false
-    }
+    Consulta:{global:false,usuarios:false,logs:false,importar:false,exportar:false,abrirSolicitacao:false,visualizarProcesso:true,moverProcesso:false,editarProcesso:false,excluirProcesso:false,regredirProcesso:false,editarEscola:false}
   };
 
   const semAcento=v=>String(v??'')

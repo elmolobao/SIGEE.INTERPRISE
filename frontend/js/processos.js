@@ -78,14 +78,14 @@
         if (p.includes('ESTAG')) return 'Estagiario';
         return 'Tecnico';
     }
-    function isSEC(u) { return perfil(u) === 'SEC' || minusculo(u && u.email) === 'sec@enova.educacao.ba.gov.br'; }
+    function isSEC(u) { return perfil(u) === 'SEC'; }
     function isMaster(u) { return perfil(u) === 'Master'; }
     function isAdmin(u) { return perfil(u) === 'Administrador'; }
     function isTecnico(u) { return perfil(u) === 'Tecnico'; }
     function isConsulta(u) { return perfil(u) === 'Consulta'; }
     function isEstagiario(u) { return perfil(u) === 'Estagiario'; }
     function isGlobal(u) { return isSEC(u) || isMaster(u); }
-    function podeGerirProcessos(u) { return isSEC(u) || isMaster(u); }
+    function podeGerirProcessos(u) { return isMaster(u); }
 
     function numeroNte(v) {
         const m = texto(v).match(/NTE\s*[- ]?\s*(\d{1,2})/i);
@@ -412,10 +412,14 @@
 
     function podeMovimentar(p) {
         const u = usuario();
-        return isSEC(u) || isMaster(u) || isAdmin(u) || (isTecnico(u) && mesmoNte(nteUsuario(u), processoNte(p))); // Estagiário é somente leitura
+        if (isMaster(u)) return true;
+        if (isAdmin(u) || isTecnico(u)) return mesmoNte(nteUsuario(u), processoNte(p));
+        return false; // SEC, Consulta e Estagiário não movimentam
     }
     function acaoFluxo(p) {
+        if (isSEC(usuario())) return '<span class="text-gray-400 font-bold">Supervisão SEC</span>';
         if (isConsulta(usuario())) return '<span class="text-gray-400 font-bold">Consulta</span>';
+        if (isEstagiario(usuario())) return '<span class="text-gray-400 font-bold">Consulta</span>';
         if (!podeMovimentar(p)) return '<span class="text-gray-400 font-bold">Sem ação</span>';
         const e = normalizar(processoEtapa(p));
         if (e.includes('ANAL')) return `<button onclick="abrirAnaliseSIGEE(${p.id})" class="bg-orange-600 hover:bg-orange-500 text-white font-bold px-2 py-1 rounded text-[10px]">Abrir Análise</button>`;
@@ -465,13 +469,22 @@
             const etapa = processoEtapa(p);
             const codigo = codigoSIGEE(p);
             if (!p.codigo_sigee) p.codigo_sigee = codigo;
-            const botoesMaster = podeGerirProcessos(usuario()) ? `
+            const uAtual = usuario();
+            let botoesAdministrativos = '';
+            if (isMaster(uAtual)) {
+                botoesAdministrativos = `
                 <div class="mt-1 flex flex-wrap justify-center gap-1">
                     <button onclick="editarProcessoMasterSIGEE(${p.id})" class="bg-blue-600 text-white text-[9px] px-2 py-0.5 rounded font-bold">Editar</button>
                     <button onclick="regredirProcessoMasterSIGEE(${p.id})" class="bg-amber-700 text-white text-[9px] px-2 py-0.5 rounded font-bold">Regredir</button>
                     <button onclick="avancarProcessoMasterSIGEE(${p.id})" class="bg-emerald-700 text-white text-[9px] px-2 py-0.5 rounded font-bold">Avançar</button>
                     <button onclick="excluirProcessoMasterSIGEE(${p.id})" class="bg-red-700 text-white text-[9px] px-2 py-0.5 rounded font-bold">Excluir</button>
-                </div>` : '';
+                </div>`;
+            } else if (isAdmin(uAtual) && mesmoNte(nteUsuario(uAtual), processoNte(p))) {
+                botoesAdministrativos = `
+                <div class="mt-1 flex flex-wrap justify-center gap-1">
+                    <button onclick="editarProcessoMasterSIGEE(${p.id})" class="bg-blue-600 text-white text-[9px] px-2 py-0.5 rounded font-bold">Corrigir Cadastro</button>
+                </div>`;
+            }
             corpo.insertAdjacentHTML('beforeend', `
                 <tr class="hover:bg-blue-950/70 text-white transition-colors">
                     <td class="p-2.5">
@@ -489,7 +502,7 @@
                     <td class="p-2.5 text-center">${prazoVisual(p)}${alertaPrazo(p)}</td>
                     <td class="p-2.5 text-center text-[10px] font-semibold">${processoResponsavel(p)}</td>
                     <td class="p-2.5 text-center"><span class="sigee-etapa-badge ${corEtapa(etapa)} ${normalizar(p.contexto_analise).includes("DESARQUIVAMENTO") ? "sigee-etapa-analise-desarquivamento" : ""}">${etapa}</span></td>
-                    <td class="p-2.5 text-center">${acaoFluxo(p)}<button onclick="abrirHistoricoSIGEE(${p.id})" class="ml-1 bg-slate-700 hover:bg-slate-600 text-white font-bold px-2 py-1 rounded text-[10px]">Histórico</button>${botoesMaster}</td>
+                    <td class="p-2.5 text-center">${acaoFluxo(p)}<button onclick="abrirHistoricoSIGEE(${p.id})" class="ml-1 bg-slate-700 hover:bg-slate-600 text-white font-bold px-2 py-1 rounded text-[10px]">Histórico</button>${botoesAdministrativos}</td>
                 </tr>`);
         });
     }
@@ -527,9 +540,31 @@
     }
 
     async function editarProcessoMaster(id) {
-        if (!podeGerirProcessos(usuario())) return alert('Apenas SEC e Master podem editar processos diretamente.');
+        const u = usuario();
         const p = listaProcessos().find(x => String(x.id) === String(id));
         if (!p) return;
+
+        if (isAdmin(u)) {
+            if (!mesmoNte(nteUsuario(u), processoNte(p))) {
+                return alert('Administrador só pode corrigir processos do próprio NTE.');
+            }
+            const aluno = prompt('Nome do requerente/aluno:', processoAluno(p));
+            if (aluno === null) return;
+            const escola = prompt('Escola:', processoEscola(p));
+            if (escola === null) return;
+
+            p.aluno = p.aluno_nome = texto(aluno).toUpperCase();
+            p.escola = p.escola_nome = texto(escola).toUpperCase();
+            registrar(`[ADMINISTRADOR] Corrigiu nome/escola do processo ID ${p.id}.`);
+            await salvarProcesso(p);
+            atualizarTelas();
+            return;
+        }
+
+        if (!isMaster(u)) {
+            return alert('Correção cadastral permitida apenas para Master e Administrador.');
+        }
+
         const aluno = prompt('Aluno:', processoAluno(p)); if (aluno === null) return;
         const escola = prompt('Instituição:', processoEscola(p)); if (escola === null) return;
         const doc = prompt('Documento:', processoDocumento(p) || 'HISTÓRICO'); if (doc === null) return;
@@ -543,7 +578,7 @@
         atualizarTelas();
     }
     async function moverMaster(id, direcao) {
-        if (!podeGerirProcessos(usuario())) return alert('Apenas SEC e Master podem movimentar processos diretamente.');
+        if (!isMaster(usuario())) return alert('Avanço ou regressão manual permitido apenas para o perfil Master.');
         const p = listaProcessos().find(x => String(x.id) === String(id));
         if (!p) return;
         const atual = ETAPAS.findIndex(e => normalizar(e) === normalizar(processoEtapa(p)));
@@ -555,7 +590,7 @@
         atualizarTelas();
     }
     async function excluirProcessoMaster(id) {
-        if (!podeGerirProcessos(usuario())) return alert('Apenas SEC e Master podem excluir processos.');
+        if (!isMaster(usuario())) return alert('Exclusão de processos permitida apenas para o perfil Master.');
         const base = listaProcessos();
         const idx = base.findIndex(x => String(x.id) === String(id));
         if (idx < 0) return;
@@ -1243,3 +1278,43 @@
     }
   },1500);
 })();
+
+
+/* SIGEE 1.0.2.003B — Guarda final de permissões dos processos */
+(function(window){
+  'use strict';
+  function perfil(){
+    const p=String((window.usuarioLogado||{}).perfil||'')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
+    if(p.includes('MASTER'))return 'Master';
+    if(p.includes('SEC'))return 'SEC';
+    if(p.includes('ADMIN'))return 'Administrador';
+    if(p.includes('CONSULT'))return 'Consulta';
+    if(p.includes('ESTAG'))return 'Estagiario';
+    return 'Tecnico';
+  }
+  function protegerMaster(nome,mensagem){
+    const original=window[nome];
+    if(typeof original!=='function'||original.__SIGEE_MASTER_PROCESSO__)return;
+    const protegido=function(){
+      if(perfil()!=='Master'){
+        alert(mensagem);
+        return false;
+      }
+      return original.apply(this,arguments);
+    };
+    protegido.__SIGEE_MASTER_PROCESSO__=true;
+    window[nome]=protegido;
+  }
+  function aplicar(){
+    protegerMaster('regredirProcessoMasterSIGEE','Regressão manual permitida apenas para o perfil Master.');
+    protegerMaster('regredirProcessoMasterV45','Regressão manual permitida apenas para o perfil Master.');
+    protegerMaster('avancarProcessoMasterSIGEE','Avanço manual permitido apenas para o perfil Master.');
+    protegerMaster('avancarProcessoMasterV45','Avanço manual permitido apenas para o perfil Master.');
+    protegerMaster('excluirProcessoMasterSIGEE','Exclusão permitida apenas para o perfil Master.');
+    protegerMaster('excluirProcessoMasterV45','Exclusão permitida apenas para o perfil Master.');
+  }
+  window.addEventListener('load',()=>setTimeout(aplicar,0));
+  document.addEventListener('DOMContentLoaded',()=>setTimeout(aplicar,500));
+  setTimeout(aplicar,1500);
+})(window);
