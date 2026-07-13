@@ -32,10 +32,27 @@
     function dataInicioCiclo(p) {
         return p.data_inicio_desarquivamento ||
                p.data_desarquivamento ||
+               p.data_inicio_ciclo ||
+               p.inicio_ciclo ||
                p.data_etapa_inicial ||
+               p.prazo_inicio ||
                p.created_at ||
                p.criado_em ||
                p.data_etapa_atual;
+    }
+
+    function garantirInicioCiclo(p) {
+        if (!p) return p;
+        if (!p.data_inicio_desarquivamento) {
+            p.data_inicio_desarquivamento =
+                p.data_inicio_ciclo ||
+                p.data_desarquivamento ||
+                p.data_etapa_inicial ||
+                p.created_at ||
+                p.data_etapa_atual ||
+                null;
+        }
+        return p;
     }
 
     const GRUPO_SEC = 'SEC - TODOS OS NTEs';
@@ -197,6 +214,7 @@
     }
 
     function processoPayload(p) {
+        garantirInicioCiclo(p);
         try {
             if (typeof processoParaSupabaseSIGEE === 'function') {
                 const payload = processoParaSupabaseSIGEE(p);
