@@ -5965,85 +5965,30 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     try{ processarImportacaoOtimizada = window.processarImportacaoOtimizada; }catch(e){}
   }
 
-  function lerOnlineV40(){
-    const mapa = Object.assign({}, window.SIGEE_USUARIOS_ONLINE || {});
-    try{ Object.assign(mapa, JSON.parse(localStorage.getItem('SIGEE_USUARIOS_ONLINE') || '{}')); }catch(e){}
-    const agora = Date.now();
-    return Object.values(mapa).filter(u => {
-      const ts = Number(u.ts || 0);
-      return !ts || (agora - ts) < (1000 * 60 * 60 * 8); // mantém online nas últimas 8h
-    });
-  }
-
-  function salvarOnlineV40(mapa){
-    window.SIGEE_USUARIOS_ONLINE = mapa;
-    try{ localStorage.setItem('SIGEE_USUARIOS_ONLINE', JSON.stringify(mapa)); }catch(e){}
-  }
-
+  /* PATCH 1.0.2.002
+   * O painel V40 de usuários conectados foi desativado porque utilizava
+   * localStorage e mantinha sessões por até 8 horas. A presença oficial
+   * passa a ser exclusivamente a tabela usuarios_online_sigee, controlada
+   * por logs.js.
+   */
   function registrarUsuarioConectadoV40(acao){
-    const u = usuarioAtual();
-    if(!u || !u.email) return;
-    const agora = new Date();
-    let mapa = {};
-    try{ mapa = JSON.parse(localStorage.getItem('SIGEE_USUARIOS_ONLINE') || '{}'); }catch(e){ mapa = {}; }
-    mapa[low(u.email)] = {
-      nome: u.nome || '', email: u.email || '', nte: u.nte || '', perfil: perfilV40(u.perfil),
-      ultimo: agora.toLocaleString('pt-BR'), ts: agora.getTime()
-    };
-    salvarOnlineV40(mapa);
-    try{
-      if(typeof registrarLog === 'function' && acao) registrarLog(acao);
-    }catch(e){}
+    if(!acao)return;
+    try{ if(typeof registrarLog==='function') registrarLog(acao); }catch(e){}
   }
 
-  function garantirDashboardLogV40(){
-    const secao = document.getElementById('aba-logs');
-    if(!secao || document.getElementById('painel-usuarios-conectados-v40')) return;
-    const bloco = document.createElement('div');
-    bloco.id = 'painel-usuarios-conectados-v40';
-    bloco.className = 'bg-white/10 rounded-xl border border-cyan-700/40 shadow-sm p-4 space-y-3 text-white';
-    bloco.innerHTML = `
-      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-        <div>
-          <h2 class="text-lg font-bold text-cyan-100">👥 Usuários conectados no sistema</h2>
-          <p class="text-xs text-cyan-200/80">Sessões registradas neste navegador/ambiente de uso.</p>
-        </div>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-center">
-          <div class="bg-blue-950/70 rounded-lg p-3"><p class="text-[10px] uppercase text-cyan-200">Total</p><p id="log-v40-total" class="text-xl font-black">0</p></div>
-          <div class="bg-blue-950/70 rounded-lg p-3"><p class="text-[10px] uppercase text-cyan-200">SEC/Master</p><p id="log-v40-master" class="text-xl font-black">0</p></div>
-          <div class="bg-blue-950/70 rounded-lg p-3"><p class="text-[10px] uppercase text-cyan-200">Admin</p><p id="log-v40-admin" class="text-xl font-black">0</p></div>
-          <div class="bg-blue-950/70 rounded-lg p-3"><p class="text-[10px] uppercase text-cyan-200">Técnico/Consulta</p><p id="log-v40-operacao" class="text-xl font-black">0</p></div>
-        </div>
-      </div>
-      <div class="overflow-x-auto rounded-lg border border-cyan-700/30">
-        <table class="w-full text-left text-xs">
-          <thead class="bg-cyan-950/70 text-cyan-100 uppercase"><tr><th class="p-2">Usuário</th><th class="p-2">Perfil</th><th class="p-2">NTE</th><th class="p-2">Último acesso</th><th class="p-2">Status</th></tr></thead>
-          <tbody id="tabela-usuarios-conectados-v40" class="divide-y divide-cyan-900/40"></tbody>
-        </table>
-      </div>`;
-    const tabelaLogs = secao.querySelector('.bg-white.rounded-xl, table') || null;
-    if(tabelaLogs && tabelaLogs.parentElement === secao) secao.insertBefore(bloco, tabelaLogs);
-    else secao.prepend(bloco);
+  function removerPainelUsuariosConectadosV40(){
+    document.getElementById('painel-usuarios-conectados-v40')?.remove();
   }
 
   function atualizarUsuariosConectadosV40(){
-    garantirDashboardLogV40();
-    const online = lerOnlineV40();
-    const set = (id, val) => { const el = document.getElementById(id); if(el) el.innerText = val; };
-    set('log-v40-total', online.length);
-    set('log-v40-master', online.filter(u => ['SEC','Master'].includes(perfilV40(u.perfil))).length);
-    set('log-v40-admin', online.filter(u => perfilV40(u.perfil)==='Administrador').length);
-    set('log-v40-operacao', online.filter(u => ['Tecnico','Consulta'].includes(perfilV40(u.perfil))).length);
-    const corpo = document.getElementById('tabela-usuarios-conectados-v40');
-    if(corpo){
-      corpo.innerHTML = online.length ? online.map(u => `<tr class="hover:bg-white/5"><td class="p-2 font-bold">${txt(u.nome)}<br><span class="font-mono text-cyan-200/80">${txt(u.email)}</span></td><td class="p-2">${perfilV40(u.perfil)}</td><td class="p-2">${txt(u.nte)}</td><td class="p-2">${txt(u.ultimo)}</td><td class="p-2"><span class="bg-emerald-500/20 text-emerald-200 px-2 py-0.5 rounded-full font-bold">ONLINE</span></td></tr>`).join('') : '<tr><td colspan="5" class="p-3 text-center text-cyan-100/70">Nenhum usuário registrado como conectado.</td></tr>';
-    }
+    removerPainelUsuariosConectadosV40();
+    try{ window.atualizarDashboardUsuariosConectadosSIGEE?.(); }catch(e){}
   }
 
   const logsAnteriorV40 = window.carregarLogs || (typeof carregarLogs !== 'undefined' ? carregarLogs : null);
   window.carregarLogs = function(){
-    if(typeof logsAnteriorV40 === 'function') logsAnteriorV40.apply(this, arguments);
-    atualizarUsuariosConectadosV40();
+    removerPainelUsuariosConectadosV40();
+    if(typeof logsAnteriorV40 === 'function') return logsAnteriorV40.apply(this, arguments);
   };
   try{ carregarLogs = window.carregarLogs; }catch(e){}
 
@@ -6069,9 +6014,8 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     garantirUsuariosBaseV40();
     setTimeout(aplicarPermissoesV40, 400);
     setTimeout(aplicarPermissoesV40, 1500);
-    setTimeout(atualizarUsuariosConectadosV40, 1600);
+    setTimeout(removerPainelUsuariosConectadosV40, 1600);
   });
-  setInterval(function(){ if(usuarioAtual()) registrarUsuarioConectadoV40(); if(!document.getElementById('aba-logs')?.classList.contains('hidden')) atualizarUsuariosConectadosV40(); }, 60000);
 })();
 
 

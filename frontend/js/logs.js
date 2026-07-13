@@ -211,11 +211,12 @@
   }
 
   async function atualizarDashboardUsuariosConectadosSIGEE() {
+    document.getElementById('painel-usuarios-conectados-v40')?.remove();
     const online = await obterOnline();
     const set = (id, valor) => { const el = document.getElementById(id); if (el) el.innerText = valor; };
     set('log-usuarios-conectados', online.length);
     set('log-conectados-master', online.filter(x => ['Master', 'SEC'].includes(perfilCanonico(x.perfil))).length);
-    set('log-conectados-operacao', online.filter(x => ['Tecnico', 'Administrador', 'Estagiario'].includes(perfilCanonico(x.perfil))).length);
+    set('log-conectados-operacao', online.filter(x => ['Administrador', 'Tecnico', 'Consulta', 'Estagiario'].includes(perfilCanonico(x.perfil))).length);
     set('log-ultimo-acesso', online[0] ? dataBR(online[0].ultimo_acesso) : '-');
 
     let corpo = document.getElementById('tabela-tecnicos-online-sigee');
@@ -225,13 +226,13 @@
       if (secao && tabelaLogs) {
         const bloco = document.createElement('div');
         bloco.className = 'bg-white rounded-xl shadow-sm border overflow-hidden';
-        bloco.innerHTML = `<div class="p-4 border-b"><h2 class="font-bold text-blue-900">Técnicos logados no sistema</h2><p class="text-xs text-gray-500">Ativos nos últimos 3 minutos.</p></div><div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead class="bg-gray-100"><tr><th class="p-3">Técnico</th><th class="p-3">Perfil</th><th class="p-3">NTE</th><th class="p-3">Última atividade</th><th class="p-3">Situação</th></tr></thead><tbody id="tabela-tecnicos-online-sigee"></tbody></table></div>`;
+        bloco.innerHTML = `<div class="p-4 border-b"><h2 class="font-bold text-blue-900">Usuários conectados no sistema</h2><p class="text-xs text-gray-500">Sessões com atividade nos últimos 3 minutos, registradas no Supabase.</p></div><div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead class="bg-gray-100"><tr><th class="p-3">Usuário</th><th class="p-3">Perfil</th><th class="p-3">NTE</th><th class="p-3">Última atividade</th><th class="p-3">Situação</th></tr></thead><tbody id="tabela-tecnicos-online-sigee"></tbody></table></div>`;
         tabelaLogs.parentNode.insertBefore(bloco, tabelaLogs);
         corpo = document.getElementById('tabela-tecnicos-online-sigee');
       }
     }
     if (corpo) {
-      corpo.innerHTML = online.length ? online.map(x => `<tr class="border-b"><td class="p-3 font-bold">${esc(x.nome)}<br><span class="text-xs font-normal text-gray-500">${esc(x.email)}</span></td><td class="p-3">${esc(perfilCanonico(x.perfil))}</td><td class="p-3">${esc(x.nte)}</td><td class="p-3">${esc(dataBR(x.ultimo_acesso))}</td><td class="p-3"><span class="px-2 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">ONLINE</span></td></tr>`).join('') : '<tr><td colspan="5" class="p-4 text-center text-gray-400">Nenhum técnico conectado neste momento.</td></tr>';
+      corpo.innerHTML = online.length ? online.map(x => `<tr class="border-b"><td class="p-3 font-bold">${esc(x.nome)}<br><span class="text-xs font-normal text-gray-500">${esc(x.email)}</span></td><td class="p-3">${esc(perfilCanonico(x.perfil))}</td><td class="p-3">${esc(x.nte)}</td><td class="p-3">${esc(dataBR(x.ultimo_acesso))}</td><td class="p-3"><span class="px-2 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">ONLINE</span></td></tr>`).join('') : '<tr><td colspan="5" class="p-4 text-center text-gray-400">Nenhum usuário conectado neste momento.</td></tr>';
     }
   }
 
