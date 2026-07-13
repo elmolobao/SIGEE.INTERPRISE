@@ -15,7 +15,7 @@
   if (window.__SIGEE_WORKFLOW_EXTERNO_095__) return;
   window.__SIGEE_WORKFLOW_EXTERNO_095__ = true;
 
-  const VERSION = '1.0.1c';
+  const VERSION = '1.0.1d';
   const EXTERNAL_STATES = Object.freeze(['DES', 'RET', 'REU', 'CFD']);
 
   const ACTIONS = Object.freeze({
@@ -302,7 +302,8 @@
     try {
       if (typeof window.recarregarCentralProcessosSIGEE === 'function') {
         await window.recarregarCentralProcessosSIGEE(true);
-      } else if (window.SIGEE_Processos && typeof window.SIGEE_Processos.contar === 'function') {
+      }
+      if (window.SIGEE_Processos && typeof window.SIGEE_Processos.contar === 'function') {
         window.SIGEE_Processos.contar();
       }
     } catch (error) {
