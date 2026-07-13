@@ -929,3 +929,110 @@
   window.SIGEE_USUARIOS_26 = { SENHA_PADRAO, PERFIS, perfilCanonico, normalizarUsuario, carregarUsuariosSupabase, salvarUsuario, atualizarListaUsuarios, isEstagiario, isGlobal };
 })();
 
+
+/* =====================================================================
+   SIGEE 1.0.2.003A2 — Guarda final da Administração de Usuários
+   Impede que rotinas legadas autorizem SEC ou outros perfis.
+   ===================================================================== */
+(function(window){
+  'use strict';
+
+  function perfilAtual(){
+    const valor=(window.usuarioLogado||{}).perfil||'';
+    const p=String(valor).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
+    if(p.includes('MASTER'))return 'Master';
+    if(p.includes('SEC'))return 'SEC';
+    if(p.includes('ADMIN'))return 'Administrador';
+    if(p.includes('CONSULT'))return 'Consulta';
+    if(p.includes('ESTAG'))return 'Estagiario';
+    return 'Tecnico';
+  }
+
+  function somenteMaster(){
+    return perfilAtual()==='Master';
+  }
+
+  function negar(){
+    alert('Operação permitida apenas para o perfil Master.');
+    return false;
+  }
+
+  const NOMES_PROTEGIDOS=[
+    'abrirModalCriarUsuarioMaster',
+    'abrirModalNovoUsuarioMaster',
+    'abrirModalEditarUsuarioMaster',
+    'salvarNovoUsuarioFormularioMaster',
+    'toggleStatusUsuarioMaster',
+    'resetarSenhaUsuarioMaster',
+    'excluirUsuarioSistemaSIGEE',
+    'excluirUsuarioSistemaMasterV45'
+  ];
+
+  function proteger(nome){
+    const original=window[nome];
+    if(typeof original!=='function'||original.__SIGEE_MASTER_ONLY__)return;
+    const protegido=function(){
+      if(!somenteMaster())return negar();
+      return original.apply(this,arguments);
+    };
+    protegido.__SIGEE_MASTER_ONLY__=true;
+    protegido.__original=original;
+    window[nome]=protegido;
+    try{ eval(nome+' = window[nome]'); }catch(e){}
+  }
+
+  function estabilizarInterface(){
+    const permitido=somenteMaster();
+    const menu=document.getElementById('menu-usuarios');
+    if(menu){
+      menu.classList.toggle('hidden',!permitido);
+      menu.style.display=permitido?'':'none';
+      menu.setAttribute('aria-hidden',permitido?'false':'true');
+    }
+
+    const aba=document.getElementById('aba-usuarios');
+    if(aba&&!permitido&&!aba.classList.contains('hidden')){
+      aba.classList.add('hidden');
+      document.getElementById('aba-painel')?.classList.remove('hidden');
+    }
+
+    NOMES_PROTEGIDOS.forEach(proteger);
+  }
+
+  const navegarAnterior=window.navegar;
+  if(typeof navegarAnterior==='function'&&!navegarAnterior.__SIGEE_USUARIOS_MASTER_ONLY__){
+    const protegido=function(aba){
+      if(aba==='usuarios'&&!somenteMaster())return negar();
+      return navegarAnterior.apply(this,arguments);
+    };
+    protegido.__SIGEE_USUARIOS_MASTER_ONLY__=true;
+    window.navegar=protegido;
+    try{navegar=protegido}catch(e){}
+  }
+
+  window.SIGEE_ESTABILIZAR_USUARIOS_MASTER_ONLY=estabilizarInterface;
+
+  document.addEventListener('DOMContentLoaded',()=>{
+    estabilizarInterface();
+    setTimeout(estabilizarInterface,300);
+    setTimeout(estabilizarInterface,1200);
+  });
+  window.addEventListener('load',estabilizarInterface);
+
+  const observador=new MutationObserver(()=>{
+    const menu=document.getElementById('menu-usuarios');
+    if(menu&&!somenteMaster()&&(menu.style.display!=='none'||!menu.classList.contains('hidden'))){
+      estabilizarInterface();
+    }
+  });
+  if(document.documentElement){
+    observador.observe(document.documentElement,{
+      childList:true,
+      subtree:true,
+      attributes:true,
+      attributeFilter:['class','style']
+    });
+  }
+
+  setTimeout(estabilizarInterface,2500);
+})(window);
