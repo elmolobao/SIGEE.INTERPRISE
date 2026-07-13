@@ -265,12 +265,22 @@
     updated.updated_at = toISO(now);
     updated.prazo_etapa = deadlineDays;
 
+    // Mantém o relógio do ciclo de Desarquivamento.
+    // As etapas RET/REU/CFD são continuidade do mesmo ciclo.
+    if (!updated.data_inicio_desarquivamento) {
+      updated.data_inicio_desarquivamento =
+        process.data_inicio_desarquivamento ||
+        process.data_desarquivamento ||
+        process.created_at ||
+        toISO(now);
+    }
+
     if (deadlineDays != null) {
       updated.prazo_inicio = toISO(now);
       updated.prazo_fim = toISO(addDays(now, deadlineDays));
     } else {
-      updated.prazo_inicio = null;
-      updated.prazo_fim = null;
+      updated.prazo_inicio = process.prazo_inicio || null;
+      updated.prazo_fim = process.prazo_fim || null;
     }
 
     if (eventCode === 'RETIFICAR_DADOS') {
