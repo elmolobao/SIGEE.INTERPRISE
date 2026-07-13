@@ -451,17 +451,6 @@
           confirmed: payload.confirmed,
           messageCode: message.code
         });
-
-        // Mantém a instância atual sincronizada antes do refresh.
-        // Evita que o Workflow desapareça por causa de estado local antigo
-        // quando a transição já foi persistida no Supabase.
-        if (result && result.process) {
-          const lista = processList();
-          const idx = lista.findIndex(function(item){ return String(item.id) === String(result.process.id); });
-          if (idx >= 0) lista[idx] = result.process;
-          window.processosDB = lista;
-        }
-
         actionHistoryCache.set(actionKey(workflowInstanceId(findProcess(process.id) || process), result.event === 'RETIFICAR_DADOS' ? result.cycle - 1 : result.cycle, result.event), true);
         await refreshScreens();
         toast(result.message + ' Nova etapa: ' + result.nextStateName + '.');
