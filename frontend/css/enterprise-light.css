@@ -1,0 +1,67 @@
+/*
+ SIGEE ENTERPRISE LIGHT INSTITUTIONAL 1.0
+ Camada consolidada de identidade visual.
+ Não altera workflow, regras ou dados.
+*/
+/* =====================================================================
+   SIGEE ENTERPRISE LIGHT INSTITUTIONAL 1.0
+   Camada visual - não altera workflow, regras ou dados
+   ===================================================================== */
+:root{
+ --sigee-blue:#0f4c81;
+ --sigee-cyan:#0891b2;
+ --sigee-bg:#f3f6fa;
+ --sigee-card:#ffffff;
+ --sigee-text:#1e293b;
+}
+body{
+ background:#f3f6fa !important;
+ color:var(--sigee-text) !important;
+}
+#sistema-dashboard aside{
+ background:linear-gradient(180deg,#0f4c81,#123b63) !important;
+ border-right:1px solid #cbd5e1 !important;
+}
+#sistema-dashboard aside h2{
+ color:#ffffff !important;
+ text-shadow:none !important;
+}
+main, .sigee-main{
+ background:#f3f6fa !important;
+}
+.bg-white, section > div:first-child{
+ background:#ffffff !important;
+ color:#1e293b !important;
+ box-shadow:0 8px 24px rgba(15,23,42,.08) !important;
+ border-color:#dbe4ee !important;
+}
+h1,h2,h3,.text-blue-900,.text-blue-950{
+ color:#0f4c81 !important;
+ text-shadow:none !important;
+}
+.sigee-etapa-badge{
+ display:inline-flex;
+ align-items:center;
+ justify-content:center;
+ padding:.35rem .65rem;
+ border-radius:999px;
+ font-weight:800;
+ font-size:.72rem;
+}
+.sigee-etapa-analise{background:#2563eb!important;color:#fff!important}
+.sigee-etapa-analise-desarquivamento{background:#ea580c!important;color:#fff!important}
+.sigee-etapa-desarquivamento{background:#16a34a!important;color:#fff!important}
+.sigee-etapa-pendencia{background:#dc2626!important;color:#fff!important}
+.sigee-etapa-digitacao{background:#0891b2!important;color:#fff!important}
+.sigee-etapa-conferencia{background:#f97316!important;color:#fff!important}
+.sigee-etapa-assinatura{background:#eab308!important;color:#111827!important}
+.sigee-etapa-retirado{background:#64748b!important;color:#fff!important}
+.sigee-etapa-nova{background:#94a3b8!important;color:#fff!important}
+
+/* Workflow externo visual */
+.sigee-stage-documento{background:#16a34a;color:#fff}
+.sigee-stage-reiteracao{background:#eab308;color:#111827}
+.sigee-stage-urgente{background:#f97316;color:#fff}
+.sigee-stage-confirmacao{background:#dc2626;color:#fff}
+.sigee-stage-retificacao{background:#94a3b8;color:#fff}
+.sigee-stage-atas{background:#111827;color:#fff}
