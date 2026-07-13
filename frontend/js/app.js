@@ -7845,7 +7845,11 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     set('dash-escolas',escolas.length);
     set('dash-acervos',escolas.filter(e=>norm(e.status_acervo||e.acervo).includes('RECOLHIDO')).length);
     set('dash-estaduais',escolas.filter(e=>norm(e.dependencia_adm||e.dependencia).includes('ESTADUAL')).length);
-    set('dash-municipios',new Set(escolas.map(e=>norm(e.municipio)).filter(Boolean)).size);
+    const filtroMunicipios = filtroAtual();
+    const totalMunicipios = global() && (!filtroMunicipios || ['TODOS','GLOBAL','SEC - TODOS OS NTES'].includes(norm(filtroMunicipios)))
+      ? 417
+      : new Set(escolas.map(e=>norm(e.municipio)).filter(Boolean)).size;
+    set('dash-municipios', totalMunicipios);
     set('dash-usuarios',usuarios.length);
     set('dash-proc-desarquivamento',processos.filter(ehDesarquivamento).length);
     const contar=n=>processos.filter(p=>etapa(p)===n).length;
