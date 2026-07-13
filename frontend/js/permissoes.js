@@ -139,6 +139,8 @@
     const toggle=(sel,vis)=>{
       document.querySelectorAll(sel).forEach(el=>{
         el.classList.toggle('hidden',!vis);
+        el.style.display = vis ? '' : 'none';
+        el.setAttribute('aria-hidden', vis ? 'false' : 'true');
         if('disabled' in el)el.disabled=!vis;
       });
     };
@@ -160,6 +162,21 @@
     }
   }
 
+
+  let observadorPermissoes=null;
+  function instalarObservadorPermissoes(){
+    if(observadorPermissoes||!document.body)return;
+    observadorPermissoes=new MutationObserver(()=>{
+      const menu=document.getElementById('menu-usuarios');
+      const deveExibir=pode('usuarios',usuarioAtual());
+      if(menu){
+        const visivel=menu.style.display!=='none'&&!menu.classList.contains('hidden');
+        if(visivel!==deveExibir)aplicarMenu();
+      }
+    });
+    observadorPermissoes.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class','style']});
+  }
+
   window.SIGEE_PERMISSOES={
     PERFIS,
     MATRIZ,
@@ -174,9 +191,12 @@
 
   document.addEventListener('DOMContentLoaded',()=>{
     aplicarMenu();
+    instalarObservadorPermissoes();
     setTimeout(aplicarMenu,250);
     setTimeout(aplicarMenu,900);
   });
-  window.addEventListener('load',()=>setTimeout(aplicarMenu,250));
-  setInterval(aplicarMenu,1500);
+  window.addEventListener('load',()=>{
+    aplicarMenu();
+    instalarObservadorPermissoes();
+  });
 })(window);
