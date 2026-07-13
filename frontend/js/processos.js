@@ -224,6 +224,9 @@
             data_ultima_acao_workflow: p.data_ultima_acao_workflow || null,
             contexto_analise: p.contexto_analise || null,
             workflow_instance_id: p.workflow_instance_id || null,
+            acoes_executadas: p.acoes_executadas || [],
+            ultima_acao_workflow: p.ultima_acao_workflow || null,
+            data_ultima_acao_workflow: p.data_ultima_acao_workflow || null,
             updated_at: p.updated_at || new Date().toISOString()
         };
     }
