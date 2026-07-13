@@ -765,80 +765,64 @@ button[id^="btn-fase-"] span:not(.status-ico){
     }
 }
 
-/* =====================================================
-   SIGEE ENTERPRISE LIGHT INSTITUTIONAL - Sprint Visual 1.0
-   Camada visual - sem alteração de workflow
-===================================================== */
-:root {
-  --sigee-primary: #075fd9;
-  --sigee-primary-dark: #063b8f;
-  --sigee-cyan: #00a8e8;
-  --sigee-bg: #f5f8fc;
-  --sigee-card: #ffffff;
-  --sigee-text: #132238;
-  --sigee-border: #dbe5f2;
-  --sigee-green: #16a34a;
-  --sigee-yellow: #eab308;
-  --sigee-orange: #f97316;
-  --sigee-red: #dc2626;
-  --sigee-gray: #64748b;
-  --sigee-black: #111827;
+/* ============================================================
+   SIGEE ENTERPRISE LIGHT INSTITUTIONAL 1.0
+   Sprint Identidade Visual - camada visual somente
+   ============================================================ */
+:root{
+ --sigee-primary:#0b5ed7;
+ --sigee-cyan:#06b6d4;
+ --sigee-bg:#f4f8fc;
+ --sigee-card:#ffffff;
+ --sigee-text:#1f2937;
+ --sigee-border:#dbe5f0;
+ --etapa-documento:#16a34a;
+ --etapa-reiteracao:#eab308;
+ --etapa-urgente:#f97316;
+ --etapa-confirmacao:#dc2626;
+ --etapa-retificacao:#6b7280;
+ --etapa-atas:#111827;
+ --etapa-analise:#2563eb;
+ --etapa-ciclo:#ea580c;
 }
 
-body {
-  background: var(--sigee-bg) !important;
-  color: var(--sigee-text);
+body{
+ background:#f4f8fc !important;
+ color:var(--sigee-text) !important;
 }
 
 .sigee-enterprise-card,
 .card,
-.panel,
-.workflow-card {
-  background: var(--sigee-card);
-  border: 1px solid var(--sigee-border);
-  border-radius: 14px;
-  box-shadow: 0 6px 18px rgba(15, 23, 42, .06);
+.dashboard-card,
+.processo-card{
+ background:var(--sigee-card) !important;
+ color:var(--sigee-text) !important;
+ border:1px solid var(--sigee-border) !important;
+ border-radius:16px !important;
+ box-shadow:0 8px 24px rgba(15,23,42,.08) !important;
 }
 
-.sigee-stage-badge {
-  display:inline-flex;
-  align-items:center;
-  gap:6px;
-  padding:6px 12px;
-  border-radius:20px;
-  font-weight:700;
-  font-size:.82rem;
+.sigee-stage-badge{
+ display:inline-flex;
+ align-items:center;
+ gap:6px;
+ padding:7px 14px;
+ border-radius:999px;
+ font-weight:700;
+ font-size:.82rem;
+ color:#fff;
+}
+.sigee-documento{background:var(--etapa-documento)!important}
+.sigee-reiteracao{background:var(--etapa-reiteracao)!important;color:#111!important}
+.sigee-urgente{background:var(--etapa-urgente)!important}
+.sigee-confirmacao{background:var(--etapa-confirmacao)!important}
+.sigee-retificacao{background:var(--etapa-retificacao)!important}
+.sigee-atas{background:var(--etapa-atas)!important}
+.sigee-analise{background:var(--etapa-analise)!important}
+.sigee-analise-ciclo{background:var(--etapa-ciclo)!important}
+
+.sigee-enterprise-header{
+ background:#fff;
+ border-bottom:1px solid var(--sigee-border);
 }
 
-.stage-documento {background:#dcfce7;color:#166534;}
-.stage-reiteracao {background:#fef9c3;color:#854d0e;}
-.stage-urgencia {background:#ffedd5;color:#9a3412;}
-.stage-confirmacao {background:#fee2e2;color:#991b1b;}
-.stage-retificacao {background:#f1f5f9;color:#475569;}
-.stage-atas {background:#111827;color:white;}
-.stage-analise {background:#dbeafe;color:#1d4ed8;}
-.stage-analise-desarquivamento {background:#ffedd5;color:#c2410c;}
-
-.sigee-header-enterprise {
-  background:#fff;
-  border-bottom:1px solid var(--sigee-border);
-}
-
-.sigee-title {
-  color:var(--sigee-primary-dark);
-  font-weight:800;
-  letter-spacing:.02em;
-}
-
-.sigee-kpi-card {
-  background:white;
-  border:1px solid var(--sigee-border);
-  border-radius:16px;
-  padding:18px;
-}
-
-.sigee-kpi-value {
-  font-size:2rem;
-  font-weight:800;
-  color:var(--sigee-primary-dark);
-}
