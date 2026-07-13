@@ -139,7 +139,7 @@
     try{
       let q=c.from(tabelaEscolas()).select('id',{count:'exact',head:true});
       q=aplicarNteQuery(q,alvo);
-      if(tipo==='ACERVO_RECOLHIDO') q=q.or('status_acervo.eq.RECOLHIDO,acervo.eq.RECOLHIDO');
+      if(tipo==='ACERVO_RECOLHIDO') q=q.or('status_acervo.eq.Recolhido,status_acervo.eq.RECOLHIDO,status_acervo.eq.recolhido,acervo.eq.Recolhido,acervo.eq.RECOLHIDO,acervo.eq.recolhido');
       if(tipo==='ESTADUAL') q=q.or('dependencia_adm.ilike.%ESTADUAL%,dependencia.ilike.%ESTADUAL%');
       const {count,error}=await q;
       if(error)throw error;
