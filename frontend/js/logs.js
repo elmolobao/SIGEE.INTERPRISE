@@ -213,10 +213,22 @@
   async function atualizarDashboardUsuariosConectadosSIGEE() {
     const online = await obterOnline();
     const set = (id, valor) => { const el = document.getElementById(id); if (el) el.innerText = valor; };
+    const totalMaster = online.filter(x => ['Master', 'SEC'].includes(perfilCanonico(x.perfil))).length;
+    const totalAdmin = online.filter(x => perfilCanonico(x.perfil) === 'Administrador').length;
+    const totalOperacao = online.filter(x => ['Tecnico', 'Administrador', 'Estagiario', 'Consulta'].includes(perfilCanonico(x.perfil))).length;
+
+    // Painel oficial do módulo de Logs.
     set('log-usuarios-conectados', online.length);
-    set('log-conectados-master', online.filter(x => ['Master', 'SEC'].includes(perfilCanonico(x.perfil))).length);
-    set('log-conectados-operacao', online.filter(x => ['Tecnico', 'Administrador', 'Estagiario'].includes(perfilCanonico(x.perfil))).length);
+    set('log-conectados-master', totalMaster);
+    set('log-conectados-operacao', totalOperacao);
     set('log-ultimo-acesso', online[0] ? dataBR(online[0].ultimo_acesso) : '-');
+
+    // Compatibilidade com o painel legado V40 existente no app.js.
+    // Antes ele lia apenas o localStorage do navegador atual, por isso mostrava somente o próprio usuário.
+    set('log-v40-total', online.length);
+    set('log-v40-master', totalMaster);
+    set('log-v40-admin', totalAdmin);
+    set('log-v40-operacao', online.filter(x => ['Tecnico', 'Consulta', 'Estagiario'].includes(perfilCanonico(x.perfil))).length);
 
     let corpo = document.getElementById('tabela-tecnicos-online-sigee');
     if (!corpo) {
@@ -232,6 +244,12 @@
     }
     if (corpo) {
       corpo.innerHTML = online.length ? online.map(x => `<tr class="border-b"><td class="p-3 font-bold">${esc(x.nome)}<br><span class="text-xs font-normal text-gray-500">${esc(x.email)}</span></td><td class="p-3">${esc(perfilCanonico(x.perfil))}</td><td class="p-3">${esc(x.nte)}</td><td class="p-3">${esc(dataBR(x.ultimo_acesso))}</td><td class="p-3"><span class="px-2 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">ONLINE</span></td></tr>`).join('') : '<tr><td colspan="5" class="p-4 text-center text-gray-400">Nenhum técnico conectado neste momento.</td></tr>';
+    }
+
+    // Atualiza também a relação do painel legado com os mesmos dados globais do Supabase.
+    const corpoV40 = document.getElementById('tabela-usuarios-conectados-v40');
+    if (corpoV40) {
+      corpoV40.innerHTML = online.length ? online.map(x => `<tr class="hover:bg-white/5"><td class="p-2 font-bold">${esc(x.nome)}<br><span class="font-mono text-cyan-200/80">${esc(x.email)}</span></td><td class="p-2">${esc(perfilCanonico(x.perfil))}</td><td class="p-2">${esc(x.nte)}</td><td class="p-2">${esc(dataBR(x.ultimo_acesso))}</td><td class="p-2"><span class="bg-emerald-500/20 text-emerald-200 px-2 py-0.5 rounded-full font-bold">ONLINE</span></td></tr>`).join('') : '<tr><td colspan="5" class="p-3 text-center text-cyan-100/70">Nenhum usuário conectado neste momento.</td></tr>';
     }
   }
 
