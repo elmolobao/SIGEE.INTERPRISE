@@ -132,7 +132,34 @@
     function processoDocumento(p) { return texto(p && (p.documento || p.documento_tipo || p.documento_solicitado)); }
     function processoModalidade(p) { return texto(p && (p.modalidade || p.oferta_modalidade || p.nivel_oferta || p.ensino)); }
     function processoPrioridade(p) { return texto(p && p.prioridade) || 'Normal'; }
-    function processoResponsavel(p) { return texto(p && (p.tecnico_responsavel || p.responsavel || p.usuario_responsavel || p.criado_por)) || 'Não atribuído'; }
+    function processoResponsavel(p) {
+        if (!p) return 'Não atribuído';
+        const etapa = normalizar(processoEtapa(p));
+        const porEtapa = etapa.includes('ANAL')
+            ? (p.analista_nome || p.analista || p.tecnico_analista)
+            : etapa.includes('DIGIT')
+                ? (p.digitador_nome || p.digitador)
+                : etapa.includes('CONFER')
+                    ? (p.conferente_nome || p.conferente)
+                    : etapa.includes('ASSIN')
+                        ? (p.responsavel_assinatura_nome || p.responsavel_assinatura || p.enviado_assinatura_por)
+                        : null;
+        return texto(
+            porEtapa ||
+            p.tecnico_responsavel_nome ||
+            p.tecnico_responsavel ||
+            p.responsavel_nome ||
+            p.responsavel ||
+            p.usuario_responsavel_nome ||
+            p.usuario_responsavel ||
+            p.tecnico_nome ||
+            p.analista_nome || p.analista ||
+            p.digitador_nome || p.digitador ||
+            p.conferente_nome || p.conferente ||
+            p.atribuido_para_nome || p.atribuido_para ||
+            p.criado_por_nome || p.criado_por
+        ) || 'Não atribuído';
+    }
     function anoProcesso(p) {
         const bruto = texto(p && (p.data_solicitacao || p.created_at || p.criado_em || p.data_abertura));
         const m = bruto.match(/(20\d{2})/);
@@ -753,7 +780,10 @@
       nte: r.nte || r.nte_nome || r.grupo || '',
       modalidade: r.modalidade || r.oferta_modalidade || r.nivel_oferta || '',
       prioridade: r.prioridade || 'Normal',
-      tecnico_responsavel: r.tecnico_responsavel || r.responsavel || r.usuario_responsavel || '',
+      tecnico_responsavel: r.tecnico_responsavel_nome || r.tecnico_responsavel || r.responsavel_nome || r.responsavel || r.usuario_responsavel_nome || r.usuario_responsavel || r.tecnico_nome || r.analista_nome || r.analista || r.digitador_nome || r.digitador || r.conferente_nome || r.conferente || r.atribuido_para_nome || r.atribuido_para || '',
+      analista_nome: r.analista_nome || r.analista || '',
+      digitador_nome: r.digitador_nome || r.digitador || '',
+      conferente_nome: r.conferente_nome || r.conferente || '',
       codigo_sigee: r.codigo_sigee || '',
       pendencia_aluno_itens: r.pendencia_aluno_itens || [],
       pendencia_instituicao_itens: r.pendencia_instituicao_itens || [],
@@ -906,7 +936,7 @@
     try{if(!c)throw new Error('Cliente Supabase indisponível');const {error}=await c.from('historico_processos').insert(registro);if(error)throw error;return true;}catch(e){console.error('[SIGEE] Histórico não gravado.',e);toast('A ação foi salva, mas o histórico não pôde ser registrado.','erro');return false;}
   }
   async function salvar(p){if(window.SIGEE_Processos?.salvar)await window.SIGEE_Processos.salvar(p);if(window.recarregarCentralProcessosSIGEE)await window.recarregarCentralProcessosSIGEE(true);else window.SIGEE_Processos?.contar?.();}
-  function resumo(p){const etapa=txt(p.etapa_atual||p.etapa),dias=window.SIGEE_Processos?.diasDesde?.(p.data_etapa_atual||p.created_at)||0,limite=norm(etapa).includes('ANAL')?7:null;return `<div class="sigee-resumo33"><div><span>Aluno</span><strong>${escapar(p.aluno||p.aluno_nome||'-')}</strong></div><div><span>Escola</span><strong>${escapar(p.escola||p.escola_nome||'-')}</strong></div><div><span>Modalidade</span><strong>${escapar(p.modalidade||'-')}</strong></div><div><span>Prioridade</span><strong>${escapar(p.prioridade||'Normal')}</strong></div><div><span>Prazo da etapa</span><strong>${limite?`${dias}/${limite}`:`${dias} dias`}</strong></div><div><span>Quem analisou</span><strong>${escapar(p.tecnico_responsavel||p.responsavel||'Não atribuído')}</strong></div><div><span>Data da solicitação</span><strong>${escapar(p.data_solicitacao||p.created_at||'-')}</strong></div><div><span>Entrada na etapa</span><strong>${escapar(p.data_etapa_atual||'-')}</strong></div></div>`;}
+  function resumo(p){const etapa=txt(p.etapa_atual||p.etapa),dias=window.SIGEE_Processos?.diasDesde?.(p.data_etapa_atual||p.created_at)||0,limite=norm(etapa).includes('ANAL')?7:null;return `<div class="sigee-resumo33"><div><span>Aluno</span><strong>${escapar(p.aluno||p.aluno_nome||'-')}</strong></div><div><span>Escola</span><strong>${escapar(p.escola||p.escola_nome||'-')}</strong></div><div><span>Modalidade</span><strong>${escapar(p.modalidade||'-')}</strong></div><div><span>Prioridade</span><strong>${escapar(p.prioridade||'Normal')}</strong></div><div><span>Prazo da etapa</span><strong>${limite?`${dias}/${limite}`:`${dias} dias`}</strong></div><div><span>Quem analisou</span><strong>${escapar(p.analista_nome||p.analista||p.digitador_nome||p.digitador||p.conferente_nome||p.conferente||p.tecnico_responsavel_nome||p.tecnico_responsavel||p.responsavel_nome||p.responsavel||p.usuario_responsavel_nome||p.usuario_responsavel||p.tecnico_nome||'Não atribuído')}</strong></div><div><span>Data da solicitação</span><strong>${escapar(p.data_solicitacao||p.created_at||'-')}</strong></div><div><span>Entrada na etapa</span><strong>${escapar(p.data_etapa_atual||'-')}</strong></div></div>`;}
   function mensagemPendencia(aluno,inst){if(!aluno.length&&!inst.length)return null;if(aluno.length&&inst.length)return {codigo:'09',texto:'09 - Aluno Pendência (INSTITUIÇÃO e REQUERENTE)'};if(inst.length)return {codigo:'08',texto:'08 - Aluno Pendência (INSTITUIÇÃO)'};return {codigo:'07',texto:'07 - Aluno Pendência (Aluno)'};}
   function cardTarefa(msg,confirmado=false){if(!msg)return '';return `<section class="sigee-tarefa-obrigatoria33"><div class="sigee-tarefa-icone33">📧</div><div class="sigee-tarefa-conteudo33"><span>TAREFA OBRIGATÓRIA</span><strong>ENVIAR E-MAIL: ${escapar(msg.texto)}</strong><p>Execute a mensagem institucional na ferramenta de e-mail e confirme abaixo antes de registrar a pendência.</p><label><input type="checkbox" id="pend-email33" ${confirmado?'checked':''}> Confirmo que executei esta tarefa.</label></div></section>`;}
   function checks(valores,nome,selecionados=[]){return valores.map(v=>`<label class="sigee-check33"><input type="checkbox" name="${nome}" value="${escapar(v)}" ${selecionados.includes(v)?'checked':''}><span>${escapar(v)}</span></label>`).join('');}
