@@ -485,7 +485,9 @@
            */
           atualizado.data_inicio_desarquivamento = agora;
           atualizado.data_inicio_ciclo = agora;
+          atualizado.inicio_ciclo = agora;
           atualizado.prazo_inicio = agora;
+          atualizado.prazo_fim = new Date(new Date(agora).getTime() + (30 * 86400000)).toISOString();
           atualizado.dias_decorridos = 0;
         } else {
           /*
@@ -494,6 +496,12 @@
            */
           atualizado.data_inicio_desarquivamento = inicioAnterior;
           atualizado.data_inicio_ciclo = inicioAnterior;
+          atualizado.inicio_ciclo = atualizado.inicio_ciclo || inicioAnterior;
+          atualizado.prazo_inicio = process.prazo_inicio || inicioAnterior;
+          atualizado.ciclo = Number(process.ciclo || process.workflow_ciclo || 1);
+          atualizado.workflow_ciclo = Number(process.workflow_ciclo || process.ciclo || 1);
+          const diasTotais = window.TransitionManager.elapsedDays(inicioAnterior, agora);
+          if (Number.isFinite(diasTotais)) atualizado.dias_decorridos = Math.max(0, diasTotais);
         }
 
         /*
