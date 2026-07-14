@@ -29,27 +29,6 @@
         return CICLO_DESARQUIVAMENTO.includes(e);
     }
 
-    function deslocamentoEstadoCiclo(p) {
-        const codigo = normalizar(p && p.etapa_codigo);
-        const etapa = normalizar(processoEtapa(p));
-        if (codigo === 'RET' || etapa === 'REITERACAO') return 30;
-        if (codigo === 'REU' || etapa.includes('REITERACAO URG')) return 37;
-        if (codigo === 'CFD' || etapa.includes('CONFIRMACAO') || etapa.includes('CONFIRMAR DADOS')) return 44;
-        if (etapa.includes('PEDIDO DE ATAS')) return 51;
-        return 0;
-    }
-
-    function inferirInicioCicloLegado(p) {
-        if (!p) return null;
-        const referencia = p.data_etapa_atual || p.data_etapa || p.etapa_iniciada_em || p.updated_at;
-        const deslocamento = deslocamentoEstadoCiclo(p);
-        if (!referencia || !deslocamento) return null;
-        const data = new Date(referencia);
-        if (Number.isNaN(data.getTime())) return null;
-        data.setDate(data.getDate() - deslocamento);
-        return data.toISOString();
-    }
-
     function dataInicioCiclo(p) {
         if (!p) return null;
         return p.data_inicio_desarquivamento ||
@@ -57,8 +36,6 @@
                p.inicio_ciclo ||
                p.data_desarquivamento ||
                p.data_etapa_inicial ||
-               p.prazo_inicio_ciclo ||
-               inferirInicioCicloLegado(p) ||
                p.created_at ||
                p.criado_em ||
                p.prazo_inicio ||
@@ -78,9 +55,7 @@
             p.data_inicio_ciclo ||
             p.inicio_ciclo ||
             p.data_desarquivamento ||
-            p.data_etapa_inicial ||
-            p.prazo_inicio_ciclo ||
-            inferirInicioCicloLegado(p);
+            p.data_etapa_inicial;
 
         if (!existente) {
             const origem =
@@ -161,7 +136,7 @@
         if (!p) return 'Não atribuído';
         const etapa = normalizar(processoEtapa(p));
         const porEtapa = etapa.includes('ANAL')
-            ? (p.analista_nome || p.analista || p.analista_selecionado_nome || p.analista_selecionado || p.tecnico_analista)
+            ? (p.analista_nome || p.analista || p.tecnico_analista)
             : etapa.includes('DIGIT')
                 ? (p.digitador_nome || p.digitador)
                 : etapa.includes('CONFER')
@@ -178,7 +153,7 @@
             p.usuario_responsavel_nome ||
             p.usuario_responsavel ||
             p.tecnico_nome ||
-            p.analista_nome || p.analista || p.analista_selecionado_nome || p.analista_selecionado ||
+            p.analista_nome || p.analista ||
             p.digitador_nome || p.digitador ||
             p.conferente_nome || p.conferente ||
             p.atribuido_para_nome || p.atribuido_para ||
@@ -343,19 +318,6 @@
                 const responsavelAtual = processoResponsavel(p);
                 if (responsavelAtual && responsavelAtual !== 'Não atribuído') {
                     payload.tecnico_responsavel = responsavelAtual;
-                    p.tecnico_responsavel = responsavelAtual;
-                }
-
-                /* Mantém a âncora temporal nos campos que já fazem parte do modelo.
-                   Não envia colunas novas para evitar incompatibilidade com o schema. */
-                const inicioCiclo = dataInicioCiclo(p);
-                if (inicioCiclo) {
-                    p.data_inicio_desarquivamento = inicioCiclo;
-                    p.data_inicio_ciclo = inicioCiclo;
-                    p.prazo_inicio_ciclo = inicioCiclo;
-                    if ('data_inicio_desarquivamento' in payload) payload.data_inicio_desarquivamento = inicioCiclo;
-                    if ('data_inicio_ciclo' in payload) payload.data_inicio_ciclo = inicioCiclo;
-                    if ('prazo_inicio_ciclo' in payload) payload.prazo_inicio_ciclo = inicioCiclo;
                 }
 
                 return protegerDatasPayloadSIGEE(payload);
@@ -385,9 +347,6 @@
             finalizado_em: p.finalizado_em || null,
             etapa_codigo: p.etapa_codigo || null,
             data_etapa_atual: p.data_etapa_atual || null,
-            data_inicio_desarquivamento: dataInicioCiclo(p) || null,
-            data_inicio_ciclo: dataInicioCiclo(p) || null,
-            prazo_inicio_ciclo: dataInicioCiclo(p) || null,
             prazo_etapa: p.prazo_etapa == null ? null : Number(p.prazo_etapa),
             prazo_inicio: p.prazo_inicio || null,
             prazo_fim: p.prazo_fim || null,
@@ -537,22 +496,21 @@
         const alerta = alertaPorEtapa || alertaChave(p);
         const permiteRetificacao = ['RET', 'REU', 'CFD'].includes(codigoEtapa) || retificacaoDisponivel(alerta);
         const executada = acaoJaExecutada(p, alerta);
-        const botaoDocumentoRecebido = `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'DESARQUIVAMENTO')" class="ml-1 bg-emerald-700 hover:bg-emerald-600 text-white font-bold px-2 py-1 rounded text-[10px]">Documento Recebido</button>`;
         const botaoRetificacao = permiteRetificacao ? `<button onclick="abrirRetificacaoDadosSIGEE(${p.id})" class="ml-1 bg-gray-600 hover:bg-gray-500 text-white font-bold px-2 py-1 rounded text-[10px]">Retificação dos Dados</button>` : '';
         if (alerta === 'REITERACAO') return (executada
             ? '<span class="text-gray-400 font-bold">Reiteração executada</span>'
-            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'REITERACAO')" class="bg-amber-600 text-white font-bold px-2 py-1 rounded text-[10px]">Executar Reiteração</button>`) + botaoRetificacao + botaoDocumentoRecebido;
+            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'REITERACAO')" class="bg-amber-600 text-white font-bold px-2 py-1 rounded text-[10px]">Executar Reiteração</button>`) + botaoRetificacao;
         if (alerta === 'REITERACAO_URGENTE') return (executada
             ? '<span class="text-gray-400 font-bold">Reiteração urgente executada</span>'
-            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'REITERACAO_URGENTE')" class="bg-orange-600 text-white font-bold px-2 py-1 rounded text-[10px]">Executar Reiteração Urgente</button>`) + botaoRetificacao + botaoDocumentoRecebido;
+            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'REITERACAO_URGENTE')" class="bg-orange-600 text-white font-bold px-2 py-1 rounded text-[10px]">Executar Reiteração Urgente</button>`) + botaoRetificacao;
         if (alerta === 'CONFIRMAR_DADOS') return (executada
             ? '<span class="text-gray-400 font-bold">Dados confirmados</span>'
-            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'CONFIRMAR_DADOS')" class="bg-red-600 text-white font-bold px-2 py-1 rounded text-[10px]">Confirmar Dados da Busca</button>`) + botaoRetificacao + botaoDocumentoRecebido;
-        if (alerta === 'PEDIDO_ATAS_SEM_PASTA') return (executada
+            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'CONFIRMAR_DADOS')" class="bg-red-600 text-white font-bold px-2 py-1 rounded text-[10px]">Confirmar Dados da Busca</button>`) + botaoRetificacao;
+        if (alerta === 'PEDIDO_ATAS_SEM_PASTA') return executada
             ? '<span class="text-gray-400 font-bold">Atas solicitadas</span>'
-            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'PEDIDO_ATAS_SEM_PASTA')" class="bg-red-800 text-white font-bold px-2 py-1 rounded text-[10px]">Solicitar Atas sem Pasta</button>`) + botaoDocumentoRecebido;
+            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'PEDIDO_ATAS_SEM_PASTA')" class="bg-red-800 text-white font-bold px-2 py-1 rounded text-[10px]">Solicitar Atas sem Pasta</button>`;
 
-        return botaoDocumentoRecebido;
+        return `<button onclick="abrirDocumentoRecebidoDiretoSIGEE(${p.id})" class="bg-sky-700 text-white font-bold px-2 py-1 rounded text-[10px]">Documento Recebido</button>`;
     }
 
     function renderizarProcessos() {
@@ -701,6 +659,22 @@
         atualizarTelas();
     }
 
+    function abrirDocumentoRecebidoDiretoSIGEE(id) {
+        if (typeof window.abrirDocumentoRecebidoSIGEE === 'function') {
+            return window.abrirDocumentoRecebidoSIGEE(id);
+        }
+        /*
+         * Fallback para ambientes em que workflow-externo.js ainda não terminou
+         * de carregar. Usa a referência homologada preservada pelo módulo externo,
+         * quando disponível.
+         */
+        if (window.SIGEE_WORKFLOW_EXTERNO &&
+            typeof window.SIGEE_WORKFLOW_EXTERNO.openDocumentReceived === 'function') {
+            return window.SIGEE_WORKFLOW_EXTERNO.openDocumentReceived(id);
+        }
+        alert('O formulário de Documento Recebido ainda não foi carregado. Atualize a página e tente novamente.');
+    }
+
     function aplicarModuloProcessos() {
         window.carregarEContarProcessosHorizontais = atualizarContadoresProcessos;
         window.renderizarProcessosFlutuantes = renderizarProcessos;
@@ -714,6 +688,7 @@
         window.excluirProcessoMasterSIGEE = excluirProcessoMaster;
         window.excluirProcessoMasterV45 = excluirProcessoMaster;
         window.copiarCodigoSIGEE = copiarCodigoSIGEE;
+        window.abrirDocumentoRecebidoDiretoSIGEE = abrirDocumentoRecebidoDiretoSIGEE;
     }
 
     window.SIGEE_Processos = {
@@ -822,14 +797,14 @@
           convertido.tecnico_responsavel_nome || convertido.tecnico_responsavel ||
           convertido.responsavel_nome || convertido.responsavel ||
           convertido.usuario_responsavel_nome || convertido.usuario_responsavel ||
-          convertido.tecnico_nome || convertido.analista_nome || convertido.analista || convertido.analista_selecionado_nome || convertido.analista_selecionado ||
+          convertido.tecnico_nome || convertido.analista_nome || convertido.analista ||
           convertido.digitador_nome || convertido.digitador ||
           convertido.conferente_nome || convertido.conferente ||
           convertido.atribuido_para_nome || convertido.atribuido_para ||
           r.tecnico_responsavel_nome || r.tecnico_responsavel ||
           r.responsavel_nome || r.responsavel ||
           r.usuario_responsavel_nome || r.usuario_responsavel ||
-          r.tecnico_nome || r.analista_nome || r.analista || r.analista_selecionado_nome || r.analista_selecionado ||
+          r.tecnico_nome || r.analista_nome || r.analista ||
           r.digitador_nome || r.digitador ||
           r.conferente_nome || r.conferente ||
           r.atribuido_para_nome || r.atribuido_para || '';
@@ -839,8 +814,7 @@
           ...r,
           ...convertido,
           tecnico_responsavel: responsavelConvertido,
-          analista: convertido.analista || convertido.analista_nome || convertido.analista_selecionado || r.analista || r.analista_nome || r.analista_selecionado || '',
-          analista_nome: convertido.analista_nome || convertido.analista || convertido.analista_selecionado_nome || convertido.analista_selecionado || r.analista_nome || r.analista || r.analista_selecionado_nome || r.analista_selecionado || '',
+          analista_nome: convertido.analista_nome || convertido.analista || r.analista_nome || r.analista || '',
           digitador_nome: convertido.digitador_nome || convertido.digitador || r.digitador_nome || r.digitador || '',
           conferente_nome: convertido.conferente_nome || convertido.conferente || r.conferente_nome || r.conferente || ''
         };
@@ -860,17 +834,10 @@
       nte: r.nte || r.nte_nome || r.grupo || '',
       modalidade: r.modalidade || r.oferta_modalidade || r.nivel_oferta || '',
       prioridade: r.prioridade || 'Normal',
-      tecnico_responsavel: r.tecnico_responsavel_nome || r.tecnico_responsavel || r.responsavel_nome || r.responsavel || r.usuario_responsavel_nome || r.usuario_responsavel || r.tecnico_nome || r.analista_nome || r.analista || r.analista_selecionado_nome || r.analista_selecionado || r.digitador_nome || r.digitador || r.conferente_nome || r.conferente || r.atribuido_para_nome || r.atribuido_para || '',
-      tecnico_responsavel_nome: r.tecnico_responsavel_nome || r.tecnico_responsavel || '',
-      responsavel: r.responsavel || r.tecnico_responsavel || '',
-      responsavel_nome: r.responsavel_nome || r.tecnico_responsavel_nome || r.tecnico_responsavel || '',
-      analista: r.analista || r.analista_nome || r.analista_selecionado || '',
-      analista_nome: r.analista_nome || r.analista || r.analista_selecionado_nome || r.analista_selecionado || '',
+      tecnico_responsavel: r.tecnico_responsavel_nome || r.tecnico_responsavel || r.responsavel_nome || r.responsavel || r.usuario_responsavel_nome || r.usuario_responsavel || r.tecnico_nome || r.analista_nome || r.analista || r.digitador_nome || r.digitador || r.conferente_nome || r.conferente || r.atribuido_para_nome || r.atribuido_para || '',
+      analista_nome: r.analista_nome || r.analista || '',
       digitador_nome: r.digitador_nome || r.digitador || '',
       conferente_nome: r.conferente_nome || r.conferente || '',
-      data_inicio_desarquivamento: r.data_inicio_desarquivamento || r.data_inicio_ciclo || r.prazo_inicio_ciclo || null,
-      data_inicio_ciclo: r.data_inicio_ciclo || r.data_inicio_desarquivamento || r.prazo_inicio_ciclo || null,
-      prazo_inicio_ciclo: r.prazo_inicio_ciclo || r.data_inicio_desarquivamento || r.data_inicio_ciclo || null,
       codigo_sigee: r.codigo_sigee || '',
       pendencia_aluno_itens: r.pendencia_aluno_itens || [],
       pendencia_instituicao_itens: r.pendencia_instituicao_itens || [],
@@ -1315,7 +1282,7 @@
     btn.addEventListener('click',async()=>{
       if(!sel.value||!chk.checked) return;
       btn.disabled=true;
-      p.etapa=p.etapa_atual='Digitação'; p.data_etapa_atual=agora(); p.tecnico_responsavel=sel.value; p.tecnico_responsavel_nome=sel.value; p.digitador=sel.value; p.digitador_nome=sel.value; p.pendencia_aberta=false;
+      p.etapa=p.etapa_atual='Digitação'; p.data_etapa_atual=agora(); p.tecnico_responsavel=sel.value; p.digitador=sel.value; p.pendencia_aberta=false;
       await salvar(p);
       await historico(p,'Digitação','Encaminhado para Digitação',`${origem}. Digitador: ${sel.value}. Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}.`,{digitador:sel.value,mensagem:msg,tarefa_confirmada:true});
       fechar(); if(window.filtrarProcessosPorEtapa) window.filtrarProcessosPorEtapa('Digitação'); toast('Processo encaminhado para Digitação.');
@@ -1331,7 +1298,7 @@
     const semUsuarios=el.querySelector('.sigee-selecao-semusuarios093'); if(semUsuarios) semUsuarios.remove();
     const validar=()=>{atualizarDestaqueTecnico(el,sel);btn.disabled=!(sel.value&&chk.checked);}; sel.addEventListener('change',validar); chk.addEventListener('change',validar);
     el.querySelector('[data-cancelar093]').addEventListener('click',fechar);
-    btn.addEventListener('click',async()=>{btn.disabled=true;p.etapa=p.etapa_atual='Conferência';p.data_etapa_atual=agora();p.tecnico_responsavel=sel.value;p.tecnico_responsavel_nome=sel.value;p.conferente=sel.value;p.conferente_nome=sel.value;await salvar(p);await historico(p,'Conferência','Encaminhado para Conferência',`Digitação concluída. Conferente: ${sel.value}. Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}.`,{conferente:sel.value,mensagem:msg,tarefa_confirmada:true});fechar();if(window.filtrarProcessosPorEtapa)window.filtrarProcessosPorEtapa('Conferência');toast('Processo encaminhado para Conferência.');});
+    btn.addEventListener('click',async()=>{btn.disabled=true;p.etapa=p.etapa_atual='Conferência';p.data_etapa_atual=agora();p.tecnico_responsavel=sel.value;p.conferente=sel.value;await salvar(p);await historico(p,'Conferência','Encaminhado para Conferência',`Digitação concluída. Conferente: ${sel.value}. Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}.`,{conferente:sel.value,mensagem:msg,tarefa_confirmada:true});fechar();if(window.filtrarProcessosPorEtapa)window.filtrarProcessosPorEtapa('Conferência');toast('Processo encaminhado para Conferência.');});
   }
 
   function abrirConferencia(id){
@@ -1340,7 +1307,7 @@
     const el=modal(`✔️ Conferência Concluída — ${esc(p.codigo_sigee||p.id)}`,`${cabecalho(p)}${tarefa(msg)}<div class="sigee-acoes33"><button class="btn33 btn33-cinza" data-cancelar093>Cancelar</button><button class="btn33 btn33-verde" data-confirmar093 disabled>Enviar para Assinatura</button></div>`);
     const chk=el.querySelector('#wf-email093'),btn=el.querySelector('[data-confirmar093]'); chk.addEventListener('change',()=>btn.disabled=!chk.checked);
     el.querySelector('[data-cancelar093]').addEventListener('click',fechar);
-    btn.addEventListener('click',async()=>{btn.disabled=true;p.etapa=p.etapa_atual='Assinatura';p.data_etapa_atual=agora();p.tecnico_responsavel=nomeUsuario();p.tecnico_responsavel_nome=nomeUsuario();p.responsavel_assinatura_nome=nomeUsuario();p.enviado_assinatura_por=nomeUsuario();await salvar(p);await historico(p,'Assinatura','Encaminhado para Assinatura',`Conferência concluída. Enviado para assinatura por ${nomeUsuario()}. Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}.`,{enviado_por:nomeUsuario(),mensagem:msg,tarefa_confirmada:true});fechar();if(window.filtrarProcessosPorEtapa)window.filtrarProcessosPorEtapa('Assinatura');toast('Processo encaminhado para Assinatura.');});
+    btn.addEventListener('click',async()=>{btn.disabled=true;p.etapa=p.etapa_atual='Assinatura';p.data_etapa_atual=agora();p.tecnico_responsavel=nomeUsuario();p.enviado_assinatura_por=nomeUsuario();await salvar(p);await historico(p,'Assinatura','Encaminhado para Assinatura',`Conferência concluída. Enviado para assinatura por ${nomeUsuario()}. Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}.`,{enviado_por:nomeUsuario(),mensagem:msg,tarefa_confirmada:true});fechar();if(window.filtrarProcessosPorEtapa)window.filtrarProcessosPorEtapa('Assinatura');toast('Processo encaminhado para Assinatura.');});
   }
 
   function abrirAssinatura(id){
@@ -1561,77 +1528,3 @@
     setTimeout(aplicar,1500);
   });
 })(window);
-
-
-/* =====================================================================
-   SIGEE Enterprise 2.0.1 — Integração final do responsável da Análise
-   Captura o analista selecionado no procedimento Documento Recebido antes
-   de o manipulador legado persistir a entrada do processo em Análise.
-   ===================================================================== */
-(function(){
-  'use strict';
-  if(window.__SIGEE_RESPONSAVEL_ANALISE_201__) return;
-  window.__SIGEE_RESPONSAVEL_ANALISE_201__=true;
-
-  function txt(v){return v==null?'':String(v).trim();}
-  function lista(){return Array.isArray(window.processosDB)?window.processosDB:[];}
-  function processo(id){return lista().find(p=>String(p.id)===String(id))||null;}
-
-  function valorAnalista(){
-    const sel=document.getElementById('f00-analista') ||
-      document.querySelector('[name="analista"], [name="analista_nome"], select[id*="analista"]');
-    if(!sel) return '';
-    const option=sel.options && sel.selectedIndex>=0 ? sel.options[sel.selectedIndex] : null;
-    return txt(sel.value || option?.dataset?.nome || option?.textContent);
-  }
-
-  function aplicarAnalista(id){
-    const nome=valorAnalista();
-    const p=processo(id);
-    if(!p || !nome || /selecione/i.test(nome)) return;
-    p.analista=nome;
-    p.analista_nome=nome;
-    p.analista_selecionado=nome;
-    p.analista_selecionado_nome=nome;
-    p.tecnico_responsavel=nome;
-    p.tecnico_responsavel_nome=nome;
-    p.responsavel=nome;
-    p.responsavel_nome=nome;
-  }
-
-  function prepararCaptura(id){
-    setTimeout(()=>{
-      const botao=document.getElementById('f00-submit');
-      const analista=document.getElementById('f00-analista');
-      const form=botao?.form || analista?.form;
-      if(botao && !botao.dataset.sigeeResponsavelCaptura){
-        botao.dataset.sigeeResponsavelCaptura='1';
-        botao.addEventListener('click',()=>aplicarAnalista(id),true);
-      }
-      if(form && !form.dataset.sigeeResponsavelCaptura){
-        form.dataset.sigeeResponsavelCaptura='1';
-        form.addEventListener('submit',()=>aplicarAnalista(id),true);
-      }
-    },0);
-  }
-
-  function instalarWrapper(){
-    const atual=window.abrirModalFluxoDesarquivamento;
-    if(typeof atual!=='function' || atual.__sigeeResponsavelAnaliseWrapper) return;
-    const wrapper=function(id,acao){
-      const resultado=atual.apply(this,arguments);
-      const codigo=txt(acao).toUpperCase();
-      if(!codigo || codigo==='DESARQUIVAMENTO' || codigo==='DOCUMENTO_RECEBIDO') prepararCaptura(id);
-      return resultado;
-    };
-    wrapper.__sigeeResponsavelAnaliseWrapper=true;
-    wrapper.__sigeeOriginal=atual;
-    window.abrirModalFluxoDesarquivamento=wrapper;
-  }
-
-  window.addEventListener('load',()=>{
-    instalarWrapper();
-    setTimeout(instalarWrapper,250);
-    setTimeout(instalarWrapper,1000);
-  });
-})();
