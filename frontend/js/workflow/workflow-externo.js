@@ -15,7 +15,7 @@
   if (window.__SIGEE_WORKFLOW_EXTERNO_095__) return;
   window.__SIGEE_WORKFLOW_EXTERNO_095__ = true;
 
-  const VERSION = '1.0.1d';
+  const VERSION = '1.0.2.005';
   const EXTERNAL_STATES = Object.freeze(['DES', 'RET', 'REU', 'CFD']);
 
   const ACTIONS = Object.freeze({
@@ -24,21 +24,21 @@
       title: 'Executar Reiteração',
       messageCodes: Object.freeze(['43', '45']),
       deadlineDays: 7,
-      consequence: 'O processo avançará para Reiteração e iniciará novo prazo de 7 dias.'
+      consequence: 'O processo avançará para Reiteração. O prazo da ação será de 7 dias, mantendo a contagem total contínua do ciclo.'
     }),
     SEND_REITERACAO_URGENTE: Object.freeze({
       event: 'SEND_REITERACAO_URGENTE',
       title: 'Executar Reiteração Urgente',
       messageCodes: Object.freeze(['44', '46']),
       deadlineDays: 7,
-      consequence: 'O processo avançará para Reiteração Urgente e iniciará novo prazo de 7 dias.'
+      consequence: 'O processo avançará para Reiteração Urgente. O prazo da ação será de 7 dias, mantendo a contagem total contínua do ciclo.'
     }),
     CONFIRMAR_DADOS: Object.freeze({
       event: 'CONFIRMAR_DADOS',
       title: 'Executar Confirmação dos Dados',
       messageCodes: Object.freeze(['12']),
       deadlineDays: 7,
-      consequence: 'O processo avançará para Confirmação dos Dados e iniciará novo prazo de 7 dias.'
+      consequence: 'O processo avançará para Confirmação dos Dados. O prazo da ação será de 7 dias, mantendo a contagem total contínua do ciclo.'
     }),
     RETIFICAR_DADOS: Object.freeze({
       event: 'RETIFICAR_DADOS',
@@ -88,7 +88,7 @@
   }
 
   function canOperate() {
-    return ['MASTER', 'SEC', 'ADMINISTRADOR', 'TECNICO'].includes(profile(currentUser()));
+    return ['MASTER', 'ADMINISTRADOR', 'TECNICO'].includes(profile(currentUser()));
   }
 
   function processList() {
@@ -455,6 +455,16 @@
       observationLabel: action.observationRequired ? 'Motivo e dados retificados' : 'Observações',
       executeLabel: 'Executar ação',
       onConfirm: async function (payload) {
+        const inicioAnterior =
+          process.data_inicio_desarquivamento ||
+          process.data_inicio_ciclo ||
+          process.inicio_ciclo ||
+          process.created_at ||
+          process.criado_em ||
+          process.prazo_inicio ||
+          process.data_etapa_atual ||
+          new Date().toISOString();
+
         const result = await window.TransitionManager.execute({
           processId: process.id,
           event: action.event,
@@ -463,7 +473,49 @@
           confirmed: payload.confirmed,
           messageCode: message.code
         });
-        actionHistoryCache.set(actionKey(workflowInstanceId(findProcess(process.id) || process), result.event === 'RETIFICAR_DADOS' ? result.cycle - 1 : result.cycle, result.event), true);
+
+        const atualizado = findProcess(process.id) || process;
+        const agora = window.SIGEE_WORKFLOW_CLOCK && typeof window.SIGEE_WORKFLOW_CLOCK.now === 'function'
+          ? window.SIGEE_WORKFLOW_CLOCK.now().toISOString()
+          : new Date().toISOString();
+
+        if (action.event === 'RETIFICAR_DADOS') {
+          /*
+           * Única ação que inicia novo ciclo e reinicia a contagem.
+           */
+          atualizado.data_inicio_desarquivamento = agora;
+          atualizado.data_inicio_ciclo = agora;
+          atualizado.prazo_inicio = agora;
+          atualizado.dias_decorridos = 0;
+        } else {
+          /*
+           * As demais ações mudam etapa e prazo operacional, mas preservam
+           * a data original e a contagem total do ciclo.
+           */
+          atualizado.data_inicio_desarquivamento = inicioAnterior;
+          atualizado.data_inicio_ciclo = inicioAnterior;
+        }
+
+        /*
+         * A mensagem registrada é sempre derivada da ação efetivamente
+         * executada, evitando reaproveitamento da mensagem anterior.
+         */
+        atualizado.ultima_mensagem_workflow = message.code;
+        atualizado.ultimo_evento_workflow = action.event;
+
+        if (window.SIGEE_Processos && typeof window.SIGEE_Processos.salvar === 'function') {
+          await window.SIGEE_Processos.salvar(atualizado);
+        }
+
+        actionHistoryCache.set(
+          actionKey(
+            workflowInstanceId(atualizado),
+            result.event === 'RETIFICAR_DADOS' ? result.cycle - 1 : result.cycle,
+            result.event
+          ),
+          true
+        );
+
         await refreshScreens();
         toast(result.message + ' Nova etapa: ' + result.nextStateName + '.');
       }
