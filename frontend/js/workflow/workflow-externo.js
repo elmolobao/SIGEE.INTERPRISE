@@ -111,39 +111,17 @@
     );
   }
 
-  function cycleOffsetDays(process) {
-    const state = processState(process);
-    if (state === 'RET') return 30;
-    if (state === 'REU') return 37;
-    if (state === 'CFD') return 44;
-    return 0;
-  }
-
-  function inferLegacyCycleStart(process) {
-    if (!process) return null;
-    const reference = process.data_etapa_atual || process.data_etapa || process.etapa_iniciada_em || process.updated_at;
-    const offset = cycleOffsetDays(process);
-    if (!reference || !offset) return null;
-    const date = new Date(reference);
-    if (Number.isNaN(date.getTime())) return null;
-    date.setDate(date.getDate() - offset);
-    return date.toISOString();
-  }
-
   function stageDate(process) {
     return process && (
       process.data_inicio_desarquivamento ||
       process.data_inicio_ciclo ||
       process.inicio_ciclo ||
-      process.prazo_inicio_ciclo ||
-      inferLegacyCycleStart(process) ||
-      process.prazo_inicio ||
-      process.created_at ||
-      process.criado_em ||
       process.data_etapa_atual ||
       process.data_etapa ||
       process.etapa_iniciada_em ||
-      process.updated_at
+      process.updated_at ||
+      process.created_at ||
+      process.criado_em
     );
   }
 
@@ -507,9 +485,7 @@
            */
           atualizado.data_inicio_desarquivamento = agora;
           atualizado.data_inicio_ciclo = agora;
-          atualizado.inicio_ciclo = agora;
           atualizado.prazo_inicio = agora;
-          atualizado.prazo_fim = new Date(new Date(agora).getTime() + (30 * 86400000)).toISOString();
           atualizado.dias_decorridos = 0;
         } else {
           /*
@@ -518,12 +494,6 @@
            */
           atualizado.data_inicio_desarquivamento = inicioAnterior;
           atualizado.data_inicio_ciclo = inicioAnterior;
-          atualizado.inicio_ciclo = atualizado.inicio_ciclo || inicioAnterior;
-          atualizado.prazo_inicio = process.prazo_inicio || inicioAnterior;
-          atualizado.ciclo = Number(process.ciclo || process.workflow_ciclo || 1);
-          atualizado.workflow_ciclo = Number(process.workflow_ciclo || process.ciclo || 1);
-          const diasTotais = window.TransitionManager.elapsedDays(inicioAnterior, agora);
-          if (Number.isFinite(diasTotais)) atualizado.dias_decorridos = Math.max(0, diasTotais);
         }
 
         /*
@@ -629,7 +599,7 @@
         return;
       }
       if (event.target.closest('[data-wfe-documento]')) {
-        openLegacyDocumentReceived(id);
+        window.abrirDocumentoRecebidoSIGEE(id);
       }
     });
   }
@@ -645,10 +615,18 @@
   window.SIGEE_WORKFLOW_EXTERNO = Object.freeze({
     version: VERSION,
     open: open,
+    openDocumentReceived: openLegacyDocumentReceived,
     install: install,
     availableActions: availableActions,
     elapsedDays: elapsedDays
   });
+
+  /*
+   * Entrada pública exclusiva para Pasta localizada / Documento recebido.
+   * Ela ignora o menu do Workflow Externo e abre diretamente o procedimento
+   * homologado com Tipo de Arquivo, Local do Arquivo, Prioridade e Analista.
+   */
+  window.abrirDocumentoRecebidoSIGEE = openLegacyDocumentReceived;
 
   if (document.readyState === 'complete') install();
   else window.addEventListener('load', install, { once: true });
