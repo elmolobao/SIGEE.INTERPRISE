@@ -207,6 +207,25 @@
     );
   }
 
+
+  function cycleOffsetDays(process) {
+    const state = processStateCode(process);
+    if (state === 'RET') return 30;
+    if (state === 'REU') return 37;
+    if (state === 'CFD') return 44;
+    return 0;
+  }
+
+  function inferLegacyCycleStart(process) {
+    const reference = stageEntryDate(process);
+    const offset = cycleOffsetDays(process);
+    if (!reference || !offset) return null;
+    const date = dateFrom(reference);
+    if (!date) return null;
+    date.setDate(date.getDate() - offset);
+    return toISO(date);
+  }
+
   function validateDeadline(process, eventCode, now) {
     const requiredDays = EVENT_DEADLINE_REQUIREMENTS[eventCode];
     if (!Number.isFinite(requiredDays)) {
@@ -272,6 +291,8 @@
       process.data_inicio_desarquivamento ||
       process.data_inicio_ciclo ||
       process.inicio_ciclo ||
+      process.prazo_inicio_ciclo ||
+      inferLegacyCycleStart(process) ||
       process.prazo_inicio ||
       process.created_at ||
       process.criado_em ||
@@ -284,6 +305,7 @@
       updated.workflow_ciclo = currentCycle + 1;
       updated.data_inicio_desarquivamento = novoInicio;
       updated.data_inicio_ciclo = novoInicio;
+      updated.prazo_inicio_ciclo = novoInicio;
       updated.inicio_ciclo = novoInicio;
       updated.prazo_inicio = novoInicio;
       updated.prazo_fim = addDays(novoInicio, 30).toISOString();
@@ -293,6 +315,7 @@
       updated.workflow_ciclo = Number(process.workflow_ciclo || process.ciclo || 1);
       updated.data_inicio_desarquivamento = inicioCicloAnterior;
       updated.data_inicio_ciclo = inicioCicloAnterior;
+      updated.prazo_inicio_ciclo = inicioCicloAnterior;
       updated.inicio_ciclo = process.inicio_ciclo || inicioCicloAnterior;
       // prazo_inicio também permanece como âncora do ciclo para compatibilidade
       // com registros antigos e adaptadores que não persistem data_inicio_ciclo.
