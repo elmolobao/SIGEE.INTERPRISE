@@ -29,54 +29,26 @@
         return CICLO_DESARQUIVAMENTO.includes(e);
     }
 
-    function codigoTemporalCiclo(p) {
-        const codigo = normalizar(p && p.etapa_codigo);
-        if (['DES', 'RET', 'REU', 'CFD'].includes(codigo)) return codigo;
-
-        const etapa = normalizar(processoEtapa(p));
-        if (etapa.includes('REITERACAO') && etapa.includes('URGEN')) return 'REU';
-        if (etapa.includes('REITERACAO')) return 'RET';
-        if (etapa.includes('CONFIRMA') && etapa.includes('DADOS')) return 'CFD';
-        return 'DES';
-    }
-
-    function marcoInicialEtapaCiclo(p) {
-        const codigo = codigoTemporalCiclo(p);
-        if (codigo === 'RET') return 30;
-        if (codigo === 'REU') return 37;
-        if (codigo === 'CFD') return 44;
-        return 0;
-    }
-
     function dataInicioCiclo(p) {
         if (!p) return null;
-
-        const oficial =
-            p.data_inicio_desarquivamento ||
-            p.data_inicio_ciclo ||
-            p.inicio_ciclo ||
-            p.data_desarquivamento ||
-            p.data_etapa_inicial;
-        if (oficial) return oficial;
-
-        /*
-         * Em registros antigos, prazo_inicio e data_etapa_atual podem ser
-         * a data da Reiteração/REU/CFD. Por isso não são usados diretamente
-         * como início do ciclo. No primeiro ciclo, created_at ainda é uma
-         * referência segura; nos ciclos posteriores, a recuperação é feita
-         * por calcularDiasCiclo(), com base no marco da etapa atual.
-         */
-        const ciclo = Math.max(1, Number(p.workflow_ciclo || p.ciclo || 1));
-        if (ciclo === 1) return p.created_at || p.criado_em || null;
-        return null;
+        return p.data_inicio_desarquivamento ||
+               p.data_inicio_ciclo ||
+               p.inicio_ciclo ||
+               p.data_desarquivamento ||
+               p.data_etapa_inicial ||
+               p.created_at ||
+               p.criado_em ||
+               p.prazo_inicio ||
+               p.data_etapa_atual;
     }
 
     function garantirInicioCiclo(p) {
         if (!p) return p;
 
         /*
-         * A data oficial permanece inalterada em RET, REU, CFD e Pedido de
-         * Atas. Somente a Retificação cria novo ciclo e fornece nova data.
+         * A data de início do ciclo é criada uma única vez e permanece
+         * inalterada durante Reiteração, Reiteração Urgente, Confirmação
+         * dos Dados e Pedido de Atas. Somente a Retificação cria novo ciclo.
          */
         const existente =
             p.data_inicio_desarquivamento ||
@@ -85,33 +57,19 @@
             p.data_desarquivamento ||
             p.data_etapa_inicial;
 
-        if (existente) {
-            p.data_inicio_desarquivamento = existente;
-            p.data_inicio_ciclo = existente;
-            return p;
-        }
+        if (!existente) {
+            const origem =
+                p.created_at ||
+                p.criado_em ||
+                p.prazo_inicio ||
+                p.data_etapa_atual ||
+                new Date().toISOString();
 
-        const codigo = codigoTemporalCiclo(p);
-        const marco = marcoInicialEtapaCiclo(p);
-        const referenciaEtapa = p.data_etapa_atual || p.data_etapa || p.etapa_iniciada_em;
-        let origem = null;
-
-        if (referenciaEtapa && marco > 0) {
-            const dataEtapa = new Date(referenciaEtapa);
-            if (!Number.isNaN(dataEtapa.getTime())) {
-                dataEtapa.setDate(dataEtapa.getDate() - marco);
-                origem = dataEtapa.toISOString();
-            }
-        }
-
-        if (!origem && codigo === 'DES') {
-            origem = p.created_at || p.criado_em || referenciaEtapa || new Date().toISOString();
-        }
-
-        /* Não grava uma data inventada quando não há referência suficiente. */
-        if (origem) {
             p.data_inicio_desarquivamento = origem;
             p.data_inicio_ciclo = origem;
+        } else {
+            p.data_inicio_desarquivamento = existente;
+            p.data_inicio_ciclo = existente;
         }
 
         return p;
@@ -231,38 +189,8 @@
         if (e.includes('ASSIN')) return 7;
         return null;
     }
-    function calcularDiasCiclo(p) {
-        if (!p) return 0;
-
-        const inicioOficial = dataInicioCiclo(p);
-        if (inicioOficial) return diasDesde(inicioOficial);
-
-        /*
-         * Compatibilidade com registros antigos sem data inicial do ciclo:
-         * RET parte de 30, REU de 37 e CFD de 44, somando os dias já
-         * transcorridos desde a entrada na etapa. A Retificação volta a DES
-         * e, portanto, reinicia naturalmente em zero no novo ciclo.
-         */
-        const marco = marcoInicialEtapaCiclo(p);
-        const referenciaEtapa =
-            p.data_etapa_atual ||
-            p.data_etapa ||
-            p.etapa_iniciada_em ||
-            p.prazo_inicio ||
-            p.updated_at;
-        const transcorridoEtapa = referenciaEtapa ? diasDesde(referenciaEtapa) : 0;
-        const armazenado = Number(p.dias_decorridos);
-        const reconstruido = marco + transcorridoEtapa;
-
-        return Number.isFinite(armazenado)
-            ? Math.max(0, armazenado, reconstruido)
-            : Math.max(0, reconstruido);
-    }
-
     function prazoVisual(p) {
-        const dias = pertenceCicloDesarquivamento(p)
-            ? calcularDiasCiclo(p)
-            : diasDesde(p.data_etapa_atual || p.data_etapa || p.etapa_iniciada_em || p.created_at);
+        const dias = diasDesde(dataInicioCiclo(p));
         const limite = prazoEtapa(processoEtapa(p));
         if (!limite) return `${dias} dias`;
         const classe = dias > limite ? 'text-red-300' : dias >= Math.ceil(limite * .8) ? 'text-amber-300' : 'text-emerald-300';
@@ -379,9 +307,19 @@
         garantirInicioCiclo(p);
         try {
             if (typeof processoParaSupabaseSIGEE === 'function') {
-                const payload = processoParaSupabaseSIGEE(p);
+                const payload = processoParaSupabaseSIGEE(p) || {};
                 payload.workflow_instance_id = p.workflow_instance_id || payload.workflow_instance_id || gerarWorkflowInstanceIdSIGEE();
                 p.workflow_instance_id = payload.workflow_instance_id;
+
+                /*
+                 * Garante a persistência do profissional selecionado mesmo
+                 * quando o conversor legado não inclui esse campo.
+                 */
+                const responsavelAtual = processoResponsavel(p);
+                if (responsavelAtual && responsavelAtual !== 'Não atribuído') {
+                    payload.tecnico_responsavel = responsavelAtual;
+                }
+
                 return protegerDatasPayloadSIGEE(payload);
             }
         } catch (e) {}
@@ -478,10 +416,8 @@
     }
     function alertaPrazo(p) {
         const etapa = normalizar(processoEtapa(p));
-        const dias = pertenceCicloDesarquivamento(p)
-            ? calcularDiasCiclo(p)
-            : diasDesde(p.data_etapa_atual || p.data_etapa || p.etapa_iniciada_em || p.created_at);
-        if (pertenceCicloDesarquivamento(p)) {
+        const dias = diasDesde(dataInicioCiclo(p));
+        if (pertenceCicloDesarquivamento(etapa)) {
             if (dias >= 52) return '<span class="block bg-red-700 text-white text-[8px] font-extrabold px-1 py-0.5 rounded uppercase mt-0.5">SOLICITAR ATAS SEM PASTA</span>';
             if (dias >= 45) return '<span class="block bg-red-600 text-white text-[8px] font-extrabold px-1 py-0.5 rounded uppercase mt-0.5">CONFIRMAR DADOS DA BUSCA</span>';
             if (dias >= 38) return '<span class="block bg-orange-500 text-white text-[8px] font-extrabold px-1 py-0.5 rounded uppercase mt-0.5">REITERAÇÃO COM URGÊNCIA</span>';
@@ -494,9 +430,9 @@
     }
 
     function alertaChave(p) {
-        const dias = calcularDiasCiclo(p);
+        const dias = diasDesde(dataInicioCiclo(p));
         const etapa = normalizar(processoEtapa(p));
-        if (!pertenceCicloDesarquivamento(p)) return '';
+        if (!pertenceCicloDesarquivamento(etapa)) return '';
         if (dias >= 52) return 'PEDIDO_ATAS_SEM_PASTA';
         if (dias >= 45) return 'CONFIRMAR_DADOS';
         if (dias >= 38) return 'REITERACAO_URGENTE';
@@ -745,7 +681,6 @@
         contar: atualizarContadoresProcessos,
         salvar: salvarProcesso,
         diasDesde,
-        calcularDiasCiclo,
         podeMovimentar,
         podeGerirProcessos,
         codigoSIGEE
@@ -839,7 +774,34 @@
   function mapear(r){
     if(!r) return null;
     if(typeof window.processoDoSupabaseParaLocalSIGEE==='function') {
-      try { return window.processoDoSupabaseParaLocalSIGEE(r); } catch(e){}
+      try {
+        const convertido=window.processoDoSupabaseParaLocalSIGEE(r)||{};
+        const responsavelConvertido=
+          convertido.tecnico_responsavel_nome || convertido.tecnico_responsavel ||
+          convertido.responsavel_nome || convertido.responsavel ||
+          convertido.usuario_responsavel_nome || convertido.usuario_responsavel ||
+          convertido.tecnico_nome || convertido.analista_nome || convertido.analista ||
+          convertido.digitador_nome || convertido.digitador ||
+          convertido.conferente_nome || convertido.conferente ||
+          convertido.atribuido_para_nome || convertido.atribuido_para ||
+          r.tecnico_responsavel_nome || r.tecnico_responsavel ||
+          r.responsavel_nome || r.responsavel ||
+          r.usuario_responsavel_nome || r.usuario_responsavel ||
+          r.tecnico_nome || r.analista_nome || r.analista ||
+          r.digitador_nome || r.digitador ||
+          r.conferente_nome || r.conferente ||
+          r.atribuido_para_nome || r.atribuido_para || '';
+
+        /* Preserva os campos brutos que o conversor legado possa descartar. */
+        return {
+          ...r,
+          ...convertido,
+          tecnico_responsavel: responsavelConvertido,
+          analista_nome: convertido.analista_nome || convertido.analista || r.analista_nome || r.analista || '',
+          digitador_nome: convertido.digitador_nome || convertido.digitador || r.digitador_nome || r.digitador || '',
+          conferente_nome: convertido.conferente_nome || convertido.conferente || r.conferente_nome || r.conferente || ''
+        };
+      } catch(e){ console.warn('[SIGEE] Falha no conversor de processos; usando mapeamento interno.',e); }
     }
     return {
       ...r,
