@@ -8020,3 +8020,314 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
 window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006A';
 
 window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
+
+
+/* =====================================================================
+   SIGEE Sprint 2.3.3 — Formulário Inteligente do Processo
+   Reutiliza a janela de Nova Solicitação em modo Novo ou Editar.
+   Não permite edição de workflow, etapas, ciclos, prazos ou mensagens.
+   ===================================================================== */
+(function(){
+  'use strict';
+  if (window.__SIGEE_FORMULARIO_PROCESSO_233__) return;
+  window.__SIGEE_FORMULARIO_PROCESSO_233__ = true;
+
+  const estado = {
+    modo: 'novo',
+    processoId: null,
+    original: null,
+    salvarNovoOriginal: window.salvarNovaSolicitacao
+  };
+
+  const txt = v => v == null ? '' : String(v).trim();
+  const norm = v => txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
+  const usuario = () => window.usuarioLogado || {};
+  const perfil = () => {
+    const p = norm(usuario().perfil);
+    if (p.includes('MASTER')) return 'Master';
+    if (p.includes('ADMIN')) return 'Administrador';
+    if (p.includes('SEC')) return 'SEC';
+    if (p.includes('CONSULT')) return 'Consulta';
+    if (p.includes('ESTAG')) return 'Estagiario';
+    return 'Tecnico';
+  };
+  const lista = () => Array.isArray(window.processosDB) ? window.processosDB : [];
+  const processo = id => lista().find(p => String(p.id) === String(id));
+  const el = id => document.getElementById(id);
+
+  function valor(p, ...campos){
+    for (const c of campos) if (p && p[c] != null && txt(p[c])) return txt(p[c]);
+    return '';
+  }
+
+  function setValor(id, valor){
+    const campo = el(id);
+    if (!campo) return;
+    campo.value = valor == null ? '' : valor;
+    campo.dispatchEvent(new Event('change', {bubbles:true}));
+  }
+
+  function definirTitulo(modo, p){
+    const modal = el('modal-nova-solicitacao');
+    if (!modal) return;
+    const titulo = modal.querySelector('h1,h2,h3,.modal-title,[data-modal-title]');
+    if (titulo) {
+      if (!titulo.dataset.sigeeTituloOriginal) titulo.dataset.sigeeTituloOriginal = titulo.textContent || 'Nova Solicitação';
+      titulo.textContent = modo === 'editar'
+        ? `Editar Processo — ${valor(p,'codigo_sigee','codigo') || p.id}`
+        : titulo.dataset.sigeeTituloOriginal;
+    }
+    modal.dataset.sigeeModo = modo;
+  }
+
+  function configurarBotao(modo){
+    const btn = el('btn-submeter-nova-solicitacao');
+    if (!btn) return;
+    if (!btn.dataset.sigeeTextoNovo) btn.dataset.sigeeTextoNovo = btn.textContent || 'Enviar para Desarquivamento';
+    btn.textContent = modo === 'editar' ? 'Salvar Alterações' : btn.dataset.sigeeTextoNovo;
+    btn.disabled = modo === 'editar' ? false : btn.disabled;
+  }
+
+  function bloquearCampo(campo, bloqueado){
+    if (!campo) return;
+    campo.disabled = !!bloqueado;
+    campo.readOnly = !!bloqueado && campo.tagName !== 'SELECT';
+    campo.classList.toggle('sigee-campo-bloqueado', !!bloqueado);
+    campo.setAttribute('aria-disabled', String(!!bloqueado));
+  }
+
+  function aplicarPermissoes(modo){
+    const idsEditaveisMaster = [
+      'novo-proc-aluno','novo-proc-escola','novo-proc-documento',
+      'novo-proc-modalidade','novo-proc-ensino'
+    ];
+    const idsEditaveisAdmin = ['novo-proc-aluno','novo-proc-escola'];
+    const todos = [
+      ...idsEditaveisMaster,
+      'novo-autofill-mec','novo-autofill-nte','novo-autofill-municipio',
+      'novo-autofill-dep','novo-autofill-situacao','novo-autofill-acervo',
+      'novo-autofill-local-acervo'
+    ];
+
+    if (modo === 'novo') {
+      todos.forEach(id => {
+        const campo = el(id);
+        const autofill = id.startsWith('novo-autofill-');
+        bloquearCampo(campo, autofill);
+      });
+      return;
+    }
+
+    const permitidos = perfil() === 'Master' ? idsEditaveisMaster
+      : perfil() === 'Administrador' ? idsEditaveisAdmin : [];
+
+    todos.forEach(id => bloquearCampo(el(id), !permitidos.includes(id)));
+    const chk = el('f01-chk-acolhido');
+    bloquearCampo(chk, true);
+  }
+
+  function preencher(p){
+    setValor('novo-proc-aluno', valor(p,'aluno_nome','aluno','nome_solicitante'));
+    setValor('novo-proc-escola', valor(p,'escola_nome','escola','nome_escola','instituicao'));
+    setValor('novo-proc-documento', valor(p,'documento_tipo','documento','documento_solicitado'));
+    setValor('novo-proc-modalidade', valor(p,'modalidade','oferta_modalidade'));
+    setValor('novo-proc-ensino', valor(p,'nivel_oferta','ensino','oferta_nivel'));
+    setValor('novo-autofill-mec', valor(p,'cod_mec','codigo_mec','escola_cod_mec'));
+    setValor('novo-autofill-nte', valor(p,'nte','nte_nome','grupo'));
+    setValor('novo-autofill-municipio', valor(p,'municipio'));
+    setValor('novo-autofill-dep', valor(p,'dependencia','dependencia_adm'));
+    setValor('novo-autofill-situacao', valor(p,'situacao','situacao_funcional'));
+    setValor('novo-autofill-acervo', valor(p,'acervo','status_acervo'));
+    setValor('novo-autofill-local-acervo', valor(p,'local_acervo'));
+    const chk = el('f01-chk-acolhido');
+    if (chk) chk.checked = true;
+  }
+
+  function snapshot(p){
+    return {
+      aluno: valor(p,'aluno_nome','aluno'),
+      escola: valor(p,'escola_nome','escola'),
+      documento: valor(p,'documento_tipo','documento'),
+      modalidade: valor(p,'modalidade','oferta_modalidade'),
+      ensino: valor(p,'nivel_oferta','ensino','oferta_nivel'),
+      nte: valor(p,'nte','nte_nome','grupo'),
+      municipio: valor(p,'municipio')
+    };
+  }
+
+  async function registrarHistorico(p, alteracoes){
+    try {
+      const c = window.obterSupabaseSIGEE?.()
+        || window.criarClienteSupabaseSIGEE?.()
+        || window.SIGEE_SUPABASE?.criarCliente?.();
+      if (!c) return;
+      const u = usuario();
+      await c.from('historico_processos').insert({
+        processo_id: p.id,
+        codigo_sigee: p.codigo_sigee || '',
+        etapa: p.etapa_atual || p.etapa || '',
+        acao: 'Cadastro do processo atualizado',
+        observacao: `${alteracoes.length} campo(s) cadastral(is) alterado(s).`,
+        usuario_nome: u.nome || u.email || 'Usuário SIGEE',
+        usuario_email: u.email || null,
+        usuario_perfil: u.perfil || null,
+        nte: u.nte || u.nte_nome || p.nte || null,
+        dados: { alteracoes },
+        created_at: new Date().toISOString()
+      });
+    } catch(e) {
+      console.warn('[SIGEE Formulário] Alteração salva; histórico não confirmado.', e);
+    }
+  }
+
+  function alteracoesEntre(antes, depois){
+    const nomes = {
+      aluno:'Nome do aluno', escola:'Escola', documento:'Documento',
+      modalidade:'Modalidade', ensino:'Nível de oferta', nte:'NTE', municipio:'Município'
+    };
+    return Object.keys(antes).filter(k => txt(antes[k]) !== txt(depois[k])).map(k => ({
+      campo: nomes[k] || k,
+      anterior: antes[k] || '',
+      novo: depois[k] || ''
+    }));
+  }
+
+  async function salvarEdicao(event){
+    event?.preventDefault?.();
+    event?.stopImmediatePropagation?.();
+
+    const p = processo(estado.processoId);
+    if (!p) return alert('Processo não localizado.');
+
+    const pf = perfil();
+    if (!['Master','Administrador'].includes(pf)) {
+      return alert('Seu perfil não possui permissão para editar processos.');
+    }
+
+    const aluno = norm(el('novo-proc-aluno')?.value);
+    const escola = norm(el('novo-proc-escola')?.value);
+    if (!aluno || !escola) return alert('Informe o nome do aluno e a escola.');
+
+    const antes = estado.original || snapshot(p);
+
+    p.aluno = p.aluno_nome = aluno;
+    p.escola = p.escola_nome = escola;
+
+    if (pf === 'Master') {
+      const documento = txt(el('novo-proc-documento')?.value);
+      const modalidade = txt(el('novo-proc-modalidade')?.value);
+      const ensino = txt(el('novo-proc-ensino')?.value);
+      if (documento) p.documento = p.documento_tipo = documento;
+      p.modalidade = modalidade;
+      p.ensino = p.nivel_oferta = ensino;
+    }
+
+    p.updated_at = new Date().toISOString();
+    const depois = snapshot(p);
+    const alteracoes = alteracoesEntre(antes, depois);
+    if (!alteracoes.length) {
+      alert('Nenhuma alteração foi identificada.');
+      return;
+    }
+
+    const btn = el('btn-submeter-nova-solicitacao');
+    const rotulo = btn?.textContent;
+    if (btn) { btn.disabled = true; btn.textContent = 'Salvando alterações...'; }
+
+    try {
+      if (window.SIGEE_Processos?.salvar) await window.SIGEE_Processos.salvar(p);
+      await registrarHistorico(p, alteracoes);
+      try { window.registrarLog?.(`[${pf.toUpperCase()}] Atualizou cadastro do processo ID ${p.id}.`); } catch(_){}
+      el('modal-nova-solicitacao')?.classList.add('hidden');
+      window.SIGEE_Processos?.contar?.();
+      if (window.recarregarCentralProcessosSIGEE) await window.recarregarCentralProcessosSIGEE(true);
+      if (typeof window.mostrarToast === 'function') window.mostrarToast('Alterações salvas com sucesso.');
+      else alert('Alterações salvas com sucesso.');
+    } catch(e) {
+      console.error('[SIGEE Formulário] Falha ao salvar edição.', e);
+      alert('Não foi possível salvar as alterações. Verifique a conexão e tente novamente.');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = rotulo || 'Salvar Alterações'; }
+    }
+  }
+
+  async function abrirFormularioProcesso(opcoes={}){
+    const modo = opcoes.modo || 'novo';
+    if (modo === 'novo') {
+      estado.modo = 'novo';
+      estado.processoId = null;
+      estado.original = null;
+      definirTitulo('novo');
+      configurarBotao('novo');
+      aplicarPermissoes('novo');
+      return window.abrirFormularioNovaSolicitacao?.();
+    }
+
+    const p = processo(opcoes.processoId);
+    if (!p) return alert('Processo não localizado.');
+
+    const pf = perfil();
+    if (!['Master','Administrador'].includes(pf)) {
+      return alert('Seu perfil não possui permissão para editar processos.');
+    }
+
+    estado.modo = 'editar';
+    estado.processoId = p.id;
+    estado.original = snapshot(p);
+
+    // Abre a mesma janela e, depois que o autocomplete estiver instalado,
+    // preenche os dados atuais do processo.
+    window.abrirFormularioNovaSolicitacao?.();
+    requestAnimationFrame(() => {
+      preencher(p);
+      definirTitulo('editar', p);
+      configurarBotao('editar');
+      aplicarPermissoes('editar');
+      el('modal-nova-solicitacao')?.classList.remove('hidden');
+    });
+  }
+
+  // Intercepta o envio apenas quando a janela estiver em modo edição.
+  document.addEventListener('submit', function(ev){
+    const form = ev.target;
+    if (estado.modo !== 'editar' || !form?.closest?.('#modal-nova-solicitacao')) return;
+    salvarEdicao(ev);
+  }, true);
+
+  document.addEventListener('click', function(ev){
+    const btn = ev.target.closest?.('#btn-submeter-nova-solicitacao');
+    if (!btn || estado.modo !== 'editar') return;
+    const form = btn.closest('form');
+    if (!form) salvarEdicao(ev);
+  }, true);
+
+  // Ao fechar, restaura o modo normal para a próxima Nova Solicitação.
+  document.addEventListener('click', function(ev){
+    if (!ev.target.closest?.('[onclick*="fecharModalNovaSolicitacao"], [data-fechar-nova-solicitacao]')) return;
+    estado.modo = 'novo';
+    estado.processoId = null;
+    estado.original = null;
+  });
+
+  window.abrirFormularioProcessoSIGEE = abrirFormularioProcesso;
+  window.salvarEdicaoProcessoSIGEE = salvarEdicao;
+
+  const estilo = document.createElement('style');
+  estilo.textContent = `
+    #modal-nova-solicitacao[data-sigee-modo="editar"] .sigee-campo-bloqueado{
+      background:#eef2f7!important;color:#64748b!important;cursor:not-allowed!important;
+      border-color:#cbd5e1!important;opacity:.9
+    }
+    #modal-nova-solicitacao[data-sigee-modo="editar"] h1,
+    #modal-nova-solicitacao[data-sigee-modo="editar"] h2{
+      color:#075985!important
+    }
+    #modal-nova-solicitacao[data-sigee-modo="editar"] #btn-submeter-nova-solicitacao{
+      background:linear-gradient(135deg,#075985,#0284c7)!important;
+      color:#fff!important;font-weight:900!important
+    }`;
+  document.head.appendChild(estilo);
+
+  console.info('[SIGEE] Formulário Inteligente do Processo 2.3.3 carregado.');
+})();
+

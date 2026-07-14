@@ -601,38 +601,22 @@
         const p = listaProcessos().find(x => String(x.id) === String(id));
         if (!p) return;
 
-        if (isAdmin(u)) {
-            if (!mesmoNte(nteUsuario(u), processoNte(p))) {
-                return alert('Administrador só pode corrigir processos do próprio NTE.');
-            }
-            const aluno = prompt('Nome do requerente/aluno:', processoAluno(p));
-            if (aluno === null) return;
-            const escola = prompt('Escola:', processoEscola(p));
-            if (escola === null) return;
-
-            p.aluno = p.aluno_nome = texto(aluno).toUpperCase();
-            p.escola = p.escola_nome = texto(escola).toUpperCase();
-            registrar(`[ADMINISTRADOR] Corrigiu nome/escola do processo ID ${p.id}.`);
-            await salvarProcesso(p);
-            atualizarTelas();
-            return;
+        if (isAdmin(u) && !mesmoNte(nteUsuario(u), processoNte(p))) {
+            return alert('Administrador só pode corrigir processos do próprio NTE.');
         }
 
-        if (!isMaster(u)) {
+        if (!isMaster(u) && !isAdmin(u)) {
             return alert('Correção cadastral permitida apenas para Master e Administrador.');
         }
 
-        const aluno = prompt('Aluno:', processoAluno(p)); if (aluno === null) return;
-        const escola = prompt('Instituição:', processoEscola(p)); if (escola === null) return;
-        const doc = prompt('Documento:', processoDocumento(p) || 'HISTÓRICO'); if (doc === null) return;
-        const nte = prompt('NTE:', processoNte(p)); if (nte === null) return;
-        p.aluno = p.aluno_nome = texto(aluno).toUpperCase();
-        p.escola = p.escola_nome = texto(escola).toUpperCase();
-        p.documento = p.documento_tipo = texto(doc).toUpperCase();
-        p.nte = texto(nte) || p.nte;
-        registrar(`[MASTER] Editou processo ID ${p.id}.`);
-        await salvarProcesso(p);
-        atualizarTelas();
+        if (typeof window.abrirFormularioProcessoSIGEE !== 'function') {
+            return alert('O Formulário Inteligente do Processo ainda não foi carregado. Atualize a página e tente novamente.');
+        }
+
+        return window.abrirFormularioProcessoSIGEE({
+            modo: 'editar',
+            processoId: p.id
+        });
     }
     async function moverMaster(id, direcao) {
         if (!isMaster(usuario())) return alert('Avanço ou regressão manual permitido apenas para o perfil Master.');
