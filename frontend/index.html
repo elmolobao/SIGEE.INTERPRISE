@@ -6,9 +6,9 @@
     <title>SIGEE - Sistema de Gestão de Escolas Extintas (SEC/BA)</title>
     <meta name="theme-color" content="#0B4F8A">
     <meta name="application-name" content="SIGEE">
-    <link rel="icon" type="image/svg+xml" href="assets/sigee-icon.svg?v=2.1.0">
-    <link rel="alternate icon" type="image/png" href="assets/sigee-icon-192.png?v=2.1.0">
-    <link rel="apple-touch-icon" href="assets/sigee-icon-192.png?v=2.1.0">
+    <link rel="icon" type="image/svg+xml" href="assets/sigee-icon.svg?v=2.1.1">
+    <link rel="alternate icon" type="image/png" href="assets/sigee-icon-192.png?v=2.1.1">
+    <link rel="apple-touch-icon" href="assets/sigee-icon-192.png?v=2.1.1">
     
     
     
@@ -20,8 +20,8 @@
 
     
 
-    <link rel="stylesheet" href="css/enterprise.css?v=2.1.0">
-    <link rel="stylesheet" href="css/enterprise-light.css?v=2.1.0">
+    <link rel="stylesheet" href="css/enterprise.css?v=2.1.1">
+    <link rel="stylesheet" href="css/enterprise-light.css?v=2.1.1">
     <link rel="stylesheet" href="css/sigee_footer_institucional.css">
 </head>
 <body class="bg-gray-100 font-sans text-gray-800 font-normal">
@@ -29,7 +29,7 @@
     <div id="tela-login" class="min-h-screen flex items-center justify-center bg-blue-900 px-4">
         <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md">
             <div class="text-center mb-6 sigee-login-brand">
-                <img src="assets/sigee-icon.svg?v=2.1.0" alt="Ícone SIGEE" class="sigee-login-logo">
+                <img src="assets/sigee-icon.svg?v=2.1.1" alt="Ícone SIGEE" class="sigee-login-logo">
                 <span class="sigee-institution-chip">SEC / BA</span>
                 <h1 class="text-3xl font-extrabold text-blue-900 mt-2">SIGEE</h1>
                 <p class="sigee-login-subtitle">Sistema Integrado de Gestão de Escolas Extintas</p>
@@ -53,7 +53,7 @@
         <aside class="w-full md:w-64 bg-blue-950 text-white flex flex-col shadow-xl sigee-sidebar">
             <div class="p-5 bg-blue-900 border-b border-blue-800 sigee-sidebar-brand">
                 <div class="sigee-brand-lockup">
-                    <img src="assets/sigee-icon.svg?v=2.1.0" alt="" class="sigee-sidebar-logo">
+                    <img src="assets/sigee-icon.svg?v=2.1.1" alt="" class="sigee-sidebar-logo">
                     <div>
                         <h2 class="text-2xl font-black tracking-wider text-amber-400">SIGEE</h2>
                         <span>Sistema Integrado de Gestão</span>
@@ -79,18 +79,20 @@
         <main class="flex-1 p-4 md:p-6 overflow-y-auto sigee-main">
             
             <section id="aba-painel" class="space-y-6">
-                <section class="sigee-welcome-card" aria-labelledby="sigee-welcome-title">
-                    <div class="sigee-welcome-copy">
-                        <span class="sigee-welcome-eyebrow">SEC / BA • SIGEE Enterprise</span>
-                        <h1 id="sigee-welcome-title">Bem-vindo(a), <strong id="sigee-boas-vindas-nome">Usuário SIGEE</strong></h1>
-                        <p>Gestão integrada, segura e rastreável dos processos e acervos de escolas extintas.</p>
-                        <div class="sigee-welcome-values">
-                            <span>✓ Transparência</span><span>✓ Eficiência</span><span>✓ Segurança</span>
-                        </div>
+
+                <section class="sigee-welcome-strip" aria-labelledby="sigee-welcome-title">
+                    <div class="sigee-welcome-strip-icon" aria-hidden="true">👋</div>
+                    <div class="sigee-welcome-strip-copy">
+                        <h2 id="sigee-welcome-title">Bem-vindo ao SIGEE Enterprise, <strong id="sigee-boas-vindas-nome">Usuário SIGEE</strong>.</h2>
+                        <p>Consulte e acompanhe os processos e acervos de escolas extintas com segurança, eficiência e transparência.</p>
                     </div>
-                    <img src="assets/sigee-icon.svg?v=2.1.0" alt="" class="sigee-welcome-logo">
+                    <div class="sigee-welcome-strip-meta">
+                        <span>SEC / BA</span>
+                        <small>Ambiente institucional</small>
+                    </div>
                 </section>
-                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-4 gap-4">
+
+<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-4 gap-4">
                     <div><h1 class="text-3xl font-bold text-blue-900">Dashboard de Monitoramento</h1></div>
                     <div id="box-filtro-dashboard-master" class="hidden bg-white border rounded-xl px-3 py-2 shadow-xs">
                         <label class="block text-[10px] font-black text-gray-500 uppercase mb-1">Abrangência do Dashboard</label>
