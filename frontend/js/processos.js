@@ -30,6 +30,7 @@
     }
 
     function dataInicioCiclo(p) {
+        if (!p) return null;
         return p.data_inicio_desarquivamento ||
                p.data_inicio_ciclo ||
                p.inicio_ciclo ||
@@ -37,21 +38,40 @@
                p.data_etapa_inicial ||
                p.created_at ||
                p.criado_em ||
-               p.data_etapa_atual ||
-               p.prazo_inicio;
+               p.prazo_inicio ||
+               p.data_etapa_atual;
     }
 
     function garantirInicioCiclo(p) {
         if (!p) return p;
-        if (!p.data_inicio_desarquivamento) {
-            p.data_inicio_desarquivamento =
-                p.data_inicio_ciclo ||
-                p.data_desarquivamento ||
-                p.data_etapa_inicial ||
+
+        /*
+         * A data de início do ciclo é criada uma única vez e permanece
+         * inalterada durante Reiteração, Reiteração Urgente, Confirmação
+         * dos Dados e Pedido de Atas. Somente a Retificação cria novo ciclo.
+         */
+        const existente =
+            p.data_inicio_desarquivamento ||
+            p.data_inicio_ciclo ||
+            p.inicio_ciclo ||
+            p.data_desarquivamento ||
+            p.data_etapa_inicial;
+
+        if (!existente) {
+            const origem =
                 p.created_at ||
+                p.criado_em ||
+                p.prazo_inicio ||
                 p.data_etapa_atual ||
-                null;
+                new Date().toISOString();
+
+            p.data_inicio_desarquivamento = origem;
+            p.data_inicio_ciclo = origem;
+        } else {
+            p.data_inicio_desarquivamento = existente;
+            p.data_inicio_ciclo = existente;
         }
+
         return p;
     }
 
@@ -836,6 +856,16 @@
   function txt(v){return v===null||v===undefined?'':String(v).trim();}
   function norm(v){return txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();}
   function usuario(){return window.usuarioLogado||{};}
+  function identidadeSessao(){
+    const u=usuario();
+    return Object.freeze({
+      id:u.id||null,
+      nome:txt(u.nome||u.name||u.email||'Usuário SIGEE'),
+      email:txt(u.email).toLowerCase()||null,
+      perfil:txt(u.perfil)||null,
+      nte:txt(u.nte||u.nte_nome||u.nte_vinculado||u.grupo)||null
+    });
+  }
   function perfil(){return norm(usuario().perfil);}
   function somenteLeitura(){return perfil().includes('ESTAG')||perfil().includes('CONSULT');}
   function lista(){return Array.isArray(window.processosDB)?window.processosDB:[];}
@@ -851,8 +881,28 @@
     document.body.appendChild(el); el.addEventListener('click',e=>{if(e.target===el||e.target.closest('[data-fechar-modal33]')) fecharModal();}); return el;
   }
   function toast(msg,tipo='ok'){if(typeof window.mostrarToast==='function')return window.mostrarToast(msg);const el=document.createElement('div');el.className=`sigee-toast33 ${tipo}`;el.textContent=msg;document.body.appendChild(el);setTimeout(()=>el.remove(),2200);}
-  async function registrarHistorico(p,etapa,acao,observacao='',dados={}){
-    const c=cliente(); const registro={processo_id:p.id,codigo_sigee:p.codigo_sigee||'',etapa:etapa||p.etapa_atual||p.etapa||'',acao,observacao:observacao||null,usuario_nome:nomeUsuario(),usuario_email:txt(usuario().email)||null,usuario_perfil:txt(usuario().perfil)||null,nte:txt(p.nte||p.nte_nome)||null,dados:dados||{},created_at:agoraISO()};
+  async function registrarHistorico(p,etapa,acao,observacao='',dados={},ator=null){
+    const c=cliente();
+    const identidade=ator||identidadeSessao();
+    const registro={
+      processo_id:p.id,
+      codigo_sigee:p.codigo_sigee||'',
+      etapa:etapa||p.etapa_atual||p.etapa||'',
+      acao,
+      observacao:observacao||null,
+      usuario_nome:identidade.nome,
+      usuario_email:identidade.email,
+      usuario_perfil:identidade.perfil,
+      nte:identidade.nte||txt(p.nte||p.nte_nome)||null,
+      dados:Object.assign({},dados||{},{
+        usuario_id:identidade.id,
+        usuario_nome:identidade.nome,
+        usuario_email:identidade.email,
+        usuario_perfil:identidade.perfil,
+        usuario_nte:identidade.nte
+      }),
+      created_at:agoraISO()
+    };
     try{if(!c)throw new Error('Cliente Supabase indisponível');const {error}=await c.from('historico_processos').insert(registro);if(error)throw error;return true;}catch(e){console.error('[SIGEE] Histórico não gravado.',e);toast('A ação foi salva, mas o histórico não pôde ser registrado.','erro');return false;}
   }
   async function salvar(p){if(window.SIGEE_Processos?.salvar)await window.SIGEE_Processos.salvar(p);if(window.recarregarCentralProcessosSIGEE)await window.recarregarCentralProcessosSIGEE(true);else window.SIGEE_Processos?.contar?.();}
@@ -863,13 +913,39 @@
   function marcados(el,nome){return [...el.querySelectorAll(`input[name="${nome}"]:checked`)].map(i=>i.value);}
 
   async function carregarPendencias(id){const c=cliente();if(!c)return [];try{const {data,error}=await c.from('processo_pendencias').select('*').eq('processo_id',id).order('id',{ascending:true});if(error)throw error;return data||[];}catch(e){console.error('[SIGEE] Falha ao carregar pendências.',e);return [];}}
-  async function substituirPendencias(p,aluno,inst,compAluno,compInst,msg){
+  async function substituirPendencias(p,aluno,inst,compAluno,compInst,msg,ator){
     const c=cliente();if(!c)throw new Error('Cliente Supabase indisponível');
+    const identidade=ator||identidadeSessao();
     const {error:delError}=await c.from('processo_pendencias').delete().eq('processo_id',p.id).eq('status','pendente');if(delError)throw delError;
-    const linhas=[...aluno.map(item=>({processo_id:p.id,codigo_sigee:p.codigo_sigee||'',grupo:'aluno',item,complemento:compAluno||null,status:'pendente',mensagem_codigo:msg.codigo,mensagem_texto:msg.texto,tarefa_confirmada:true,criado_por:nomeUsuario(),criado_por_email:txt(usuario().email)||null})),...inst.map(item=>({processo_id:p.id,codigo_sigee:p.codigo_sigee||'',grupo:'instituicao',item,complemento:compInst||null,status:'pendente',mensagem_codigo:msg.codigo,mensagem_texto:msg.texto,tarefa_confirmada:true,criado_por:nomeUsuario(),criado_por_email:txt(usuario().email)||null}))];
+    const base={
+      processo_id:p.id,
+      codigo_sigee:p.codigo_sigee||'',
+      complemento:null,
+      status:'pendente',
+      mensagem_codigo:msg.codigo,
+      mensagem_texto:msg.texto,
+      tarefa_confirmada:true,
+      criado_por:identidade.nome,
+      criado_por_email:identidade.email
+    };
+    const linhas=[
+      ...aluno.map(item=>Object.assign({},base,{grupo:'aluno',item,complemento:compAluno||null})),
+      ...inst.map(item=>Object.assign({},base,{grupo:'instituicao',item,complemento:compInst||null}))
+    ];
     const {error}=await c.from('processo_pendencias').insert(linhas);if(error)throw error;
   }
-  async function marcarRecebidas(ids){if(!ids.length)return;const c=cliente();if(!c)throw new Error('Cliente Supabase indisponível');const {error}=await c.from('processo_pendencias').update({status:'recebido',recebido_em:agoraISO(),recebido_por:nomeUsuario(),recebido_por_email:txt(usuario().email)||null}).in('id',ids);if(error)throw error;}
+  async function marcarRecebidas(ids,ator){
+    if(!ids.length)return;
+    const c=cliente();if(!c)throw new Error('Cliente Supabase indisponível');
+    const identidade=ator||identidadeSessao();
+    const {error}=await c.from('processo_pendencias').update({
+      status:'recebido',
+      recebido_em:agoraISO(),
+      recebido_por:identidade.nome,
+      recebido_por_email:identidade.email
+    }).in('id',ids);
+    if(error)throw error;
+  }
 
   async function prosseguirAnalise(id){const p=processo(id);if(!p)return;p.etapa=p.etapa_atual='Digitação';p.data_etapa_atual=agoraISO();p.tecnico_responsavel=nomeUsuario();p.pendencia_aberta=false;await salvar(p);await registrarHistorico(p,'Análise Realizada','Análise realizada','Processo encaminhado para Digitação.');fecharModal();toast('Processo encaminhado para Digitação.');}
   function abrirAnalise(id){const p=processo(id);if(!p)return;contextoRetorno=()=>abrirAnalise(id);const bloqueio=somenteLeitura()?'<p class="sigee-aviso33">Perfil com acesso somente para consulta.</p>':'';const acoes=somenteLeitura()?'':`<div class="sigee-acoes33"><button class="btn33 btn33-amarelo" data-prosseguir33>✍️ Prosseguir para Digitação</button><button class="btn33 btn33-roxo" data-pendencia33>⚠️ Registrar Pendência</button><button class="btn33 btn33-vermelho" data-indeferir33>⛔ Indeferir Processo</button></div>`;const el=modal(`🔍 Análise Realizada — ${escapar(p.codigo_sigee||p.id)}`,`${resumo(p)}${bloqueio}${acoes}<div class="sigee-linkhistorico33"><button data-historico33>📜 Ver histórico completo</button></div>`,'analise');el.querySelector('[data-prosseguir33]')?.addEventListener('click',()=>prosseguirAnalise(id));el.querySelector('[data-pendencia33]')?.addEventListener('click',()=>abrirFormularioPendencia(id));el.querySelector('[data-indeferir33]')?.addEventListener('click',()=>abrirFormularioIndeferimento(id));el.querySelector('[data-historico33]')?.addEventListener('click',()=>abrirHistorico(id,()=>abrirAnalise(id)));}
@@ -898,7 +974,7 @@
     }
     el.querySelectorAll('input[name="pendAluno"],input[name="pendInst"]').forEach(i=>i.addEventListener('change',atualizarTarefa)); atualizarTarefa();
     el.querySelector('[data-voltar33]').addEventListener('click',()=>abrirAnalise(id));
-    botao.addEventListener('click',async()=>{const aluno=marcados(el,'pendAluno'),inst=marcados(el,'pendInst');if(!aluno.length&&!inst.length)return alert('Selecione ao menos uma pendência.');if(!el.querySelector('#pend-email33')?.checked)return alert('Confirme a execução da tarefa obrigatória.');const ca=txt(el.querySelector('#pend-aluno-comp33').value),ci=txt(el.querySelector('#pend-inst-comp33').value),msg=mensagemPendencia(aluno,inst);if(aluno.includes('Outros')&&!ca)return alert('Informe a descrição da pendência “Outros” do Aluno/Requerente.');if(inst.includes('Outros')&&!ci)return alert('Informe a descrição da pendência “Outros” da Instituição.');botao.disabled=true;try{await substituirPendencias(p,aluno,inst,ca,ci,msg);p.pendencia_aluno_itens=aluno;p.pendencia_instituicao_itens=inst;p.pendencia_aluno_complemento=ca;p.pendencia_instituicao_complemento=ci;p.pendencia_aberta=true;p.etapa=p.etapa_atual='Pendência';p.data_etapa_atual=agoraISO();p.tecnico_responsavel=nomeUsuario();await salvar(p);const obs=[aluno.length?`Aluno: ${aluno.join(', ')}`:'',inst.length?`Instituição: ${inst.join(', ')}`:'',ca?`Complemento aluno: ${ca}`:'',ci?`Complemento instituição: ${ci}`:'',`Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}`].filter(Boolean).join(' | ');await registrarHistorico(p,'Pendência','Pendência registrada',obs,{aluno,instituicao:inst,mensagem:msg,tarefa_confirmada:true});
+    botao.addEventListener('click',async()=>{const aluno=marcados(el,'pendAluno'),inst=marcados(el,'pendInst');if(!aluno.length&&!inst.length)return alert('Selecione ao menos uma pendência.');if(!el.querySelector('#pend-email33')?.checked)return alert('Confirme a execução da tarefa obrigatória.');const ca=txt(el.querySelector('#pend-aluno-comp33').value),ci=txt(el.querySelector('#pend-inst-comp33').value),msg=mensagemPendencia(aluno,inst);if(aluno.includes('Outros')&&!ca)return alert('Informe a descrição da pendência “Outros” do Aluno/Requerente.');if(inst.includes('Outros')&&!ci)return alert('Informe a descrição da pendência “Outros” da Instituição.');botao.disabled=true;try{const ator=identidadeSessao();await substituirPendencias(p,aluno,inst,ca,ci,msg,ator);p.pendencia_aluno_itens=aluno;p.pendencia_instituicao_itens=inst;p.pendencia_aluno_complemento=ca;p.pendencia_instituicao_complemento=ci;p.pendencia_aberta=true;p.etapa=p.etapa_atual='Pendência';p.data_etapa_atual=agoraISO();p.tecnico_responsavel=ator.nome;await salvar(p);const obs=[aluno.length?`Aluno: ${aluno.join(', ')}`:'',inst.length?`Instituição: ${inst.join(', ')}`:'',ca?`Complemento aluno: ${ca}`:'',ci?`Complemento instituição: ${ci}`:'',`Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}`].filter(Boolean).join(' | ');await registrarHistorico(p,'Pendência','Pendência registrada',obs,{aluno,instituicao:inst,mensagem:msg,tarefa_confirmada:true},ator);
         fecharModal();
         if (typeof window.filtrarProcessosPorEtapa === 'function') {
           window.filtrarProcessosPorEtapa('Pendência');
@@ -918,7 +994,7 @@
     const msg=pendentes[0]?.mensagem_texto||mensagemPendencia(pendentes.filter(x=>x.grupo==='aluno'),pendentes.filter(x=>x.grupo==='instituicao')).texto;
     const el=modal(`⚠️ Tratar Pendência — ${escapar(p.codigo_sigee||p.id)}`,`${resumo(p)}<section class="sigee-pend-atual33"><h3>Pendências abertas</h3>${itens}</section><section class="sigee-tarefa-status331"><strong>Mensagem institucional confirmada:</strong><span>ENVIAR E-MAIL: ${escapar(msg)}</span></section>${recebidos.length?`<p class="sigee-recebidos331">Já recebidos: ${escapar(recebidos.map(x=>x.item).join(', '))}</p>`:''}<div class="sigee-acoes33"><button class="btn33 btn33-cinza" data-hist33>📜 Histórico</button>${somenteLeitura()?'':`<button class="btn33 btn33-roxo" data-salvar-receb33>Registrar Documento Recebido</button>`}</div>`,'pendencia');
     el.querySelector('[data-hist33]')?.addEventListener('click',()=>abrirHistorico(id,()=>abrirTratarPendencia(id)));
-    el.querySelector('[data-salvar-receb33]')?.addEventListener('click',async()=>{const ids=[...el.querySelectorAll('input[name="receb331"]:checked')].map(x=>Number(x.value));if(!ids.length)return alert('Marque ao menos um item recebido.');try{await marcarRecebidas(ids);const restantes=pendentes.filter(x=>!ids.includes(Number(x.id)));const completo=restantes.length===0;p.pendencia_aberta=!completo;p.etapa=p.etapa_atual='Pendência';p.data_etapa_atual=agoraISO();p.pendencia_aluno_itens=restantes.filter(x=>x.grupo==='aluno').map(x=>x.item);p.pendencia_instituicao_itens=restantes.filter(x=>x.grupo==='instituicao').map(x=>x.item);await salvar(p);const recebidosAgora=pendentes.filter(x=>ids.includes(Number(x.id))).map(x=>x.item);await registrarHistorico(p,'Pendência',completo?'Pendência resolvida':'Recebimento parcial',`Recebido: ${recebidosAgora.join(', ')}`,{itens_recebidos:recebidosAgora,pendencia_resolvida:completo});if(completo){fecharModal();toast('Pendência totalmente resolvida. Selecione o digitador e confirme a mensagem obrigatória.');setTimeout(()=>{const wf=window.SIGEE_WORKFLOW_093; if(wf?.abrirEncaminharDigitacao) wf.abrirEncaminharDigitacao(id,{origem:'Pendência resolvida'}); else window.abrirEncaminharDigitacaoSIGEE?.(id,{origem:'Pendência resolvida'});},0);}else{toast('Recebimento parcial registrado.');await abrirTratarPendencia(id);}}catch(e){console.error(e);alert('Não foi possível registrar o recebimento: '+(e.message||e));}});
+    el.querySelector('[data-salvar-receb33]')?.addEventListener('click',async()=>{const ids=[...el.querySelectorAll('input[name="receb331"]:checked')].map(x=>Number(x.value));if(!ids.length)return alert('Marque ao menos um item recebido.');try{const ator=identidadeSessao();await marcarRecebidas(ids,ator);const restantes=pendentes.filter(x=>!ids.includes(Number(x.id)));const completo=restantes.length===0;p.pendencia_aberta=!completo;p.etapa=p.etapa_atual='Pendência';p.data_etapa_atual=agoraISO();p.tecnico_responsavel=ator.nome;p.pendencia_aluno_itens=restantes.filter(x=>x.grupo==='aluno').map(x=>x.item);p.pendencia_instituicao_itens=restantes.filter(x=>x.grupo==='instituicao').map(x=>x.item);await salvar(p);const recebidosAgora=pendentes.filter(x=>ids.includes(Number(x.id))).map(x=>x.item);await registrarHistorico(p,'Pendência',completo?'Pendência resolvida':'Recebimento parcial',`Recebido: ${recebidosAgora.join(', ')}`,{itens_recebidos:recebidosAgora,pendencia_resolvida:completo},ator);if(completo){fecharModal();toast('Pendência totalmente resolvida. Selecione o digitador e confirme a mensagem obrigatória.');setTimeout(()=>{const wf=window.SIGEE_WORKFLOW_093; if(wf?.abrirEncaminharDigitacao) wf.abrirEncaminharDigitacao(id,{origem:'Pendência resolvida'}); else window.abrirEncaminharDigitacaoSIGEE?.(id,{origem:'Pendência resolvida'});},0);}else{toast('Recebimento parcial registrado.');await abrirTratarPendencia(id);}}catch(e){console.error(e);alert('Não foi possível registrar o recebimento: '+(e.message||e));}});
   }
 
   function formatarSEI(v){const d=txt(v).replace(/\D/g,'').slice(0,20);let o='';if(d.length)o+=d.slice(0,3);if(d.length>3)o+='.'+d.slice(3,7);if(d.length>7)o+='.'+d.slice(7,11);if(d.length>11)o+='.'+d.slice(11,18);if(d.length>18)o+='-'+d.slice(18,20);return o;}
