@@ -6,7 +6,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '3.3.9-LOGS-PRESENCA';
+  const VERSION = '3.3.10-LOGS-CONTEXTO';
   const TABELA_LOGS = 'logs_sigee';
   const TABELA_ONLINE = 'usuarios_online_sigee';
   const HEARTBEAT_MS = 60 * 1000;
@@ -130,6 +130,9 @@
     ultimoLog = { chave, ts: agora };
 
     const processo = Object.assign({}, processoContexto(), contexto || {});
+    if (processo.processo_id !== null && processo.processo_id !== undefined && processo.processo_id !== '') {
+      processo.processo_id = Number(processo.processo_id);
+    }
     const registro = {
       data: dataBR(),
       created_at: new Date().toISOString(),
@@ -326,6 +329,7 @@
     if (instalando) return;
     instalando = true;
     window.registrarLog = registrarLogSIGEE;
+    window.registrarLogContextualSIGEE = registrarLogSIGEE;
     window.carregarLogs = carregarLogsSIGEE;
     window.atualizarDashboardUsuariosConectadosSIGEE = atualizarDashboardUsuariosConectadosSIGEE;
     window.SIGEE_LOGS_VERSION = VERSION;

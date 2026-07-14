@@ -2320,6 +2320,87 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             return `SEEX.${sigla}.${ano}${nte}.${sequencial}`;
         }
 
+        async function registrarLogCriacaoProcessoV1002006B(processo, aluno) {
+            const client = obterSupabaseSIGEE();
+            const u = window.usuarioLogado || {};
+            if (!client || !processo || !processo.id) return false;
+
+            const sessaoId =
+                sessionStorage.getItem('SIGEE_SESSION_ID') ||
+                ((window.crypto && typeof window.crypto.randomUUID === 'function')
+                    ? window.crypto.randomUUID()
+                    : `sigee-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+
+            try {
+                sessionStorage.setItem('SIGEE_SESSION_ID', sessaoId);
+            } catch (_) {}
+
+            const payload = {
+                usuario_id: u.id || null,
+                nome: u.nome || u.name || 'Usuário',
+                email: String(u.email || '').trim().toLowerCase(),
+                perfil: u.perfil || null,
+                nte: u.nte || u.nte_nome || u.nte_vinculado || u.grupo || processo.nte || null,
+                acao: `Nova solicitação cadastrada para ${aluno}.`,
+                detalhes: `Processo ${processo.codigo_sigee} | ID ${processo.id}`,
+                modulo: 'processos',
+                processo_id: processo.id,
+                codigo_sigee: processo.codigo_sigee,
+                etapa: processo.etapa_atual || processo.etapa || 'Desarquivamento',
+                sessao_id: sessaoId,
+                created_at: new Date().toISOString()
+            };
+
+            const resposta = await client
+                .from((window.SIGEE_SUPABASE_TABELAS && window.SIGEE_SUPABASE_TABELAS.logs) || 'logs_sigee')
+                .insert([payload]);
+
+            if (resposta.error) {
+                console.warn(
+                    '[SIGEE 1.0.2.006B] Processo criado, mas o log contextual não foi confirmado:',
+                    resposta.error
+                );
+
+                /*
+                 * Fallback para tabelas antigas: mantém os dados críticos
+                 * também no texto, mesmo sem colunas adicionais.
+                 */
+                const basico = {
+                    nome: payload.nome,
+                    email: payload.email,
+                    perfil: payload.perfil,
+                    nte: payload.nte,
+                    acao: payload.acao,
+                    detalhes: payload.detalhes
+                };
+                const fallback = await client.from('logs_sigee').insert([basico]);
+                if (fallback.error) {
+                    console.error(
+                        '[SIGEE 1.0.2.006B] Falha também no log básico:',
+                        fallback.error
+                    );
+                    return false;
+                }
+            }
+
+            /*
+             * Atualiza a cópia local do painel sem duplicar no Supabase.
+             */
+            try {
+                const registroLocal = {
+                    data: new Date().toLocaleString('pt-BR'),
+                    ...payload
+                };
+                const locais = JSON.parse(localStorage.getItem('SIGEE_LOGS_DB') || '[]');
+                locais.unshift(registroLocal);
+                if (locais.length > 2000) locais.length = 2000;
+                localStorage.setItem('SIGEE_LOGS_DB', JSON.stringify(locais));
+                window.logsDB = locais;
+            } catch (_) {}
+
+            return true;
+        }
+
         async function salvarNovaSolicitacaoSupabaseSIGEE_V19(proc, solicitacao) {
             const client = obterSupabaseSIGEE();
             if (!client) throw new Error('Cliente Supabase indisponível.');
@@ -2956,30 +3037,10 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                         }
                     } catch (_) {}
 
-                    const acaoLog =
-                        `Nova solicitação cadastrada para ${aluno}.`;
-
-                    const contextoLog = {
-                        processo_id: processoSalvo.id,
-                        codigo_sigee: processoSalvo.codigo_sigee,
-                        etapa: processoSalvo.etapa_atual || processoSalvo.etapa || 'Desarquivamento',
-                        modulo: 'processos',
-                        aluno: aluno
-                    };
-
-                    if (typeof window.registrarLog === 'function') {
-                        await window.registrarLog(
-                            acaoLog,
-                            `Processo ${processoSalvo.codigo_sigee} | ID ${processoSalvo.id}`,
-                            contextoLog
-                        );
-                    } else if (typeof registrarLog === 'function') {
-                        await registrarLog(
-                            acaoLog,
-                            `Processo ${processoSalvo.codigo_sigee} | ID ${processoSalvo.id}`,
-                            contextoLog
-                        );
-                    }
+                    await registrarLogCriacaoProcessoV1002006B(
+                        processoSalvo,
+                        aluno
+                    );
                     fecharModalNovaSolicitacao();
                     if(typeof carregarEContarProcessosHorizontais === 'function') carregarEContarProcessosHorizontais();
                     if(typeof carregarDadosDashboardReal === 'function') carregarDadosDashboardReal();
@@ -7957,3 +8018,5 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
 
 /* SIGEE 1.0.2.006A — Código SIGEE no INSERT e log contextual */
 window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006A';
+
+window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
