@@ -314,10 +314,13 @@
     document.querySelectorAll('button').forEach(btn => {
       const onclick = btn.getAttribute('onclick') || '';
       const textoBotao = normalizar(btn.textContent);
-      if (/abrirHistorico(SIGEE|ProcessoSIGEE)?\s*\(/i.test(onclick) || textoBotao === 'HISTORICO') {
-        btn.textContent = '📑 Prontuário';
-        btn.classList.add('sigee-btn-prontuario');
-      }
+      const ehHistorico = /abrirHistorico(SIGEE|ProcessoSIGEE)?\s*\(/i.test(onclick)
+        || textoBotao === 'HISTORICO';
+
+      if (!ehHistorico || btn.classList.contains('sigee-btn-prontuario')) return;
+
+      btn.textContent = '📑 Prontuário';
+      btn.classList.add('sigee-btn-prontuario');
     });
   }
 
@@ -329,7 +332,16 @@
     if (e.key === 'Escape' && document.getElementById('sigee-prontuario-overlay')) fechar();
   });
 
-  new MutationObserver(renomearBotoes).observe(document.documentElement, { childList:true, subtree:true });
+  let renomeacaoAgendada = false;
+  const observadorProntuario = new MutationObserver(() => {
+    if (renomeacaoAgendada) return;
+    renomeacaoAgendada = true;
+    requestAnimationFrame(() => {
+      renomeacaoAgendada = false;
+      renomearBotoes();
+    });
+  });
+  observadorProntuario.observe(document.documentElement, { childList:true, subtree:true });
   document.readyState === 'loading'
     ? document.addEventListener('DOMContentLoaded', renomearBotoes)
     : renomearBotoes();
