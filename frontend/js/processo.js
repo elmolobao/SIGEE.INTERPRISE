@@ -160,29 +160,49 @@
         if (!p) return 'Não atribuído';
         const etapa = normalizar(processoEtapa(p));
         const porEtapa = etapa.includes('ANAL')
-            ? (p.analista_nome || p.analista || p.tecnico_analista)
+            ? (p.analista_nome || p.analista || p.tecnico_analista || p.analista_selecionado_nome || p.analista_selecionado)
             : etapa.includes('DIGIT')
-                ? (p.digitador_nome || p.digitador)
+                ? (p.digitador_nome || p.digitador || p.digitador_selecionado_nome || p.digitador_selecionado)
                 : etapa.includes('CONFER')
-                    ? (p.conferente_nome || p.conferente)
+                    ? (p.conferente_nome || p.conferente || p.conferente_selecionado_nome || p.conferente_selecionado)
                     : etapa.includes('ASSIN')
                         ? (p.responsavel_assinatura_nome || p.responsavel_assinatura || p.enviado_assinatura_por)
                         : null;
         return texto(
             porEtapa ||
-            p.tecnico_responsavel_nome ||
-            p.tecnico_responsavel ||
-            p.responsavel_nome ||
-            p.responsavel ||
-            p.usuario_responsavel_nome ||
-            p.usuario_responsavel ||
+            p.tecnico_responsavel_nome || p.tecnico_responsavel ||
+            p.responsavel_nome || p.responsavel ||
+            p.usuario_responsavel_nome || p.usuario_responsavel ||
             p.tecnico_nome ||
-            p.analista_nome || p.analista ||
+            p.analista_nome || p.analista || p.analista_selecionado_nome || p.analista_selecionado ||
             p.digitador_nome || p.digitador ||
             p.conferente_nome || p.conferente ||
             p.atribuido_para_nome || p.atribuido_para ||
+            p.responsavel_etapa_nome || p.responsavel_etapa ||
             p.criado_por_nome || p.criado_por
         ) || 'Não atribuído';
+    }
+
+    function consolidarResponsavelProcesso(p) {
+        if (!p) return p;
+        const responsavel = processoResponsavel(p);
+        if (!responsavel || responsavel === 'Não atribuído') return p;
+        const etapa = normalizar(processoEtapa(p));
+        p.tecnico_responsavel = responsavel;
+        p.tecnico_responsavel_nome = p.tecnico_responsavel_nome || responsavel;
+        p.responsavel = p.responsavel || responsavel;
+        p.responsavel_nome = p.responsavel_nome || responsavel;
+        if (etapa.includes('ANAL')) {
+            p.analista = p.analista || responsavel;
+            p.analista_nome = p.analista_nome || responsavel;
+        } else if (etapa.includes('DIGIT')) {
+            p.digitador = p.digitador || responsavel;
+            p.digitador_nome = p.digitador_nome || responsavel;
+        } else if (etapa.includes('CONFER')) {
+            p.conferente = p.conferente || responsavel;
+            p.conferente_nome = p.conferente_nome || responsavel;
+        }
+        return p;
     }
     function anoProcesso(p) {
         const bruto = texto(p && (p.data_solicitacao || p.created_at || p.criado_em || p.data_abertura));
@@ -329,11 +349,19 @@
 
     function processoPayload(p) {
         garantirInicioCiclo(p);
+        consolidarResponsavelProcesso(p);
         try {
             if (typeof processoParaSupabaseSIGEE === 'function') {
-                const payload = processoParaSupabaseSIGEE(p);
+                const payload = processoParaSupabaseSIGEE(p) || {};
                 payload.workflow_instance_id = p.workflow_instance_id || payload.workflow_instance_id || gerarWorkflowInstanceIdSIGEE();
                 p.workflow_instance_id = payload.workflow_instance_id;
+                const responsavelAtual = processoResponsavel(p);
+                if (responsavelAtual && responsavelAtual !== 'Não atribuído') {
+                    payload.tecnico_responsavel = responsavelAtual;
+                }
+                payload.data_inicio_desarquivamento = dataInicioCiclo(p) || payload.data_inicio_desarquivamento || null;
+                payload.data_inicio_ciclo = dataInicioCiclo(p) || payload.data_inicio_ciclo || null;
+                payload.prazo_inicio_ciclo = dataInicioCiclo(p) || payload.prazo_inicio_ciclo || null;
                 return protegerDatasPayloadSIGEE(payload);
             }
         } catch (e) {}
@@ -807,10 +835,19 @@
       nte: r.nte || r.nte_nome || r.grupo || '',
       modalidade: r.modalidade || r.oferta_modalidade || r.nivel_oferta || '',
       prioridade: r.prioridade || 'Normal',
-      tecnico_responsavel: r.tecnico_responsavel_nome || r.tecnico_responsavel || r.responsavel_nome || r.responsavel || r.usuario_responsavel_nome || r.usuario_responsavel || r.tecnico_nome || r.analista_nome || r.analista || r.digitador_nome || r.digitador || r.conferente_nome || r.conferente || r.atribuido_para_nome || r.atribuido_para || '',
-      analista_nome: r.analista_nome || r.analista || '',
+      tecnico_responsavel: r.tecnico_responsavel_nome || r.tecnico_responsavel || r.responsavel_nome || r.responsavel || r.usuario_responsavel_nome || r.usuario_responsavel || r.tecnico_nome || r.analista_nome || r.analista || r.analista_selecionado_nome || r.analista_selecionado || r.digitador_nome || r.digitador || r.conferente_nome || r.conferente || r.atribuido_para_nome || r.atribuido_para || '',
+      tecnico_responsavel_nome: r.tecnico_responsavel_nome || r.tecnico_responsavel || '',
+      responsavel: r.responsavel || r.tecnico_responsavel || '',
+      responsavel_nome: r.responsavel_nome || r.tecnico_responsavel_nome || r.tecnico_responsavel || '',
+      analista: r.analista || r.analista_nome || r.analista_selecionado || '',
+      analista_nome: r.analista_nome || r.analista || r.analista_selecionado_nome || r.analista_selecionado || '',
+      digitador: r.digitador || r.digitador_nome || '',
       digitador_nome: r.digitador_nome || r.digitador || '',
+      conferente: r.conferente || r.conferente_nome || '',
       conferente_nome: r.conferente_nome || r.conferente || '',
+      data_inicio_desarquivamento: r.data_inicio_desarquivamento || r.data_inicio_ciclo || r.prazo_inicio_ciclo || null,
+      data_inicio_ciclo: r.data_inicio_ciclo || r.data_inicio_desarquivamento || r.prazo_inicio_ciclo || null,
+      prazo_inicio_ciclo: r.prazo_inicio_ciclo || r.data_inicio_desarquivamento || r.data_inicio_ciclo || null,
       codigo_sigee: r.codigo_sigee || '',
       pendencia_aluno_itens: r.pendencia_aluno_itens || [],
       pendencia_instituicao_itens: r.pendencia_instituicao_itens || [],
