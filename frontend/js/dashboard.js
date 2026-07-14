@@ -431,6 +431,20 @@
   if(window.__SIGEE_CIG_241__) return;
   window.__SIGEE_CIG_241__=true;
 
+  let ultimaAssinaturaDados='';
+  let metricasCache=null;
+  let aguardandoDadosDesde=Date.now();
+
+  const NOMES_OFICIAIS_NTE = Object.freeze({
+    1:'Irecê',2:'Bom Jesus da Lapa',3:'Seabra',4:'Serrinha',5:'Itabuna',
+    6:'Valença',7:'Teixeira de Freitas',8:'Itapetinga',9:'Amargosa',10:'Juazeiro',
+    11:'Barreiras',12:'Macaúbas',13:'Caetité',14:'Itaberaba',15:'Ipirá',
+    16:'Jacobina',17:'Ribeira do Pombal',18:'Alagoinhas',19:'Feira de Santana',
+    20:'Vitória da Conquista',21:'Santo Antônio de Jesus',22:'Jequié',
+    23:'Santa Maria da Vitória',24:'Paulo Afonso',25:'Senhor do Bonfim',
+    26:'Salvador',27:'Eunápolis'
+  });
+
   const LIMITES = {
     'ANALISE':7,
     'DIGITACAO':15,
@@ -461,19 +475,73 @@
     return Math.max(0,(y-x)/86400000);
   };
   const etapa=p=>norm(p?.etapa_atual||p?.etapa||p?.fase_atual||'DESARQUIVAMENTO');
-  const nte=p=>{
-    const m=txt(p?.nte||p?.nte_nome||p?.grupo||'').match(/\d{1,2}/);
-    return m?`NTE-${String(Number(m[0])).padStart(2,'0')}`:'NTE não informado';
-  };
-  const tecnico=p=>txt(
-    p?.tecnico_responsavel_nome||p?.tecnico_responsavel||
-    p?.responsavel_nome||p?.responsavel||
-    p?.analista_nome||p?.analista||
-    p?.digitador_nome||p?.digitador||
-    p?.conferente_nome||p?.conferente||
-    'Não atribuído'
-  );
-  const escola=p=>txt(p?.escola_nome||p?.escola||p?.nome_escola||p?.instituicao||'Não informada');
+  function nteNumero(p){
+    const bruto=txt(p?.nte||p?.nte_nome||p?.grupo||p?.territorio||'');
+    const m=bruto.match(/\d{1,2}/);
+    return m?Number(m[0]):null;
+  }
+  function nteCodigo(p){
+    const n=nteNumero(p);
+    return n?`NTE-${String(n).padStart(2,'0')}`:'NTE não informado';
+  }
+  function municipioProcesso(p){
+    return txt(
+      p?.municipio||p?.escola_municipio||p?.municipio_escola||
+      p?.cidade||p?.localidade||''
+    );
+  }
+  function nomeTerritorioBruto(p){
+    const bruto=txt(p?.nte_nome||p?.territorio_nome||p?.nome_territorio||p?.grupo||p?.nte||'');
+    const limpo=bruto
+      .replace(/NTE\s*[- ]?\s*\d{1,2}/ig,'')
+      .replace(/^\s*[-–—:]\s*/,'')
+      .trim();
+    if(limpo && !/^\d+$/.test(limpo)) return limpo;
+    const numero=nteNumero(p);
+    return numero ? (NOMES_OFICIAIS_NTE[numero]||'') : '';
+  }
+  function complementoTerritorial(p){
+    /*
+     * Para o padrão institucional combinado, o nome exibido entre
+     * parênteses é a sede/nome oficial do NTE. O município da escola
+     * fica como fallback somente quando o NTE não puder ser identificado.
+     */
+    return nomeTerritorioBruto(p)||municipioProcesso(p);
+  }
+  function nte(p){
+    const codigo=nteCodigo(p);
+    const complemento=nomeTerritorioBruto(p)||municipioProcesso(p);
+    return complemento?`${codigo} (${complemento})`:codigo;
+  }
+  function tecnicoNome(p){
+    return txt(
+      p?.tecnico_responsavel_nome||p?.tecnico_responsavel||
+      p?.responsavel_nome||p?.responsavel||
+      p?.analista_nome||p?.analista||
+      p?.digitador_nome||p?.digitador||
+      p?.conferente_nome||p?.conferente||
+      'Não atribuído'
+    );
+  }
+  function tecnico(p){
+    const nome=tecnicoNome(p);
+    const codigo=nteCodigo(p);
+    const complemento=nomeTerritorioBruto(p);
+    return codigo==='NTE não informado'
+      ? nome
+      : `${nome} - ${codigo}${complemento?` (${complemento})`:''}`;
+  }
+  function escolaNome(p){
+    return txt(p?.escola_nome||p?.escola||p?.nome_escola||p?.instituicao||'Não informada');
+  }
+  function escola(p){
+    const nome=escolaNome(p);
+    const codigo=nteCodigo(p);
+    const complemento=complementoTerritorial(p);
+    return codigo==='NTE não informado'
+      ? nome
+      : `${nome} - ${codigo}${complemento?` (${complemento})`:''}`;
+  }
   const inicio=p=>p?.data_solicitacao||p?.data_abertura||p?.created_at||p?.criado_em;
   const entradaEtapa=p=>p?.data_etapa_atual||p?.prazo_inicio||inicio(p);
   const conclusao=p=>p?.finalizado_em||p?.data_conclusao||p?.deferido_em||p?.updated_at;
@@ -565,6 +633,71 @@
       ntes:agrupar(abertos,nte),
       escolas:agrupar(abertos,escola)
     };
+  }
+
+  function renderSkeleton(){
+    garantirEstrutura();
+    const root=document.getElementById('sigee-cig');
+    if(!root)return;
+    root.classList.add('sigee-cig-carregando');
+    root.querySelectorAll('[data-kpi-valor]').forEach(el=>el.innerHTML='<i class="sigee-cig-skeleton curto"></i>');
+    root.querySelectorAll('[data-kpi-tendencia]').forEach(el=>el.innerHTML='<i class="sigee-cig-skeleton medio"></i>');
+    ['cig-gargalos','cig-tecnicos','cig-ntes','cig-escolas'].forEach(id=>{
+      const box=document.getElementById(id);
+      if(box)box.innerHTML=Array.from({length:5},()=>'<div class="sigee-cig-skeleton linha"></div>').join('');
+    });
+    const atualizado=document.getElementById('cig-atualizado');
+    if(atualizado)atualizado.textContent='Carregando dados reais...';
+  }
+
+  function setTexto(id,valor){
+    const campo=document.getElementById(id);
+    if(campo)campo.textContent=valor;
+  }
+
+  function diasPeriodoGerencial(periodo,processos){
+    if(periodo?.ini && periodo?.fim){
+      return Math.max(1,Math.floor((periodo.fim-periodo.ini)/86400000)+1);
+    }
+    const datas=processos.map(p=>data(inicio(p))).filter(Boolean);
+    if(!datas.length)return 1;
+    const menor=new Date(Math.min(...datas));
+    const maior=new Date(Math.max(...datas));
+    return Math.max(1,Math.floor((maior-menor)/86400000)+1);
+  }
+
+  function processoTemPastaLocalizada(p){
+    const conteudo=norm([
+      p?.tipo_arquivo,p?.tipo_arquivo_recebido,p?.arquivo_tipo,p?.arquivo,
+      p?.ultimo_evento_workflow,p?.ultima_acao_workflow,p?.observacao,
+      p?.contexto_analise
+    ].filter(Boolean).join(' '));
+    return conteudo.includes('PASTA') &&
+      (conteudo.includes('LOCALIZ')||conteudo.includes('RECEBID')||conteudo==='PASTA');
+  }
+
+  function atualizarIndicadoresTecnicosFiltrados(lista,periodo){
+    const noRecorte=lista.filter(p=>noPeriodo(inicio(p),periodo));
+    const concluidos=lista.filter(p=>finalizado(p)&&noPeriodo(conclusao(p),periodo));
+    const tempos=concluidos
+      .map(p=>dias(inicio(p),conclusao(p)))
+      .filter(v=>Number.isFinite(v));
+    const mediaEntrega=tempos.length?media(tempos):0;
+    const diasBase=diasPeriodoGerencial(periodo,noRecorte);
+    const pastas=noRecorte.filter(processoTemPastaLocalizada);
+
+    setTexto(
+      'dash-tec-media-entrega',
+      `${mediaEntrega.toLocaleString('pt-BR',{maximumFractionDigits:1})} ${Math.abs(mediaEntrega-1)<0.001?'dia':'dias'}`
+    );
+    setTexto(
+      'dash-tec-media-pedidos-dia',
+      (noRecorte.length/diasBase).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})
+    );
+    setTexto(
+      'dash-tec-media-pasta-dia',
+      (pastas.length/diasBase).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})
+    );
   }
 
   function garantirEstrutura(){
@@ -677,12 +810,36 @@
 
   function atualizar(){
     garantirEstrutura();
-    if(!document.getElementById('sigee-cig'))return;
+    const root=document.getElementById('sigee-cig');
+    if(!root)return;
     const lista=processosBase();
+
+    if(!lista.length && Date.now()-aguardandoDadosDesde<15000){
+      renderSkeleton();
+      return;
+    }
+
+    root.classList.remove('sigee-cig-carregando');
     const p=periodoAtual();
     const ant=periodoAnterior(p);
-    const atual=metricas(lista,p);
-    const anterior=ant?metricas(lista,ant):{ativos:0,mediaAtendimento:0,sla:0,vencidos:0,concluidos:0,produtividade:0};
+    const assinatura=[
+      lista.length,
+      lista.reduce((s,x)=>s+Number(x?.id||0),0),
+      document.getElementById('filtro-dashboard-nte')?.value||'TODOS',
+      document.getElementById('filtro-dashboard-periodo')?.value||'ACUMULADO',
+      document.getElementById('dashboard-data-inicial')?.value||'',
+      document.getElementById('dashboard-data-final')?.value||''
+    ].join('|');
+
+    let atual,anterior;
+    if(metricasCache && assinatura===ultimaAssinaturaDados){
+      ({atual,anterior}=metricasCache);
+    }else{
+      atual=metricas(lista,p);
+      anterior=ant?metricas(lista,ant):{ativos:0,mediaAtendimento:0,sla:0,vencidos:0,concluidos:0,produtividade:0};
+      ultimaAssinaturaDados=assinatura;
+      metricasCache={atual,anterior};
+    }
 
     renderKpi('ativos',atual.ativos,anterior.ativos);
     renderKpi('media',atual.mediaAtendimento,anterior.mediaAtendimento);
@@ -696,6 +853,13 @@
     renderRanking('cig-tecnicos',atual.tecnicos,'Nenhuma entrega técnica no período');
     renderRanking('cig-ntes',atual.ntes,'Nenhuma demanda territorial no período');
     renderRanking('cig-escolas',atual.escolas,'Nenhuma escola demandada no período');
+
+    /*
+     * Estes três indicadores existiam no Dashboard legado, mas eram
+     * recalculados sem obedecer plenamente ao filtro de NTE/período.
+     * O dashboard.js passa a ser a fonte autoritativa.
+     */
+    atualizarIndicadoresTecnicosFiltrados(lista,p);
 
     const total=document.getElementById('cig-total-ativos');
     if(total)total.textContent=`${atual.ativos.toLocaleString('pt-BR')} ativos`;
@@ -726,7 +890,21 @@
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)agendar()});
   setInterval(()=>{const aba=document.getElementById('aba-painel');if(aba&&!aba.classList.contains('hidden'))agendar()},60000);
 
+  let assinaturaObservada='';
+  const observarDados=setInterval(()=>{
+    const arr=Array.isArray(window.processosDB)?window.processosDB:[];
+    const assinatura=`${arr.length}|${arr.reduce((s,x)=>s+Number(x?.id||0),0)}`;
+    if(assinatura!==assinaturaObservada){
+      assinaturaObservada=assinatura;
+      ultimaAssinaturaDados='';
+      metricasCache=null;
+      if(arr.length)aguardandoDadosDesde=0;
+      agendar();
+    }
+    if(Date.now()-aguardandoDadosDesde>20000 && arr.length) clearInterval(observarDados);
+  },350);
+
   window.atualizarCentroInteligenciaSIGEE=atualizar;
-  console.info('[SIGEE] Centro de Inteligência Gerencial 2.4.1 carregado.');
+  console.info('[SIGEE] Centro de Inteligência Gerencial 2.4.1B carregado.');
 })();
 
