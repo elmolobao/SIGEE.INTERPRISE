@@ -376,3 +376,71 @@ table thead th{
   .sigee-welcome-strip-meta{display:none}
   .sigee-welcome-strip{align-items:flex-start}
 }
+
+
+/* =====================================================================
+   SIGEE Sprint 2.4.1 — Centro de Inteligência Gerencial
+   ===================================================================== */
+.sigee-cig{margin-bottom:22px}
+.sigee-cig-head{
+  display:flex;align-items:center;justify-content:space-between;gap:22px;
+  padding:23px 25px;border:1px solid #d7e3ef;border-radius:20px;
+  background:linear-gradient(115deg,#fff 0%,#eef6ff 65%,#fff8e7 100%);
+  box-shadow:0 12px 34px rgba(28,63,99,.09);position:relative;overflow:hidden
+}
+.sigee-cig-head:before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(45,140,255,.045),transparent 48%,rgba(200,148,36,.07));pointer-events:none}
+.sigee-cig-head>div{position:relative;z-index:1}
+.sigee-cig-head span{font-size:10px;font-weight:900;letter-spacing:.15em;color:#176fbd}
+.sigee-cig-head h2{margin:4px 0 5px;font-size:25px!important;letter-spacing:-.02em}
+.sigee-cig-head p{margin:0;color:#66758a;font-size:12px}
+.sigee-cig-status{display:flex;align-items:center;gap:10px;padding:10px 13px;background:rgba(255,255,255,.8);border:1px solid #d8e5ef;border-radius:14px}
+.sigee-cig-status i{width:10px;height:10px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 5px rgba(34,197,94,.12)}
+.sigee-cig-status strong,.sigee-cig-status span{display:block}
+.sigee-cig-status strong{font-size:11px;color:#24405e}
+.sigee-cig-status span{font-size:9px;color:#78879a;letter-spacing:0}
+
+.sigee-cig-alertas{display:flex;gap:9px;flex-wrap:wrap;margin:12px 0}
+.sigee-cig-alertas>div{display:flex;align-items:center;gap:7px;padding:8px 11px;border-radius:11px;font-size:10px;font-weight:850;border:1px solid}
+.sigee-cig-alertas .critico{background:#fff0f1;color:#a92837;border-color:#efb6bd}
+.sigee-cig-alertas .alerta{background:#fff6df;color:#8b6200;border-color:#efd48b}
+.sigee-cig-alertas .ok{background:#eaf8f1;color:#087a4e;border-color:#9bd5b8}
+.sigee-cig-alertas .neutro{background:#f1f5f9;color:#53657a;border-color:#d6e0ea}
+
+.sigee-cig-kpis{display:grid;grid-template-columns:repeat(6,minmax(150px,1fr));gap:12px;margin-bottom:14px}
+.sigee-cig-kpi{background:#fff;border:1px solid #d9e2ec;border-radius:16px;padding:15px;box-shadow:0 8px 24px rgba(28,63,99,.07);transition:.18s ease}
+.sigee-cig-kpi:hover{transform:translateY(-2px);box-shadow:0 14px 32px rgba(28,63,99,.12)}
+.sigee-cig-kpi-top{display:flex;justify-content:space-between;align-items:center;color:#627286}
+.sigee-cig-kpi-top span{font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.07em}
+.sigee-cig-kpi-top b{width:29px;height:29px;display:grid;place-items:center;border-radius:9px;background:#e9f3ff;color:#176fbd}
+.sigee-cig-kpi>strong{display:block;font-size:23px;color:#082f5b;margin:10px 0 5px}
+.sigee-cig-kpi>small{display:block;font-size:8.5px;font-weight:800}
+.sigee-cig-kpi>small.positiva{color:#087a4e}.sigee-cig-kpi>small.negativa{color:#b4232f}.sigee-cig-kpi>small.neutra{color:#7a8898}
+.sigee-cig-kpi[data-estado="critico"]{border-color:#efb6bd;background:linear-gradient(180deg,#fff,#fff5f6)}
+.sigee-cig-kpi[data-estado="alerta"]{border-color:#efd48b;background:linear-gradient(180deg,#fff,#fffaf0)}
+
+.sigee-cig-grid{display:grid;grid-template-columns:1.35fr 1fr;gap:13px}
+.sigee-cig-card{background:#fff;border:1px solid #d9e2ec;border-radius:17px;padding:17px;box-shadow:0 8px 25px rgba(28,63,99,.07);min-height:235px}
+.sigee-cig-card header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.sigee-cig-card header span{font-size:8.5px;color:#176fbd;font-weight:900;letter-spacing:.12em}
+.sigee-cig-card header h3{font-size:15px!important;margin:2px 0 0}
+.sigee-cig-card header>b{font-size:9px;padding:6px 9px;border-radius:999px;background:#e9f3ff;color:#176fbd}
+
+.sigee-cig-barra{margin-bottom:12px}
+.sigee-cig-barra>div{display:flex;justify-content:space-between;gap:12px;margin-bottom:5px}
+.sigee-cig-barra strong{font-size:10px;color:#34465b}.sigee-cig-barra span{font-size:9px;color:#738297}
+.sigee-cig-barra>i,.sigee-cig-rank i{display:block;height:7px;background:#edf2f7;border-radius:999px;overflow:hidden}
+.sigee-cig-barra>i>em,.sigee-cig-rank i>em{display:block;height:100%;border-radius:999px;transition:width .5s ease}
+
+.sigee-cig-ranking{display:flex;flex-direction:column;gap:9px}
+.sigee-cig-rank{display:grid;grid-template-columns:25px 1fr;gap:9px;align-items:center}
+.sigee-cig-rank .pos{width:25px;height:25px;display:grid;place-items:center;border-radius:8px;background:#edf4fb;color:#176fbd;font-size:9px;font-weight:900}
+.sigee-cig-rank .dados>div{display:flex;justify-content:space-between;gap:10px;margin-bottom:4px}
+.sigee-cig-rank strong{font-size:9.5px;color:#34465b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sigee-cig-rank b{font-size:9px;color:#176fbd}
+.sigee-cig-rank i em{background:linear-gradient(90deg,#176fbd,#2d8cff)}
+.sigee-cig-vazio{font-size:10px;color:#8190a2;text-align:center;padding:35px 0}
+
+@media(max-width:1250px){.sigee-cig-kpis{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:900px){.sigee-cig-grid{grid-template-columns:1fr}.sigee-cig-head{align-items:flex-start}.sigee-cig-status{display:none}}
+@media(max-width:620px){.sigee-cig-kpis{grid-template-columns:repeat(2,1fr)}.sigee-cig-head{padding:18px}.sigee-cig-head h2{font-size:20px!important}}
+
