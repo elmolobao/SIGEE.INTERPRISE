@@ -127,7 +127,7 @@
                             <button onclick="exportarProcessosSIGEE('xlsx')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-2 rounded-lg text-xs shadow cursor-pointer">📤 Exportar Excel</button>
                             <button onclick="exportarProcessosSIGEE('pdf')" class="bg-red-600 hover:bg-red-700 text-white font-bold px-3 py-2 rounded-lg text-xs shadow cursor-pointer">📄 Exportar PDF</button>
                         </div>
-                        <button onclick="abrirFormularioNovaSolicitacao()" class="bg-amber-500 hover:bg-amber-600 text-white font-bold px-4 py-2.5 rounded-lg text-xs flex items-center gap-1.5 shadow-md cursor-pointer transition">➕ Nova Solicitação</button>
+                        <button id="btn-nova-solicitacao" data-acao="nova-solicitacao" style="display:none;visibility:hidden" onclick="abrirFormularioNovaSolicitacao()" class="bg-amber-500 hover:bg-amber-600 text-white font-bold px-4 py-2.5 rounded-lg text-xs flex items-center gap-1.5 shadow-md cursor-pointer transition">➕ Nova Solicitação</button>
                     </div>
                 </div>
 
@@ -703,7 +703,7 @@
 <script src="js/config.js"></script>
 <script src="js/supabase.js"></script>
 <script src="js/auth.js"></script>
-<script src="js/permissoes.js?v=1.0.2.003B"></script>
+<script src="js/permissoes.js"></script>
 <script src="js/core/mensagens-config.js"></script>
 <script src="js/core/pop-config.js"></script>
 <script src="js/core/workflow.event.manager.js"></script>
@@ -715,7 +715,7 @@
 <script src="js/core/workflow.clock.panel.js"></script>
 <script src="js/dashboard.js"></script>
 <script src="js/escolas.js"></script>
-<script src="js/processos.js?v=1.0.2.003B"></script>
+<script src="js/processos.js"></script>
 <script src="js/importacao.js"></script>
 <script src="js/exportacao.js"></script>
 <script src="js/fluxo-operacional.js"></script>
@@ -723,15 +723,14 @@
 <script src="js/components/WorkflowActionModal.js"></script>
 <script src="js/municipios-territorios.js"></script>
 <script src="js/app.js?v=1.0.2.002"></script>
+<script src="js/controle-acessos.js"></script>
 <script src="js/workflow/workflow-externo.js"></script>
 <script src="js/sigee_footer_institucional.js"></script>
 <script src="js/sigee_nova_solicitacao_autocomplete_fix.js"></script>
+<script src="js/sigee_usuarios_crud_supabase_final.js"></script>
 <script src="js/sigee_perfil_estagiario_v1.js"></script>
 <script src="js/sigee_sprint_2_5_perfil_senha_nova_solicitacao.js"></script>
 <script src="js/logs.js?v=1.0.2.002"></script>
-
-<script src="js/sigee_usuarios_crud_supabase_final.js?v=1.0.2.003A3"></script>
-<script src="js/usuarios.js?v=1.0.2.003A3"></script>
 
 <script>
 /* SIGEE v0.9.2 - filtro visual da tabela de usuários */
@@ -743,5 +742,121 @@ window.filtrarTabelaUsuariosSIGEE = function (termo) {
     });
 };
 </script>
+
+<!-- SIGEE 1.0.2.003B2: GUARDA FINAL NOVA SOLICITAÇÃO -->
+<script>
+(function () {
+  'use strict';
+
+  function perfilAtual() {
+    var u = window.usuarioLogado || {};
+    var p = String(u.perfil || u.role || u.tipo_perfil || '')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+
+    if (p.indexOf('MASTER') >= 0) return 'MASTER';
+    if (p === 'SEC' || p.indexOf('SECRETARIA') >= 0) return 'SEC';
+    if (p.indexOf('ADMIN') >= 0) return 'ADMINISTRADOR';
+    if (p.indexOf('TECN') >= 0) return 'TECNICO';
+    if (p.indexOf('ESTAG') >= 0) return 'ESTAGIARIO';
+    if (p.indexOf('CONSULT') >= 0) return 'CONSULTA';
+    return p;
+  }
+
+  function permitido() {
+    return ['MASTER','ADMINISTRADOR','TECNICO','ESTAGIARIO'].indexOf(perfilAtual()) >= 0;
+  }
+
+  function botoes() {
+    return document.querySelectorAll(
+      '#btn-nova-solicitacao,[data-acao="nova-solicitacao"],.btn-nova-solicitacao,button[onclick*="abrirFormularioNovaSolicitacao"]'
+    );
+  }
+
+  function aplicar() {
+    var ok = permitido();
+
+    botoes().forEach(function (botao) {
+      botao.classList.toggle('hidden', !ok);
+      botao.style.display = ok ? '' : 'none';
+      botao.style.visibility = ok ? 'visible' : 'hidden';
+      botao.setAttribute('aria-hidden', ok ? 'false' : 'true');
+      botao.disabled = !ok;
+    });
+
+    if (!ok) {
+      var modal = document.getElementById('modal-nova-solicitacao');
+      if (modal) modal.classList.add('hidden');
+    }
+  }
+
+  function protegerFuncao() {
+    var original = window.abrirFormularioNovaSolicitacao;
+    if (typeof original !== 'function' || original.__SIGEE_BLOQUEIO_003B2__) return;
+
+    var protegida = function () {
+      if (!permitido()) {
+        alert('Seu perfil não possui permissão para criar nova solicitação.');
+        aplicar();
+        return false;
+      }
+      return original.apply(this, arguments);
+    };
+
+    protegida.__SIGEE_BLOQUEIO_003B2__ = true;
+    window.abrirFormularioNovaSolicitacao = protegida;
+    try { abrirFormularioNovaSolicitacao = protegida; } catch (e) {}
+  }
+
+  document.addEventListener('click', function (evento) {
+    var alvo = evento.target && evento.target.closest
+      ? evento.target.closest('#btn-nova-solicitacao,[data-acao="nova-solicitacao"],.btn-nova-solicitacao,button[onclick*="abrirFormularioNovaSolicitacao"]')
+      : null;
+
+    if (alvo && !permitido()) {
+      evento.preventDefault();
+      evento.stopPropagation();
+      evento.stopImmediatePropagation();
+      alert('Seu perfil não possui permissão para criar nova solicitação.');
+      aplicar();
+    }
+  }, true);
+
+  function iniciar() {
+    aplicar();
+    protegerFuncao();
+
+    var observador = new MutationObserver(function () {
+      aplicar();
+      protegerFuncao();
+    });
+
+    if (document.body) {
+      observador.observe(document.body, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['class', 'style', 'disabled']
+      });
+    }
+
+    setTimeout(aplicar, 250);
+    setTimeout(aplicar, 800);
+    setTimeout(aplicar, 1800);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', iniciar);
+  } else {
+    iniciar();
+  }
+
+  window.addEventListener('load', function () {
+    protegerFuncao();
+    aplicar();
+  });
+})();
+</script>
+<!-- FIM GUARDA FINAL NOVA SOLICITAÇÃO -->
+
 </body>
 </html>
