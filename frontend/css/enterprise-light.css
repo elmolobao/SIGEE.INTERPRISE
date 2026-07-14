@@ -205,3 +205,174 @@ tbody tr:hover{background:#eaf4ff!important;box-shadow:inset 3px 0 0 var(--sigee
   .sigee-welcome-logo{display:none}
   .sigee-welcome-card{min-height:auto}
 }
+
+/* ============================================================
+   SIGEE Enterprise 2.1.1 — Correções de legibilidade e acabamento
+   ============================================================ */
+
+/* Garante que o sistema permaneça oculto durante a tela de login. */
+#sistema-dashboard.hidden{display:none!important}
+#tela-login.hidden{display:none!important}
+#tela-login:not(.hidden)~#sistema-dashboard{display:none!important}
+
+/* Faixa de boas-vindas discreta */
+.sigee-welcome-strip{
+  display:flex;align-items:center;gap:14px;padding:16px 20px;margin-top:18px;
+  border:1px solid #d8e3ee;border-radius:16px;background:linear-gradient(90deg,#fff,#f3f8fd);
+  box-shadow:0 8px 24px rgba(28,63,99,.07)
+}
+.sigee-welcome-strip-icon{
+  width:42px;height:42px;display:flex;align-items:center;justify-content:center;flex:0 0 42px;
+  border-radius:50%;background:#0b4f8a;color:#fff;font-size:20px
+}
+.sigee-welcome-strip-copy{flex:1;min-width:0}
+.sigee-welcome-strip-copy h2{margin:0;color:#0b3f73!important;font-size:15px!important;font-weight:900}
+.sigee-welcome-strip-copy h2 strong{color:#176fbd}
+.sigee-welcome-strip-copy p{margin:4px 0 0;color:#66758a!important;font-size:12px}
+.sigee-welcome-strip-meta{text-align:right;white-space:nowrap}
+.sigee-welcome-strip-meta span{display:block;color:#0b4f8a;font-size:11px;font-weight:900}
+.sigee-welcome-strip-meta small{color:#8491a2;font-size:10px}
+
+/* Catálogo de Escolas — texto sempre legível */
+#aba-escolas,
+#aba-escolas table,
+#aba-escolas tbody,
+#aba-escolas tbody tr,
+#aba-escolas tbody td,
+#aba-escolas .sigee-modulo-lista,
+#aba-escolas .sigee-modulo-lista *{
+  color:#1e2b3b!important
+}
+#aba-escolas tbody tr{background:#fff!important}
+#aba-escolas tbody tr:nth-child(even){background:#f7f9fc!important}
+#aba-escolas tbody tr:hover{background:#eaf4ff!important}
+#aba-escolas thead,
+#aba-escolas thead th{
+  background:#e8f0f8!important;color:#26415f!important
+}
+#aba-escolas td .text-white,
+#aba-escolas td.text-white,
+#aba-escolas td span:not(.sigee-status):not(.badge):not([class*="bg-"]){
+  color:#1e2b3b!important
+}
+#aba-escolas .text-blue-200,
+#aba-escolas .text-blue-300,
+#aba-escolas .text-cyan-200{
+  color:#176fbd!important
+}
+#aba-escolas .sigee-modulo-pesquisa input,
+#busca-escola{
+  background:#fff!important;color:#172033!important;border-color:#c7d4e2!important
+}
+
+/* Central de Processos — prazo e responsável */
+#aba-processos tbody td,
+#aba-processos tbody td *{
+  color:#26364a
+}
+#aba-processos tbody td .text-white{color:#fff!important}
+#aba-processos tbody td .text-red-300{color:#b4232f!important}
+#aba-processos tbody td .text-amber-300{color:#9a6700!important}
+#aba-processos tbody td .text-emerald-300{color:#087a4e!important}
+#aba-processos tbody td:nth-child(5),
+#aba-processos tbody td:nth-child(5) span,
+#aba-processos tbody td:nth-child(6),
+#aba-processos tbody td:nth-child(6) span{
+  color:#26364a!important;font-weight:800!important
+}
+
+/* Workflow Externo — ações e botão Executar */
+.sigee-wfe-panel,
+.sigee-wfe-panel *{box-sizing:border-box}
+.sigee-wfe-action{
+  background:#f7f9fc!important;border:1px solid #d5e0eb!important;color:#172033!important
+}
+.sigee-wfe-action strong{color:#172033!important}
+.sigee-wfe-action p{color:#5e6f83!important}
+.sigee-wfe-action button,
+.sigee-wfe-action .sigee-wfe-btn,
+.sigee-wfe-panel button{
+  background:#0b4f8a!important;color:#fff!important;border:1px solid #0b4f8a!important;
+  opacity:1!important;filter:none!important;box-shadow:none!important
+}
+.sigee-wfe-action button:hover,
+.sigee-wfe-panel button:hover{
+  background:#176fbd!important;color:#fff!important
+}
+.sigee-wfe-action button:disabled,
+.sigee-wfe-panel button:disabled{
+  background:#d9e2ec!important;color:#68778a!important;border-color:#cbd6e2!important;
+  opacity:1!important;cursor:not-allowed!important
+}
+
+/* Badges de status — técnicos e escolas */
+.sigee-status,
+[class*="status-"],
+.badge-status,
+.badge-ativo,
+.badge-inativo{
+  font-weight:900!important;letter-spacing:.02em!important;text-shadow:none!important
+}
+.bg-green-100,
+.bg-emerald-100,
+.text-green-800,
+.text-emerald-800{
+  background:#e6f7ee!important;color:#087a4e!important;border-color:#9bd5b8!important
+}
+.bg-red-100,
+.text-red-800{
+  background:#fdecef!important;color:#a92837!important;border-color:#efb2ba!important
+}
+.bg-amber-100,
+.text-amber-800,
+.text-amber-900{
+  background:#fff5da!important;color:#8b6200!important;border-color:#efd48b!important
+}
+.bg-blue-100,
+.text-blue-800{
+  background:#e8f3ff!important;color:#1763a5!important;border-color:#a9ceed!important
+}
+#aba-usuarios tbody td,
+#aba-usuarios tbody td *{color:#26364a}
+#aba-usuarios tbody .text-white{color:#fff!important}
+
+/* Botão Sair somente dentro do sistema */
+#tela-login button[onclick="logout()"]{display:none!important}
+#sistema-dashboard button[onclick="logout()"]{
+  display:block!important;background:#fff!important;color:#b4232f!important;
+  border:1px solid #e9c7cc!important;box-shadow:none!important
+}
+#sistema-dashboard button[onclick="logout()"]:hover{
+  background:#fff3f4!important;color:#941d29!important
+}
+
+/* Mantém branco apenas onde o fundo realmente é colorido */
+.sigee-etapa-badge,
+.sigee-prioridade,
+button[class*="bg-blue-"],
+button[class*="bg-red-"],
+button[class*="bg-emerald-"],
+button[class*="bg-amber-"],
+button[class*="bg-orange-"],
+button[class*="bg-purple-"]{
+  text-shadow:none!important
+}
+
+/* Cabeçalhos e caixas auxiliares */
+.sigee-modulo-cabecalho,
+.sigee-central-topo,
+.sigee-central-abas,
+.sigee-central-pesquisa,
+.sigee-central-lista{
+  border-color:#d9e2ec!important
+}
+
+/* Melhor contraste dos títulos das tabelas */
+table thead th{
+  font-weight:900!important;letter-spacing:.015em!important
+}
+
+@media(max-width:700px){
+  .sigee-welcome-strip-meta{display:none}
+  .sigee-welcome-strip{align-items:flex-start}
+}
