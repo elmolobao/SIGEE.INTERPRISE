@@ -265,41 +265,41 @@
     updated.updated_at = toISO(now);
     updated.prazo_etapa = deadlineDays;
 
-    // Mantém o relógio do ciclo de Desarquivamento.
-    // As etapas RET/REU/CFD são continuidade do mesmo ciclo.
-    if (!updated.data_inicio_desarquivamento) {
-      updated.data_inicio_desarquivamento =
-        process.data_inicio_desarquivamento ||
-        process.data_desarquivamento ||
-        process.created_at ||
-        toISO(now);
-    }
-
-    // O prazo operacional da etapa pode mudar, porém o relógio do ciclo
-    // de Desarquivamento NUNCA reinicia nas transições RET/REU/CFD.
-    // Mantém a data inicial do ciclo para cálculo sequencial.
-    if (!updated.data_inicio_desarquivamento) {
-      updated.data_inicio_desarquivamento =
-        process.data_inicio_desarquivamento ||
-        process.data_inicio_ciclo ||
-        process.inicio_ciclo ||
-        process.created_at ||
-        toISO(now);
-    }
-
-    if (deadlineDays != null) {
-      // Prazo da etapa atual (exibição), sem substituir o início do ciclo.
-      updated.prazo_inicio = updated.prazo_inicio || toISO(now);
-      updated.prazo_fim = addDays(updated.prazo_inicio, deadlineDays).toISOString();
-    } else {
-      updated.prazo_inicio = process.prazo_inicio || updated.prazo_inicio || null;
-      updated.prazo_fim = process.prazo_fim || updated.prazo_fim || null;
-    }
+    // Regra temporal central do ciclo de Desarquivamento:
+    // RET/REU/CFD/Pedido de Atas preservam integralmente o relógio original.
+    // Somente RETIFICAR_DADOS cria novo ciclo e reinicia em 30 dias.
+    const inicioCicloAnterior =
+      process.data_inicio_desarquivamento ||
+      process.data_inicio_ciclo ||
+      process.inicio_ciclo ||
+      process.prazo_inicio ||
+      process.created_at ||
+      process.criado_em ||
+      toISO(now);
 
     if (eventCode === 'RETIFICAR_DADOS') {
-      const currentCycle = Number(updated.ciclo || updated.workflow_ciclo || 1);
+      const novoInicio = toISO(now);
+      const currentCycle = Number(process.ciclo || process.workflow_ciclo || 1);
       updated.ciclo = currentCycle + 1;
       updated.workflow_ciclo = currentCycle + 1;
+      updated.data_inicio_desarquivamento = novoInicio;
+      updated.data_inicio_ciclo = novoInicio;
+      updated.inicio_ciclo = novoInicio;
+      updated.prazo_inicio = novoInicio;
+      updated.prazo_fim = addDays(novoInicio, 30).toISOString();
+      updated.dias_decorridos = 0;
+    } else {
+      updated.ciclo = Number(process.ciclo || process.workflow_ciclo || 1);
+      updated.workflow_ciclo = Number(process.workflow_ciclo || process.ciclo || 1);
+      updated.data_inicio_desarquivamento = inicioCicloAnterior;
+      updated.data_inicio_ciclo = inicioCicloAnterior;
+      updated.inicio_ciclo = process.inicio_ciclo || inicioCicloAnterior;
+      // prazo_inicio também permanece como âncora do ciclo para compatibilidade
+      // com registros antigos e adaptadores que não persistem data_inicio_ciclo.
+      updated.prazo_inicio = process.prazo_inicio || inicioCicloAnterior;
+      updated.prazo_fim = process.prazo_fim || updated.prazo_fim || null;
+      const total = elapsedDays(inicioCicloAnterior, now);
+      if (Number.isFinite(total)) updated.dias_decorridos = Math.max(0, total);
     }
 
     if (preview.analysisContext) {
