@@ -2344,7 +2344,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             const respostaProcesso = await client
                 .from(SIGEE_SUPABASE_TABELAS.processos)
                 .insert([processoPayload])
-                .select('id,workflow_instance_id,workflow_ciclo,ciclo')
+                .select('id,codigo_sigee,workflow_instance_id,workflow_ciclo,ciclo')
                 .single();
 
             if (respostaProcesso.error) throw respostaProcesso.error;
@@ -2357,31 +2357,31 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             proc.workflow_instance_id = salvo.workflow_instance_id || processoPayload.workflow_instance_id;
             proc.workflow_ciclo = Number(salvo.workflow_ciclo || proc.workflow_ciclo || 1);
             proc.ciclo = Number(salvo.ciclo || proc.ciclo || proc.workflow_ciclo || 1);
-            proc.codigo_sigee = gerarCodigoSIGEEAposIdV1002006(proc, proc.id);
+            proc.codigo_sigee =
+                salvo.codigo_sigee ||
+                gerarCodigoSIGEEAposIdV1002006(proc, proc.id);
 
             /*
-             * Atualiza somente o código recém-calculado.
-             * Não usa upsert e não reenvia o registro inteiro.
+             * O trigger do banco deve devolver o código no próprio INSERT.
+             * Este UPDATE fica apenas como contingência para ambientes em
+             * que o SQL ainda não tenha sido aplicado.
              */
-            const respostaCodigo = await client
-                .from(SIGEE_SUPABASE_TABELAS.processos)
-                .update({
-                    codigo_sigee: proc.codigo_sigee,
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', proc.id)
-                .select('id,codigo_sigee')
-                .single();
+            if (!salvo.codigo_sigee) {
+                const respostaCodigo = await client
+                    .from(SIGEE_SUPABASE_TABELAS.processos)
+                    .update({
+                        codigo_sigee: proc.codigo_sigee,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', proc.id);
 
-            if (respostaCodigo.error) {
-                /*
-                 * O processo já foi criado com segurança. A falha do código
-                 * é reportada sem apagar ou recriar o processo.
-                 */
-                console.warn(
-                    '[SIGEE 1.0.2.006] Processo criado, mas o código SIGEE não foi atualizado:',
-                    respostaCodigo.error
-                );
+                if (respostaCodigo.error) {
+                    throw new Error(
+                        'Processo criado com ID ' + proc.id +
+                        ', mas o código SIGEE não pôde ser gravado: ' +
+                        respostaCodigo.error.message
+                    );
+                }
             }
 
             const solPayload = solicitacaoParaSupabaseSIGEE(solicitacao || proc);
@@ -2956,10 +2956,30 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                         }
                     } catch (_) {}
 
-                    registrarLog(
-                        `Nova solicitação cadastrada para ${aluno}. ` +
-                        `Processo ${processoSalvo.codigo_sigee || processoSalvo.id}.`
-                    );
+                    const acaoLog =
+                        `Nova solicitação cadastrada para ${aluno}.`;
+
+                    const contextoLog = {
+                        processo_id: processoSalvo.id,
+                        codigo_sigee: processoSalvo.codigo_sigee,
+                        etapa: processoSalvo.etapa_atual || processoSalvo.etapa || 'Desarquivamento',
+                        modulo: 'processos',
+                        aluno: aluno
+                    };
+
+                    if (typeof window.registrarLog === 'function') {
+                        await window.registrarLog(
+                            acaoLog,
+                            `Processo ${processoSalvo.codigo_sigee} | ID ${processoSalvo.id}`,
+                            contextoLog
+                        );
+                    } else if (typeof registrarLog === 'function') {
+                        await registrarLog(
+                            acaoLog,
+                            `Processo ${processoSalvo.codigo_sigee} | ID ${processoSalvo.id}`,
+                            contextoLog
+                        );
+                    }
                     fecharModalNovaSolicitacao();
                     if(typeof carregarEContarProcessosHorizontais === 'function') carregarEContarProcessosHorizontais();
                     if(typeof carregarDadosDashboardReal === 'function') carregarDadosDashboardReal();
@@ -7935,3 +7955,5 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     };
 })(window);
 
+/* SIGEE 1.0.2.006A — Código SIGEE no INSERT e log contextual */
+window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006A';
