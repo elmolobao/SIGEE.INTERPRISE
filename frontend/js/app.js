@@ -8062,9 +8062,25 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
 
   function setValor(id, valor){
     const campo = el(id);
-    if (!campo) return;
-    campo.value = valor == null ? '' : valor;
+    if (!campo) return false;
+    const desejado = valor == null ? '' : String(valor);
+
+    if (campo.tagName === 'SELECT' && desejado) {
+      const alvo = norm(desejado);
+      const opcao = Array.from(campo.options || []).find(opt =>
+        norm(opt.value) === alvo ||
+        norm(opt.textContent) === alvo ||
+        norm(opt.textContent).includes(alvo) ||
+        alvo.includes(norm(opt.textContent))
+      );
+      campo.value = opcao ? opcao.value : desejado;
+    } else {
+      campo.value = desejado;
+    }
+
+    campo.dispatchEvent(new Event('input', {bubbles:true}));
     campo.dispatchEvent(new Event('change', {bubbles:true}));
+    return true;
   }
 
   function definirTitulo(modo, p){
@@ -8127,20 +8143,52 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
   }
 
   function preencher(p){
-    setValor('novo-proc-aluno', valor(p,'aluno_nome','aluno','nome_solicitante'));
-    setValor('novo-proc-escola', valor(p,'escola_nome','escola','nome_escola','instituicao'));
-    setValor('novo-proc-documento', valor(p,'documento_tipo','documento','documento_solicitado'));
+    const escolaNome = valor(p,'escola_nome','escola','nome_escola','instituicao');
+    const codMec = valor(p,'cod_mec','codigo_mec','escola_cod_mec','codigo_mec_escola');
+
+    setValor('novo-proc-aluno', valor(p,'aluno_nome','aluno','nome_solicitante','requerente_nome'));
+    setValor('novo-proc-escola', escolaNome);
+    setValor('novo-proc-escola-busca-v23', escolaNome);
+    setValor('novo-proc-escola-cod-mec', codMec);
+    setValor('novo-proc-documento', valor(p,'documento_tipo','documento','documento_solicitado','tipo_documento'));
     setValor('novo-proc-modalidade', valor(p,'modalidade','oferta_modalidade'));
-    setValor('novo-proc-ensino', valor(p,'nivel_oferta','ensino','oferta_nivel'));
-    setValor('novo-autofill-mec', valor(p,'cod_mec','codigo_mec','escola_cod_mec'));
+    setValor('novo-proc-ensino', valor(p,'nivel_oferta','ensino','oferta_nivel','nivel'));
+    setValor('novo-autofill-mec', codMec);
     setValor('novo-autofill-nte', valor(p,'nte','nte_nome','grupo'));
-    setValor('novo-autofill-municipio', valor(p,'municipio'));
-    setValor('novo-autofill-dep', valor(p,'dependencia','dependencia_adm'));
-    setValor('novo-autofill-situacao', valor(p,'situacao','situacao_funcional'));
-    setValor('novo-autofill-acervo', valor(p,'acervo','status_acervo'));
-    setValor('novo-autofill-local-acervo', valor(p,'local_acervo'));
+    setValor('novo-autofill-municipio', valor(p,'municipio','escola_municipio'));
+    setValor('novo-autofill-dep', valor(p,'dependencia','dependencia_adm','escola_dependencia'));
+    setValor('novo-autofill-situacao', valor(p,'situacao','situacao_funcional','escola_situacao'));
+    setValor('novo-autofill-acervo', valor(p,'acervo','status_acervo','escola_status_acervo'));
+    setValor('novo-autofill-local-acervo', valor(p,'local_acervo','escola_local_acervo'));
+
     const chk = el('f01-chk-acolhido');
-    if (chk) chk.checked = true;
+    if (chk) {
+      chk.checked = true;
+      chk.dispatchEvent(new Event('change', {bubbles:true}));
+    }
+  }
+
+  function preencherQuandoPronto(p, tentativa=0){
+    const modal = el('modal-nova-solicitacao');
+    const aluno = el('novo-proc-aluno');
+    const escola = el('novo-proc-escola');
+
+    if (!modal || !aluno || !escola) {
+      if (tentativa < 12) setTimeout(() => preencherQuandoPronto(p, tentativa + 1), 50);
+      return;
+    }
+
+    preencher(p);
+    definirTitulo('editar', p);
+    configurarBotao('editar');
+    aplicarPermissoes('editar');
+    modal.classList.remove('hidden');
+
+    // Reforço após a montagem do autocomplete e dos selects legados.
+    if (tentativa === 0) {
+      setTimeout(() => preencherQuandoPronto(p, 1), 80);
+      setTimeout(() => preencherQuandoPronto(p, 2), 220);
+    }
   }
 
   function snapshot(p){
@@ -8278,13 +8326,7 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     // Abre a mesma janela e, depois que o autocomplete estiver instalado,
     // preenche os dados atuais do processo.
     window.abrirFormularioNovaSolicitacao?.();
-    requestAnimationFrame(() => {
-      preencher(p);
-      definirTitulo('editar', p);
-      configurarBotao('editar');
-      aplicarPermissoes('editar');
-      el('modal-nova-solicitacao')?.classList.remove('hidden');
-    });
+    requestAnimationFrame(() => preencherQuandoPronto(p, 0));
   }
 
   // Intercepta o envio apenas quando a janela estiver em modo edição.
@@ -8328,6 +8370,6 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     }`;
   document.head.appendChild(estilo);
 
-  console.info('[SIGEE] Formulário Inteligente do Processo 2.3.3 carregado.');
+  console.info('[SIGEE] Formulário Inteligente do Processo 2.3.3A carregado.');
 })();
 
