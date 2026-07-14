@@ -1,67 +1,207 @@
-/*
- SIGEE ENTERPRISE LIGHT INSTITUTIONAL 1.0
- Camada consolidada de identidade visual.
- Não altera workflow, regras ou dados.
-*/
-/* =====================================================================
-   SIGEE ENTERPRISE LIGHT INSTITUTIONAL 1.0
-   Camada visual - não altera workflow, regras ou dados
-   ===================================================================== */
+/* ============================================================
+   SIGEE Enterprise 2.1 — Claro Institucional Clean
+   Camada visual; não altera IDs, regras de negócio ou Supabase.
+   ============================================================ */
 :root{
- --sigee-blue:#0f4c81;
- --sigee-cyan:#0891b2;
- --sigee-bg:#f3f6fa;
- --sigee-card:#ffffff;
- --sigee-text:#1e293b;
+  --sigee-blue-950:#082f5b;
+  --sigee-blue-900:#0b4f8a;
+  --sigee-blue-700:#176fbd;
+  --sigee-blue-500:#2d8cff;
+  --sigee-blue-100:#e9f3ff;
+  --sigee-gold:#c89424;
+  --sigee-gold-soft:#fff7df;
+  --sigee-green:#138a62;
+  --sigee-red:#c83c46;
+  --sigee-bg:#f3f6fa;
+  --sigee-surface:#ffffff;
+  --sigee-surface-soft:#f8fafc;
+  --sigee-line:#d9e2ec;
+  --sigee-text:#172033;
+  --sigee-muted:#66758a;
+  --sigee-shadow:0 10px 30px rgba(28,63,99,.08);
+  --sigee-shadow-hover:0 16px 38px rgba(28,63,99,.14);
+  --sigee-radius:16px;
 }
-body{
- background:#f3f6fa !important;
- color:var(--sigee-text) !important;
-}
-#sistema-dashboard aside{
- background:linear-gradient(180deg,#0f4c81,#123b63) !important;
- border-right:1px solid #cbd5e1 !important;
-}
-#sistema-dashboard aside h2{
- color:#ffffff !important;
- text-shadow:none !important;
-}
-main, .sigee-main{
- background:#f3f6fa !important;
-}
-.bg-white, section > div:first-child{
- background:#ffffff !important;
- color:#1e293b !important;
- box-shadow:0 8px 24px rgba(15,23,42,.08) !important;
- border-color:#dbe4ee !important;
-}
-h1,h2,h3,.text-blue-900,.text-blue-950{
- color:#0f4c81 !important;
- text-shadow:none !important;
-}
-.sigee-etapa-badge{
- display:inline-flex;
- align-items:center;
- justify-content:center;
- padding:.35rem .65rem;
- border-radius:999px;
- font-weight:800;
- font-size:.72rem;
-}
-.sigee-etapa-analise{background:#2563eb!important;color:#fff!important}
-.sigee-etapa-analise-desarquivamento{background:#ea580c!important;color:#fff!important}
-.sigee-etapa-desarquivamento{background:#16a34a!important;color:#fff!important}
-.sigee-etapa-pendencia{background:#dc2626!important;color:#fff!important}
-.sigee-etapa-digitacao{background:#0891b2!important;color:#fff!important}
-.sigee-etapa-conferencia{background:#f97316!important;color:#fff!important}
-.sigee-etapa-assinatura{background:#eab308!important;color:#111827!important}
-.sigee-etapa-retirado{background:#64748b!important;color:#fff!important}
-.sigee-etapa-nova{background:#94a3b8!important;color:#fff!important}
 
-/* Workflow externo visual */
-.sigee-stage-documento{background:#16a34a;color:#fff}
-.sigee-stage-reiteracao{background:#eab308;color:#111827}
-.sigee-stage-urgente{background:#f97316;color:#fff}
-.sigee-stage-confirmacao{background:#dc2626;color:#fff}
-.sigee-stage-retificacao{background:#94a3b8;color:#fff}
-.sigee-stage-atas{background:#111827;color:#fff}
+html,body{background:var(--sigee-bg)!important;color:var(--sigee-text)!important}
+body::before{display:none!important}
+body{background-image:linear-gradient(180deg,#f7f9fc 0%,#eef3f8 100%)!important}
+main::before{display:none!important}
+
+/* Login */
+#tela-login{
+  background:
+    radial-gradient(circle at 8% 12%,rgba(45,140,255,.15),transparent 32%),
+    radial-gradient(circle at 92% 88%,rgba(200,148,36,.12),transparent 28%),
+    linear-gradient(145deg,#edf5fd,#f8fafc 48%,#edf2f7)!important;
+}
+#tela-login>div{
+  background:rgba(255,255,255,.94)!important;
+  color:var(--sigee-text)!important;
+  border:1px solid rgba(11,79,138,.13)!important;
+  box-shadow:0 28px 75px rgba(16,54,91,.16)!important;
+  backdrop-filter:blur(14px);
+}
+.sigee-login-logo{display:block;width:82px;height:82px;margin:0 auto 12px;filter:drop-shadow(0 10px 18px rgba(11,79,138,.18))}
+.sigee-institution-chip{display:inline-flex!important;background:var(--sigee-gold-soft)!important;color:#7c5a0b!important;border:1px solid #efd38f!important}
+#tela-login h1{color:var(--sigee-blue-950)!important;text-shadow:none!important;letter-spacing:.08em}
+.sigee-login-subtitle{color:#43536a!important;font-weight:700}
+.sigee-login-motto{margin-top:8px!important;color:#7b8798!important;font-size:11px!important;letter-spacing:.08em;text-transform:uppercase}
+#tela-login label{color:#324156!important}
+#tela-login input{background:#fff!important;color:#172033!important;border-color:#cbd7e5!important}
+#tela-login input:focus{border-color:var(--sigee-blue-500)!important;box-shadow:0 0 0 3px rgba(45,140,255,.14)!important}
+
+/* Shell / sidebar */
+#sistema-dashboard{background:transparent!important}
+#sistema-dashboard aside{
+  background:linear-gradient(180deg,#0a3f72 0%,#082f5b 100%)!important;
+  border-right:1px solid rgba(255,255,255,.1)!important;
+  box-shadow:8px 0 28px rgba(8,47,91,.12)!important;
+  backdrop-filter:none!important;
+}
+.sigee-sidebar-brand{background:rgba(4,31,62,.24)!important;border-bottom-color:rgba(255,255,255,.12)!important}
+.sigee-brand-lockup{display:flex;align-items:center;gap:11px}
+.sigee-sidebar-logo{width:47px;height:47px;filter:drop-shadow(0 5px 10px rgba(0,0,0,.18))}
+.sigee-brand-lockup h2{margin:0;color:#fff!important;text-shadow:none!important}
+.sigee-brand-lockup span{display:block;color:#bbd9f3;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.sigee-user-card{padding:10px 11px;border:1px solid rgba(255,255,255,.12);border-radius:12px;background:rgba(255,255,255,.07)}
+#user-nome{color:#fff!important}
+#user-perfil{color:#f2d27b!important}
+#sistema-dashboard nav button{
+  color:#e4eff9!important;border:1px solid transparent!important;border-radius:11px!important;
+  background:transparent!important;box-shadow:none!important
+}
+#sistema-dashboard nav button:hover{
+  background:rgba(255,255,255,.12)!important;color:#fff!important;border-color:rgba(255,255,255,.1)!important;
+  box-shadow:none!important;transform:translateX(2px)
+}
+#sistema-dashboard nav button::after{background:#f0c65d!important}
+button[onclick="logout()"]{background:rgba(157,35,48,.92)!important;box-shadow:none!important;border:1px solid rgba(255,255,255,.12)!important}
+
+/* Main surfaces */
+main{background:transparent!important;color:var(--sigee-text)!important}
+.bg-white,section>div:first-child{
+  background:var(--sigee-surface)!important;
+  border-color:var(--sigee-line)!important;
+  color:var(--sigee-text)!important;
+  box-shadow:var(--sigee-shadow)!important;
+  backdrop-filter:none!important
+}
+.rounded-xl{border-radius:var(--sigee-radius)!important}
+.shadow-sm,.shadow-xs,.shadow,.shadow-md,.shadow-xl,.shadow-2xl{box-shadow:var(--sigee-shadow)!important}
+.border,.border-b,.border-t,.border-l-4,.border-t-4{border-color:var(--sigee-line)!important}
+h1,h2,h3{color:var(--sigee-blue-950)!important;text-shadow:none!important}
+.text-blue-900,.text-blue-950{color:var(--sigee-blue-950)!important}
+.text-gray-400,.text-gray-500,.text-gray-600,.text-gray-700,.text-gray-800{color:var(--sigee-muted)!important}
+.text-gray-900{color:var(--sigee-text)!important}
+
+/* Welcome */
+.sigee-welcome-card{
+  position:relative;display:flex;align-items:center;justify-content:space-between;gap:24px;
+  min-height:150px;padding:24px 28px;border-radius:20px;overflow:hidden;
+  background:linear-gradient(115deg,#ffffff 0%,#eef6ff 62%,#fff8e8 100%);
+  border:1px solid #d6e5f3;box-shadow:var(--sigee-shadow)
+}
+.sigee-welcome-card::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(45,140,255,.05),transparent 46%,rgba(200,148,36,.06));pointer-events:none}
+.sigee-welcome-copy{position:relative;z-index:1}
+.sigee-welcome-eyebrow{display:block;margin-bottom:8px;color:var(--sigee-blue-700);font-size:10px;font-weight:900;letter-spacing:.14em;text-transform:uppercase}
+.sigee-welcome-card h1{margin:0;font-size:clamp(22px,3vw,34px);letter-spacing:-.02em}
+.sigee-welcome-card h1 strong{color:var(--sigee-blue-700)}
+.sigee-welcome-card p{margin:8px 0 15px;color:#58687c;font-size:14px}
+.sigee-welcome-values{display:flex;flex-wrap:wrap;gap:8px}
+.sigee-welcome-values span{padding:5px 9px;border-radius:999px;background:#fff;color:#43536a;border:1px solid #dae5ef;font-size:10px;font-weight:800}
+.sigee-welcome-logo{position:relative;z-index:1;width:105px;height:105px;filter:drop-shadow(0 14px 22px rgba(11,79,138,.16))}
+
+/* Dashboard cards */
+#aba-painel .grid>div.bg-white{
+  background:#fff!important;border:1px solid var(--sigee-line)!important;box-shadow:var(--sigee-shadow)!important
+}
+#aba-painel .grid>div.bg-white::before{background:linear-gradient(135deg,rgba(45,140,255,.035),transparent 44%)!important}
+#aba-painel .grid>div.bg-white:hover{transform:translateY(-2px);box-shadow:var(--sigee-shadow-hover)!important}
+#aba-painel .grid>div.bg-white p:last-child,
+#dash-escolas,#dash-acervos,#dash-estaduais,#dash-municipios,#dash-usuarios,
+[id^="dash-proc-"],[id^="dash-tec-"]{color:var(--sigee-blue-950)!important;text-shadow:none!important}
+
+/* Controls */
+input,select,textarea{
+  background:#fff!important;color:var(--sigee-text)!important;border:1px solid #cbd7e5!important;
+  box-shadow:none!important
+}
+input::placeholder,textarea::placeholder{color:#92a0b1!important}
+input:focus,select:focus,textarea:focus{border-color:var(--sigee-blue-500)!important;box-shadow:0 0 0 3px rgba(45,140,255,.13)!important}
+option{background:#fff!important;color:#172033!important}
+button,label[id^="btn-"]{box-shadow:none!important}
+button:hover,label[id^="btn-"]:hover{transform:translateY(-1px)}
+.bg-blue-900,.bg-blue-800,.bg-blue-700,.bg-blue-600{background:var(--sigee-blue-900)!important}
+.bg-amber-500,.bg-amber-600{background:#c89424!important}
+.bg-emerald-600,.bg-emerald-700{background:#138a62!important}
+.bg-red-600,.bg-red-700{background:#c83c46!important}
+.bg-gray-100,.bg-gray-50{background:var(--sigee-surface-soft)!important;color:var(--sigee-text)!important}
+
+/* Tables */
+table{color:var(--sigee-text)!important}
+thead,#aba-processos .sigee-central-lista thead th{
+  background:#eaf2f9!important;color:#25405f!important;border-color:#d2dee9!important;
+  box-shadow:0 1px 0 #d2dee9!important
+}
+thead th{color:#25405f!important;border-color:#d2dee9!important}
+tbody tr{background:#fff!important;border-color:#e2e8f0!important}
+tbody tr:nth-child(even){background:#f8fafc!important}
+tbody tr:hover{background:#eaf4ff!important;box-shadow:inset 3px 0 0 var(--sigee-blue-500)}
+.divide-y>:not([hidden])~:not([hidden]){border-color:#e2e8f0!important}
+.sigee-aluno-nome,.sigee-escola-nome{color:#1d2b3e!important}
+.sigee-escola-meta{color:#3977a9!important}
+.sigee-codigo-linha .sigee-codigo-copiavel{color:#176fbd!important}
+
+/* Central Process tabs */
+.sigee-central-topo,.sigee-central-abas,.sigee-central-pesquisa,.sigee-central-lista{background:#fff!important}
+.etapa-todos{background:#173f69!important;color:#fff!important}
+.etapa-desarquivamento{background:#fff!important;color:#334155!important;border-color:#cbd5e1!important}
+.sigee-etapa-desarquivamento{background:#e9f8ef!important;color:#087a4e!important;border-color:#82d6af!important}
+.sigee-etapa-analise{background:#2578cf!important;color:#fff!important}
+.sigee-etapa-analise-desarquivamento{background:#e97824!important;color:#fff!important;box-shadow:0 0 0 2px rgba(233,120,36,.18)}
+.sigee-etapa-pendencia{background:#7c4bb1!important;color:#fff!important}
+.sigee-etapa-digitacao{background:#f2c94c!important;color:#493a00!important}
+.sigee-etapa-conferencia{background:#57c5d8!important;color:#083344!important}
+.sigee-etapa-assinatura{background:#9a6238!important;color:#fff!important}
+.sigee-etapa-deferido{background:#17885e!important;color:#fff!important}
+.sigee-etapa-retirado{background:#6b7685!important;color:#fff!important}
+.sigee-etapa-indeferido{background:#c83c46!important;color:#fff!important}
+
+/* Modals */
+.fixed.inset-0{background:rgba(24,43,66,.35)!important;backdrop-filter:blur(7px)!important}
+.fixed.inset-0>div,.sigee-modal33,.sigee-wfe-panel,.sigee-wam-dialog{
+  background:#fff!important;color:var(--sigee-text)!important;border:1px solid #d4e0eb!important;
+  box-shadow:0 28px 80px rgba(28,63,99,.20)!important
+}
+.fixed.inset-0>div>div:first-child,.sigee-modal33-header,.sigee-wfe-head,.sigee-wam-header{
+  background:linear-gradient(100deg,#0b4f8a,#176fbd)!important;color:#fff!important;border-color:rgba(255,255,255,.15)!important
+}
+.fixed.inset-0>div>div:first-child h3,.sigee-modal33-header h2,.sigee-wfe-head h2,.sigee-wam-header h2{color:#fff!important}
+.sigee-resumo33>div,.sigee-field33,.sigee-gridpend33 fieldset,.sigee-wam-card,.sigee-wfe-card,.sigee-wfe-action{
+  background:#f7f9fc!important;color:var(--sigee-text)!important;border-color:#d9e2ec!important
+}
+.sigee-resumo33 span,.sigee-wam-label,.sigee-wfe-card span{color:#6a798d!important}
+.sigee-resumo33 strong,.sigee-wam-value,.sigee-wfe-card strong{color:#172033!important}
+.sigee-modal33 label,label{color:#40516a!important}
+.sigee-modal33 textarea,.sigee-modal33 input[type=text],.sigee-modal33 input:not([type]){background:#fff!important;color:#172033!important;border-color:#cbd7e5!important}
+.sigee-wfe-action p,.sigee-wam-message-text{color:#5f6f83!important}
+.sigee-wam-message,.sigee-wam-consequence{background:#f5f8fc!important;color:#263950!important}
+.sigee-wam-footer,.sigee-wfe-head{border-color:#d7e2ed!important}
+.sigee-wam-btn-primary{background:var(--sigee-blue-900)!important;color:#fff!important}
+.sigee-wam-btn-secondary{background:#e8eef5!important;color:#293a50!important}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:#edf2f7}
+::-webkit-scrollbar-thumb{background:#a9bdd0;border-radius:999px;border:2px solid #edf2f7}
+::-webkit-scrollbar-thumb:hover{background:#7f9db8}
+
+@media(max-width:768px){
+  .sigee-welcome-card{padding:20px}
+  .sigee-welcome-logo{width:72px;height:72px}
+}
+@media(max-width:560px){
+  .sigee-welcome-logo{display:none}
+  .sigee-welcome-card{min-height:auto}
+}
