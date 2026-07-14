@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+<title id="title">SIGEE — Livro e Pasta Digital</title>
+<desc id="desc">Ícone institucional com uma pasta dourada, um livro azul e pixels digitais.</desc>
+<defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#0b4f8a"/>
+    <stop offset="1" stop-color="#082f5b"/>
+  </linearGradient>
+  <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#f4cf69"/>
+    <stop offset="1" stop-color="#c89424"/>
+  </linearGradient>
+  <linearGradient id="book" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#ffffff"/>
+    <stop offset="1" stop-color="#d8ebff"/>
+  </linearGradient>
+  <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+    <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#031a33" flood-opacity=".38"/>
+  </filter>
+</defs>
+<rect x="8" y="8" width="240" height="240" rx="48" fill="url(#bg)"/>
+<rect x="9" y="9" width="238" height="238" rx="47" fill="none" stroke="#6db8ff" stroke-width="3"/>
+<g filter="url(#shadow)">
+  <path d="M46 75c0-10 8-18 18-18h43l17 17h68c10 0 18 8 18 18v75c0 11-9 20-20 20H66c-11 0-20-9-20-20V75z"
+        fill="none" stroke="url(#gold)" stroke-width="13" stroke-linejoin="round"/>
+  <path d="M62 119c28-10 49-5 66 8v70c-18-12-39-16-66-7v-71z"
+        fill="url(#book)" stroke="#8fc8ff" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M194 119c-28-10-49-5-66 8v70c18-12 39-16 66-7v-71z"
+        fill="url(#book)" stroke="#8fc8ff" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M128 128v67" stroke="#0b4f8a" stroke-width="4"/>
+  <path d="M72 139c18-5 33-2 45 6M72 153c18-5 33-2 45 6M139 145c12-8 27-11 45-6M139 159c12-8 27-11 45-6"
+        fill="none" stroke="#6d93b8" stroke-width="3" stroke-linecap="round"/>
+</g>
+<g fill="#32b8ff">
+  <rect x="197" y="108" width="10" height="10" rx="2"/>
+  <rect x="214" y="118" width="8" height="8" rx="2"/>
+  <rect x="201" y="132" width="7" height="7" rx="1.5"/>
+  <rect x="217" y="143" width="6" height="6" rx="1.5"/>
+</g>
+</svg>
