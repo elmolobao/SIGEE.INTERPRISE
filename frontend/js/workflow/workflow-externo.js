@@ -116,12 +116,16 @@
       process.data_inicio_desarquivamento ||
       process.data_inicio_ciclo ||
       process.inicio_ciclo ||
+      process.data_desarquivamento ||
+      process.data_etapa_inicial ||
+      process.prazo_inicio_ciclo ||
+      process.created_at ||
+      process.criado_em ||
+      process.prazo_inicio ||
       process.data_etapa_atual ||
       process.data_etapa ||
       process.etapa_iniciada_em ||
-      process.updated_at ||
-      process.created_at ||
-      process.criado_em
+      process.updated_at
     );
   }
 
@@ -580,7 +584,7 @@
           <div class="sigee-wfe-note">Cada comunicação somente será registrada após a confirmação obrigatória de todas as mensagens institucionais vinculadas à ação.</div>
           <div class="sigee-wfe-actions">${actionsHtml || '<div class="sigee-wfe-card">Nenhuma ação externa disponível.</div>'}</div>
           <div class="sigee-wfe-action">
-            <div><strong>Pasta localizada / Documento recebido</strong><p>Interrompe o workflow externo e utiliza o procedimento já homologado.</p></div>
+            <div><strong>Pasta localizada / Documento recebido</strong><p>Na atualização das informações, a busca será reiniciada com os novos dados apresentados. ENVIAR E-MAIL 14 - RETIFICANDO DADOS (ALUNO) E 37 - RETIFICANDO DADOS (DESARQUIVAMENTO).</p></div>
             <button type="button" class="sigee-wfe-btn sigee-wfe-secondary" data-wfe-documento>Executar</button>
           </div>
         </div>
