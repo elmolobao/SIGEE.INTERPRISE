@@ -111,17 +111,39 @@
     );
   }
 
+  function cycleOffsetDays(process) {
+    const state = processState(process);
+    if (state === 'RET') return 30;
+    if (state === 'REU') return 37;
+    if (state === 'CFD') return 44;
+    return 0;
+  }
+
+  function inferLegacyCycleStart(process) {
+    if (!process) return null;
+    const reference = process.data_etapa_atual || process.data_etapa || process.etapa_iniciada_em || process.updated_at;
+    const offset = cycleOffsetDays(process);
+    if (!reference || !offset) return null;
+    const date = new Date(reference);
+    if (Number.isNaN(date.getTime())) return null;
+    date.setDate(date.getDate() - offset);
+    return date.toISOString();
+  }
+
   function stageDate(process) {
     return process && (
       process.data_inicio_desarquivamento ||
       process.data_inicio_ciclo ||
       process.inicio_ciclo ||
+      process.prazo_inicio_ciclo ||
+      inferLegacyCycleStart(process) ||
+      process.prazo_inicio ||
+      process.created_at ||
+      process.criado_em ||
       process.data_etapa_atual ||
       process.data_etapa ||
       process.etapa_iniciada_em ||
-      process.updated_at ||
-      process.created_at ||
-      process.criado_em
+      process.updated_at
     );
   }
 
