@@ -2299,14 +2299,46 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             };
         };
 
+        function gerarCodigoSIGEEAposIdV1002006(proc, idGerado) {
+            const documento = normalizarTextoSIGEE(
+                proc.documento || proc.documento_tipo || proc.documento_solicitado || 'Histórico'
+            ).toUpperCase();
+
+            let sigla = 'HIST';
+            if (documento.includes('DECLAR')) sigla = 'DECL';
+            else if (documento.includes('VERAC')) sigla = 'VERA';
+            else if (documento.includes('ATEST')) sigla = 'ATES';
+            else if (documento.includes('CERT')) sigla = 'CERT';
+
+            const agora = new Date();
+            const ano = String(agora.getFullYear()).slice(-2);
+            const nteTexto = normalizarTextoSIGEE(proc.nte || '');
+            const matchNte = nteTexto.match(/NTE\s*[- ]?\s*(\d{1,2})/i);
+            const nte = String(matchNte ? Number(matchNte[1]) : 0).padStart(2, '0');
+            const sequencial = String(Number(idGerado)).padStart(4, '0');
+
+            return `SEEX.${sigla}.${ano}${nte}.${sequencial}`;
+        }
+
         async function salvarNovaSolicitacaoSupabaseSIGEE_V19(proc, solicitacao) {
             const client = obterSupabaseSIGEE();
             if (!client) throw new Error('Cliente Supabase indisponível.');
 
+            /*
+             * REGRA DE INTEGRIDADE 1.0.2.006:
+             * processos novos nunca enviam ID criado no navegador.
+             * O PostgreSQL gera o ID identity e o frontend recebe o valor real.
+             */
             const processoPayload = processoParaSupabaseSIGEE(proc);
             delete processoPayload.id;
-            if (!processoPayload.workflow_instance_id && proc.workflow_instance_id) {
-                processoPayload.workflow_instance_id = proc.workflow_instance_id;
+            delete processoPayload.codigo_sigee;
+
+            if (!processoPayload.workflow_instance_id) {
+                processoPayload.workflow_instance_id =
+                    proc.workflow_instance_id ||
+                    ((window.crypto && typeof window.crypto.randomUUID === 'function')
+                        ? window.crypto.randomUUID()
+                        : null);
             }
 
             const respostaProcesso = await client
@@ -2314,24 +2346,58 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 .insert([processoPayload])
                 .select('id,workflow_instance_id,workflow_ciclo,ciclo')
                 .single();
-            if (respostaProcesso.error) throw respostaProcesso.error;
 
-            const salvo = respostaProcesso.data || {};
-            const idLocalAnterior = proc.id;
-            proc.id = salvo.id;
-            proc.workflow_instance_id = salvo.workflow_instance_id || proc.workflow_instance_id;
+            if (respostaProcesso.error) throw respostaProcesso.error;
+            if (!respostaProcesso.data || !respostaProcesso.data.id) {
+                throw new Error('O Supabase não devolveu o ID do novo processo.');
+            }
+
+            const salvo = respostaProcesso.data;
+            proc.id = Number(salvo.id);
+            proc.workflow_instance_id = salvo.workflow_instance_id || processoPayload.workflow_instance_id;
             proc.workflow_ciclo = Number(salvo.workflow_ciclo || proc.workflow_ciclo || 1);
             proc.ciclo = Number(salvo.ciclo || proc.ciclo || proc.workflow_ciclo || 1);
+            proc.codigo_sigee = gerarCodigoSIGEEAposIdV1002006(proc, proc.id);
 
-            const lista = Array.isArray(window.processosDB) ? window.processosDB : processosDB;
-            const indice = lista.findIndex(item => String(item.id) === String(idLocalAnterior) || item === proc);
-            if (indice >= 0) lista[indice] = proc;
+            /*
+             * Atualiza somente o código recém-calculado.
+             * Não usa upsert e não reenvia o registro inteiro.
+             */
+            const respostaCodigo = await client
+                .from(SIGEE_SUPABASE_TABELAS.processos)
+                .update({
+                    codigo_sigee: proc.codigo_sigee,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', proc.id)
+                .select('id,codigo_sigee')
+                .single();
+
+            if (respostaCodigo.error) {
+                /*
+                 * O processo já foi criado com segurança. A falha do código
+                 * é reportada sem apagar ou recriar o processo.
+                 */
+                console.warn(
+                    '[SIGEE 1.0.2.006] Processo criado, mas o código SIGEE não foi atualizado:',
+                    respostaCodigo.error
+                );
+            }
 
             const solPayload = solicitacaoParaSupabaseSIGEE(solicitacao || proc);
-            const respostaSolicitacao = await client.from(SIGEE_SUPABASE_TABELAS.solicitacoes).insert([solPayload]);
-            if (respostaSolicitacao.error) console.warn('Processo salvo, mas a cópia em solicitações não foi confirmada:', respostaSolicitacao.error);
+            delete solPayload.id;
 
-            try { salvarBancoLocalSIGEE(); } catch (_) {}
+            const respostaSolicitacao = await client
+                .from(SIGEE_SUPABASE_TABELAS.solicitacoes)
+                .insert([solPayload]);
+
+            if (respostaSolicitacao.error) {
+                console.warn(
+                    'Processo salvo, mas a cópia em solicitações não foi confirmada:',
+                    respostaSolicitacao.error
+                );
+            }
+
             return proc;
         }
 
@@ -2823,10 +2889,12 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                     const municipio = upperV25(escola.municipio || obterTextoV25('novo-autofill-municipio'));
                     const nteVinculo = escola.nte || (typeof obterNomeNtePorIdSIGEE_V19 === 'function' ? obterNomeNtePorIdSIGEE_V19(escola.nte_id) : '') || obterTextoV25('novo-autofill-nte') || usuarioLogado?.nte || '';
                     const dataHoje = obterDataAtualFormatada();
-                    const novoId = typeof gerarProximoIdSIGEE === 'function' ? gerarProximoIdSIGEE(processosDB, 101) : ((processosDB.length ? Math.max(...processosDB.map(p => Number(p.id)||0)) : 100) + 1);
 
+                    /*
+                     * Não cria ID local. O processo só entra nas listas após
+                     * o Supabase devolver o ID identity definitivo.
+                     */
                     const novoProcesso = {
-                        id: novoId,
                         aluno: aluno,
                         escola: nomeEscola,
                         documento: docTipo,
@@ -2842,10 +2910,8 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                         ciclo: 1,
                         acoes_executadas: []
                     };
-                    processosDB.unshift(novoProcesso);
 
                     const novaSol = {
-                        id: novoId,
                         ...novoProcesso,
                         nome_solicitante: aluno,
                         documento_solicitado: docTipo,
@@ -2856,16 +2922,44 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                         tecnico_responsavel: usuarioLogado?.nome || '',
                         prioridade: 'Normal'
                     };
-                    if(typeof solicitacoesDB !== 'undefined') solicitacoesDB.unshift(novaSol);
 
                     // A criação só é concluída depois que o Supabase devolver o ID real.
                     // Isso impede processos temporários de sumirem após fechar ou atualizar a página.
-                    const processoSalvo = await salvarNovaSolicitacaoSupabaseSIGEE_V19(novoProcesso, novaSol);
-                    if (processoSalvo) {
-                        novaSol.id = processoSalvo.id;
-                        novaSol.workflow_instance_id = processoSalvo.workflow_instance_id;
+                    const processoSalvo = await salvarNovaSolicitacaoSupabaseSIGEE_V19(
+                        novoProcesso,
+                        novaSol
+                    );
+
+                    if (!processoSalvo || !processoSalvo.id) {
+                        throw new Error('A criação não foi confirmada pelo Supabase.');
                     }
-                    registrarLog(`Nova solicitação cadastrada para ${aluno} e enviada para Desarquivamento.`);
+
+                    /*
+                     * Somente agora o registro entra na memória local.
+                     * Isso impede sincronização geral de enviar IDs provisórios.
+                     */
+                    processosDB.unshift(processoSalvo);
+
+                    novaSol.id = processoSalvo.id;
+                    novaSol.codigo_sigee = processoSalvo.codigo_sigee;
+                    novaSol.workflow_instance_id = processoSalvo.workflow_instance_id;
+                    novaSol.workflow_ciclo = processoSalvo.workflow_ciclo;
+                    novaSol.ciclo = processoSalvo.ciclo;
+
+                    if (typeof solicitacoesDB !== 'undefined') {
+                        solicitacoesDB.unshift(novaSol);
+                    }
+
+                    try {
+                        if (typeof salvarBancoLocalSIGEE === 'function') {
+                            salvarBancoLocalSIGEE();
+                        }
+                    } catch (_) {}
+
+                    registrarLog(
+                        `Nova solicitação cadastrada para ${aluno}. ` +
+                        `Processo ${processoSalvo.codigo_sigee || processoSalvo.id}.`
+                    );
                     fecharModalNovaSolicitacao();
                     if(typeof carregarEContarProcessosHorizontais === 'function') carregarEContarProcessosHorizontais();
                     if(typeof carregarDadosDashboardReal === 'function') carregarDadosDashboardReal();
@@ -7820,3 +7914,24 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   window.addEventListener('load',()=>setTimeout(carregar,900));
   setInterval(()=>{const aba=document.getElementById('aba-painel');if(aba&&!aba.classList.contains('hidden'))carregar();},60000);
 })(window);
+
+/* =====================================================================
+   SIGEE 1.0.2.006 — Guarda de integridade para novos processos
+   ===================================================================== */
+(function(window){
+    'use strict';
+
+    window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006';
+
+    window.SIGEE_VALIDAR_PROCESSO_NOVO = function(processo){
+        if (!processo) throw new Error('Processo novo não informado.');
+        if (processo.id !== undefined && processo.id !== null && processo.id !== '') {
+            throw new Error(
+                'Processo novo não pode possuir ID definido no frontend. ' +
+                'O ID deve ser gerado pelo Supabase.'
+            );
+        }
+        return true;
+    };
+})(window);
+
