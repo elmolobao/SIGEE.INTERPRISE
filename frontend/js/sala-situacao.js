@@ -1,286 +1,120 @@
-/* =====================================================================
-   SIGEE Sprint 2.4.2 — Sala de Situação
-   Prioridade: resposta rápida e ausência de consultas duplicadas.
-   Fonte única: window.processosDB e histórico já disponível em memória.
-   ===================================================================== */
-(function(){
+/* SIGEE Enterprise 3.2 — Sala de Situação 2.0 */
+(function () {
   'use strict';
-  if(window.__SIGEE_SALA_SITUACAO_242__) return;
-  window.__SIGEE_SALA_SITUACAO_242__=true;
 
-  const LIMITES={
-    ANALISE:7,DIGITACAO:15,CONFERENCIA:10,ASSINATURA:7,
-    DESARQUIVAMENTO:30,REITERACAO:38,'REITERACAO COM URGENCIA':45,
-    'REITERACAO URGENTE':45,'CONFIRMACAO DOS DADOS DA BUSCA':52,
-    'CONFIRMAR DADOS DA BUSCA':52,'PEDIDO DE ATAS SEM PASTA':59
+  const CFG = { refreshMs: 60000, version: '3.2.0' };
+  let timer = null;
+  let filtroNte = 'GLOBAL';
+
+  const txt = v => (v == null ? '' : String(v).trim());
+  const norm = v => txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/\s+/g,' ');
+  const arr = (...names) => {
+    for (const n of names) if (Array.isArray(window[n])) return window[n];
+    return [];
   };
-  const NTE_NOMES={
-    1:'Irecê',2:'Bom Jesus da Lapa',3:'Seabra',4:'Serrinha',5:'Itabuna',
-    6:'Valença',7:'Teixeira de Freitas',8:'Itapetinga',9:'Amargosa',10:'Juazeiro',
-    11:'Barreiras',12:'Macaúbas',13:'Caetité',14:'Itaberaba',15:'Ipirá',
-    16:'Jacobina',17:'Ribeira do Pombal',18:'Alagoinhas',19:'Feira de Santana',
-    20:'Vitória da Conquista',21:'Santo Antônio de Jesus',22:'Jequié',
-    23:'Santa Maria da Vitória',24:'Paulo Afonso',25:'Senhor do Bonfim',
-    26:'Salvador',27:'Eunápolis'
-  };
-  const ETAPAS=['Desarquivamento','Análise','Pendência','Digitação','Conferência','Assinatura','Aguardando Retirada','Retirado'];
+  const processos = () => arr('processosDB','processos');
+  const escolas = () => arr('escolasDB','escolasSIGEE','escolas');
+  const usuarios = () => arr('usuariosDB','usuariosSIGEE','usuarios');
 
-  const txt=v=>v==null?'':String(v).trim();
-  const norm=v=>txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/\s+/g,' ').trim();
-  const esc=v=>txt(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
-  const data=v=>{
-    if(!v)return null;
-    const s=txt(v),br=s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
-    const d=br?new Date(`${br[3]}-${br[2]}-${br[1]}T00:00:00`):new Date(s);
-    return Number.isNaN(d.getTime())?null:d;
-  };
-  const dias=(a,b=new Date())=>{
-    const x=data(a),y=data(b)||new Date();
-    return x?Math.max(0,(y-x)/86400000):0;
-  };
-  const etapa=p=>norm(p?.etapa_atual||p?.etapa||p?.fase_atual||'DESARQUIVAMENTO');
-  const inicio=p=>p?.data_solicitacao||p?.data_abertura||p?.created_at||p?.criado_em;
-  const entrada=p=>p?.data_etapa_atual||p?.prazo_inicio||inicio(p);
-  const fim=p=>p?.finalizado_em||p?.data_conclusao||p?.deferido_em||p?.updated_at;
-  const finalizado=p=>['RETIRADO','INDEFERIDO'].includes(etapa(p));
-  const ativo=p=>!finalizado(p);
-  const limite=p=>LIMITES[etapa(p)]??null;
-  const vencido=p=>ativo(p)&&limite(p)!=null&&dias(entrada(p))>limite(p);
-  const hoje=d=>{
-    const x=data(d);if(!x)return false;
-    const a=new Date(),b=new Date(x);
-    return a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate();
-  };
-  const nteNumero=p=>Number(txt(p?.nte||p?.nte_nome||p?.grupo||'').match(/\d{1,2}/)?.[0]||0);
-  const nteRotulo=n=>`NTE-${String(n).padStart(2,'0')} (${NTE_NOMES[n]||'Território'})`;
+  function nte(v){
+    const s=txt(v); const m=s.match(/NTE\s*[- ]?\s*(\d{1,2})/i);
+    if(m) return 'NTE-'+String(+m[1]).padStart(2,'0');
+    if(/^\d{1,2}$/.test(s)) return 'NTE-'+String(+s).padStart(2,'0');
+    return s ? norm(s).replace(/[^A-Z0-9-]/g,'') : 'SEM NTE';
+  }
+  const procNte=p=>nte(p.nte||p.nte_nome||p.grupo||p.territorio||p.nte_id);
+  const etapa=p=>txt(p.etapa_atual||p.etapa||p.fase_atual)||'Desarquivamento';
+  const dataInicio=p=>p.data_etapa_atual||p.prazo_inicio||p.created_at||p.criado_em||p.data_solicitacao;
+  function dias(v){ if(!v)return 0; const d=new Date(v); if(Number.isNaN(d.getTime()))return 0; return Math.max(0,Math.floor((Date.now()-d.getTime())/86400000)); }
+  function limite(e){ const n=norm(e); if(n.includes('ANAL'))return 7; if(n.includes('DIGIT'))return 15; if(n.includes('CONFER'))return 10; if(n.includes('ASSIN'))return 7; if(n.includes('DESARQ'))return 30; return null; }
+  function finalizado(p){ const e=norm(etapa(p)); return e.includes('RETIR')||e.includes('INDEFER'); }
+  function vencido(p){ const l=limite(etapa(p)); return !finalizado(p)&&l!=null&&dias(dataInicio(p))>l; }
+  function hoje(v){ if(!v)return false; const d=new Date(v), h=new Date(); return d.toDateString()===h.toDateString(); }
+  function nomeResp(p){ return txt(p.tecnico_responsavel_nome||p.tecnico_responsavel||p.responsavel_nome||p.responsavel||p.analista_nome||p.digitador_nome||p.conferente_nome)||'Não atribuído'; }
 
-  let ultimaAssinatura='';
-  let ultimoResultado=null;
-  let atualizacaoAgendada=false;
-  let abaAtiva=false;
+  function esc(v){return txt(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+  function pct(a,b){return b?Math.round(a*100/b):100;}
 
-  function lista(){return Array.isArray(window.processosDB)?window.processosDB:[]}
+  function metricasPorNte(lista){
+    const mapa=new Map();
+    for(let i=1;i<=27;i++) mapa.set('NTE-'+String(i).padStart(2,'0'),[]);
+    lista.forEach(p=>{ const k=procNte(p); if(!mapa.has(k))mapa.set(k,[]); mapa.get(k).push(p); });
+    return [...mapa.entries()].map(([codigo,ps])=>{
+      const ativos=ps.filter(p=>!finalizado(p));
+      const venc=ativos.filter(vencido);
+      const concl=ps.filter(finalizado);
+      const prazo=ativos.length-venc.length;
+      const media=ps.length?Math.round(ps.reduce((s,p)=>s+dias(dataInicio(p)),0)/ps.length):0;
+      const sla=pct(prazo,ativos.length);
+      const taxa=pct(concl.length,ps.length);
+      const semResp=ativos.filter(p=>['ANALISE','PENDENCIA','DIGITACAO','CONFERENCIA','ASSINATURA'].some(x=>norm(etapa(p)).includes(x))&&nomeResp(p)==='Não atribuído').length;
+      let igd=Math.round(sla*.45+taxa*.25+Math.max(0,100-Math.min(media,100))*.20+Math.max(0,100-semResp*5)*.10);
+      igd=Math.max(0,Math.min(100,igd));
+      return {codigo,total:ps.length,ativos:ativos.length,vencidos:venc.length,concluidos:concl.length,sla,media,igd};
+    }).sort((a,b)=>b.igd-a.igd);
+  }
+  function classeIgd(v){return v>=90?'excelente':v>=75?'bom':v>=60?'atencao':v>=40?'critico':'intervencao';}
+  function labelIgd(v){return v>=90?'Excelente':v>=75?'Muito bom':v>=60?'Atenção':v>=40?'Crítico':'Intervenção';}
 
-  function assinatura(arr){
-    let soma=0,maisRecente='';
-    for(const p of arr){
-      soma+=Number(p?.id||0);
-      const u=txt(p?.updated_at||p?.data_etapa_atual||'');
-      if(u>maisRecente)maisRecente=u;
+  function garantirEstrutura(){
+    const sec=document.getElementById('aba-sala-situacao'); if(!sec)return null;
+    sec.classList.add('sigee-sala-v2');
+    if(!document.getElementById('sala-v2-toolbar')){
+      sec.insertAdjacentHTML('afterbegin',`<div id="sala-v2-toolbar" class="sala-v2-toolbar">
+        <div><span>SIGEE ENTERPRISE ${CFG.version}</span><strong>Centro Estadual de Operações</strong></div>
+        <div class="sala-v2-actions"><select id="sala-v2-filtro-nte"><option value="GLOBAL">Todos os NTEs</option></select><button id="sala-v2-atualizar" type="button">↻ Atualizar</button></div>
+      </div>`);
     }
-    return `${arr.length}|${soma}|${maisRecente}`;
-  }
-
-  function agrupar(arr,chave){
-    const m=new Map();
-    arr.forEach(x=>{const k=chave(x);if(k)m.set(k,(m.get(k)||0)+1)});
-    return [...m.entries()].sort((a,b)=>b[1]-a[1]);
-  }
-
-  function calcular(arr){
-    const ativos=arr.filter(ativo);
-    const recebidosHoje=arr.filter(p=>hoje(inicio(p)));
-    const concluidosHoje=arr.filter(p=>finalizado(p)&&hoje(fim(p)));
-    const vencidos=ativos.filter(vencido);
-    const prioridades=ativos.filter(p=>['MP','CEE','EXTERIOR','URGENTE'].some(x=>norm(p?.prioridade).includes(x)));
-    const dentro=ativos.length-vencidos.length;
-    const sla=ativos.length?dentro/ativos.length*100:100;
-
-    const porEtapa=ETAPAS.map(nome=>[nome,arr.filter(p=>{
-      const e=etapa(p);
-      if(nome==='Desarquivamento')return ['DESARQUIVAMENTO','REITERACAO','REITERACAO COM URGENCIA','REITERACAO URGENTE','CONFIRMACAO DOS DADOS DA BUSCA','CONFIRMAR DADOS DA BUSCA','PEDIDO DE ATAS SEM PASTA'].includes(e);
-      return e===norm(nome);
-    }).length]);
-
-    const porNte=[];
-    for(let n=1;n<=27;n++){
-      const l=arr.filter(p=>nteNumero(p)===n);
-      if(!l.length)continue;
-      const a=l.filter(ativo),v=a.filter(vencido);
-      const s=a.length?(a.length-v.length)/a.length*100:100;
-      porNte.push({n,total:a.length,vencidos:v.length,sla:s});
+    if(!document.getElementById('sala-v2-inteligencia')){
+      sec.insertAdjacentHTML('beforeend',`<section id="sala-v2-inteligencia" class="sala-v2-inteligencia">
+        <article class="sala-v2-panel sala-v2-mapa"><header><div><span>ÍNDICE TERRITORIAL</span><h2>Saúde dos 27 NTEs</h2></div><small>IGD de 0 a 100</small></header><div id="sala-v2-ntes" class="sala-v2-ntes"></div></article>
+        <article class="sala-v2-panel"><header><div><span>RANKING ESTADUAL</span><h2>Desempenho territorial</h2></div></header><div id="sala-v2-ranking" class="sala-v2-ranking"></div></article>
+        <article class="sala-v2-panel"><header><div><span>INTELIGÊNCIA OPERACIONAL</span><h2>Alertas e recomendações</h2></div></header><div id="sala-v2-alertas" class="sala-v2-alertas"></div></article>
+      </section>`);
     }
-    porNte.sort((a,b)=>b.vencidos-a.vencidos||a.sla-b.sla||b.total-a.total);
-
-    const recentes=arr.slice().sort((a,b)=>{
-      const da=data(a?.updated_at||a?.data_etapa_atual||a?.created_at)?.getTime()||0;
-      const db=data(b?.updated_at||b?.data_etapa_atual||b?.created_at)?.getTime()||0;
-      return db-da;
-    }).slice(0,10);
-
-    return {ativos,recebidosHoje,concluidosHoje,vencidos,prioridades,sla,porEtapa,porNte,recentes};
+    const sel=document.getElementById('sala-v2-filtro-nte');
+    if(sel&&sel.options.length===1){ for(let i=1;i<=27;i++){const o=document.createElement('option');o.value='NTE-'+String(i).padStart(2,'0');o.textContent=o.value;sel.appendChild(o);} }
+    if(sel&&!sel.dataset.bound){sel.dataset.bound='1';sel.addEventListener('change',()=>{filtroNte=sel.value;render();});}
+    const b=document.getElementById('sala-v2-atualizar'); if(b&&!b.dataset.bound){b.dataset.bound='1';b.addEventListener('click',render);}
+    return sec;
   }
 
-  function set(id,v){const e=document.getElementById(id);if(e)e.textContent=v}
+  function renderKpis(lista){
+    const ativos=lista.filter(p=>!finalizado(p)), venc=ativos.filter(vencido), conclHoje=lista.filter(p=>finalizado(p)&&hoje(p.finalizado_em||p.updated_at)), recHoje=lista.filter(p=>hoje(p.created_at||p.data_solicitacao));
+    const sla=pct(ativos.length-venc.length,ativos.length);
+    const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
+    set('sala-kpi-ativos',ativos.length); set('sala-kpi-recebidos',recHoje.length); set('sala-kpi-concluidos',conclHoje.length); set('sala-kpi-sla',sla+'%'); set('sala-kpi-vencidos',venc.length);
+    set('sala-total-processos',lista.length+' processos'); set('sala-saude-atualizacao',new Date().toLocaleTimeString('pt-BR'));
+    const sync=document.getElementById('sala-sync-texto'); if(sync)sync.textContent='Dados sincronizados • '+new Date().toLocaleTimeString('pt-BR');
+  }
 
-  function render(res){
-    ultimoResultado=res;
-    set('sala-kpi-ativos',res.ativos.length.toLocaleString('pt-BR'));
-    set('sala-kpi-recebidos',res.recebidosHoje.length.toLocaleString('pt-BR'));
-    set('sala-kpi-concluidos',res.concluidosHoje.length.toLocaleString('pt-BR'));
-    set('sala-kpi-sla',`${res.sla.toLocaleString('pt-BR',{maximumFractionDigits:1})}%`);
-    set('sala-kpi-vencidos',res.vencidos.length.toLocaleString('pt-BR'));
-    set('sala-kpi-prioridades',res.prioridades.length.toLocaleString('pt-BR'));
-    set('sala-total-processos',`${lista().length.toLocaleString('pt-BR')} processos`);
+  function render(){
+    if(!garantirEstrutura())return;
+    let lista=processos().slice(); if(filtroNte!=='GLOBAL')lista=lista.filter(p=>procNte(p)===filtroNte);
+    renderKpis(lista);
+    const metricas=metricasPorNte(processos());
+    const cards=document.getElementById('sala-v2-ntes');
+    if(cards) cards.innerHTML=metricas.map(m=>`<button class="sala-v2-nte ${classeIgd(m.igd)} ${filtroNte===m.codigo?'ativo':''}" data-nte="${m.codigo}"><span>${m.codigo}</span><strong>${m.igd}</strong><small>${labelIgd(m.igd)} · ${m.ativos} ativos</small></button>`).join('');
+    cards?.querySelectorAll('[data-nte]').forEach(b=>b.addEventListener('click',()=>{filtroNte=b.dataset.nte;document.getElementById('sala-v2-filtro-nte').value=filtroNte;render();}));
+    const ranking=document.getElementById('sala-v2-ranking');
+    if(ranking) ranking.innerHTML=metricas.slice(0,10).map((m,i)=>`<div><b>${i+1}</b><span><strong>${m.codigo}</strong><small>SLA ${m.sla}% · ${m.concluidos} concluídos</small></span><em class="${classeIgd(m.igd)}">${m.igd}</em></div>`).join('');
+    const alvo=filtroNte==='GLOBAL'?metricas:metricas.filter(m=>m.codigo===filtroNte);
+    const alerts=[];
+    alvo.filter(m=>m.vencidos>0).sort((a,b)=>b.vencidos-a.vencidos).slice(0,8).forEach(m=>alerts.push({c:'critico',t:`${m.codigo} possui ${m.vencidos} processo(s) vencido(s).`,a:'Priorizar redistribuição e regularização da fila.'}));
+    alvo.filter(m=>m.sla<75).slice(0,6).forEach(m=>alerts.push({c:'atencao',t:`${m.codigo} está com SLA de ${m.sla}%.`,a:'Revisar gargalos e responsáveis por etapa.'}));
+    alvo.filter(m=>m.igd>=90&&m.total>0).slice(0,4).forEach(m=>alerts.push({c:'positivo',t:`${m.codigo} apresenta desempenho excelente (IGD ${m.igd}).`,a:'Manter acompanhamento e compartilhar boas práticas.'}));
+    if(!alerts.length) alerts.push({c:'positivo',t:'Nenhum alerta crítico identificado na abrangência selecionada.',a:'Operação dentro dos parâmetros atuais.'});
+    const alertBox=document.getElementById('sala-v2-alertas'); if(alertBox)alertBox.innerHTML=alerts.slice(0,12).map(x=>`<div class="${x.c}"><i></i><span><strong>${esc(x.t)}</strong><small>${esc(x.a)}</small></span></div>`).join('');
+    const version=document.querySelector('.sigee-sala-saude dd:last-child'); if(version)version.textContent=CFG.version;
+  }
 
-    const fluxo=document.getElementById('sala-fluxo-etapas');
-    if(fluxo)fluxo.innerHTML=res.porEtapa.map(([nome,q],i)=>`
-      <div class="sigee-sala-etapa">
-        <span>${i+1}</span><strong>${esc(nome)}</strong><b>${q.toLocaleString('pt-BR')}</b>
-      </div>`).join('');
-
-    const alertas=document.getElementById('sala-alertas-lista');
-    if(alertas){
-      const itens=[
-        ['critico','⚠',`${res.vencidos.length} processo(s) vencido(s)`],
-        ['alerta','◷',`${res.ativos.filter(p=>limite(p)!=null&&!vencido(p)&&dias(entrada(p))>=limite(p)-2).length} vencem em até 2 dias`],
-        ['prioridade','!',`${res.prioridades.length} prioridade(s) crítica(s)`],
-        [res.sla>=80?'ok':'critico',res.sla>=80?'✓':'↓',`SLA operacional em ${res.sla.toFixed(1)}%`]
-      ];
-      alertas.innerHTML=itens.map(x=>`<div class="${x[0]}"><b>${x[1]}</b><span>${x[2]}</span></div>`).join('');
+  function ligarNavegacao(){
+    const antiga=window.navegar;
+    if(typeof antiga==='function'&&!antiga.__salaV2){
+      const nova=function(destino){const r=antiga.apply(this,arguments); if(destino==='sala-situacao')setTimeout(render,80); return r;}; nova.__salaV2=true; window.navegar=nova;
     }
-
-    const ntes=document.getElementById('sala-ntes');
-    if(ntes)ntes.innerHTML=res.porNte.slice(0,12).map(x=>{
-      const classe=x.sla>=90&&!x.vencidos?'ok':x.sla>=75?'alerta':'critico';
-      return `<div class="sigee-sala-nte ${classe}">
-        <div><strong>${nteRotulo(x.n)}</strong><span>${x.total} ativos • ${x.vencidos} vencidos</span></div>
-        <b>${x.sla.toFixed(1)}%</b>
-      </div>`;
-    }).join('')||'<p class="sigee-sala-vazio">Sem dados territoriais.</p>';
-
-    const feed=document.getElementById('sala-feed');
-    if(feed)feed.innerHTML=res.recentes.map(p=>{
-      const d=data(p?.updated_at||p?.data_etapa_atual||p?.created_at);
-      const hora=d?d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):'--:--';
-      const nome=txt(p?.aluno_nome||p?.aluno||'Processo');
-      return `<div><time>${hora}</time><i></i><p><strong>${esc(etapa(p))}</strong><span>${esc(nome)} • ${esc(nteRotulo(nteNumero(p)||0))}</span></p></div>`;
-    }).join('')||'<p class="sigee-sala-vazio">Nenhuma movimentação disponível.</p>';
-
-    const agora=new Date();
-    set('sala-saude-atualizacao',agora.toLocaleTimeString('pt-BR'));
-    set('sala-saude-sync','Atualizada');
-    set('sala-sync-texto',`Dados atualizados às ${agora.toLocaleTimeString('pt-BR')}`);
-    document.getElementById('sala-sync')?.classList.remove('atualizando');
   }
-
-  function atualizar(){
-    atualizacaoAgendada=false;
-    if(!window.SIGEE_Analytics){
-      set('sala-sync-texto','Aguardando Motor Analítico...');
-      return;
-    }
-    const a=window.SIGEE_Analytics.calcular({nte:'TODOS',tipo:'ACUMULADO'});
-    const arr=a.processos||[];
-    if(!arr.length){
-      set('sala-sync-texto','Aguardando carregamento dos processos...');
-      return;
-    }
-
-    const recebidosHoje=arr.filter(p=>hoje(inicio(p)));
-    const concluidosHoje=arr.filter(p=>finalizado(p)&&hoje(fim(p)));
-    const ativos=arr.filter(ativo);
-    const vencidos=ativos.filter(vencido);
-    const prioridades=ativos.filter(p=>['MP','CEE','EXTERIOR','URGENTE'].some(x=>norm(p?.prioridade).includes(x)));
-    const porEtapa=ETAPAS.map(nome=>[nome,arr.filter(p=>{
-      const e=etapa(p);
-      if(nome==='Desarquivamento')return ['DESARQUIVAMENTO','REITERACAO','REITERACAO COM URGENCIA','REITERACAO URGENTE','CONFIRMACAO DOS DADOS DA BUSCA','CONFIRMAR DADOS DA BUSCA','PEDIDO DE ATAS SEM PASTA'].includes(e);
-      return e===norm(nome);
-    }).length]);
-
-    const porNte=[];
-    for(let n=1;n<=27;n++){
-      const l=arr.filter(p=>nteNumero(p)===n);
-      if(!l.length)continue;
-      const at=l.filter(ativo),ve=at.filter(vencido);
-      porNte.push({n,total:at.length,vencidos:ve.length,sla:at.length?(at.length-ve.length)/at.length*100:100});
-    }
-    porNte.sort((x,y)=>y.vencidos-x.vencidos||x.sla-y.sla||y.total-x.total);
-
-    const recentes=arr.slice().sort((x,y)=>{
-      const dx=data(x?.updated_at||x?.data_etapa_atual||x?.created_at)?.getTime()||0;
-      const dy=data(y?.updated_at||y?.data_etapa_atual||y?.created_at)?.getTime()||0;
-      return dy-dx;
-    }).slice(0,10);
-
-    render({ativos,recebidosHoje,concluidosHoje,vencidos,prioridades,sla:a.sla,porEtapa,porNte,recentes});
-  }
-
-  function agendar(){
-    if(atualizacaoAgendada)return;
-    atualizacaoAgendada=true;
-    requestAnimationFrame(atualizar);
-  }
-
-  function atualizarRelogio(){
-    const d=new Date();
-    set('sala-hora',d.toLocaleTimeString('pt-BR'));
-    set('sala-data',d.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}));
-  }
-
-  function abrirSala(){
-    abaAtiva=true;
-    agendar();
-  }
-
-  const navegarAnterior=window.navegar;
-  window.navegar=function(aba){
-    document.querySelectorAll('main > section[id^="aba-"]').forEach(s=>s.classList.add('hidden'));
-    if(aba==='sala-situacao'){
-      document.getElementById('aba-sala-situacao')?.classList.remove('hidden');
-      abrirSala();
-      return;
-    }
-    abaAtiva=false;
-    return typeof navegarAnterior==='function'?navegarAnterior.apply(this,arguments):undefined;
-  };
-
-  document.getElementById('sala-btn-tela-cheia')?.addEventListener('click',async()=>{
-    const alvo=document.getElementById('aba-sala-situacao');
-    try{
-      if(!document.fullscreenElement)await alvo?.requestFullscreen?.();
-      else await document.exitFullscreen?.();
-    }catch(e){console.warn('[SIGEE Sala] Tela cheia indisponível.',e)}
-  });
-
-  // Experiência do filtro do Dashboard: preserva valores e informa processamento.
-  function instalarUXFiltro(){
-    const sel=document.getElementById('filtro-dashboard-nte');
-    if(!sel||sel.dataset.salaUxFiltro==='1')return;
-    sel.dataset.salaUxFiltro='1';
-    sel.addEventListener('change',()=>{
-      const cards=document.querySelectorAll('#aba-painel [id^="dash-"], #sigee-cig');
-      cards.forEach(x=>x.classList.add('sigee-dados-atualizando'));
-      let aviso=document.getElementById('sigee-dashboard-atualizando');
-      if(!aviso){
-        aviso=document.createElement('div');
-        aviso.id='sigee-dashboard-atualizando';
-        aviso.className='sigee-dashboard-atualizando';
-        sel.closest('div')?.appendChild(aviso);
-      }
-      const rotulo=sel.selectedOptions?.[0]?.textContent||'NTE selecionado';
-      aviso.textContent=`Atualizando dados de ${rotulo}...`;
-      aviso.classList.add('visivel');
-      setTimeout(()=>{
-        cards.forEach(x=>x.classList.remove('sigee-dados-atualizando'));
-        aviso.classList.remove('visivel');
-      },2200);
-    },true);
-  }
-
-  setInterval(()=>{
-    atualizarRelogio();
-    instalarUXFiltro();
-  },1000);
-
-  document.addEventListener('DOMContentLoaded',()=>{
-    atualizarRelogio();instalarUXFiltro();agendar();
-  });
-  window.addEventListener('load',()=>setTimeout(()=>{instalarUXFiltro();agendar()},400));
-  window.addEventListener('sigee:analytics-dados-alterados',()=>{if(abaAtiva)agendar()});
-  window.addEventListener('online',()=>{set('sala-saude-banco','Conectado');agendar()});
-  window.addEventListener('offline',()=>{set('sala-saude-banco','Offline');set('sala-saude-sync','Interrompida')});
-
-  window.atualizarSalaSituacaoSIGEE=agendar;
-  console.info('[SIGEE] Sala de Situação integrada 2.4.3B carregada.');
+  function init(){garantirEstrutura();ligarNavegacao();render();clearInterval(timer);timer=setInterval(()=>{if(!document.getElementById('aba-sala-situacao')?.classList.contains('hidden'))render();},CFG.refreshMs);}
+  document.readyState==='loading'?document.addEventListener('DOMContentLoaded',init):init();
+  window.SIGEE_SALA_SITUACAO_V2={render,version:CFG.version};
 })();
