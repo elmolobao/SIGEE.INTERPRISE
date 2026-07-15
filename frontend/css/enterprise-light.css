@@ -444,3 +444,48 @@ table thead th{
 @media(max-width:900px){.sigee-cig-grid{grid-template-columns:1fr}.sigee-cig-head{align-items:flex-start}.sigee-cig-status{display:none}}
 @media(max-width:620px){.sigee-cig-kpis{grid-template-columns:repeat(2,1fr)}.sigee-cig-head{padding:18px}.sigee-cig-head h2{font-size:20px!important}}
 
+
+/* SIGEE Sprint 2.4.1A — carregamento progressivo e rankings enriquecidos */
+.sigee-cig-skeleton{
+  display:block;
+  border-radius:999px;
+  background:linear-gradient(90deg,#e7edf4 25%,#f5f8fb 50%,#e7edf4 75%);
+  background-size:220% 100%;
+  animation:sigee-cig-shimmer 1.15s linear infinite;
+}
+.sigee-cig-skeleton.curto{width:72%;height:24px;margin:11px 0 7px}
+.sigee-cig-skeleton.medio{width:88%;height:8px}
+.sigee-cig-skeleton.linha{width:100%;height:29px;margin-bottom:10px;border-radius:9px}
+@keyframes sigee-cig-shimmer{to{background-position:-220% 0}}
+.sigee-cig-carregando .sigee-cig-alertas{opacity:.55}
+.sigee-cig-rank strong{
+  max-width:calc(100% - 45px);
+  line-height:1.2;
+}
+.sigee-cig-rank .dados{min-width:0}
+.sigee-cig-rank .dados>div{align-items:center}
+@media(max-width:620px){
+  .sigee-cig-rank strong{max-width:210px}
+}
+@media(prefers-reduced-motion:reduce){
+  .sigee-cig-skeleton{animation:none}
+}
+
+
+/* SIGEE Sprint 2.4.1C — estabilidade da visão executiva */
+#dash-ger-escola-demanda{
+  min-height:190px;
+}
+#dash-ger-escola-demanda>div{
+  min-height:34px;
+  align-items:center;
+}
+#dash-ger-escola-demanda span{
+  color:#0b3f73!important;
+  font-size:11px;
+  font-weight:750;
+}
+#dash-ger-escola-demanda strong{
+  color:#082f5b!important;
+}
+
