@@ -1,5 +1,5 @@
 /* =====================================================================
-   SIGEE Enterprise — Sprint 2.4.7F — Módulo Oficial de Escolas
+   SIGEE Enterprise — Sprint 2.4.7G — Módulo Oficial de Escolas
    Módulo: Escolas
    Produção: catálogo paginado, filtro por NTE e autocomplete da Nova Solicitação.
    Substitui a lógica dependente de listas locais grandes e evita limite de 1000 registros.
@@ -106,9 +106,6 @@
       .map(e => texto(e.municipio))
       .filter(Boolean);
 
-    if (!payload.situacao_funcional) return alert('Selecione a Situação Funcional.');
-    if (!payload.status_acervo) return alert('Selecione o Status do Acervo.');
-
     const client = supabaseClient();
     if (client) {
       try {
@@ -137,36 +134,47 @@
   async function preencherSelectMunicipio(nteId, valorAtual = '') {
     const select = document.getElementById('escola-form-municipio');
     const ajuda = document.getElementById('escola-form-municipio-ajuda');
-    if (!select) return;
+    if (!select) return [];
 
     select.disabled = true;
     select.innerHTML = '<option value="">CARREGANDO MUNICÍPIOS...</option>';
 
-    const municipios = await buscarMunicipiosDoNte(nteId);
-    const atual = texto(valorAtual).toUpperCase();
+    try {
+      const municipios = await buscarMunicipiosDoNte(nteId);
+      const atual = texto(valorAtual).toUpperCase();
 
-    select.innerHTML = '<option value="">SELECIONE O MUNICÍPIO</option>';
+      select.innerHTML = '<option value="">SELECIONE O MUNICÍPIO</option>';
 
-    if (atual && !municipios.some(m => normalizar(m) === normalizar(atual))) {
-      municipios.push(atual);
-      municipios.sort((a,b) => a.localeCompare(b, 'pt-BR'));
-    }
+      if (atual && !municipios.some(m => normalizar(m) === normalizar(atual))) {
+        municipios.push(atual);
+        municipios.sort((a,b) => a.localeCompare(b, 'pt-BR'));
+      }
 
-    municipios.forEach(municipio => {
-      const op = document.createElement('option');
-      op.value = municipio;
-      op.textContent = municipio;
-      select.appendChild(op);
-    });
+      municipios.forEach(municipio => {
+        const op = document.createElement('option');
+        op.value = municipio;
+        op.textContent = municipio;
+        select.appendChild(op);
+      });
 
-    if (atual) select.value = municipios.find(m => normalizar(m) === normalizar(atual)) || atual;
+      if (atual) {
+        select.value = municipios.find(m => normalizar(m) === normalizar(atual)) || atual;
+      }
 
-    const tecnico = perfilAtual() === 'TECNICO';
-    select.disabled = tecnico;
-    if (ajuda) {
-      ajuda.textContent = municipios.length
-        ? `${municipios.length} município(s) disponível(is) para o NTE selecionado.`
-        : 'Nenhum município cadastrado para este NTE.';
+      if (ajuda) {
+        ajuda.textContent = municipios.length
+          ? `${municipios.length} município(s) disponível(is) para o NTE selecionado.`
+          : 'Nenhum município cadastrado para este NTE.';
+      }
+
+      return municipios;
+    } catch (erro) {
+      console.error('[SIGEE Escolas] Erro ao carregar municípios:', erro);
+      select.innerHTML = '<option value="">NÃO FOI POSSÍVEL CARREGAR</option>';
+      if (ajuda) ajuda.textContent = erro?.message || 'Falha ao consultar os municípios.';
+      return [];
+    } finally {
+      if (perfilAtual() !== 'TECNICO') select.disabled = false;
     }
   }
 
@@ -623,6 +631,9 @@
         );
       }
     }
+
+    if (!payload.situacao_funcional) return alert('Selecione a Situação Funcional.');
+    if (!payload.status_acervo) return alert('Selecione o Status do Acervo.');
 
     const client = supabaseClient();
     try {
