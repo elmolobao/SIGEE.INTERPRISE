@@ -422,660 +422,128 @@
 
 
 /* =====================================================================
-   SIGEE Sprint 2.4.1 — Centro de Inteligência Gerencial
-   Motor executivo de indicadores, tendências, SLA e gargalos.
-   Camada analítica: não altera processos, workflow ou banco de dados.
+   SIGEE Sprint 2.4.3B — Renderizador Unificado do Dashboard e CIG
    ===================================================================== */
 (function(){
   'use strict';
-  if(window.__SIGEE_CIG_241__) return;
-  window.__SIGEE_CIG_241__=true;
-
-  let ultimaAssinaturaDados='';
-  let metricasCache=null;
-  let aguardandoDadosDesde=Date.now();
-  let cigJaRenderizado=false;
-  let indicadoresTecnicosEsperados=null;
-  let protegendoIndicadoresTecnicos=false;
-  let observadorIndicadoresTecnicos=null;
-  let filtroEstavelTimer=null;
-  let ultimoFiltroConfirmado=null;
-  let filtroInicialConfirmado=false;
-
-  const NOMES_OFICIAIS_NTE = Object.freeze({
-    1:'Irecê',2:'Bom Jesus da Lapa',3:'Seabra',4:'Serrinha',5:'Itabuna',
-    6:'Valença',7:'Teixeira de Freitas',8:'Itapetinga',9:'Amargosa',10:'Juazeiro',
-    11:'Barreiras',12:'Macaúbas',13:'Caetité',14:'Itaberaba',15:'Ipirá',
-    16:'Jacobina',17:'Ribeira do Pombal',18:'Alagoinhas',19:'Feira de Santana',
-    20:'Vitória da Conquista',21:'Santo Antônio de Jesus',22:'Jequié',
-    23:'Santa Maria da Vitória',24:'Paulo Afonso',25:'Senhor do Bonfim',
-    26:'Salvador',27:'Eunápolis'
-  });
-
-  const LIMITES = {
-    'ANALISE':7,
-    'DIGITACAO':15,
-    'CONFERENCIA':10,
-    'ASSINATURA':7,
-    'DESARQUIVAMENTO':30,
-    'REITERACAO':38,
-    'REITERACAO COM URGENCIA':45,
-    'REITERACAO URGENTE':45,
-    'CONFIRMACAO DOS DADOS DA BUSCA':52,
-    'CONFIRMAR DADOS DA BUSCA':52,
-    'PEDIDO DE ATAS SEM PASTA':59
-  };
+  if(window.__SIGEE_ANALYTICS_RENDERER_243B__)return;
+  window.__SIGEE_ANALYTICS_RENDERER_243B__=true;
 
   const txt=v=>v==null?'':String(v).trim();
-  const norm=v=>txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/\s+/g,' ').trim();
   const esc=v=>txt(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
-  const data=v=>{
-    if(!v)return null;
-    const s=txt(v);
-    const br=s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
-    const d=br?new Date(`${br[3]}-${br[2]}-${br[1]}T00:00:00`):new Date(s);
-    return Number.isNaN(d.getTime())?null:d;
-  };
-  const dias=(a,b=new Date())=>{
-    const x=data(a),y=data(b)||new Date();
-    if(!x)return 0;
-    return Math.max(0,(y-x)/86400000);
-  };
-  const etapa=p=>norm(p?.etapa_atual||p?.etapa||p?.fase_atual||'DESARQUIVAMENTO');
-  function nteNumero(p){
-    const bruto=txt(p?.nte||p?.nte_nome||p?.grupo||p?.territorio||'');
-    const m=bruto.match(/\d{1,2}/);
-    return m?Number(m[0]):null;
-  }
-  function nteCodigo(p){
-    const n=nteNumero(p);
-    return n?`NTE-${String(n).padStart(2,'0')}`:'NTE não informado';
-  }
-  function municipioProcesso(p){
-    return txt(
-      p?.municipio||p?.escola_municipio||p?.municipio_escola||
-      p?.cidade||p?.localidade||''
-    );
-  }
-  function nomeTerritorioBruto(p){
-    const bruto=txt(p?.nte_nome||p?.territorio_nome||p?.nome_territorio||p?.grupo||p?.nte||'');
-    const limpo=bruto
-      .replace(/NTE\s*[- ]?\s*\d{1,2}/ig,'')
-      .replace(/^\s*[-–—:]\s*/,'')
-      .trim();
-    if(limpo && !/^\d+$/.test(limpo)) return limpo;
-    const numero=nteNumero(p);
-    return numero ? (NOMES_OFICIAIS_NTE[numero]||'') : '';
-  }
-  function complementoTerritorial(p){
-    /*
-     * Para o padrão institucional combinado, o nome exibido entre
-     * parênteses é a sede/nome oficial do NTE. O município da escola
-     * fica como fallback somente quando o NTE não puder ser identificado.
-     */
-    return nomeTerritorioBruto(p)||municipioProcesso(p);
-  }
-  function nte(p){
-    const codigo=nteCodigo(p);
-    const complemento=nomeTerritorioBruto(p)||municipioProcesso(p);
-    return complemento?`${codigo} (${complemento})`:codigo;
-  }
-  function tecnicoNome(p){
-    return txt(
-      p?.tecnico_responsavel_nome||p?.tecnico_responsavel||
-      p?.responsavel_nome||p?.responsavel||
-      p?.analista_nome||p?.analista||
-      p?.digitador_nome||p?.digitador||
-      p?.conferente_nome||p?.conferente||
-      'Não atribuído'
-    );
-  }
-  function tecnico(p){
-    const nome=tecnicoNome(p);
-    const codigo=nteCodigo(p);
-    const complemento=nomeTerritorioBruto(p);
-    return codigo==='NTE não informado'
-      ? nome
-      : `${nome} - ${codigo}${complemento?` (${complemento})`:''}`;
-  }
-  function escolaNome(p){
-    return txt(p?.escola_nome||p?.escola||p?.nome_escola||p?.instituicao||'Não informada');
-  }
-  function escola(p){
-    const nome=escolaNome(p);
-    const codigo=nteCodigo(p);
-    const complemento=complementoTerritorial(p);
-    return codigo==='NTE não informado'
-      ? nome
-      : `${nome} - ${codigo}${complemento?` (${complemento})`:''}`;
-  }
-  const inicio=p=>p?.data_solicitacao||p?.data_abertura||p?.created_at||p?.criado_em;
-  const entradaEtapa=p=>p?.data_etapa_atual||p?.prazo_inicio||inicio(p);
-  const conclusao=p=>p?.finalizado_em||p?.data_conclusao||p?.deferido_em||p?.updated_at;
-  const finalizado=p=>['RETIRADO','INDEFERIDO'].includes(etapa(p));
-  const ativos=p=>!finalizado(p);
-  const limite=p=>LIMITES[etapa(p)]||null;
-  const vencido=p=>ativos(p)&&limite(p)!=null&&dias(entradaEtapa(p))>limite(p);
-  const pertoVencer=p=>ativos(p)&&limite(p)!=null&&dias(entradaEtapa(p))>=Math.max(0,limite(p)-2)&&!vencido(p);
+  const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v};
+  let timer=null,ultimoResultado=null;
 
-  function filtroDashboardAtual(){
-    const seletor=document.getElementById('filtro-dashboard-nte');
-    const valorDOM=txt(seletor?.value||'');
-    const valorMemoria=txt(window.filtroDashboardNteAtualSIGEE||'');
-
-    if(valorDOM && !['', 'UNDEFINED', 'NULL'].includes(norm(valorDOM))) return valorDOM;
-    if(valorMemoria) return valorMemoria;
-    return 'TODOS';
-  }
-
-  function filtroTerritorialPronto(){
-    const seletor=document.getElementById('filtro-dashboard-nte');
-    if(!seletor)return false;
-
-    const opcoes=Array.from(seletor.options||[]);
-    if(!opcoes.length)return false;
-
-    /*
-     * Para perfis globais, o filtro autoritativo deve possuir "Todos"
-     * e os NTEs carregados. Para perfis vinculados, basta existir valor.
-     */
-    const temTodos=opcoes.some(o=>['TODOS','GLOBAL'].includes(norm(o.value)));
-    const quantidadeNtes=opcoes.filter(o=>/\d{1,2}/.test(txt(o.value))).length;
-    const usuarioGlobal=['MASTER','SEC'].some(x=>norm(window.usuarioLogado?.perfil).includes(x));
-
-    if(usuarioGlobal && (!temTodos || quantidadeNtes<20))return false;
-    return !!filtroDashboardAtual();
-  }
-
-  function aguardarFiltroEstavel(callback,tentativa=0){
-    clearTimeout(filtroEstavelTimer);
-
-    if(!filtroTerritorialPronto()){
-      if(tentativa<40){
-        filtroEstavelTimer=setTimeout(()=>aguardarFiltroEstavel(callback,tentativa+1),100);
-      }else{
-        callback();
-      }
-      return;
-    }
-
-    const valor=filtroDashboardAtual();
-    filtroEstavelTimer=setTimeout(()=>{
-      const confirmado=filtroDashboardAtual();
-      if(confirmado!==valor && tentativa<40){
-        aguardarFiltroEstavel(callback,tentativa+1);
-        return;
-      }
-      ultimoFiltroConfirmado=confirmado;
-      filtroInicialConfirmado=true;
-      callback();
-    },180);
-  }
-
-  function processosBase(){
-    const arr=Array.isArray(window.processosDB)?window.processosDB:[];
-    const filtro=ultimoFiltroConfirmado||filtroDashboardAtual();
-    if(!filtro||['TODOS','GLOBAL'].includes(norm(filtro)))return arr.slice();
-    const alvo=Number(txt(filtro).match(/\d{1,2}/)?.[0]||0);
-    return alvo?arr.filter(p=>Number(txt(p.nte||p.nte_nome||p.grupo).match(/\d{1,2}/)?.[0]||0)===alvo):arr.slice();
-  }
-
-  function periodoAtual(){
-    const tipo=document.getElementById('filtro-dashboard-periodo')?.value||'ACUMULADO';
-    const fim=new Date();fim.setHours(23,59,59,999);
-    let ini=null;
-    if(tipo==='HOJE'){ini=new Date();ini.setHours(0,0,0,0)}
-    else if(tipo==='ONTEM'){ini=new Date(Date.now()-86400000);ini.setHours(0,0,0,0)}
-    else if(tipo==='7_DIAS'){ini=new Date(Date.now()-6*86400000);ini.setHours(0,0,0,0)}
-    else if(tipo==='30_DIAS'){ini=new Date(Date.now()-29*86400000);ini.setHours(0,0,0,0)}
-    else if(tipo==='MES_ATUAL')ini=new Date(fim.getFullYear(),fim.getMonth(),1);
-    else if(tipo==='MES_ANTERIOR'){ini=new Date(fim.getFullYear(),fim.getMonth()-1,1);fim.setTime(new Date(fim.getFullYear(),fim.getMonth(),0,23,59,59,999).getTime())}
-    else if(tipo==='ANO_ATUAL')ini=new Date(fim.getFullYear(),0,1);
-    else if(tipo==='PERSONALIZADO'){
-      const a=document.getElementById('dashboard-data-inicial')?.value;
-      const b=document.getElementById('dashboard-data-final')?.value;
-      if(a)ini=new Date(a+'T00:00:00');
-      if(b)fim.setTime(new Date(b+'T23:59:59.999').getTime());
-    }
-    return {tipo,ini,fim};
-  }
-
-  function periodoAnterior(p){
-    if(!p.ini)return null;
-    const dur=p.fim-p.ini;
-    return {ini:new Date(p.ini.getTime()-dur-1),fim:new Date(p.ini.getTime()-1)};
-  }
-
-  function noPeriodo(v,p){
-    if(!p?.ini)return true;
-    const d=data(v);return !!d&&d>=p.ini&&d<=p.fim;
-  }
-
-  function agrupar(arr,chave){
-    const m=new Map();
-    arr.forEach(x=>{const k=chave(x);if(k)m.set(k,(m.get(k)||0)+1)});
-    return [...m.entries()].sort((a,b)=>b[1]-a[1]);
-  }
-
-  function media(arr){
-    return arr.length?arr.reduce((a,b)=>a+b,0)/arr.length:0;
-  }
-
-  function tendencia(atual,anterior,inverter=false){
-    if(!anterior)return {pct:0,classe:'neutra',seta:'→',texto:'Sem base anterior'};
-    const pct=((atual-anterior)/Math.abs(anterior))*100;
-    const melhor=inverter?pct<0:pct>0;
-    return {
-      pct:Math.abs(pct),
-      classe:Math.abs(pct)<.5?'neutra':melhor?'positiva':'negativa',
-      seta:Math.abs(pct)<.5?'→':pct>0?'↑':'↓',
-      texto:`${Math.abs(pct).toLocaleString('pt-BR',{maximumFractionDigits:1})}% em relação ao período anterior`
-    };
-  }
-
-  function metricas(lista,periodo){
-    const abertos=lista.filter(p=>noPeriodo(inicio(p),periodo));
-    const concluidos=lista.filter(p=>finalizado(p)&&noPeriodo(conclusao(p),periodo));
-    const tempos=concluidos.map(p=>dias(inicio(p),conclusao(p))).filter(Number.isFinite);
-    const dentroPrazo=lista.filter(p=>ativos(p)&&!vencido(p)).length;
-    const ativosTotal=lista.filter(ativos).length;
-    const sla=ativosTotal?dentroPrazo/ativosTotal*100:100;
-    return {
-      abertos:abertos.length,
-      concluidos:concluidos.length,
-      mediaAtendimento:media(tempos),
-      ativos:ativosTotal,
-      vencidos:lista.filter(vencido).length,
-      perto:lista.filter(pertoVencer).length,
-      sla,
-      produtividade:concluidos.length,
-      gargalos:agrupar(lista.filter(ativos),etapa),
-      tecnicos:agrupar(concluidos,tecnico),
-      ntes:agrupar(abertos,nte),
-      escolas:agrupar(abertos,escola)
-    };
-  }
-
-  function renderSkeleton(){
-    garantirEstrutura();
-    const root=document.getElementById('sigee-cig');
-    if(!root)return;
-    root.classList.add('sigee-cig-carregando');
-    root.querySelectorAll('[data-kpi-valor]').forEach(el=>el.innerHTML='<i class="sigee-cig-skeleton curto"></i>');
-    root.querySelectorAll('[data-kpi-tendencia]').forEach(el=>el.innerHTML='<i class="sigee-cig-skeleton medio"></i>');
-    ['cig-gargalos','cig-tecnicos','cig-ntes','cig-escolas'].forEach(id=>{
-      const box=document.getElementById(id);
-      if(box)box.innerHTML=Array.from({length:5},()=>'<div class="sigee-cig-skeleton linha"></div>').join('');
-    });
-    const atualizado=document.getElementById('cig-atualizado');
-    if(atualizado)atualizado.textContent='Carregando dados reais...';
-  }
-
-  function setTexto(id,valor){
-    const campo=document.getElementById(id);
-    if(campo)campo.textContent=valor;
-  }
-
-  function diasPeriodoGerencial(periodo,processos){
-    if(periodo?.ini && periodo?.fim){
-      return Math.max(1,Math.floor((periodo.fim-periodo.ini)/86400000)+1);
-    }
-    const datas=processos.map(p=>data(inicio(p))).filter(Boolean);
-    if(!datas.length)return 1;
-    const menor=new Date(Math.min(...datas));
-    const maior=new Date(Math.max(...datas));
-    return Math.max(1,Math.floor((maior-menor)/86400000)+1);
-  }
-
-  function processoTemPastaLocalizada(p){
-    const conteudo=norm([
-      p?.tipo_arquivo,p?.tipo_arquivo_recebido,p?.arquivo_tipo,p?.arquivo,
-      p?.ultimo_evento_workflow,p?.ultima_acao_workflow,p?.observacao,
-      p?.contexto_analise
-    ].filter(Boolean).join(' '));
-    return conteudo.includes('PASTA') &&
-      (conteudo.includes('LOCALIZ')||conteudo.includes('RECEBID')||conteudo==='PASTA');
-  }
-
-  function renderizarEscolasTecnicas(dados){
-    const box=document.getElementById('dash-ger-escola-demanda');
-    if(!box)return '';
-    const top=(dados||[]).slice(0,10);
-    const html=top.length
-      ?top.map(([nome,q],i)=>`
-        <div class="flex justify-between gap-3 border-b border-gray-100 py-1.5 last:border-b-0">
-          <span class="min-w-0 truncate" title="${esc(nome)}">${i+1}. ${esc(nome)}</span>
-          <strong class="shrink-0">${Number(q||0).toLocaleString('pt-BR')}</strong>
-        </div>`).join('')
-      :'<span class="text-gray-400">Sem dados no período</span>';
-    box.innerHTML=html;
-    return html;
-  }
-
-  function atualizarIndicadoresTecnicosFiltrados(lista,periodo){
-    const noRecorte=lista.filter(p=>noPeriodo(inicio(p),periodo));
-    const concluidos=lista.filter(p=>finalizado(p)&&noPeriodo(conclusao(p),periodo));
-    const tempos=concluidos
-      .map(p=>dias(inicio(p),conclusao(p)))
-      .filter(v=>Number.isFinite(v));
-    const mediaEntrega=tempos.length?media(tempos):0;
-    const diasBase=diasPeriodoGerencial(periodo,noRecorte);
-    const pastas=noRecorte.filter(processoTemPastaLocalizada);
-    const escolasFiltradas=agrupar(noRecorte,escola);
-
-    const valores={
-      escolasHtml:renderizarEscolasTecnicas(escolasFiltradas),
-      mediaEntrega:`${mediaEntrega.toLocaleString('pt-BR',{maximumFractionDigits:1})} ${Math.abs(mediaEntrega-1)<0.001?'dia':'dias'}`,
-      pedidosDia:(noRecorte.length/diasBase).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1}),
-      pastasDia:(pastas.length/diasBase).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})
-    };
-
-    setTexto('dash-tec-media-entrega',valores.mediaEntrega);
-    setTexto('dash-tec-media-pedidos-dia',valores.pedidosDia);
-    setTexto('dash-tec-media-pasta-dia',valores.pastasDia);
-
-    indicadoresTecnicosEsperados=valores;
-    instalarProtecaoIndicadoresTecnicos();
-  }
-
-  function restaurarIndicadoresTecnicos(){
-    if(!indicadoresTecnicosEsperados||protegendoIndicadoresTecnicos)return;
-    protegendoIndicadoresTecnicos=true;
-    requestAnimationFrame(()=>{
-      const box=document.getElementById('dash-ger-escola-demanda');
-      if(box&&box.innerHTML!==indicadoresTecnicosEsperados.escolasHtml){
-        box.innerHTML=indicadoresTecnicosEsperados.escolasHtml;
-      }
-      setTexto('dash-tec-media-entrega',indicadoresTecnicosEsperados.mediaEntrega);
-      setTexto('dash-tec-media-pedidos-dia',indicadoresTecnicosEsperados.pedidosDia);
-      setTexto('dash-tec-media-pasta-dia',indicadoresTecnicosEsperados.pastasDia);
-      protegendoIndicadoresTecnicos=false;
-    });
-  }
-
-  function instalarProtecaoIndicadoresTecnicos(){
-    if(observadorIndicadoresTecnicos)return;
-    const ids=[
-      'dash-ger-escola-demanda',
-      'dash-tec-media-entrega',
-      'dash-tec-media-pedidos-dia',
-      'dash-tec-media-pasta-dia'
-    ];
-    const elementos=ids.map(id=>document.getElementById(id)).filter(Boolean);
-    if(!elementos.length)return;
-
-    observadorIndicadoresTecnicos=new MutationObserver(()=>{
-      if(protegendoIndicadoresTecnicos||!indicadoresTecnicosEsperados)return;
-      const box=document.getElementById('dash-ger-escola-demanda');
-      const divergente=
-        (box&&box.innerHTML!==indicadoresTecnicosEsperados.escolasHtml)||
-        document.getElementById('dash-tec-media-entrega')?.textContent!==indicadoresTecnicosEsperados.mediaEntrega||
-        document.getElementById('dash-tec-media-pedidos-dia')?.textContent!==indicadoresTecnicosEsperados.pedidosDia||
-        document.getElementById('dash-tec-media-pasta-dia')?.textContent!==indicadoresTecnicosEsperados.pastasDia;
-      if(divergente)restaurarIndicadoresTecnicos();
-    });
-    elementos.forEach(el=>observadorIndicadoresTecnicos.observe(el,{childList:true,characterData:true,subtree:true}));
-  }
-
-  function garantirEstrutura(){
+  function garantirCIG(){
     const aba=document.getElementById('aba-painel');
     if(!aba||document.getElementById('sigee-cig'))return;
-
-    const host=document.createElement('section');
-    host.id='sigee-cig';
-    host.className='sigee-cig';
-    host.innerHTML=`
+    const sec=document.createElement('section');
+    sec.id='sigee-cig';
+    sec.className='sigee-cig';
+    sec.innerHTML=`
       <div class="sigee-cig-head">
-        <div>
-          <span>CENTRO DE INTELIGÊNCIA GERENCIAL</span>
-          <h2>Visão Executiva do SIGEE</h2>
-          <p>Indicadores consolidados para acompanhamento operacional e tomada de decisão.</p>
-        </div>
-        <div class="sigee-cig-status">
-          <i></i><div><strong>Dados sincronizados</strong><span id="cig-atualizado">Atualizando...</span></div>
-        </div>
+        <div><span>CENTRO DE INTELIGÊNCIA GERENCIAL</span><h2>Visão Executiva do SIGEE</h2><p>Indicadores consolidados para acompanhamento operacional e tomada de decisão.</p></div>
+        <div class="sigee-cig-status"><i></i><div><strong>Dados sincronizados</strong><span id="cig-atualizado">Aguardando...</span></div></div>
       </div>
-
       <div class="sigee-cig-alertas" id="cig-alertas"></div>
-
       <div class="sigee-cig-kpis">
-        ${['ativos','media','sla','vencidos','concluidos','produtividade'].map(id=>`
-        <article class="sigee-cig-kpi" data-kpi="${id}">
-          <div class="sigee-cig-kpi-top"><span data-kpi-label></span><b data-kpi-icone></b></div>
-          <strong data-kpi-valor>—</strong>
-          <small data-kpi-tendencia>Calculando...</small>
-        </article>`).join('')}
+        ${['ativos','media','sla','vencidos','concluidos','produtividade'].map(id=>`<article class="sigee-cig-kpi" data-kpi="${id}"><div class="sigee-cig-kpi-top"><span data-label></span><b data-icon></b></div><strong data-valor>—</strong><small data-sub>Calculando...</small></article>`).join('')}
       </div>
-
       <div class="sigee-cig-grid">
-        <article class="sigee-cig-card sigee-cig-gargalos">
-          <header><div><span>FLUXO OPERACIONAL</span><h3>Gargalos por etapa</h3></div><b id="cig-total-ativos">0 ativos</b></header>
-          <div id="cig-gargalos"></div>
-        </article>
-        <article class="sigee-cig-card">
-          <header><div><span>DESEMPENHO</span><h3>Produtividade técnica</h3></div></header>
-          <div id="cig-tecnicos" class="sigee-cig-ranking"></div>
-        </article>
-        <article class="sigee-cig-card">
-          <header><div><span>VISÃO TERRITORIAL</span><h3>Demanda por NTE</h3></div></header>
-          <div id="cig-ntes" class="sigee-cig-ranking"></div>
-        </article>
-        <article class="sigee-cig-card">
-          <header><div><span>DEMANDA INSTITUCIONAL</span><h3>Escolas mais solicitadas</h3></div></header>
-          <div id="cig-escolas" class="sigee-cig-ranking"></div>
-        </article>
+        <article class="sigee-cig-card"><header><div><span>FLUXO OPERACIONAL</span><h3>Gargalos por etapa</h3></div><b id="cig-total-ativos">0 ativos</b></header><div id="cig-gargalos"></div></article>
+        <article class="sigee-cig-card"><header><div><span>DESEMPENHO</span><h3>Produtividade técnica</h3></div></header><div id="cig-tecnicos" class="sigee-cig-ranking"></div></article>
+        <article class="sigee-cig-card"><header><div><span>VISÃO TERRITORIAL</span><h3>Demanda por NTE</h3></div></header><div id="cig-ntes" class="sigee-cig-ranking"></div></article>
+        <article class="sigee-cig-card"><header><div><span>DEMANDA INSTITUCIONAL</span><h3>Escolas mais solicitadas</h3></div></header><div id="cig-escolas" class="sigee-cig-ranking"></div></article>
       </div>`;
-    const primeiro=aba.querySelector(':scope > *');
-    primeiro?aba.insertBefore(host,primeiro):aba.appendChild(host);
+    const welcome=aba.querySelector('.sigee-welcome-strip');
+    welcome?.insertAdjacentElement('afterend',sec);
   }
 
-  const kpiConfig={
-    ativos:['Processos ativos','◉',v=>v.toLocaleString('pt-BR'),false],
-    media:['Tempo médio','◷',v=>`${v.toLocaleString('pt-BR',{maximumFractionDigits:1})} dias`,true],
-    sla:['SLA operacional','◎',v=>`${v.toLocaleString('pt-BR',{maximumFractionDigits:1})}%`,false],
-    vencidos:['Processos vencidos','⚠',v=>v.toLocaleString('pt-BR'),true],
-    concluidos:['Concluídos no período','✓',v=>v.toLocaleString('pt-BR'),false],
-    produtividade:['Produtividade','↗',v=>`${v.toLocaleString('pt-BR')} entregas`,false]
-  };
-
-  function renderKpi(id,valor,anterior){
-    const card=document.querySelector(`[data-kpi="${id}"]`);if(!card)return;
-    const [label,icone,fmt,inverter]=kpiConfig[id];
-    card.querySelector('[data-kpi-label]').textContent=label;
-    card.querySelector('[data-kpi-icone]').textContent=icone;
-    card.querySelector('[data-kpi-valor]').textContent=fmt(valor);
-    const t=tendencia(valor,anterior,inverter);
-    const small=card.querySelector('[data-kpi-tendencia]');
-    small.className=t.classe;
-    small.textContent=`${t.seta} ${t.texto}`;
-    card.dataset.estado=id==='vencidos'&&valor>0?'critico':id==='sla'&&valor<80?'alerta':'normal';
+  function topHtml(dados){
+    return (dados||[]).slice(0,10).map(([nome,q],i)=>`<div class="flex justify-between gap-3 border-b border-gray-100 py-1.5 last:border-b-0"><span class="min-w-0 truncate" title="${esc(nome)}">${i+1}. ${esc(nome)}</span><strong class="shrink-0">${q.toLocaleString('pt-BR')}</strong></div>`).join('')||'Sem dados';
   }
-
-  function renderRanking(id,dados,vazio='Sem dados no período'){
+  function ranking(id,dados){
     const box=document.getElementById(id);if(!box)return;
-    const top=(dados||[]).slice(0,8);
-    const max=Math.max(1,...top.map(x=>x[1]));
-    box.innerHTML=top.length?top.map(([nome,q],i)=>`
-      <div class="sigee-cig-rank">
-        <span class="pos">${i+1}</span>
-        <div class="dados"><div><strong title="${esc(nome)}">${esc(nome)}</strong><b>${q}</b></div>
-          <i><em style="width:${Math.max(5,q/max*100)}%"></em></i>
-        </div>
-      </div>`).join(''):`<p class="sigee-cig-vazio">${vazio}</p>`;
+    const top=(dados||[]).slice(0,8),max=Math.max(1,...top.map(x=>x[1]));
+    box.innerHTML=top.map(([nome,q],i)=>`<div class="sigee-cig-rank"><span class="pos">${i+1}</span><div class="dados"><div><strong title="${esc(nome)}">${esc(nome)}</strong><b>${q}</b></div><i><em style="width:${Math.max(5,q/max*100)}%"></em></i></div></div>`).join('')||'<p class="sigee-cig-vazio">Sem dados no período</p>';
+  }
+  function barras(id,dados,total){
+    const box=document.getElementById(id);if(!box)return;
+    box.innerHTML=(dados||[]).slice(0,8).map(([nome,q])=>{const pct=total?q/total*100:0;return `<div class="sigee-cig-barra"><div><strong>${esc(nome)}</strong><span>${q} • ${pct.toFixed(1)}%</span></div><i><em style="width:${pct}%"></em></i></div>`}).join('')||'<p class="sigee-cig-vazio">Não há processos ativos.</p>';
+  }
+  function kpi(id,label,icon,valor,sub,estado='normal'){
+    const card=document.querySelector(`[data-kpi="${id}"]`);if(!card)return;
+    card.querySelector('[data-label]').textContent=label;
+    card.querySelector('[data-icon]').textContent=icon;
+    card.querySelector('[data-valor]').textContent=valor;
+    card.querySelector('[data-sub]').textContent=sub;
+    card.dataset.estado=estado;
   }
 
-  function renderGargalos(dados,total){
-    const box=document.getElementById('cig-gargalos');if(!box)return;
-    const cores=['#0284c7','#7c3aed','#f59e0b','#16a34a','#0891b2','#92400e','#64748b','#dc2626'];
-    box.innerHTML=(dados||[]).slice(0,8).map(([nome,q],i)=>{
-      const pct=total?q/total*100:0;
-      return `<div class="sigee-cig-barra"><div><strong>${esc(nome)}</strong><span>${q} • ${pct.toFixed(1)}%</span></div>
-        <i><em style="width:${pct}%;background:${cores[i%cores.length]}"></em></i></div>`;
-    }).join('')||'<p class="sigee-cig-vazio">Não há processos ativos.</p>';
+  function iniciarTransicao(){
+    const aviso=document.getElementById('sigee-dashboard-atualizando');
+    if(aviso){aviso.textContent='Atualizando dados do filtro selecionado...';aviso.classList.add('visivel')}
+    document.querySelectorAll('#aba-painel [id^="dash-"], #sigee-cig').forEach(x=>x.classList.add('sigee-dados-atualizando'));
+  }
+  function finalizarTransicao(){
+    document.querySelectorAll('.sigee-dados-atualizando').forEach(x=>x.classList.remove('sigee-dados-atualizando'));
+    document.getElementById('sigee-dashboard-atualizando')?.classList.remove('visivel');
   }
 
-  function renderAlertas(m){
-    const box=document.getElementById('cig-alertas');if(!box)return;
-    const alertas=[];
-    if(m.vencidos)alertas.push({tipo:'critico',icone:'⚠',texto:`${m.vencidos} processo(s) fora do prazo`});
-    if(m.perto)alertas.push({tipo:'alerta',icone:'◷',texto:`${m.perto} processo(s) vencem em até 2 dias`});
-    if(m.sla<80)alertas.push({tipo:'critico',icone:'↓',texto:`SLA abaixo de 80% (${m.sla.toFixed(1)}%)`});
-    if(!m.concluidos)alertas.push({tipo:'neutro',icone:'○',texto:'Nenhum processo concluído no período selecionado'});
-    if(!alertas.length)alertas.push({tipo:'ok',icone:'✓',texto:'Operação dentro dos parâmetros gerenciais'});
-    box.innerHTML=alertas.map(a=>`<div class="${a.tipo}"><b>${a.icone}</b><span>${a.texto}</span></div>`).join('');
-  }
+  function render(r){
+    garantirCIG();
+    ultimoResultado=r;
+    requestAnimationFrame(()=>{
+      const escolas=topHtml(r.porEscola);
+      const boxTec=document.getElementById('dash-tec-top-escolas');if(boxTec)boxTec.innerHTML=escolas;
+      const boxGer=document.getElementById('dash-ger-escola-demanda');if(boxGer)boxGer.innerHTML=escolas;
+      set('dash-tec-media-entrega',`${r.mediaAtendimento.toLocaleString('pt-BR',{maximumFractionDigits:1})} dias`);
+      set('dash-tec-media-pedidos-dia',r.pedidosDia.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1}));
+      set('dash-tec-media-pasta-dia',r.pastasDia.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1}));
 
-  function atualizarAgora(){
-    garantirEstrutura();
-    const root=document.getElementById('sigee-cig');
-    if(!root)return;
-    const lista=processosBase();
+      kpi('ativos','Processos ativos','◉',r.ativos.toLocaleString('pt-BR'),'Em tramitação');
+      kpi('media','Tempo médio','◷',`${r.mediaAtendimento.toLocaleString('pt-BR',{maximumFractionDigits:1})} dias`,'Processos concluídos');
+      kpi('sla','SLA operacional','◎',`${r.sla.toLocaleString('pt-BR',{maximumFractionDigits:1})}%`,'Dentro do prazo',r.sla<80?'alerta':'normal');
+      kpi('vencidos','Processos vencidos','⚠',r.vencidos.toLocaleString('pt-BR'),'Exigem atenção',r.vencidos?'critico':'normal');
+      kpi('concluidos','Concluídos no período','✓',r.concluidosPeriodo.toLocaleString('pt-BR'),'Entregas registradas');
+      kpi('produtividade','Produtividade','↗',`${r.concluidosPeriodo.toLocaleString('pt-BR')} entregas`,'Período selecionado');
 
-    if(!lista.length){
-      if(!cigJaRenderizado && Date.now()-aguardandoDadosDesde<15000){
-        renderSkeleton();
-      }else{
-        const atualizado=document.getElementById('cig-atualizado');
-        if(atualizado)atualizado.textContent='Sincronizando dados...';
-      }
-      return;
-    }
+      const alertas=document.getElementById('cig-alertas');
+      if(alertas)alertas.innerHTML=[
+        r.vencidos?`<div class="critico"><b>⚠</b><span>${r.vencidos} processo(s) fora do prazo</span></div>`:'',
+        r.proximosVencimento?`<div class="alerta"><b>◷</b><span>${r.proximosVencimento} vencem em até 2 dias</span></div>`:'',
+        r.sla<80?`<div class="critico"><b>↓</b><span>SLA abaixo de 80% (${r.sla.toFixed(1)}%)</span></div>`:'',
+        !r.vencidos&&!r.proximosVencimento&&r.sla>=80?`<div class="ok"><b>✓</b><span>Operação dentro dos parâmetros gerenciais</span></div>`:''
+      ].join('');
 
-    root.classList.remove('sigee-cig-carregando');
-    const p=periodoAtual();
-    const ant=periodoAnterior(p);
-    const assinatura=[
-      lista.length,
-      lista.reduce((s,x)=>s+Number(x?.id||0),0),
-      ultimoFiltroConfirmado||filtroDashboardAtual(),
-      document.getElementById('filtro-dashboard-periodo')?.value||'ACUMULADO',
-      document.getElementById('dashboard-data-inicial')?.value||'',
-      document.getElementById('dashboard-data-final')?.value||''
-    ].join('|');
-
-    let atual,anterior;
-    if(metricasCache && assinatura===ultimaAssinaturaDados){
-      ({atual,anterior}=metricasCache);
-    }else{
-      atual=metricas(lista,p);
-      anterior=ant?metricas(lista,ant):{ativos:0,mediaAtendimento:0,sla:0,vencidos:0,concluidos:0,produtividade:0};
-      ultimaAssinaturaDados=assinatura;
-      metricasCache={atual,anterior};
-    }
-
-    renderKpi('ativos',atual.ativos,anterior.ativos);
-    renderKpi('media',atual.mediaAtendimento,anterior.mediaAtendimento);
-    renderKpi('sla',atual.sla,anterior.sla);
-    renderKpi('vencidos',atual.vencidos,anterior.vencidos);
-    renderKpi('concluidos',atual.concluidos,anterior.concluidos);
-    renderKpi('produtividade',atual.produtividade,anterior.produtividade);
-
-    renderAlertas(atual);
-    renderGargalos(atual.gargalos,atual.ativos);
-    renderRanking('cig-tecnicos',atual.tecnicos,'Nenhuma entrega técnica no período');
-    renderRanking('cig-ntes',atual.ntes,'Nenhuma demanda territorial no período');
-    renderRanking('cig-escolas',atual.escolas,'Nenhuma escola demandada no período');
-
-    /*
-     * Estes três indicadores existiam no Dashboard legado, mas eram
-     * recalculados sem obedecer plenamente ao filtro de NTE/período.
-     * O dashboard.js passa a ser a fonte autoritativa.
-     */
-    atualizarIndicadoresTecnicosFiltrados(lista,p);
-
-    const total=document.getElementById('cig-total-ativos');
-    if(total)total.textContent=`${atual.ativos.toLocaleString('pt-BR')} ativos`;
-    const atualizado=document.getElementById('cig-atualizado');
-    if(atualizado)atualizado.textContent=`Atualizado em ${new Date().toLocaleString('pt-BR')}`;
-
-    window.SIGEE_CIG_METRICAS=Object.freeze({...atual,periodo:p});
-    cigJaRenderizado=true;
+      set('cig-total-ativos',`${r.ativos.toLocaleString('pt-BR')} ativos`);
+      set('cig-atualizado',`Atualizado em ${new Date(r.atualizadosEm).toLocaleString('pt-BR')}`);
+      barras('cig-gargalos',r.porEtapa,r.ativos);
+      ranking('cig-tecnicos',r.porTecnico);
+      ranking('cig-ntes',r.porNte);
+      ranking('cig-escolas',r.porEscola);
+      finalizarTransicao();
+    });
   }
 
   function atualizar(){
-    aguardarFiltroEstavel(atualizarAgora);
+    if(!window.SIGEE_Analytics)return;
+    render(window.SIGEE_Analytics.calcularDashboard());
   }
-
-  let timer=null;
   function agendar(){
     clearTimeout(timer);
     timer=setTimeout(atualizar,120);
   }
 
-  const antigo=window.carregarDadosDashboardReal;
-  window.carregarDadosDashboardReal=function(){
-    const r=typeof antigo==='function'?antigo.apply(this,arguments):undefined;
-    Promise.resolve(r).finally(agendar);
-    return r;
-  };
-
   document.addEventListener('change',e=>{
-    const id=e.target?.id;
-    if(id==='filtro-dashboard-nte'){
-      ultimoFiltroConfirmado=null;
-      filtroInicialConfirmado=false;
-      ultimaAssinaturaDados='';
-      metricasCache=null;
-      aguardarFiltroEstavel(atualizarAgora);
-      return;
-    }
-    if(['filtro-dashboard-periodo','dashboard-data-inicial','dashboard-data-final'].includes(id)){
-      ultimaAssinaturaDados='';
-      metricasCache=null;
+    if(['filtro-dashboard-nte','filtro-dashboard-periodo','dashboard-data-inicial','dashboard-data-final'].includes(e.target?.id)){
+      iniciarTransicao();
       agendar();
     }
   },true);
-  function observarFiltroTerritorial(){
-    const seletor=document.getElementById('filtro-dashboard-nte');
-    if(!seletor){
-      setTimeout(observarFiltroTerritorial,120);
-      return;
-    }
-    if(seletor.dataset.cigFiltroObservado==='1')return;
-    seletor.dataset.cigFiltroObservado='1';
-
-    const obs=new MutationObserver(()=>{
-      const atual=filtroDashboardAtual();
-      if(!filtroInicialConfirmado || atual!==ultimoFiltroConfirmado){
-        ultimoFiltroConfirmado=null;
-        filtroInicialConfirmado=false;
-        ultimaAssinaturaDados='';
-        metricasCache=null;
-        aguardarFiltroEstavel(atualizarAgora);
-      }
-    });
-    obs.observe(seletor,{childList:true,subtree:true,attributes:true,attributeFilter:['value']});
-  }
-
-  document.addEventListener('DOMContentLoaded',()=>{observarFiltroTerritorial();agendar();});
-  window.addEventListener('load',()=>{observarFiltroTerritorial();setTimeout(agendar,500);});
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden)agendar()});
-  setInterval(()=>{
-    const aba=document.getElementById('aba-painel');
-    if(aba&&!aba.classList.contains('hidden'))verificarMudancaDados();
-  },300000);
-
-  let assinaturaObservada='';
-  function verificarMudancaDados(){
-    const arr=Array.isArray(window.processosDB)?window.processosDB:[];
-    const assinatura=`${arr.length}|${arr.reduce((s,x)=>s+Number(x?.id||0),0)}`;
-    if(assinatura===assinaturaObservada)return;
-    assinaturaObservada=assinatura;
-    ultimaAssinaturaDados='';
-    metricasCache=null;
-    if(arr.length)aguardandoDadosDesde=0;
-    agendar();
-  }
-
-  /*
-   * O realtime do módulo de Processos já redesenha o Dashboard.
-   * Este fallback verifica mudanças a cada 2 segundos, sem provocar
-   * recálculos contínuos nem apagar valores durante a sincronização.
-   */
-  setInterval(verificarMudancaDados,2000);
-  window.addEventListener('sigee:processos-atualizados',verificarMudancaDados);
-
-  window.atualizarCentroInteligenciaSIGEE=atualizar;
-  console.info('[SIGEE] Centro de Inteligência Gerencial 2.4.1D carregado.');
+  window.addEventListener('sigee:analytics-dados-alterados',agendar);
+  window.addEventListener('load',()=>setTimeout(agendar,500));
+  window.atualizarDashboardPeloMotorSIGEE=agendar;
+  console.info('[SIGEE] Dashboard e CIG integrados ao Motor 2.4.3B.');
 })();
 

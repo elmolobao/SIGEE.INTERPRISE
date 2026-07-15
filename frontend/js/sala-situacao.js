@@ -166,15 +166,44 @@
 
   function atualizar(){
     atualizacaoAgendada=false;
-    const arr=lista();
+    if(!window.SIGEE_Analytics){
+      set('sala-sync-texto','Aguardando Motor Analítico...');
+      return;
+    }
+    const a=window.SIGEE_Analytics.calcular({nte:'TODOS',tipo:'ACUMULADO'});
+    const arr=a.processos||[];
     if(!arr.length){
       set('sala-sync-texto','Aguardando carregamento dos processos...');
       return;
     }
-    const sig=assinatura(arr);
-    if(sig===ultimaAssinatura&&ultimoResultado)return;
-    ultimaAssinatura=sig;
-    render(calcular(arr));
+
+    const recebidosHoje=arr.filter(p=>hoje(inicio(p)));
+    const concluidosHoje=arr.filter(p=>finalizado(p)&&hoje(fim(p)));
+    const ativos=arr.filter(ativo);
+    const vencidos=ativos.filter(vencido);
+    const prioridades=ativos.filter(p=>['MP','CEE','EXTERIOR','URGENTE'].some(x=>norm(p?.prioridade).includes(x)));
+    const porEtapa=ETAPAS.map(nome=>[nome,arr.filter(p=>{
+      const e=etapa(p);
+      if(nome==='Desarquivamento')return ['DESARQUIVAMENTO','REITERACAO','REITERACAO COM URGENCIA','REITERACAO URGENTE','CONFIRMACAO DOS DADOS DA BUSCA','CONFIRMAR DADOS DA BUSCA','PEDIDO DE ATAS SEM PASTA'].includes(e);
+      return e===norm(nome);
+    }).length]);
+
+    const porNte=[];
+    for(let n=1;n<=27;n++){
+      const l=arr.filter(p=>nteNumero(p)===n);
+      if(!l.length)continue;
+      const at=l.filter(ativo),ve=at.filter(vencido);
+      porNte.push({n,total:at.length,vencidos:ve.length,sla:at.length?(at.length-ve.length)/at.length*100:100});
+    }
+    porNte.sort((x,y)=>y.vencidos-x.vencidos||x.sla-y.sla||y.total-x.total);
+
+    const recentes=arr.slice().sort((x,y)=>{
+      const dx=data(x?.updated_at||x?.data_etapa_atual||x?.created_at)?.getTime()||0;
+      const dy=data(y?.updated_at||y?.data_etapa_atual||y?.created_at)?.getTime()||0;
+      return dy-dx;
+    }).slice(0,10);
+
+    render({ativos,recebidosHoje,concluidosHoje,vencidos,prioridades,sla:a.sla,porEtapa,porNte,recentes});
   }
 
   function agendar(){
@@ -239,24 +268,19 @@
     },true);
   }
 
-  let assinaturaAnterior='';
   setInterval(()=>{
     atualizarRelogio();
     instalarUXFiltro();
-    const arr=lista(),sig=assinatura(arr);
-    if(sig!==assinaturaAnterior){
-      assinaturaAnterior=sig;
-      if(abaAtiva)agendar();
-    }
   },1000);
 
   document.addEventListener('DOMContentLoaded',()=>{
     atualizarRelogio();instalarUXFiltro();agendar();
   });
   window.addEventListener('load',()=>setTimeout(()=>{instalarUXFiltro();agendar()},400));
+  window.addEventListener('sigee:analytics-dados-alterados',()=>{if(abaAtiva)agendar()});
   window.addEventListener('online',()=>{set('sala-saude-banco','Conectado');agendar()});
   window.addEventListener('offline',()=>{set('sala-saude-banco','Offline');set('sala-saude-sync','Interrompida')});
 
   window.atualizarSalaSituacaoSIGEE=agendar;
-  console.info('[SIGEE] Sala de Situação 2.4.2 carregada.');
+  console.info('[SIGEE] Sala de Situação integrada 2.4.3B carregada.');
 })();
