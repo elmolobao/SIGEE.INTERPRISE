@@ -169,9 +169,11 @@
     document.body.classList.remove('sigee-sala-aberta');
     if (!sec) return;
     sec.classList.remove('sigee-sala-ativa');
+    sec.classList.add('hidden');
     sec.style.removeProperty('display');
     sec.style.removeProperty('visibility');
     sec.style.removeProperty('opacity');
+    sec.style.removeProperty('min-height');
   }
 
   function ligarNavegacao() {
@@ -194,9 +196,31 @@
     ligarNavegacao();
     if(!garantirEstrutura()) { if(retries++<20) setTimeout(init,250); return; }
     var menu = document.getElementById('menu-sala-situacao');
-    if (menu && !menu.dataset.sala322) {
-      menu.dataset.sala322 = '1';
+    if (menu && !menu.dataset.sala324) {
+      menu.dataset.sala324 = '1';
       menu.addEventListener('click', function(ev){ window.abrirSalaSituacaoSIGEE(ev); }, true);
+    }
+
+    if (!document.documentElement.dataset.sala324Nav) {
+      document.documentElement.dataset.sala324Nav = '1';
+      document.addEventListener('click', function(ev) {
+        var botao = ev.target && ev.target.closest ? ev.target.closest('nav button') : null;
+        if (botao && botao.id !== 'menu-sala-situacao') fecharSala();
+      }, true);
+
+      var main = document.querySelector('main');
+      if (main && window.MutationObserver) {
+        var obs = new MutationObserver(function() {
+          var sala = document.getElementById('aba-sala-situacao');
+          if (!sala) return;
+          var outraVisivel = Array.prototype.some.call(
+            document.querySelectorAll('main > section[id^="aba-"]'),
+            function(sec) { return sec !== sala && !sec.classList.contains('hidden'); }
+          );
+          if (outraVisivel) fecharSala();
+        });
+        obs.observe(main, {subtree:true, attributes:true, attributeFilter:['class']});
+      }
     }
     render();
     clearInterval(timer); timer=setInterval(function(){var s=document.getElementById('aba-sala-situacao');if(s&&!s.classList.contains('hidden'))render();},REFRESH_MS);
