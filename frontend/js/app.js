@@ -3169,22 +3169,9 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             if (clienteHistoricoSIGEE) {
                 clienteHistoricoSIGEE.from('historico_processos').insert({
                     processo_id: p.id,
-                    codigo_sigee: p.codigo_sigee || '',
+                    nte: p.nte || usuarioLogado?.nte || null,
                     etapa: 'Análise',
                     acao: 'Documento Recebido',
-                    observacao: `Arquivo recebido: ${p.tipo_arquivo || 'Não informado'} | Local: ${p.local_arquivo || 'Não informado'}`,
-                    usuario_nome: usuarioLogado?.nome || usuarioLogado?.email || 'Usuário SIGEE',
-                    usuario_email: usuarioLogado?.email || null,
-                    usuario_perfil: usuarioLogado?.perfil || null,
-                    nte: p.nte || usuarioLogado?.nte || null,
-                    dados: {
-                        evento: 'DOCUMENTO_RECEBIDO',
-                        tipo_arquivo: p.tipo_arquivo || null,
-                        local_arquivo: p.local_arquivo || null,
-                        prioridade: p.prioridade || null,
-                        analista: p.analista || null,
-                        recebido_em: recebidoEmSIGEE
-                    },
                     created_at: recebidoEmSIGEE
                 }).then(({ error }) => {
                     if (error) console.warn('[SIGEE] Evento Documento Recebido não gravado no histórico:', error);

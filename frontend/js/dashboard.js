@@ -641,12 +641,20 @@
   }
 
   function garantirCardTempo(){
+    const canonico=document.getElementById('dash-tec-media-arquivo-tempo');
+    const legado=document.getElementById('dash-tec-media-atendimento-arquivo');
+    if(canonico && legado && legado!==canonico){
+      const cardLegado=legado.closest('.bg-white');
+      if(cardLegado) cardLegado.remove(); else legado.remove();
+    }
+    if(canonico)return canonico;
     const base=document.getElementById('dash-tec-media-pasta-dia')?.closest('.bg-white');
-    if(!base||document.getElementById('dash-tec-media-arquivo-tempo'))return;
+    if(!base)return null;
     const card=document.createElement('div');
     card.className='bg-white p-4 rounded-xl shadow-sm border-t-4 border-cyan-500 text-center';
-    card.innerHTML='<p class="text-[10px] text-gray-500 font-bold uppercase">Tempo Médio até Arquivo Recebido</p><p id="dash-tec-media-arquivo-tempo" class="text-xl font-bold mt-1">0 dia</p>';
+    card.innerHTML='<p class="text-[10px] text-gray-500 font-bold uppercase">Tempo Médio até Arquivo Recebido</p><p id="dash-tec-media-arquivo-tempo" class="text-xl font-bold mt-1">Sem dados</p>';
     base.insertAdjacentElement('afterend',card);
+    return document.getElementById('dash-tec-media-arquivo-tempo');
   }
 
   function rotulos(){
@@ -690,9 +698,10 @@
     try{
       rotulos();
       const p=periodo(),alvo=alvoNte();
-      let processos=[],historico=[];
+      let processos=[],historico=[],logs=[];
       try{processos=await paginar('processos')}catch(e){console.warn('[SIGEE Indicadores] processos indisponíveis:',e)}
       try{historico=await paginar('historico_processos')}catch(e){console.warn('[SIGEE Indicadores] histórico indisponível:',e)}
+      try{logs=await paginar('logs_sigee')}catch(e){console.warn('[SIGEE Indicadores] logs indisponíveis:',e)}
       if(!processos.length&&Array.isArray(window.processosDB))processos=window.processosDB.slice();
 
       const processosAlvo=alvo?processos.filter(x=>nteId(x)===alvo):processos;
@@ -709,6 +718,27 @@
       const primeiro=new Map();
       eventos.sort((a,b)=>(data(a.created_at)||0)-(data(b.created_at)||0)).forEach(h=>{
         const k=String(h.processo_id);if(!primeiro.has(k))primeiro.set(k,h);
+      });
+
+      /* Recuperação de eventos antigos pelos logs institucionais. */
+      const porAluno=new Map();
+      processosAlvo.forEach(x=>{
+        const nome=norm(x.aluno_nome||x.aluno||x.nome_solicitante||'');
+        if(!nome)return;
+        if(!porAluno.has(nome))porAluno.set(nome,[]);
+        porAluno.get(nome).push(x);
+      });
+      logs.forEach(l=>{
+        const acao=String(l.acao||l.detalhes||'');
+        if(!norm(acao).includes('DOCUMENTO RECEBIDO'))return;
+        const m=acao.match(/Processo\s*\[([^\]]+)\]/i);
+        if(!m)return;
+        const candidatos=porAluno.get(norm(m[1]))||[];
+        if(candidatos.length!==1)return;
+        const proc=candidatos[0];
+        const quando=data(l.created_at||l.data_hora||l.data||l.criado_em);
+        if(!quando||!noPeriodo(quando,p)||primeiro.has(String(proc.id)))return;
+        primeiro.set(String(proc.id),{processo_id:proc.id,created_at:quando.toISOString(),nte:proc.nte,acao:'Documento Recebido (log legado)'});
       });
 
       /* Compatibilidade com processos antigos: campos explícitos ou etapa posterior ao recebimento. */
@@ -734,7 +764,7 @@
       valoresAutoritativos={
         'dash-tec-media-pedidos-dia':abertos.length.toLocaleString('pt-BR'),
         'dash-tec-media-pasta-dia':primeiro.size.toLocaleString('pt-BR'),
-        'dash-tec-media-arquivo-tempo':`${media.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})} ${Math.abs(media-1)<.05?'dia':'dias'}`
+        'dash-tec-media-arquivo-tempo':tempos.length?`${media.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})} ${Math.abs(media-1)<.05?'dia':'dias'}`:'Sem dados históricos'
       };
       Object.entries(valoresAutoritativos).forEach(([id,v])=>set(id,v));
       instalarProtecao();
