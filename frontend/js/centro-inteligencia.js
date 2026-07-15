@@ -5,6 +5,7 @@
   'use strict';
 
   const norm = v => String(v ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toUpperCase();
+  const key = v => norm(v).replace(/[^A-Z0-9]/g, '');
   const text = v => String(v ?? '').trim();
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
   const val = (o, ...keys) => { for (const k of keys) if (o && o[k] !== undefined && o[k] !== null && text(o[k])) return o[k]; return ''; };
@@ -40,8 +41,9 @@
     const schools = scoped(arr('escolasDB','escolas','catalogoEscolas'));
     const processes = scoped(arr('processosDB','processos'));
     const users = scoped(arr('usuariosDB','usuarios'));
-    const schoolNames = new Set(schools.map(s => norm(schoolName(s))).filter(Boolean));
+    const schoolNames = new Set(schools.map(s => key(schoolName(s))).filter(Boolean));
     const schoolIds = new Set(schools.map(s => text(val(s,'id','escola_id'))).filter(Boolean));
+    const schoolMecCodes = new Set(schools.map(s => key(codeMec(s))).filter(Boolean));
 
     const rules = [
       {cat:'Escolas', key:'mec-duplicado', level:'critical', title:'Código MEC duplicado', hint:'O mesmo código identifica mais de uma escola.', items:groupDup(schools,codeMec).flatMap(([,x])=>x)},
@@ -52,7 +54,16 @@
       {cat:'Escolas', key:'sem-acervo', level:'warning', title:'Escolas sem informação de acervo', hint:'Registros sem situação/localização do acervo.', items:schools.filter(s=>!archiveStatus(s) && !text(val(s,'local_acervo')))},
       {cat:'Escolas', key:'ativas', level:'info', title:'Escolas marcadas como ativas', hint:'Conferir se devem permanecer no catálogo de escolas extintas.', items:schools.filter(s=>norm(schoolStatus(s)).includes('ATIVA') && !norm(schoolStatus(s)).includes('INATIVA'))},
       {cat:'Processos', key:'sem-escola', level:'critical', title:'Processos sem escola', hint:'Solicitações sem vínculo escolar exigem correção.', items:processes.filter(p=>!processSchool(p) && !text(val(p,'escola_id')))},
-      {cat:'Processos', key:'escola-nao-localizada', level:'critical', title:'Processos com escola não localizada', hint:'O nome ou ID informado não existe no catálogo carregado.', items:processes.filter(p=>{ const sid=text(val(p,'escola_id')); const sn=norm(processSchool(p)); return (sid && !schoolIds.has(sid)) || (!sid && sn && !schoolNames.has(sn)); })},
+      {cat:'Processos', key:'escola-nao-localizada', level:'critical', title:'Processos com escola não localizada', hint:'Nenhuma correspondência foi encontrada por ID, Código MEC ou nome normalizado.', items:processes.filter(p=>{
+        const sid=text(val(p,'escola_id'));
+        const sn=key(processSchool(p));
+        const smec=key(val(p,'cod_mec','codigo_mec','escola_cod_mec','escola_codigo_mec','codigo_inep'));
+        const localizadoPorId=Boolean(sid && schoolIds.has(sid));
+        const localizadoPorMec=Boolean(smec && schoolMecCodes.has(smec));
+        const localizadoPorNome=Boolean(sn && schoolNames.has(sn));
+        const possuiReferencia=Boolean(sid || smec || sn);
+        return possuiReferencia && !localizadoPorId && !localizadoPorMec && !localizadoPorNome;
+      })},
       {cat:'Processos', key:'sem-responsavel', level:'warning', title:'Processos sem responsável', hint:'Etapas operacionais precisam de profissional atribuído.', items:processes.filter(p=>!processOwner(p) && !['DESARQUIVAMENTO','RETIRADO','INDEFERIDO'].includes(norm(processStage(p))))},
       {cat:'Processos', key:'sem-etapa', level:'critical', title:'Processos sem etapa', hint:'A ausência de etapa impede o workflow.', items:processes.filter(p=>!processStage(p))},
       {cat:'Processos', key:'sem-prioridade', level:'warning', title:'Processos sem prioridade', hint:'Defina a prioridade para ordenar corretamente a fila.', items:processes.filter(p=>!text(val(p,'prioridade')))},
