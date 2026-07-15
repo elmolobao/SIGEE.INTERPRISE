@@ -309,3 +309,272 @@
     width:100%!important;
   }
 }
+
+
+/* =====================================================================
+   SIGEE Sprint 2.4.5B — Componentes Institucionais do Workflow
+   Modelo oficial aprovado para seleção de responsável e tarefa obrigatória.
+   ===================================================================== */
+
+/* Card oficial de seleção de responsável */
+.sigee-responsavel-card{
+  background:#fff!important;
+  border:2px solid #ff7a00!important;
+  border-radius:16px!important;
+  box-shadow:0 8px 24px rgba(255,122,0,.10)!important;
+  padding:22px 24px!important;
+  color:#172033!important;
+}
+
+.sigee-responsavel-card .sigee-responsavel-topo{
+  display:flex!important;
+  align-items:center!important;
+  gap:15px!important;
+  padding-bottom:18px!important;
+  margin-bottom:18px!important;
+  border-bottom:1px solid #dbe4ee!important;
+}
+
+.sigee-responsavel-card .sigee-responsavel-icone{
+  width:52px!important;
+  height:52px!important;
+  min-width:52px!important;
+  border-radius:14px!important;
+  display:grid!important;
+  place-items:center!important;
+  background:linear-gradient(135deg,#ff8b13,#ff6b00)!important;
+  color:#fff!important;
+  font-size:23px!important;
+  box-shadow:0 8px 18px rgba(255,122,0,.22)!important;
+}
+
+.sigee-responsavel-card .sigee-responsavel-titulos h3{
+  margin:0 0 5px!important;
+  color:#0b4f8a!important;
+  font-size:16px!important;
+  font-weight:950!important;
+  text-transform:uppercase!important;
+  letter-spacing:.02em!important;
+}
+
+.sigee-responsavel-card .sigee-responsavel-titulos p{
+  margin:0!important;
+  color:#627286!important;
+  font-size:12px!important;
+  line-height:1.45!important;
+}
+
+.sigee-responsavel-card label{
+  display:block!important;
+  margin-bottom:7px!important;
+  color:#40516a!important;
+  font-size:11px!important;
+  font-weight:900!important;
+}
+
+.sigee-responsavel-card select{
+  width:100%!important;
+  min-height:48px!important;
+  padding:0 44px 0 16px!important;
+  background:#fff!important;
+  color:#172033!important;
+  border:2px solid #2d6df6!important;
+  border-radius:10px!important;
+  font-size:13px!important;
+  font-weight:900!important;
+  box-shadow:0 4px 12px rgba(45,109,246,.08)!important;
+}
+
+.sigee-responsavel-card select:hover{
+  border-color:#0b4f8a!important;
+}
+
+.sigee-responsavel-card select:focus{
+  border-color:#0b4f8a!important;
+  box-shadow:0 0 0 4px rgba(45,109,246,.15)!important;
+}
+
+.sigee-responsavel-status{
+  margin-top:12px!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:8px!important;
+  color:#138a3d!important;
+  font-size:11px!important;
+  font-weight:900!important;
+}
+
+.sigee-responsavel-status.pendente{
+  color:#b7791f!important;
+}
+
+/* Card oficial de tarefa obrigatória */
+.sigee-tarefa-card{
+  background:#fff!important;
+  border:2px solid #8fc4ff!important;
+  border-radius:16px!important;
+  padding:22px 24px!important;
+  color:#172033!important;
+  box-shadow:0 8px 22px rgba(23,111,189,.08)!important;
+}
+
+.sigee-tarefa-card .sigee-tarefa-topo{
+  display:flex!important;
+  gap:15px!important;
+  align-items:flex-start!important;
+}
+
+.sigee-tarefa-card .sigee-tarefa-icone{
+  width:52px!important;
+  height:52px!important;
+  min-width:52px!important;
+  border-radius:14px!important;
+  display:grid!important;
+  place-items:center!important;
+  background:linear-gradient(135deg,#176fbd,#0b4f8a)!important;
+  color:#fff!important;
+  font-size:22px!important;
+  box-shadow:0 8px 18px rgba(23,111,189,.20)!important;
+}
+
+.sigee-tarefa-card .sigee-tarefa-conteudo{
+  flex:1!important;
+  min-width:0!important;
+}
+
+.sigee-tarefa-card .sigee-tarefa-selo{
+  display:block!important;
+  color:#176fbd!important;
+  font-size:10px!important;
+  font-weight:950!important;
+  letter-spacing:.09em!important;
+  text-transform:uppercase!important;
+  margin-bottom:5px!important;
+}
+
+.sigee-tarefa-card h3{
+  margin:0!important;
+  color:#082f5b!important;
+  font-size:16px!important;
+  font-weight:950!important;
+}
+
+.sigee-tarefa-card p{
+  margin:7px 0 0!important;
+  color:#66758a!important;
+  font-size:11px!important;
+  line-height:1.5!important;
+}
+
+.sigee-tarefa-confirmacao{
+  margin-top:17px!important;
+  padding:13px 16px!important;
+  border-radius:11px!important;
+  border:1px solid #cfe0f5!important;
+  background:#f3f8ff!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:11px!important;
+  color:#24405e!important;
+  font-size:11px!important;
+  font-weight:850!important;
+}
+
+.sigee-tarefa-confirmacao input[type="checkbox"]{
+  width:19px!important;
+  height:19px!important;
+  flex:0 0 auto!important;
+  accent-color:#138a62!important;
+}
+
+/* Sobrescrita dos blocos antigos escuros */
+.sigee-wam-selection.sigee-responsavel-card,
+.sigee-wam-responsible.sigee-responsavel-card,
+.sigee-wfe-responsible.sigee-responsavel-card{
+  background:#fff!important;
+  color:#172033!important;
+}
+
+.sigee-wam-task.sigee-tarefa-card,
+.sigee-wfe-action.sigee-tarefa-card,
+.sigee-wam-message.sigee-tarefa-card{
+  background:#fff!important;
+  color:#172033!important;
+}
+
+/* Cartões superiores com ícones e leitura institucional */
+.sigee-wam-card,
+.sigee-wfe-card,
+.sigee-resumo33>div{
+  position:relative!important;
+  padding-left:48px!important;
+}
+
+.sigee-wam-card::before,
+.sigee-wfe-card::before,
+.sigee-resumo33>div::before{
+  content:"";
+  position:absolute!important;
+  left:16px!important;
+  top:50%!important;
+  transform:translateY(-50%)!important;
+  width:22px!important;
+  height:22px!important;
+  border-radius:7px!important;
+  background:#e8f2ff!important;
+  box-shadow:inset 0 0 0 1px #c9dcf0!important;
+}
+
+.sigee-wam-summary > :nth-child(1)::before,
+.sigee-wfe-summary > :nth-child(1)::before,
+.sigee-resumo33 > :nth-child(1)::before{content:"👤";display:grid!important;place-items:center!important;font-size:12px!important}
+.sigee-wam-summary > :nth-child(2)::before,
+.sigee-wfe-summary > :nth-child(2)::before,
+.sigee-resumo33 > :nth-child(2)::before{content:"▰";display:grid!important;place-items:center!important;color:#0b4f8a!important;font-size:12px!important}
+.sigee-wam-summary > :nth-child(3)::before,
+.sigee-wfe-summary > :nth-child(3)::before,
+.sigee-resumo33 > :nth-child(3)::before{content:"🏛";display:grid!important;place-items:center!important;font-size:12px!important}
+.sigee-wam-summary > :nth-child(4)::before,
+.sigee-wfe-summary > :nth-child(4)::before,
+.sigee-resumo33 > :nth-child(4)::before{content:"●";display:grid!important;place-items:center!important;color:#0b4f8a!important;font-size:12px!important}
+
+/* Rodapé no modelo aprovado */
+.sigee-wam-footer,
+.sigee-wfe-footer{
+  padding-top:18px!important;
+  margin-top:18px!important;
+}
+
+.sigee-workflow-acao-secundaria{
+  min-width:110px!important;
+  min-height:44px!important;
+}
+
+.sigee-workflow-acao-principal{
+  min-width:210px!important;
+  min-height:44px!important;
+}
+
+/* Corrige textos herdados em branco/amarelo dentro dos novos cards */
+.sigee-responsavel-card *,
+.sigee-tarefa-card *{
+  text-shadow:none!important;
+}
+
+.sigee-responsavel-card .text-white,
+.sigee-responsavel-card [class*="text-yellow"],
+.sigee-responsavel-card [class*="text-amber"]{
+  color:inherit!important;
+}
+
+@media(max-width:720px){
+  .sigee-responsavel-card,
+  .sigee-tarefa-card{
+    padding:17px!important;
+  }
+  .sigee-responsavel-card .sigee-responsavel-topo,
+  .sigee-tarefa-card .sigee-tarefa-topo{
+    align-items:flex-start!important;
+  }
+}
+
