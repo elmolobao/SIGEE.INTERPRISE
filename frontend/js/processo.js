@@ -1292,10 +1292,53 @@
     btn.addEventListener('click',async()=>{
       if(!sel.value||!chk.checked) return;
       btn.disabled=true;
-      p.etapa=p.etapa_atual='Digitação'; p.data_etapa_atual=agora(); p.tecnico_responsavel=sel.value; p.digitador=sel.value; p.pendencia_aberta=false;
-      await salvar(p);
-      await historico(p,'Digitação','Encaminhado para Digitação',`${origem}. Digitador: ${sel.value}. Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}.`,{digitador:sel.value,mensagem:msg,tarefa_confirmada:true});
-      fechar(); if(window.filtrarProcessosPorEtapa) window.filtrarProcessosPorEtapa('Digitação'); toast('Processo encaminhado para Digitação.');
+      const digitador=sel.value;
+      const instante=agora();
+      try{
+        /* Correção emergencial — Pendência resolvida -> Digitação.
+           Mantém os dois campos de etapa sincronizados e limpa integralmente
+           o estado da pendência antes da persistência no Supabase. */
+        p.etapa='Digitação';
+        p.etapa_atual='Digitação';
+        p.etapa_codigo=null;
+        p.data_etapa_atual=instante;
+        p.prazo_inicio=instante;
+        p.prazo_fim=null;
+        p.prazo_etapa=15;
+        p.updated_at=instante;
+        p.tecnico_responsavel=digitador;
+        p.tecnico_responsavel_nome=digitador;
+        p.responsavel=digitador;
+        p.responsavel_nome=digitador;
+        p.digitador=digitador;
+        p.digitador_nome=digitador;
+        p.pendencia_aberta=false;
+        p.pendencia_aluno_itens=[];
+        p.pendencia_instituicao_itens=[];
+        p.pendencia_aluno_complemento=null;
+        p.pendencia_instituicao_complemento=null;
+        p.pendencia_restante=null;
+        p.ultima_mensagem_workflow=msg.codigo;
+        p.ultimo_evento_workflow='PENDENCIA_SANADA_PARA_DIGITACAO';
+
+        await salvar(p);
+        await historico(
+          p,
+          'Digitação',
+          'Pendência sanada — encaminhado para Digitação',
+          `${origem}. Digitador: ${digitador}. Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}.`,
+          {digitador:digitador,mensagem:msg,tarefa_confirmada:true,pendencia_sanada:true}
+        );
+
+        fechar();
+        if(window.filtrarProcessosPorEtapa) window.filtrarProcessosPorEtapa('Digitação');
+        if(window.SIGEE_Processos?.contar) window.SIGEE_Processos.contar();
+        toast('Pendência sanada. Processo encaminhado para Digitação.');
+      }catch(e){
+        console.error('[SIGEE] Falha ao avançar Pendência para Digitação.',e);
+        btn.disabled=false;
+        alert('Não foi possível encaminhar o processo para Digitação: '+(e?.message||e));
+      }
     });
   }
 
