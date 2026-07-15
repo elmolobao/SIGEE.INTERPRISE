@@ -1,0 +1,311 @@
+/* =====================================================================
+   SIGEE Sprint 2.4.5 — Design System Institucional do Workflow
+   Camada visual aditiva. Não altera regras, transições ou permissões.
+   ===================================================================== */
+
+:root{
+  --wf-blue-950:#082f5b;
+  --wf-blue-900:#0b4f8a;
+  --wf-blue-700:#176fbd;
+  --wf-blue-500:#2d8cff;
+  --wf-green:#138a62;
+  --wf-indigo:#4f46e5;
+  --wf-orange:#d97706;
+  --wf-amber:#c89424;
+  --wf-red:#c83c46;
+  --wf-purple:#7c3aed;
+  --wf-gray-900:#172033;
+  --wf-gray-700:#40516a;
+  --wf-gray-500:#6b7b8f;
+  --wf-gray-300:#cbd7e5;
+  --wf-gray-100:#f3f6fa;
+}
+
+/* Base de todos os modais operacionais */
+.sigee-wam-overlay,
+.sigee-wfe-overlay,
+[id^="modal-fluxo-"]{
+  --wf-accent:var(--wf-blue-700);
+}
+
+.sigee-wam-dialog,
+.sigee-wfe-panel,
+[id^="modal-fluxo-"] > div{
+  border-radius:20px!important;
+  overflow:hidden!important;
+  background:#fff!important;
+  color:var(--wf-gray-900)!important;
+  border:1px solid #d5e1ec!important;
+  box-shadow:0 28px 85px rgba(18,45,76,.24)!important;
+}
+
+/* Cabeçalhos */
+.sigee-wam-header,
+.sigee-wfe-head,
+[id^="modal-fluxo-"] > div > div:first-child{
+  background:linear-gradient(105deg,var(--wf-blue-900),var(--wf-blue-700))!important;
+  color:#fff!important;
+  border-bottom:1px solid rgba(255,255,255,.15)!important;
+}
+
+.sigee-wam-header h2,
+.sigee-wfe-head h2,
+[id^="modal-fluxo-"] > div > div:first-child h3{
+  color:#fff!important;
+  text-shadow:none!important;
+  font-weight:900!important;
+  letter-spacing:-.01em;
+}
+
+.sigee-wam-header button,
+.sigee-wfe-head button,
+[id^="modal-fluxo-"] > div > div:first-child button{
+  color:#fff!important;
+  opacity:.9!important;
+}
+
+/* Resumo superior */
+.sigee-wam-summary,
+.sigee-wfe-summary,
+.sigee-resumo33{
+  gap:10px!important;
+}
+
+.sigee-wam-card,
+.sigee-wfe-card,
+.sigee-resumo33>div{
+  background:linear-gradient(180deg,#fbfdff,#f3f7fb)!important;
+  border:1px solid #d8e3ee!important;
+  border-radius:13px!important;
+  min-height:76px;
+  color:var(--wf-gray-900)!important;
+}
+
+.sigee-wam-label,
+.sigee-wfe-card span,
+.sigee-resumo33 span{
+  color:var(--wf-gray-500)!important;
+  font-weight:900!important;
+  letter-spacing:.04em!important;
+}
+
+.sigee-wam-value,
+.sigee-wfe-card strong,
+.sigee-resumo33 strong{
+  color:var(--wf-gray-900)!important;
+  font-weight:900!important;
+}
+
+/* Bloco de seleção obrigatória */
+.sigee-wam-selection,
+.sigee-wam-responsible,
+.sigee-wfe-responsible,
+.sigee-field33,
+.sigee-gridpend33 fieldset{
+  background:#fff!important;
+  border:3px solid #f3a124!important;
+  border-radius:18px!important;
+  box-shadow:0 0 0 5px rgba(243,161,36,.12)!important;
+  color:var(--wf-gray-900)!important;
+}
+
+.sigee-wam-selection h3,
+.sigee-wam-responsible h3,
+.sigee-wfe-responsible h3,
+.sigee-wam-selection strong,
+.sigee-wam-responsible strong{
+  color:var(--wf-blue-950)!important;
+}
+
+.sigee-wam-selection p,
+.sigee-wam-responsible p,
+.sigee-wfe-responsible p{
+  color:var(--wf-gray-500)!important;
+}
+
+/* Bloco de tarefa obrigatória */
+.sigee-wam-task,
+.sigee-wfe-action,
+.sigee-wam-message,
+.sigee-wam-consequence{
+  background:linear-gradient(135deg,#f7fbff,#eef6ff)!important;
+  border:2px solid #22aee8!important;
+  border-radius:16px!important;
+  color:var(--wf-gray-900)!important;
+}
+
+.sigee-wam-task h3,
+.sigee-wfe-action strong,
+.sigee-wam-message strong{
+  color:var(--wf-blue-950)!important;
+}
+
+.sigee-wam-task p,
+.sigee-wfe-action p,
+.sigee-wam-message-text{
+  color:#5f7186!important;
+}
+
+/* Campos */
+.sigee-wam-dialog input,
+.sigee-wam-dialog select,
+.sigee-wam-dialog textarea,
+.sigee-wfe-panel input,
+.sigee-wfe-panel select,
+.sigee-wfe-panel textarea,
+[id^="modal-fluxo-"] input,
+[id^="modal-fluxo-"] select,
+[id^="modal-fluxo-"] textarea{
+  background:#fff!important;
+  color:var(--wf-gray-900)!important;
+  border:1px solid #b9c9da!important;
+  border-radius:10px!important;
+  box-shadow:none!important;
+}
+
+.sigee-wam-dialog input:focus,
+.sigee-wam-dialog select:focus,
+.sigee-wam-dialog textarea:focus,
+.sigee-wfe-panel input:focus,
+.sigee-wfe-panel select:focus,
+.sigee-wfe-panel textarea:focus,
+[id^="modal-fluxo-"] input:focus,
+[id^="modal-fluxo-"] select:focus,
+[id^="modal-fluxo-"] textarea:focus{
+  border-color:var(--wf-blue-500)!important;
+  box-shadow:0 0 0 4px rgba(45,140,255,.14)!important;
+  outline:none!important;
+}
+
+/* Checkbox */
+.sigee-wam-dialog input[type="checkbox"],
+.sigee-wfe-panel input[type="checkbox"],
+[id^="modal-fluxo-"] input[type="checkbox"]{
+  accent-color:var(--wf-green)!important;
+  width:17px!important;
+  height:17px!important;
+}
+
+/* Rodapé e botões */
+.sigee-wam-footer,
+.sigee-wfe-footer,
+[id^="modal-fluxo-"] form > div:last-child{
+  display:flex!important;
+  justify-content:flex-end!important;
+  align-items:center!important;
+  gap:10px!important;
+  background:#fff!important;
+  border-top:1px solid #d9e3ed!important;
+}
+
+.sigee-wam-btn-secondary,
+.sigee-wfe-btn-secondary,
+[id^="modal-fluxo-"] button[type="button"]{
+  background:#eef2f7!important;
+  color:#34465b!important;
+  border:1px solid #cbd7e5!important;
+  border-radius:11px!important;
+  font-weight:900!important;
+  opacity:1!important;
+}
+
+.sigee-wam-btn-primary,
+.sigee-wfe-btn-primary,
+.sigee-wfe-action button:not(:disabled),
+[id^="modal-fluxo-"] button[type="submit"]:not(:disabled),
+.sigee-workflow-acao-principal:not(:disabled){
+  background:linear-gradient(135deg,var(--wf-accent),color-mix(in srgb,var(--wf-accent) 78%,#fff))!important;
+  color:#fff!important;
+  border:1px solid color-mix(in srgb,var(--wf-accent) 78%,#000)!important;
+  border-radius:11px!important;
+  font-weight:900!important;
+  opacity:1!important;
+  visibility:visible!important;
+  filter:none!important;
+  text-shadow:none!important;
+  box-shadow:0 10px 22px color-mix(in srgb,var(--wf-accent) 25%,transparent)!important;
+  min-width:180px;
+}
+
+.sigee-wam-btn-primary:hover,
+.sigee-wfe-btn-primary:hover,
+.sigee-wfe-action button:not(:disabled):hover,
+[id^="modal-fluxo-"] button[type="submit"]:not(:disabled):hover,
+.sigee-workflow-acao-principal:not(:disabled):hover{
+  transform:translateY(-1px)!important;
+  filter:brightness(1.06)!important;
+}
+
+.sigee-wam-btn-primary:focus-visible,
+.sigee-wfe-btn-primary:focus-visible,
+.sigee-workflow-acao-principal:focus-visible{
+  outline:3px solid rgba(45,140,255,.28)!important;
+  outline-offset:2px!important;
+}
+
+/* Estado desabilitado */
+.sigee-wam-btn-primary:disabled,
+.sigee-wfe-btn-primary:disabled,
+.sigee-wfe-action button:disabled,
+[id^="modal-fluxo-"] button[type="submit"]:disabled,
+.sigee-workflow-acao-principal:disabled{
+  background:#dce4ec!important;
+  color:#66778a!important;
+  border-color:#c7d2de!important;
+  box-shadow:none!important;
+  opacity:1!important;
+  cursor:not-allowed!important;
+}
+
+/* Cores por etapa */
+.sigee-wf-etapa-documento{--wf-accent:#138a62}
+.sigee-wf-etapa-analise{--wf-accent:#176fbd}
+.sigee-wf-etapa-pendencia{--wf-accent:#7c3aed}
+.sigee-wf-etapa-digitacao{--wf-accent:#4f46e5}
+.sigee-wf-etapa-conferencia{--wf-accent:#0284c7}
+.sigee-wf-etapa-assinatura{--wf-accent:#0b4f8a}
+.sigee-wf-etapa-deferido{--wf-accent:#138a62}
+.sigee-wf-etapa-indeferido{--wf-accent:#c83c46}
+.sigee-wf-etapa-retificacao{--wf-accent:#64748b}
+.sigee-wf-etapa-reiteracao{--wf-accent:#c89424}
+.sigee-wf-etapa-reiteracao-urgente{--wf-accent:#e97824}
+.sigee-wf-etapa-confirmacao{--wf-accent:#c83c46}
+.sigee-wf-etapa-atas{--wf-accent:#1f2937}
+
+/* Correção específica da tela mostrada */
+.sigee-wf-etapa-digitacao .sigee-workflow-acao-principal,
+.sigee-wf-etapa-digitacao .sigee-wam-btn-primary,
+.sigee-wf-etapa-digitacao .sigee-wfe-btn-primary{
+  background:linear-gradient(135deg,#4338ca,#4f46e5)!important;
+  color:#fff!important;
+  border-color:#3730a3!important;
+}
+
+/* Evita texto apagado em faixas claras */
+.sigee-wam-dialog [class*="text-white"],
+.sigee-wfe-panel [class*="text-white"]{
+  text-shadow:none!important;
+}
+.sigee-wam-dialog .sigee-wam-selection [class*="text-white"],
+.sigee-wfe-panel .sigee-wfe-responsible [class*="text-white"]{
+  color:var(--wf-blue-950)!important;
+}
+
+/* Responsividade */
+@media(max-width:720px){
+  .sigee-wam-summary,
+  .sigee-wfe-summary,
+  .sigee-resumo33{
+    grid-template-columns:1fr 1fr!important;
+  }
+  .sigee-wam-footer,
+  .sigee-wfe-footer,
+  [id^="modal-fluxo-"] form > div:last-child{
+    flex-wrap:wrap!important;
+  }
+  .sigee-wam-btn-primary,
+  .sigee-wfe-btn-primary,
+  .sigee-workflow-acao-principal{
+    width:100%!important;
+  }
+}
