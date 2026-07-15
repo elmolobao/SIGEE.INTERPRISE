@@ -485,9 +485,17 @@
     const periodo=periodoIndicadores();
     const aberturas=processos.map(p=>dataIndicador(p.data_solicitacao||p.data_abertura||p.created_at||p.criado_em)).filter(d=>dentroIndicador(d,periodo));
     const recebimentos=processos.map(dataArquivoRecebido).filter(d=>dentroIndicador(d,periodo));
+    const temposAteArquivo=processos.map(p=>{
+      const abertura=dataIndicador(p?.data_solicitacao||p?.data_abertura||p?.created_at||p?.criado_em);
+      const recebimento=dataArquivoRecebido(p);
+      if(!abertura||!recebimento||!dentroIndicador(recebimento,periodo)||recebimento<abertura)return null;
+      return Math.max(0,(recebimento.getTime()-abertura.getTime())/86400000);
+    }).filter(v=>v!==null&&Number.isFinite(v));
     return {
       pedidosDia:aberturas.length/diasBaseIndicador(aberturas,periodo),
-      arquivosDia:recebimentos.length/diasBaseIndicador(recebimentos,periodo)
+      arquivosDia:recebimentos.length/diasBaseIndicador(recebimentos,periodo),
+      tempoMedioAteArquivo:temposAteArquivo.length?temposAteArquivo.reduce((a,b)=>a+b,0)/temposAteArquivo.length:0,
+      solicitacoesAtendidas:temposAteArquivo.length
     };
   }
 
@@ -558,6 +566,9 @@
       const diarios=calcularIndicadoresDiarios();
       set('dash-tec-media-pedidos-dia',diarios.pedidosDia.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1}));
       set('dash-tec-media-pasta-dia',diarios.arquivosDia.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1}));
+      set('dash-tec-media-atendimento-arquivo',`${diarios.tempoMedioAteArquivo.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})} ${Math.abs(diarios.tempoMedioAteArquivo-1)<0.05?'dia':'dias'}`);
+      const cardAtendimento=document.getElementById('dash-tec-media-atendimento-arquivo');
+      if(cardAtendimento)cardAtendimento.title=`${diarios.solicitacoesAtendidas.toLocaleString('pt-BR')} solicitação(ões) com arquivo recebido no período`;
 
       kpi('ativos','Processos ativos','◉',r.ativos.toLocaleString('pt-BR'),'Em tramitação');
       kpi('media','Tempo médio','◷',`${r.mediaAtendimento.toLocaleString('pt-BR',{maximumFractionDigits:1})} dias`,'Processos concluídos');
