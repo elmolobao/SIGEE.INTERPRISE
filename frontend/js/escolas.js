@@ -1,5 +1,5 @@
 /* =====================================================================
-   SIGEE Enterprise — Sprint 2.4.6E — Módulo Oficial de Escolas
+   SIGEE Enterprise — Sprint 2.4.6F — Módulo Oficial de Escolas
    Módulo: Escolas
    Produção: catálogo paginado, filtro por NTE e autocomplete da Nova Solicitação.
    Substitui a lógica dependente de listas locais grandes e evita limite de 1000 registros.
@@ -45,6 +45,56 @@
     const id = nteIdUsuario();
     if (id) return 'NTE ' + String(id).padStart(2, '0');
     return texto((window.usuarioLogado || {}).nte || (window.usuarioLogado || {}).grupo || (window.usuarioLogado || {}).nte_nome);
+  }
+
+  const NOMES_NTE_ESCOLAS = {
+    1:'Irecê',2:'Bom Jesus da Lapa',3:'Seabra',4:'Serrinha',5:'Itabuna',
+    6:'Valença',7:'Teixeira de Freitas',8:'Itapetinga',9:'Amargosa',10:'Juazeiro',
+    11:'Barreiras',12:'Macaúbas',13:'Caetité',14:'Itaberaba',15:'Ipirá',
+    16:'Jacobina',17:'Ribeira do Pombal',18:'Alagoinhas',19:'Feira de Santana',
+    20:'Vitória da Conquista',21:'Santo Antônio de Jesus',22:'Jequié',
+    23:'Santa Maria da Vitória',24:'Paulo Afonso',25:'Senhor do Bonfim',
+    26:'Salvador',27:'Eunápolis'
+  };
+  function rotuloNteEscola(id) {
+    const n = Number(id || 0);
+    return n ? `NTE-${String(n).padStart(2,'0')} (${NOMES_NTE_ESCOLAS[n] || 'Território'})` : '';
+  }
+  function extrairNteEscola(valor) {
+    return Number((texto(valor).match(/\d{1,2}/) || [0])[0]) || null;
+  }
+  function preencherSelectNteEscola(valorAtual) {
+    const select = document.getElementById('escola-form-nte');
+    const ajuda = document.getElementById('escola-form-nte-ajuda');
+    if (!select) return;
+
+    const atual = extrairNteEscola(valorAtual);
+    const vinculado = nteIdUsuario();
+    select.innerHTML = '<option value="">SELECIONE O NTE</option>';
+
+    if (perfilAtual() === 'MASTER') {
+      for (let n = 1; n <= 27; n++) {
+        const op = document.createElement('option');
+        op.value = String(n);
+        op.textContent = rotuloNteEscola(n);
+        select.appendChild(op);
+      }
+      select.disabled = false;
+      if (ajuda) ajuda.textContent = 'Master: seleção disponível para os 27 NTEs.';
+      if (atual) select.value = String(atual);
+      return;
+    }
+
+    const n = vinculado || atual;
+    if (n) {
+      const op = document.createElement('option');
+      op.value = String(n);
+      op.textContent = rotuloNteEscola(n);
+      select.appendChild(op);
+      select.value = String(n);
+    }
+    select.disabled = true;
+    if (ajuda) ajuda.textContent = 'NTE vinculado ao perfil do usuário.';
   }
   function supabaseClient() {
     try {
@@ -145,7 +195,7 @@
     corpo.innerHTML = (lista || []).map(e => {
       const idReal = texto(e.id);
       const botao = podeEditar() && idReal
-        ? `<button type="button" data-escola-id="${escapeHtml(idReal)}" class="btn-alterar-escola-sigee bg-blue-700 hover:bg-blue-800 text-white px-2 py-1 rounded text-[10px] font-bold">Alterar</button>`
+        ? `<button type="button" data-escola-id="${escapeHtml(idReal)}" onclick="window.SIGEE_Escolas?.abrirEditar('${escapeHtml(idReal)}')" class="btn-alterar-escola-sigee bg-blue-700 hover:bg-blue-800 text-white px-2 py-1 rounded text-[10px] font-bold">Alterar</button>`
         : `<span class="text-gray-400 text-[10px] font-bold">Consulta</span>`;
       return `<tr class="hover:bg-white/10 text-[11px] text-white border-b border-white/10">
         <td class="p-3 font-mono font-bold">${escapeHtml(e.cod_mec)}</td>
@@ -207,7 +257,7 @@
         <input type="hidden" id="escola-form-id">
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3"><div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">Código MEC</label><input id="escola-form-mec" class="w-full p-2 border rounded text-xs font-bold"></div><div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">Município</label><input id="escola-form-municipio" class="w-full p-2 border rounded text-xs font-bold uppercase"></div></div>
         <div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">Nome da Escola</label><input id="escola-form-nome" class="w-full p-2 border rounded text-xs font-bold uppercase"></div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3"><div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">NTE</label><input id="escola-form-nte" class="w-full p-2 border rounded text-xs font-bold"></div><div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">Dependência</label><input id="escola-form-dep" class="w-full p-2 border rounded text-xs font-bold"></div></div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3"><div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">NTE</label><select id="escola-form-nte" class="w-full p-2 border rounded text-xs font-bold bg-white"></select><small id="escola-form-nte-ajuda" class="block mt-1 text-[9px] text-gray-500"></small></div><div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">Dependência</label><input id="escola-form-dep" class="w-full p-2 border rounded text-xs font-bold"></div></div>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3"><div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">Situação</label><select id="escola-form-situacao" class="w-full p-2 border rounded text-xs font-bold"><option>Ativa</option><option>Extinta</option></select></div><div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">Status do Acervo</label><select id="escola-form-acervo" class="w-full p-2 border rounded text-xs font-bold"><option>Recolhido</option><option>Não recolhido</option><option>Não acolhido</option></select></div><div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">Local do Acervo</label><input id="escola-form-local" class="w-full p-2 border rounded text-xs font-bold"></div></div>
         <div class="flex justify-end gap-2 border-t pt-3"><button type="button" onclick="fecharModalEscola()" class="px-4 py-2 border rounded-lg text-xs font-semibold bg-gray-100">Cancelar</button><button type="submit" class="bg-blue-900 text-white font-bold px-5 py-2 rounded-lg text-xs shadow">Salvar Escola</button></div>
       </form></div>`;
@@ -220,7 +270,10 @@
     const client = supabaseClient();
     if (!client) return null;
     let query = client.from(tabelaEscolas()).select('*').limit(1);
-    if (somenteDigitos(id)) query = query.eq('id', Number(id)); else query = query.eq('cod_mec', texto(id));
+    const valorId = texto(id);
+    if (/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(valorId)) query = query.eq('id', valorId);
+    else if (/^\d+$/.test(valorId)) query = query.eq('id', Number(valorId));
+    else query = query.eq('cod_mec', valorId);
     const { data, error } = await query;
     if (error) throw error;
     const e = (data || [])[0] || null;
@@ -231,9 +284,10 @@
     if (!podeCadastrar()) return alert('Somente Master e Administrador podem cadastrar escola.');
     garantirModalEscola();
     ['id','mec','nome','municipio','nte','dep','local'].forEach(k => { const el = document.getElementById(`escola-form-${k}`); if (el) el.value = ''; });
+    preencherSelectNteEscola(nteIdUsuario());
+    setDisabled(['escola-form-mec','escola-form-nome','escola-form-municipio','escola-form-dep'], false);
     const nteEl = document.getElementById('escola-form-nte');
-    if (nteEl && !isGlobal()) nteEl.value = nteTextoUsuario();
-    setDisabled(['escola-form-mec','escola-form-nome','escola-form-municipio','escola-form-nte','escola-form-dep'], false);
+    if (nteEl) nteEl.disabled = perfilAtual() !== 'MASTER';
     document.getElementById('modal-cadastro-escola').classList.remove('hidden');
   }
   async function abrirEditarEscola(id) {
@@ -250,12 +304,14 @@
     document.getElementById('escola-form-mec').value = texto(e.cod_mec);
     document.getElementById('escola-form-nome').value = escolaNome(e);
     document.getElementById('escola-form-municipio').value = texto(e.municipio);
-    document.getElementById('escola-form-nte').value = escolaNte(e);
+    preencherSelectNteEscola(e.nte_id || escolaNte(e));
     document.getElementById('escola-form-dep').value = escolaDep(e);
     document.getElementById('escola-form-situacao').value = escolaSituacao(e) || 'Extinta';
     document.getElementById('escola-form-acervo').value = escolaAcervo(e) || 'Recolhido';
     document.getElementById('escola-form-local').value = escolaLocal(e);
-    setDisabled(['escola-form-mec','escola-form-nome','escola-form-municipio','escola-form-nte','escola-form-dep'], podeEditarLimitado());
+    setDisabled(['escola-form-mec','escola-form-nome','escola-form-municipio','escola-form-dep'], podeEditarLimitado());
+    const nteEl = document.getElementById('escola-form-nte');
+    if (nteEl) nteEl.disabled = perfilAtual() !== 'MASTER';
     document.getElementById('modal-cadastro-escola').classList.remove('hidden');
   }
   async function salvarEscola(event) {
@@ -268,8 +324,8 @@
       payload.nome_escola = texto(document.getElementById('escola-form-nome').value).toUpperCase();
       payload.nome = payload.nome_escola;
       payload.municipio = texto(document.getElementById('escola-form-municipio').value);
-      payload.nte = texto(document.getElementById('escola-form-nte').value || nteTextoUsuario());
-      payload.nte_id = Number((payload.nte.match(/\d{1,2}/) || [payload.nte_id || nteIdUsuario() || 0])[0]) || payload.nte_id || nteIdUsuario();
+      payload.nte_id = Number(document.getElementById('escola-form-nte').value || nteIdUsuario() || payload.nte_id || 0);
+      payload.nte = rotuloNteEscola(payload.nte_id);
       payload.dependencia_adm = texto(document.getElementById('escola-form-dep').value);
       payload.dependencia = payload.dependencia_adm;
     }
@@ -282,7 +338,15 @@
     const client = supabaseClient();
     try {
       if (client) {
-        const { data, error } = await client.from(tabelaEscolas()).upsert(payload, { onConflict: payload.id ? 'id' : 'cod_mec' }).select().limit(1);
+        let resposta;
+        if (existente?.id) {
+          resposta = await client.from(tabelaEscolas()).update(payload).eq('id', existente.id).select().limit(1);
+        } else {
+          const novoPayload = { ...payload };
+          delete novoPayload.id;
+          resposta = await client.from(tabelaEscolas()).insert([novoPayload]).select().limit(1);
+        }
+        const { data, error } = resposta;
         if (error) throw error;
         if (data && data[0]) Object.assign(payload, data[0]);
       }
