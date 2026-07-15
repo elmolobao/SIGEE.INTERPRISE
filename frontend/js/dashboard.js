@@ -434,6 +434,10 @@
   let ultimaAssinaturaDados='';
   let metricasCache=null;
   let aguardandoDadosDesde=Date.now();
+  let cigJaRenderizado=false;
+  let indicadoresTecnicosEsperados=null;
+  let protegendoIndicadoresTecnicos=false;
+  let observadorIndicadoresTecnicos=null;
 
   const NOMES_OFICIAIS_NTE = Object.freeze({
     1:'Irecê',2:'Bom Jesus da Lapa',3:'Seabra',4:'Serrinha',5:'Itabuna',
@@ -676,6 +680,21 @@
       (conteudo.includes('LOCALIZ')||conteudo.includes('RECEBID')||conteudo==='PASTA');
   }
 
+  function renderizarEscolasTecnicas(dados){
+    const box=document.getElementById('dash-ger-escola-demanda');
+    if(!box)return '';
+    const top=(dados||[]).slice(0,10);
+    const html=top.length
+      ?top.map(([nome,q],i)=>`
+        <div class="flex justify-between gap-3 border-b border-gray-100 py-1.5 last:border-b-0">
+          <span class="min-w-0 truncate" title="${esc(nome)}">${i+1}. ${esc(nome)}</span>
+          <strong class="shrink-0">${Number(q||0).toLocaleString('pt-BR')}</strong>
+        </div>`).join('')
+      :'<span class="text-gray-400">Sem dados no período</span>';
+    box.innerHTML=html;
+    return html;
+  }
+
   function atualizarIndicadoresTecnicosFiltrados(lista,periodo){
     const noRecorte=lista.filter(p=>noPeriodo(inicio(p),periodo));
     const concluidos=lista.filter(p=>finalizado(p)&&noPeriodo(conclusao(p),periodo));
@@ -685,19 +704,60 @@
     const mediaEntrega=tempos.length?media(tempos):0;
     const diasBase=diasPeriodoGerencial(periodo,noRecorte);
     const pastas=noRecorte.filter(processoTemPastaLocalizada);
+    const escolasFiltradas=agrupar(noRecorte,escola);
 
-    setTexto(
+    const valores={
+      escolasHtml:renderizarEscolasTecnicas(escolasFiltradas),
+      mediaEntrega:`${mediaEntrega.toLocaleString('pt-BR',{maximumFractionDigits:1})} ${Math.abs(mediaEntrega-1)<0.001?'dia':'dias'}`,
+      pedidosDia:(noRecorte.length/diasBase).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1}),
+      pastasDia:(pastas.length/diasBase).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})
+    };
+
+    setTexto('dash-tec-media-entrega',valores.mediaEntrega);
+    setTexto('dash-tec-media-pedidos-dia',valores.pedidosDia);
+    setTexto('dash-tec-media-pasta-dia',valores.pastasDia);
+
+    indicadoresTecnicosEsperados=valores;
+    instalarProtecaoIndicadoresTecnicos();
+  }
+
+  function restaurarIndicadoresTecnicos(){
+    if(!indicadoresTecnicosEsperados||protegendoIndicadoresTecnicos)return;
+    protegendoIndicadoresTecnicos=true;
+    requestAnimationFrame(()=>{
+      const box=document.getElementById('dash-ger-escola-demanda');
+      if(box&&box.innerHTML!==indicadoresTecnicosEsperados.escolasHtml){
+        box.innerHTML=indicadoresTecnicosEsperados.escolasHtml;
+      }
+      setTexto('dash-tec-media-entrega',indicadoresTecnicosEsperados.mediaEntrega);
+      setTexto('dash-tec-media-pedidos-dia',indicadoresTecnicosEsperados.pedidosDia);
+      setTexto('dash-tec-media-pasta-dia',indicadoresTecnicosEsperados.pastasDia);
+      protegendoIndicadoresTecnicos=false;
+    });
+  }
+
+  function instalarProtecaoIndicadoresTecnicos(){
+    if(observadorIndicadoresTecnicos)return;
+    const ids=[
+      'dash-ger-escola-demanda',
       'dash-tec-media-entrega',
-      `${mediaEntrega.toLocaleString('pt-BR',{maximumFractionDigits:1})} ${Math.abs(mediaEntrega-1)<0.001?'dia':'dias'}`
-    );
-    setTexto(
       'dash-tec-media-pedidos-dia',
-      (noRecorte.length/diasBase).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})
-    );
-    setTexto(
-      'dash-tec-media-pasta-dia',
-      (pastas.length/diasBase).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})
-    );
+      'dash-tec-media-pasta-dia'
+    ];
+    const elementos=ids.map(id=>document.getElementById(id)).filter(Boolean);
+    if(!elementos.length)return;
+
+    observadorIndicadoresTecnicos=new MutationObserver(()=>{
+      if(protegendoIndicadoresTecnicos||!indicadoresTecnicosEsperados)return;
+      const box=document.getElementById('dash-ger-escola-demanda');
+      const divergente=
+        (box&&box.innerHTML!==indicadoresTecnicosEsperados.escolasHtml)||
+        document.getElementById('dash-tec-media-entrega')?.textContent!==indicadoresTecnicosEsperados.mediaEntrega||
+        document.getElementById('dash-tec-media-pedidos-dia')?.textContent!==indicadoresTecnicosEsperados.pedidosDia||
+        document.getElementById('dash-tec-media-pasta-dia')?.textContent!==indicadoresTecnicosEsperados.pastasDia;
+      if(divergente)restaurarIndicadoresTecnicos();
+    });
+    elementos.forEach(el=>observadorIndicadoresTecnicos.observe(el,{childList:true,characterData:true,subtree:true}));
   }
 
   function garantirEstrutura(){
@@ -814,8 +874,13 @@
     if(!root)return;
     const lista=processosBase();
 
-    if(!lista.length && Date.now()-aguardandoDadosDesde<15000){
-      renderSkeleton();
+    if(!lista.length){
+      if(!cigJaRenderizado && Date.now()-aguardandoDadosDesde<15000){
+        renderSkeleton();
+      }else{
+        const atualizado=document.getElementById('cig-atualizado');
+        if(atualizado)atualizado.textContent='Sincronizando dados...';
+      }
       return;
     }
 
@@ -867,6 +932,7 @@
     if(atualizado)atualizado.textContent=`Atualizado em ${new Date().toLocaleString('pt-BR')}`;
 
     window.SIGEE_CIG_METRICAS=Object.freeze({...atual,periodo:p});
+    cigJaRenderizado=true;
   }
 
   let timer=null;
@@ -888,23 +954,32 @@
   document.addEventListener('DOMContentLoaded',agendar);
   window.addEventListener('load',()=>setTimeout(agendar,500));
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)agendar()});
-  setInterval(()=>{const aba=document.getElementById('aba-painel');if(aba&&!aba.classList.contains('hidden'))agendar()},60000);
+  setInterval(()=>{
+    const aba=document.getElementById('aba-painel');
+    if(aba&&!aba.classList.contains('hidden'))verificarMudancaDados();
+  },300000);
 
   let assinaturaObservada='';
-  const observarDados=setInterval(()=>{
+  function verificarMudancaDados(){
     const arr=Array.isArray(window.processosDB)?window.processosDB:[];
     const assinatura=`${arr.length}|${arr.reduce((s,x)=>s+Number(x?.id||0),0)}`;
-    if(assinatura!==assinaturaObservada){
-      assinaturaObservada=assinatura;
-      ultimaAssinaturaDados='';
-      metricasCache=null;
-      if(arr.length)aguardandoDadosDesde=0;
-      agendar();
-    }
-    if(Date.now()-aguardandoDadosDesde>20000 && arr.length) clearInterval(observarDados);
-  },350);
+    if(assinatura===assinaturaObservada)return;
+    assinaturaObservada=assinatura;
+    ultimaAssinaturaDados='';
+    metricasCache=null;
+    if(arr.length)aguardandoDadosDesde=0;
+    agendar();
+  }
+
+  /*
+   * O realtime do módulo de Processos já redesenha o Dashboard.
+   * Este fallback verifica mudanças a cada 2 segundos, sem provocar
+   * recálculos contínuos nem apagar valores durante a sincronização.
+   */
+  setInterval(verificarMudancaDados,2000);
+  window.addEventListener('sigee:processos-atualizados',verificarMudancaDados);
 
   window.atualizarCentroInteligenciaSIGEE=atualizar;
-  console.info('[SIGEE] Centro de Inteligência Gerencial 2.4.1B carregado.');
+  console.info('[SIGEE] Centro de Inteligência Gerencial 2.4.1C carregado.');
 })();
 
