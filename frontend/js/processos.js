@@ -660,36 +660,92 @@
         document.head.appendChild(style);
     }
 
+    async function carregarCatalogoEdicaoSIGEE() {
+        let escolas = Array.isArray(window.escolasDB) ? window.escolasDB.slice() : [];
+        let usuarios = Array.isArray(window.usuariosDB) ? window.usuariosDB.slice() : [];
+        const c = supabaseClient();
+        async function buscarTodos(tabela, colunas) {
+            if (!c) return [];
+            const saida = [];
+            for (let inicio = 0; inicio < 50000; inicio += 1000) {
+                const { data, error } = await c.from(tabela).select(colunas).range(inicio, inicio + 999);
+                if (error) throw error;
+                const lote = data || [];
+                saida.push(...lote);
+                if (lote.length < 1000) break;
+            }
+            return saida;
+        }
+        try {
+            if (!escolas.length) escolas = await buscarTodos((window.SIGEE_SUPABASE_TABELAS && window.SIGEE_SUPABASE_TABELAS.escolas) || 'escolas_sigee', '*');
+        } catch (e) { console.warn('[SIGEE] Catálogo de escolas indisponível para edição.', e); }
+        try {
+            if (!usuarios.length) usuarios = await buscarTodos((window.SIGEE_SUPABASE_TABELAS && window.SIGEE_SUPABASE_TABELAS.usuarios) || 'usuarios_sigee', '*');
+        } catch (e) { console.warn('[SIGEE] Usuários indisponíveis para edição.', e); }
+        return { escolas, usuarios };
+    }
+
+    function nteRegistroEdicao(item) {
+        return texto(item && (item.nte || item.nte_nome || item.grupo || item.territorio || (item.nte_id ? `NTE-${String(item.nte_id).padStart(2,'0')}` : '')));
+    }
+
     async function editarProcessoMaster(id) {
         const u = usuario();
         const p = listaProcessos().find(x => String(x.id) === String(id));
         if (!p) return alert('Processo não localizado.');
         const admin = isAdmin(u);
-        if (admin && !mesmoNte(nteUsuario(u), processoNte(p))) {
-            return alert('Administrador só pode corrigir processos do próprio NTE.');
-        }
-        if (!isMaster(u) && !admin) {
-            return alert('Correção cadastral permitida apenas para Master e Administrador.');
-        }
+        const master = isMaster(u);
+        if (admin && !mesmoNte(nteUsuario(u), processoNte(p))) return alert('Administrador só pode corrigir processos do próprio NTE.');
+        if (!master && !admin) return alert('Correção cadastral permitida apenas para Master e Administrador.');
 
         garantirEstiloEdicaoProcessoSIGEE();
         document.getElementById('sigee-modal-edicao-processo')?.remove();
+        const catalogo = await carregarCatalogoEdicaoSIGEE();
         const modal = document.createElement('div');
         modal.id = 'sigee-modal-edicao-processo';
         modal.className = 'sigee-editproc-backdrop';
-        const opcoesNte = Array.from({length:27},(_,i)=>`<option value="NTE-${String(i+1).padStart(2,'0')}">NTE-${String(i+1).padStart(2,'0')}</option>`).join('');
+        const nteAtual = processoNte(p) || nteUsuario(u);
+        const escHtml = v => texto(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        const opcoesNte = Array.from({length:27},(_,i)=>{ const v=`NTE-${String(i+1).padStart(2,'0')}`; return `<option value="${v}" ${normalizar(v)===normalizar(nteAtual)?'selected':''}>${v}</option>`; }).join('');
         modal.innerHTML = `
           <section class="sigee-editproc-panel" role="dialog" aria-modal="true" aria-labelledby="sigee-editproc-title">
             <header class="sigee-editproc-head"><h2 id="sigee-editproc-title">✏️ ${admin?'Corrigir Cadastro':'Editar Processo'}</h2><button type="button" class="sigee-editproc-close" aria-label="Fechar">×</button></header>
             <form class="sigee-editproc-body">
-              <div class="sigee-editproc-meta">Processo <strong>${codigoSIGEE(p)}</strong> · Etapa atual: <strong>${processoEtapa(p)}</strong></div>
-              <label class="full">Nome do requerente/aluno<input id="sigee-editproc-aluno" required value="${processoAluno(p).replace(/&/g,'&amp;').replace(/"/g,'&quot;')}"></label>
-              <label class="full">Escola/Instituição<input id="sigee-editproc-escola" required value="${processoEscola(p).replace(/&/g,'&amp;').replace(/"/g,'&quot;')}"></label>
-              ${admin?'':`<label>Documento solicitado<input id="sigee-editproc-documento" value="${processoDocumento(p).replace(/&/g,'&amp;').replace(/"/g,'&quot;')}"></label><label>NTE<select id="sigee-editproc-nte"><option value="${processoNte(p).replace(/&/g,'&amp;').replace(/"/g,'&quot;')}">${processoNte(p)||'Selecione'}</option>${opcoesNte}</select></label>`}
+              <div class="sigee-editproc-meta">Processo <strong>${escHtml(codigoSIGEE(p))}</strong> · Etapa atual: <strong>${escHtml(processoEtapa(p))}</strong></div>
+              <label class="full">Nome do requerente/aluno<input id="sigee-editproc-aluno" required value="${escHtml(processoAluno(p))}"></label>
+              ${master?`<label>NTE<select id="sigee-editproc-nte">${opcoesNte}</select></label>`:`<input type="hidden" id="sigee-editproc-nte" value="${escHtml(nteAtual)}">`}
+              <label class="${master?'':'full'}">Escola/Instituição<select id="sigee-editproc-escola" required><option value="">Carregando catálogo...</option></select></label>
+              ${master?`<label>Documento solicitado<input id="sigee-editproc-documento" value="${escHtml(processoDocumento(p))}"></label><label>Responsável pela tarefa<select id="sigee-editproc-responsavel"><option value="">Não atribuído</option></select></label>`:''}
               <div class="sigee-editproc-actions"><button type="button" class="sigee-editproc-cancel">Cancelar</button><button type="submit" class="sigee-editproc-save">Salvar alterações</button></div>
             </form>
           </section>`;
         document.body.appendChild(modal);
+
+        const selNte = modal.querySelector('#sigee-editproc-nte');
+        const selEscola = modal.querySelector('#sigee-editproc-escola');
+        const selResponsavel = modal.querySelector('#sigee-editproc-responsavel');
+        function preencherEscolas() {
+            const alvo = texto(selNte.value || nteAtual);
+            const lista = catalogo.escolas.filter(e => !alvo || mesmoNte(alvo, nteRegistroEdicao(e))).sort((a,b)=>texto(a.nome_escola||a.nome||a.escola).localeCompare(texto(b.nome_escola||b.nome||b.escola),'pt-BR'));
+            selEscola.innerHTML = '<option value="">-- Selecione a escola cadastrada --</option>' + lista.map(e=>{
+                const idEsc = texto(e.id);
+                const nome = texto(e.nome_escola||e.nome||e.escola);
+                const mec = texto(e.cod_mec||e.codigo_mec||e.mec);
+                const selected = (p.escola_id && String(p.escola_id)===idEsc) || (!p.escola_id && normalizar(nome)===normalizar(processoEscola(p)));
+                return `<option value="${escHtml(idEsc)}" data-nome="${escHtml(nome)}" data-mec="${escHtml(mec)}" ${selected?'selected':''}>${escHtml(nome)}${mec?' · MEC '+escHtml(mec):''}</option>`;
+            }).join('');
+        }
+        function preencherResponsaveis() {
+            if (!selResponsavel) return;
+            const alvo = texto(selNte.value || nteAtual);
+            const atual = processoResponsavel(p);
+            const lista = catalogo.usuarios.filter(x=>x.ativo!==false && mesmoNte(alvo, nteRegistroEdicao(x)) && ['TECNICO','ADMINISTRADOR','MASTER'].some(k=>normalizar(x.perfil).includes(k))).sort((a,b)=>texto(a.nome||a.nome_completo||a.email).localeCompare(texto(b.nome||b.nome_completo||b.email),'pt-BR'));
+            selResponsavel.innerHTML = '<option value="">Não atribuído</option>' + lista.map(x=>{ const nome=texto(x.nome||x.nome_completo||x.email); return `<option value="${escHtml(nome)}" ${normalizar(nome)===normalizar(atual)?'selected':''}>${escHtml(nome)} · ${escHtml(x.perfil||'Técnico')}</option>`; }).join('');
+        }
+        preencherEscolas();
+        preencherResponsaveis();
+        if (master) selNte.addEventListener('change',()=>{ preencherEscolas(); preencherResponsaveis(); });
+
         const fechar = () => modal.remove();
         modal.querySelector('.sigee-editproc-close').addEventListener('click', fechar);
         modal.querySelector('.sigee-editproc-cancel').addEventListener('click', fechar);
@@ -697,15 +753,27 @@
         modal.querySelector('form').addEventListener('submit', async e => {
             e.preventDefault();
             const btn = modal.querySelector('.sigee-editproc-save');
+            const optEscola = selEscola.selectedOptions[0];
+            if (!optEscola || !optEscola.value) return alert('Selecione uma escola cadastrada no catálogo.');
             btn.disabled = true; btn.textContent = 'Salvando...';
             try {
                 p.aluno = p.aluno_nome = texto(modal.querySelector('#sigee-editproc-aluno').value).toUpperCase();
-                p.escola = p.escola_nome = texto(modal.querySelector('#sigee-editproc-escola').value).toUpperCase();
-                if (!admin) {
+                p.escola_id = optEscola.value;
+                p.escola = p.escola_nome = texto(optEscola.dataset.nome).toUpperCase();
+                if (optEscola.dataset.mec) p.cod_mec = p.codigo_mec = optEscola.dataset.mec;
+                if (master) {
                     p.documento = p.documento_tipo = texto(modal.querySelector('#sigee-editproc-documento').value).toUpperCase();
-                    p.nte = texto(modal.querySelector('#sigee-editproc-nte').value) || p.nte;
+                    p.nte = texto(selNte.value) || p.nte;
+                    const resp = texto(selResponsavel.value);
+                    p.tecnico_responsavel = p.tecnico_responsavel_nome = resp || null;
+                    p.responsavel = p.responsavel_nome = resp || null;
+                    const et = normalizar(processoEtapa(p));
+                    if (et.includes('ANAL')) p.analista = p.analista_nome = resp || null;
+                    else if (et.includes('DIGIT')) p.digitador = p.digitador_nome = resp || null;
+                    else if (et.includes('CONFER')) p.conferente = p.conferente_nome = resp || null;
+                    else if (et.includes('ASSIN')) p.responsavel_assinatura = p.responsavel_assinatura_nome = resp || null;
                 }
-                registrar(`[${admin?'ADMINISTRADOR':'MASTER'}] Editou cadastro do processo ID ${p.id}.`);
+                registrar(`[${admin?'ADMINISTRADOR':'MASTER'}] Editou cadastro do processo ID ${p.id}${master?' e responsável da tarefa':''}.`);
                 await salvarProcesso(p);
                 atualizarTelas();
                 fechar();
