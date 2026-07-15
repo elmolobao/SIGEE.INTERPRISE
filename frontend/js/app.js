@@ -2171,8 +2171,13 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             const elPastas = document.getElementById('dash-tec-media-pasta-dia');
             if (elEntrega) elEntrega.innerText = mediaEntrega + (mediaEntrega === 1 ? ' dia' : ' dias');
             if (elPedidos) elPedidos.innerText = mediaPorDiaSIGEE(procVisiveis, 'data_etapa_atual');
-            const pastas = (procVisiveis || []).filter(p => semAcentoSIGEE(p.tipo_arquivo || p.tipo_arquivo_recebido || '').includes('PASTA') || semAcentoSIGEE(p.etapa).includes('ANALISE'));
-            if (elPastas) elPastas.innerText = mediaPorDiaSIGEE(pastas, 'data_etapa_atual');
+            const pastas = (procVisiveis || []).filter(p => {
+                const tipo = semAcentoSIGEE(p.tipo_arquivo || p.tipo_arquivo_recebido || p.arquivo_tipo || '');
+                const evento = semAcentoSIGEE(p.ultimo_evento_workflow || '');
+                const mensagem = semAcentoSIGEE(p.ultima_mensagem_workflow || '');
+                return tipo.includes('PASTA') || evento.includes('PASTA') || mensagem.includes('PASTA_LOCALIZADA');
+            });
+            if (elPastas) elPastas.innerText = mediaPorDiaSIGEE(pastas, 'pasta_localizada_em');
         }
 
         carregarDadosDashboardReal = function() {
@@ -3152,6 +3157,16 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             salvarBancoLocalSIGEE(); fecharModalFluxo('desarquivamento'); carregarEContarProcessosHorizontais(); return;
         }
         p.tipo_arquivo = valor('f00-tipo'); p.local_arquivo = valor('f00-local'); p.prioridade = valor('f00-prioridade'); p.analista = valor('f00-analista');
+        // Registra a localização da pasta em campos já persistidos pelo banco.
+        // Isso mantém o indicador "Pastas Localizadas/Dia" após F5 e novos acessos.
+        if (semAcentoSIGEE(p.tipo_arquivo).includes('PASTA')) {
+            const dataPastaISO = new Date().toISOString();
+            p.pasta_localizada_em = dataPastaISO;
+            p.ultimo_evento_workflow = 'DOCUMENTO_RECEBIDO_PASTA';
+            p.ultima_mensagem_workflow = 'PASTA_LOCALIZADA|' + dataPastaISO;
+        } else {
+            p.ultimo_evento_workflow = 'DOCUMENTO_RECEBIDO_' + semAcentoSIGEE(p.tipo_arquivo).replace(/\s+/g, '_');
+        }
         p.etapa='Análise'; p.data_etapa_atual=obterDataAtualFormatada(); p.prazo_etapa=7;
         registrarLog(`Processo [${p.aluno}]: Documento recebido e enviado para Análise. Analista: ${p.analista}.`);
         salvarBancoLocalSIGEE(); fecharModalFluxo('desarquivamento'); carregarEContarProcessosHorizontais();
@@ -7950,8 +7965,28 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     let diasPeriodo=1;
     if(datasAbertura.length){const min=new Date(Math.min(...datasAbertura));const max=new Date(Math.max(...datasAbertura));diasPeriodo=Math.max(1,diffDias(min,max)+1);}
     set('dash-tec-media-pedidos-dia',(processos.length/diasPeriodo).toFixed(1).replace('.',','));
-    const pastas=processos.filter(p=>norm(p.tipo_arquivo||p.tipo_arquivo_recebido||p.arquivo_tipo).includes('PASTA'));
-    set('dash-tec-media-pasta-dia',(pastas.length/diasPeriodo).toFixed(1).replace('.',','));
+    const pastaLocalizada = p => {
+      const tipo=norm(p.tipo_arquivo||p.tipo_arquivo_recebido||p.arquivo_tipo||'');
+      const evento=norm(p.ultimo_evento_workflow||'');
+      const mensagem=norm(p.ultima_mensagem_workflow||'');
+      return tipo.includes('PASTA') || evento.includes('PASTA') || mensagem.includes('PASTA_LOCALIZADA');
+    };
+    const dataPasta = p => {
+      const direta=dataValida(p.pasta_localizada_em||p.data_pasta_localizada);
+      if(direta) return direta;
+      const msg=txt(p.ultima_mensagem_workflow||'');
+      const m=msg.match(/PASTA_LOCALIZADA\|([^|]+)/i);
+      return m ? dataValida(m[1]) : abertura(p);
+    };
+    const pastas=processos.filter(pastaLocalizada);
+    const datasPastas=pastas.map(dataPasta).filter(Boolean);
+    let diasPastas=diasPeriodo;
+    if(datasPastas.length){
+      const minP=new Date(Math.min(...datasPastas));
+      const maxP=new Date(Math.max(...datasPastas));
+      diasPastas=Math.max(1,diffDias(minP,maxP)+1);
+    }
+    set('dash-tec-media-pasta-dia',(pastas.length/diasPastas).toFixed(1).replace('.',','));
   }
 
   function carregar(){
