@@ -2,7 +2,7 @@
 (function () {
   'use strict';
 
-  var VERSION = '3.2.7';
+  var VERSION = '3.2.8';
   var REFRESH_MS = 60000;
   var filtroNte = 'GLOBAL';
   var timer = null;
@@ -62,6 +62,9 @@
     if (!document.getElementById('sala-v2-toolbar')) {
       sec.insertAdjacentHTML('afterbegin', '<div id="sala-v2-toolbar" class="sala-v2-toolbar"><div><span>SIGEE ENTERPRISE '+VERSION+'</span><strong>Centro Estadual de Operações</strong></div><div class="sala-v2-actions"><select id="sala-v2-filtro-nte"><option value="GLOBAL">Todos os NTEs</option></select><button id="sala-v2-atualizar" type="button">↻ Atualizar</button></div></div>');
     }
+    if (!document.getElementById('sala-v2-graficos')) {
+      sec.insertAdjacentHTML('beforeend', '<section id="sala-v2-graficos" class="sala-v2-graficos"><article class="sala-v2-panel sala-grafico-fluxo"><header><div><span>FLUXO OPERACIONAL</span><h2>Distribuição por etapa</h2></div><small>Volume atual</small></header><div id="sala-grafico-fluxo" class="sala-chart-bars"></div></article><article class="sala-v2-panel sala-grafico-status"><header><div><span>STATUS DA CARTEIRA</span><h2>Composição dos processos</h2></div><small>Percentual</small></header><div id="sala-grafico-status" class="sala-chart-donut-wrap"></div></article><article class="sala-v2-panel sala-grafico-evolucao"><header><div><span>EVOLUÇÃO MENSAL</span><h2>Solicitações recebidas</h2></div><small>Últimos 12 meses</small></header><div id="sala-grafico-evolucao" class="sala-chart-line"></div></article><article class="sala-v2-panel sala-grafico-territorial"><header><div><span>DESEMPENHO TERRITORIAL</span><h2>SLA por NTE</h2></div><small>Top 10 por volume</small></header><div id="sala-grafico-territorial" class="sala-chart-territorial"></div></article></section>');
+    }
     if (!document.getElementById('sala-v2-inteligencia')) {
       sec.insertAdjacentHTML('beforeend', '<section id="sala-v2-inteligencia" class="sala-v2-inteligencia"><article class="sala-v2-panel sala-v2-mapa"><header><div><span>ÍNDICE TERRITORIAL</span><h2>Saúde dos 27 NTEs</h2></div><small>IGD de 0 a 100</small></header><div id="sala-v2-ntes" class="sala-v2-ntes"></div></article><article class="sala-v2-panel"><header><div><span>RANKING ESTADUAL</span><h2>Desempenho territorial</h2></div></header><div id="sala-v2-ranking" class="sala-v2-ranking"></div></article><article class="sala-v2-panel"><header><div><span>INTELIGÊNCIA OPERACIONAL</span><h2>Alertas e recomendações</h2></div></header><div id="sala-v2-alertas" class="sala-v2-alertas"></div></article></section>');
     }
@@ -110,6 +113,57 @@
     box.innerHTML=itens.length ? itens.map(function(p){return '<div class="sala-feed-item"><strong>'+esc(p.aluno_nome||p.aluno||'Processo')+'</strong><span>'+esc(etapa(p))+' · '+esc(procNte(p))+'</span></div>';}).join('') : '<div class="sala-vazio">Nenhuma movimentação disponível.</div>';
   }
 
+
+  function paletaEtapa(e) {
+    var n=norm(e);
+    if(n.indexOf('DESARQ')>=0)return '#94a3b8';
+    if(n.indexOf('ANAL')>=0)return '#8b5cf6';
+    if(n.indexOf('PEND')>=0)return '#ef4444';
+    if(n.indexOf('DIGIT')>=0)return '#3b82f6';
+    if(n.indexOf('CONFER')>=0)return '#f97316';
+    if(n.indexOf('ASSIN')>=0)return '#eab308';
+    if(n.indexOf('AGUARD')>=0)return '#10b981';
+    if(n.indexOf('RETIR')>=0)return '#64748b';
+    return '#dc2626';
+  }
+  function renderGraficoFluxo(base) {
+    var ordem=['Desarquivamento','Análise','Pendência','Digitação','Conferência','Assinatura','Aguardando Retirada','Retirado','Indeferido'];
+    var dados=ordem.map(function(e){return {nome:e,valor:base.filter(function(p){return norm(etapa(p))===norm(e);}).length};});
+    var max=Math.max.apply(null,dados.map(function(x){return x.valor;}))||1;
+    var box=document.getElementById('sala-grafico-fluxo'); if(!box)return;
+    box.innerHTML=dados.map(function(x){var w=Math.max(2,Math.round(x.valor*100/max));return '<div class="sala-bar-row"><span>'+esc(x.nome)+'</span><div><i style="width:'+w+'%;background:'+paletaEtapa(x.nome)+'"></i></div><strong>'+x.valor+'</strong></div>';}).join('');
+  }
+  function renderGraficoStatus(base) {
+    var ativos=base.filter(function(p){return !finalizado(p);});
+    var ven=ativos.filter(vencido).length;
+    var pend=base.filter(function(p){return norm(etapa(p)).indexOf('PEND')>=0;}).length;
+    var concl=base.filter(finalizado).length;
+    var prazo=Math.max(0,ativos.length-ven);
+    var total=Math.max(1,prazo+ven+pend+concl);
+    var vals=[prazo,ven,pend,concl], cores=['#10b981','#ef4444','#f59e0b','#3b82f6'];
+    var acc=0, stops=[];
+    vals.forEach(function(v,i){var start=acc/total*100;acc+=v;var end=acc/total*100;stops.push(cores[i]+' '+start+'% '+end+'%');});
+    var box=document.getElementById('sala-grafico-status');if(!box)return;
+    box.innerHTML='<div class="sala-donut" style="background:conic-gradient('+stops.join(',')+')"><div><strong>'+base.length+'</strong><span>processos</span></div></div><div class="sala-donut-legend"><p><i style="background:#10b981"></i>No prazo <b>'+prazo+'</b></p><p><i style="background:#ef4444"></i>Vencidos <b>'+ven+'</b></p><p><i style="background:#f59e0b"></i>Pendências <b>'+pend+'</b></p><p><i style="background:#3b82f6"></i>Concluídos <b>'+concl+'</b></p></div>';
+  }
+  function renderGraficoEvolucao(base) {
+    var agora=new Date(), meses=[];
+    for(var i=11;i>=0;i--){var d=new Date(agora.getFullYear(),agora.getMonth()-i,1);meses.push({ano:d.getFullYear(),mes:d.getMonth(),rot:d.toLocaleDateString('pt-BR',{month:'short'}).replace('.',''),valor:0});}
+    base.forEach(function(p){var d=dataValida(p.created_at||p.data_solicitacao||p.criado_em);if(!d)return;meses.forEach(function(m){if(d.getFullYear()===m.ano&&d.getMonth()===m.mes)m.valor++;});});
+    var max=Math.max.apply(null,meses.map(function(m){return m.valor;}))||1,w=720,h=230,pad=28;
+    var pts=meses.map(function(m,i){var x=pad+i*((w-pad*2)/(meses.length-1));var y=h-pad-(m.valor/max)*(h-pad*2);return {x:x,y:y,m:m};});
+    var path=pts.map(function(p,i){return (i?'L':'M')+p.x.toFixed(1)+' '+p.y.toFixed(1);}).join(' ');
+    var area=path+' L '+pts[pts.length-1].x+' '+(h-pad)+' L '+pts[0].x+' '+(h-pad)+' Z';
+    var svg='<svg viewBox="0 0 '+w+' '+h+'" role="img" aria-label="Evolução mensal"><defs><linearGradient id="salaArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22d3ee" stop-opacity=".38"/><stop offset="1" stop-color="#22d3ee" stop-opacity="0"/></linearGradient></defs><path d="'+area+'" fill="url(#salaArea)"/><path d="'+path+'" fill="none" stroke="#67e8f9" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>'+pts.map(function(p){return '<circle cx="'+p.x+'" cy="'+p.y+'" r="5" fill="#071426" stroke="#67e8f9" stroke-width="3"><title>'+p.m.rot+': '+p.m.valor+'</title></circle>';}).join('')+pts.map(function(p){return '<text x="'+p.x+'" y="'+(h-5)+'" text-anchor="middle">'+p.m.rot+'</text>';}).join('')+'</svg>';
+    var box=document.getElementById('sala-grafico-evolucao');if(box)box.innerHTML=svg;
+  }
+  function renderGraficoTerritorial(metricas) {
+    var dados=metricas.filter(function(m){return m.total>0;}).sort(function(a,b){return b.total-a.total;}).slice(0,10);
+    var box=document.getElementById('sala-grafico-territorial');if(!box)return;
+    box.innerHTML=dados.length?dados.map(function(m){return '<button data-grafico-nte="'+m.codigo+'"><span>'+m.codigo+'</span><div><i class="'+classe(m.sla)+'" style="width:'+m.sla+'%"></i></div><strong>'+m.sla+'%</strong><small>'+m.total+' proc.</small></button>';}).join(''):'<div class="sala-vazio">Sem dados territoriais disponíveis.</div>';
+    Array.prototype.forEach.call(box.querySelectorAll('[data-grafico-nte]'),function(b){b.addEventListener('click',function(){filtroNte=b.dataset.graficoNte;var sel=document.getElementById('sala-v2-filtro-nte');if(sel)sel.value=filtroNte;render();});});
+  }
+
   function render() {
     var sec=garantirEstrutura(); if(!sec) return;
     var todos=lista().slice();
@@ -122,7 +176,9 @@
     var sync=document.getElementById('sala-sync-texto'); if(sync) sync.textContent=(todos.length?'Dados sincronizados':'Aguardando carregamento dos dados')+' • '+new Date().toLocaleTimeString('pt-BR');
     renderFluxo(base); renderAlertasBase(base); renderFeed(base);
 
-    var metricas=metricasNte(todos), cards=document.getElementById('sala-v2-ntes');
+    var metricas=metricasNte(todos);
+    renderGraficoFluxo(base); renderGraficoStatus(base); renderGraficoEvolucao(base); renderGraficoTerritorial(metricas);
+    var cards=document.getElementById('sala-v2-ntes');
     if(cards) cards.innerHTML=metricas.map(function(m){return '<button class="sala-v2-nte '+classe(m.igd)+(filtroNte===m.codigo?' ativo':'')+'" data-nte="'+m.codigo+'"><span>'+m.codigo+'</span><strong>'+m.igd+'</strong><small>'+label(m.igd)+' · '+m.ativos+' ativos</small></button>';}).join('');
     if(cards) Array.prototype.forEach.call(cards.querySelectorAll('[data-nte]'),function(b){b.addEventListener('click',function(){filtroNte=b.dataset.nte;document.getElementById('sala-v2-filtro-nte').value=filtroNte;render();});});
     var ranking=document.getElementById('sala-v2-ranking');
@@ -174,6 +230,6 @@
 
   window.SIGEE_SALA_SITUACAO = {
     render: render,
-    version: '3.2.7'
+    version: '3.2.8'
   };
 })();
