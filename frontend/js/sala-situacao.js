@@ -2,7 +2,7 @@
 (function () {
   'use strict';
 
-  var VERSION = '3.2.5';
+  var VERSION = '3.2.7';
   var REFRESH_MS = 60000;
   var filtroNte = 'GLOBAL';
   var timer = null;
@@ -135,83 +135,45 @@
   }
 
 
-  function fecharSala() {
-    var sala = document.getElementById('aba-sala-situacao');
-    if (!sala) return;
-    sala.classList.add('hidden');
-    sala.classList.remove('sigee-sala-ativa');
-    sala.style.setProperty('display', 'none', 'important');
-    sala.style.setProperty('visibility', 'hidden', 'important');
-    sala.style.setProperty('opacity', '0', 'important');
-    sala.setAttribute('aria-hidden', 'true');
-  }
-
-  function mostrarSala() {
-    var alvo = document.getElementById('aba-sala-situacao');
-    if (!alvo) return false;
-    alvo.style.removeProperty('display');
-    alvo.style.removeProperty('visibility');
-    alvo.style.removeProperty('opacity');
-    alvo.classList.remove('hidden');
-    alvo.setAttribute('aria-hidden', 'false');
-    render();
-    setTimeout(render, 150);
-    return true;
-  }
-
-  window.abrirSalaSituacaoSIGEE = function(event) {
-    if (event && typeof event.preventDefault === 'function') event.preventDefault();
-    try {
-      if (typeof window.navegar === 'function') {
-        window.navegar('sala-situacao');
-      } else {
-        document.querySelectorAll('main > section[id^="aba-"]').forEach(function(sec){
-          sec.classList.add('hidden');
-        });
-      }
-    } catch (e) {
-      console.warn('[SIGEE Sala] Falha na navegação geral.', e);
-    }
-    mostrarSala();
-    return false;
-  };
 
   function init() {
-    if(!garantirEstrutura()) {
-      if(retries++ < 20) setTimeout(init, 250);
+    if (!garantirEstrutura()) {
+      if (retries++ < 20) setTimeout(init, 250);
       return;
     }
 
     var menu = document.getElementById('menu-sala-situacao');
-    if (menu && !menu.dataset.sala326) {
-      menu.dataset.sala326 = '1';
-      menu.addEventListener('click', function(){
+    if (menu && !menu.dataset.sala327) {
+      menu.dataset.sala327 = '1';
+      menu.addEventListener('click', function () {
         setTimeout(render, 100);
       });
     }
 
-    /*
-     * Fecha a Sala antes de qualquer outro item do menu executar sua
-     * navegação original. Usa somente eventos de clique; não observa o DOM,
-     * não substitui window.navegar e não interfere na tela de login.
-     */
-    var nav = document.querySelector('.sigee-sidebar-nav');
-    if (nav && !nav.dataset.salaSaida326) {
-      nav.dataset.salaSaida326 = '1';
-      nav.addEventListener('click', function(ev) {
-        var botao = ev.target && ev.target.closest ? ev.target.closest('button') : null;
-        if (!botao || botao.id === 'menu-sala-situacao') return;
-        fecharSala();
-      }, true);
+    var telaCheia = document.getElementById('sala-btn-tela-cheia');
+    if (telaCheia && !telaCheia.dataset.bound) {
+      telaCheia.dataset.bound = '1';
+      telaCheia.addEventListener('click', function () {
+        var sala = document.getElementById('aba-sala-situacao');
+        if (!sala) return;
+        if (!document.fullscreenElement && sala.requestFullscreen) sala.requestFullscreen();
+        else if (document.exitFullscreen) document.exitFullscreen();
+      });
     }
 
     render();
     clearInterval(timer);
-    timer = setInterval(function(){
+    timer = setInterval(function () {
       var sala = document.getElementById('aba-sala-situacao');
       if (sala && !sala.classList.contains('hidden')) render();
     }, REFRESH_MS);
   }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
-  window.SIGEE_SALA_SITUACAO={render:render,fechar:fecharSala,version:'3.2.6'};
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+
+  window.SIGEE_SALA_SITUACAO = {
+    render: render,
+    version: '3.2.7'
+  };
 })();

@@ -8480,3 +8480,111 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
 
   console.info('[SIGEE] Autoridade final do módulo de Escolas 2.4.7J instalada.');
 })();
+
+
+/* =====================================================================
+   SIGEE Enterprise 3.2.7 — Autoridade central de navegação
+   Todas as abas usam uma única rotina. Não aplica estilos inline e não
+   interfere no login. Deve ser reinstalada ao final do index.html porque
+   módulos legados podem encapsular window.navegar durante o carregamento.
+   ===================================================================== */
+(function () {
+  'use strict';
+
+  var MAPA_ABAS = {
+    painel: 'aba-painel',
+    processos: 'aba-processos',
+    escolas: 'aba-escolas',
+    usuarios: 'aba-usuarios',
+    logs: 'aba-logs',
+    'sala-situacao': 'aba-sala-situacao',
+    inteligencia: 'aba-inteligencia',
+    'centro-inteligencia': 'aba-inteligencia'
+  };
+
+  function todasAsAbas() {
+    return Array.prototype.slice.call(document.querySelectorAll('#sistema-dashboard main > section[id^="aba-"]'));
+  }
+
+  function limparVisibilidade(secao) {
+    if (!secao) return;
+    secao.classList.remove('sigee-sala-ativa', 'sigee-inteligencia-ativa');
+    secao.style.removeProperty('display');
+    secao.style.removeProperty('visibility');
+    secao.style.removeProperty('opacity');
+    secao.style.removeProperty('height');
+    secao.style.removeProperty('min-height');
+    secao.style.removeProperty('overflow');
+    secao.style.removeProperty('pointer-events');
+    secao.style.removeProperty('margin');
+    secao.style.removeProperty('padding');
+    secao.style.removeProperty('border');
+  }
+
+  function ocultarTodas() {
+    todasAsAbas().forEach(function (secao) {
+      limparVisibilidade(secao);
+      secao.classList.add('hidden');
+      secao.setAttribute('aria-hidden', 'true');
+    });
+  }
+
+  function executarPosNavegacao(aba) {
+    try {
+      if (aba === 'painel' && typeof window.carregarDadosDashboardReal === 'function') window.carregarDadosDashboardReal();
+      if (aba === 'processos' && typeof window.carregarEContarProcessosHorizontais === 'function') window.carregarEContarProcessosHorizontais();
+      if (aba === 'escolas' && typeof window.renderizarListaEscolasBufferMemoria === 'function') window.renderizarListaEscolasBufferMemoria();
+      if (aba === 'usuarios' && typeof window.carregarListaUsuarios === 'function') window.carregarListaUsuarios();
+      if (aba === 'logs' && typeof window.carregarLogs === 'function') window.carregarLogs();
+      if (aba === 'sala-situacao' && window.SIGEE_SALA_SITUACAO && typeof window.SIGEE_SALA_SITUACAO.render === 'function') window.SIGEE_SALA_SITUACAO.render();
+      if ((aba === 'inteligencia' || aba === 'centro-inteligencia') && window.SIGEE_CENTRO_INTELIGENCIA && typeof window.SIGEE_CENTRO_INTELIGENCIA.render === 'function') window.SIGEE_CENTRO_INTELIGENCIA.render();
+    } catch (erro) {
+      console.warn('[SIGEE Navegação] Falha na atualização da aba:', aba, erro);
+    }
+  }
+
+  function navegarCentral(aba) {
+    var chave = String(aba || '').trim().toLowerCase();
+    var id = MAPA_ABAS[chave] || ('aba-' + chave);
+    var alvo = document.getElementById(id);
+
+    ocultarTodas();
+    if (!alvo) {
+      console.warn('[SIGEE Navegação] Aba não localizada:', id);
+      return false;
+    }
+
+    limparVisibilidade(alvo);
+    alvo.classList.remove('hidden');
+    alvo.setAttribute('aria-hidden', 'false');
+
+    document.querySelectorAll('.sigee-sidebar-nav button').forEach(function (botao) {
+      botao.classList.remove('sigee-menu-ativo');
+      botao.removeAttribute('aria-current');
+    });
+    var menu = document.querySelector('.sigee-sidebar-nav button[onclick*="' + chave + '"]');
+    if (menu) {
+      menu.classList.add('sigee-menu-ativo');
+      menu.setAttribute('aria-current', 'page');
+    }
+
+    executarPosNavegacao(chave);
+    setTimeout(function () { executarPosNavegacao(chave); }, 80);
+    return true;
+  }
+
+  function instalar() {
+    window.navegar = navegarCentral;
+    try { navegar = navegarCentral; } catch (e) {}
+    document.documentElement.dataset.sigeeNavegacao = '3.2.7';
+    return navegarCentral;
+  }
+
+  window.SIGEE_NAVIGATION = {
+    install: instalar,
+    navegar: navegarCentral,
+    ocultarTodas: ocultarTodas,
+    version: '3.2.7'
+  };
+  instalar();
+})();
