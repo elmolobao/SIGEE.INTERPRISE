@@ -1,5 +1,5 @@
 /* =====================================================================
-   SIGEE Enterprise — Sprint 2.4.7C — Módulo Oficial de Escolas
+   SIGEE Enterprise — Sprint 2.4.7D — Módulo Oficial de Escolas
    Módulo: Escolas
    Produção: catálogo paginado, filtro por NTE e autocomplete da Nova Solicitação.
    Substitui a lógica dependente de listas locais grandes e evita limite de 1000 registros.
@@ -266,7 +266,7 @@
     const inicio = (page - 1) * limit;
     let query = client
       .from(tabelaEscolas())
-      .select('id,cod_mec,cod_sec,nome_escola,nome,municipio,nte_id,nte,dependencia_adm,dependencia,situacao_funcional,situacao,status_acervo,acervo,local_acervo,tipo_unidade,ativo', { count: 'exact' });
+      .select('id,cod_mec,nome_escola,nome,municipio,nte_id,nte,dependencia_adm,dependencia,situacao_funcional,situacao,status_acervo,acervo,local_acervo,ativo', { count: 'exact' });
     query = aplicarFiltrosQuery(query, termo);
     query = query.order('nome_escola', { ascending: true, nullsFirst: false }).range(inicio, inicio + limit - 1);
     const { data, error, count } = await query;
