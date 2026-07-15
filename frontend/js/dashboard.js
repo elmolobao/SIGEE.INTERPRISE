@@ -434,7 +434,25 @@
   const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v};
   let timer=null,ultimoResultado=null;
 
+  function garantirEstilosCIG(){
+    if(document.getElementById('sigee-cig-estilos-autoritativos'))return;
+    const style=document.createElement('style');
+    style.id='sigee-cig-estilos-autoritativos';
+    style.textContent=`
+      #cig-gargalos{display:flex!important;flex-direction:column!important;gap:12px!important;min-height:80px!important}
+      #cig-gargalos .sigee-cig-barra{display:block!important;width:100%!important;opacity:1!important;visibility:visible!important}
+      #cig-gargalos .sigee-cig-barra-cabecalho{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:12px!important;margin-bottom:6px!important}
+      #cig-gargalos .sigee-cig-barra-cabecalho strong{display:block!important;color:#f8fafc!important;font-size:12px!important;font-weight:800!important}
+      #cig-gargalos .sigee-cig-barra-cabecalho span{display:block!important;color:#a5c4dc!important;font-size:10px!important;font-weight:800!important;white-space:nowrap!important}
+      #cig-gargalos .sigee-cig-barra-trilho{display:block!important;position:relative!important;width:100%!important;height:10px!important;min-height:10px!important;border-radius:999px!important;overflow:hidden!important;background:rgba(148,163,184,.18)!important;border:1px solid rgba(125,211,252,.16)!important}
+      #cig-gargalos .sigee-cig-barra-preenchimento{display:block!important;position:absolute!important;left:0!important;top:0!important;bottom:0!important;height:100%!important;min-width:0!important;border-radius:999px!important;background:linear-gradient(90deg,#0284c7,#22d3ee)!important;box-shadow:0 0 14px rgba(34,211,238,.28)!important;opacity:1!important;visibility:visible!important;transition:width .35s ease!important}
+      #cig-gargalos .sigee-cig-barra-preenchimento[data-possui-valor="1"]{min-width:6px!important}
+    `;
+    document.head.appendChild(style);
+  }
+
   function garantirCIG(){
+    garantirEstilosCIG();
     const aba=document.getElementById('aba-painel');
     if(!aba||document.getElementById('sigee-cig'))return;
     const sec=document.createElement('section');
@@ -469,7 +487,11 @@
   }
   function barras(id,dados,total){
     const box=document.getElementById(id);if(!box)return;
-    box.innerHTML=(dados||[]).slice(0,8).map(([nome,q])=>{const pct=total?q/total*100:0;return `<div class="sigee-cig-barra"><div><strong>${esc(nome)}</strong><span>${q} • ${pct.toFixed(1)}%</span></div><i><em style="width:${pct}%"></em></i></div>`}).join('')||'<p class="sigee-cig-vazio">Não há processos ativos.</p>';
+    box.innerHTML=(dados||[]).slice(0,8).map(([nome,q])=>{
+      const pct=total?q/total*100:0;
+      const largura=Math.max(0,Math.min(100,pct));
+      return `<div class="sigee-cig-barra"><div class="sigee-cig-barra-cabecalho"><strong>${esc(nome)}</strong><span>${q} • ${pct.toFixed(1)}%</span></div><div class="sigee-cig-barra-trilho" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${largura.toFixed(1)}"><span class="sigee-cig-barra-preenchimento" data-possui-valor="${q>0?1:0}" style="width:${largura}% !important"></span></div></div>`;
+    }).join('')||'<p class="sigee-cig-vazio">Não há processos ativos.</p>';
   }
   function kpi(id,label,icon,valor,sub,estado='normal'){
     const card=document.querySelector(`[data-kpi="${id}"]`);if(!card)return;
@@ -547,158 +569,3 @@
   console.info('[SIGEE] Dashboard e CIG integrados ao Motor 2.4.3B.');
 })();
 
-
-/* =====================================================================
-   SIGEE Enterprise 3.2.14 — Indicadores Operacionais Autoritativos
-   - Pedidos Abertos: total de novas solicitações no período (não média)
-   - Arquivos Recebidos: total de execuções de Documento Recebido
-   - Tempo médio: abertura até o primeiro arquivo recebido
-   ===================================================================== */
-(function(){
-  'use strict';
-  if(window.__SIGEE_INDICADORES_OPERACIONAIS_3214__) return;
-  window.__SIGEE_INDICADORES_OPERACIONAIS_3214__=true;
-
-  const txt=v=>v==null?'':String(v).trim();
-  const norm=v=>txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/\s+/g,' ');
-  const data=v=>{
-    if(!v)return null;
-    const s=txt(v), br=s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
-    const d=br?new Date(Number(br[3]),Number(br[2])-1,Number(br[1])):new Date(s);
-    return Number.isNaN(d.getTime())?null:d;
-  };
-  const nteId=o=>{
-    if(!o)return null;
-    const direto=o.nte_id??o.nteId;
-    if(direto!==null&&direto!==undefined&&txt(direto)!=='')return Number(direto)||null;
-    const m=txt(o.nte||o.nte_nome||o.grupo||o.territorio).match(/\d{1,2}/);
-    return m?Number(m[0]):null;
-  };
-  const cliente=()=>{try{return window.obterSupabaseSIGEE?.()||window.SIGEE_SUPABASE_CLIENT||null}catch(e){return null}};
-  const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v};
-
-  function alvoNte(){
-    const perfil=norm(window.usuarioLogado?.perfil);
-    const global=perfil.includes('MASTER')||perfil==='SEC'||perfil.includes('SECRETARIA');
-    if(!global)return nteId(window.usuarioLogado);
-    const v=txt(document.getElementById('filtro-dashboard-nte')?.value||'TODOS');
-    if(!v||['TODOS','GLOBAL'].includes(norm(v)))return null;
-    const m=v.match(/\d{1,2}/);return m?Number(m[0]):null;
-  }
-
-  function periodo(){
-    const tipo=document.getElementById('filtro-dashboard-periodo')?.value||'ACUMULADO';
-    const agora=new Date();agora.setHours(23,59,59,999);
-    let inicio=null,fim=null;
-    const inicioDia=d=>{d.setHours(0,0,0,0);return d};
-    if(tipo==='HOJE'){inicio=inicioDia(new Date());fim=agora}
-    else if(tipo==='ONTEM'){inicio=inicioDia(new Date(Date.now()-86400000));fim=new Date(inicio);fim.setHours(23,59,59,999)}
-    else if(tipo==='7_DIAS'){inicio=inicioDia(new Date(Date.now()-6*86400000));fim=agora}
-    else if(tipo==='30_DIAS'){inicio=inicioDia(new Date(Date.now()-29*86400000));fim=agora}
-    else if(tipo==='MES_ATUAL'){inicio=new Date(agora.getFullYear(),agora.getMonth(),1);fim=agora}
-    else if(tipo==='MES_ANTERIOR'){inicio=new Date(agora.getFullYear(),agora.getMonth()-1,1);fim=new Date(agora.getFullYear(),agora.getMonth(),0,23,59,59,999)}
-    else if(tipo==='ANO_ATUAL'){inicio=new Date(agora.getFullYear(),0,1);fim=agora}
-    else if(tipo==='PERSONALIZADO'){
-      const i=document.getElementById('dashboard-data-inicial')?.value;
-      const f=document.getElementById('dashboard-data-final')?.value;
-      if(i)inicio=new Date(i+'T00:00:00');if(f)fim=new Date(f+'T23:59:59.999');
-    }
-    return {tipo,inicio,fim};
-  }
-  function noPeriodo(d,p){if(p.tipo==='ACUMULADO')return true;if(!d)return false;return (!p.inicio||d>=p.inicio)&&(!p.fim||d<=p.fim)}
-
-  async function paginar(tabela){
-    const c=cliente();if(!c)return [];
-    let todos=[],ini=0;
-    while(true){
-      const {data:linhas,error}=await c.from(tabela).select('*').range(ini,ini+999);
-      if(error)throw error;
-      todos.push(...(linhas||[]));
-      if(!linhas||linhas.length<1000)break;
-      ini+=1000;if(ini>=100000)break;
-    }
-    return todos;
-  }
-
-  function garantirCardTempo(){
-    const base=document.getElementById('dash-tec-media-pasta-dia')?.closest('.bg-white');
-    if(!base||document.getElementById('dash-tec-media-arquivo-tempo'))return;
-    const card=document.createElement('div');
-    card.className='bg-white p-4 rounded-xl shadow-sm border-t-4 border-cyan-500 text-center';
-    card.innerHTML='<p class="text-[10px] text-gray-500 font-bold uppercase">Tempo Médio até Arquivo Recebido</p><p id="dash-tec-media-arquivo-tempo" class="text-xl font-bold mt-1">0 dia</p>';
-    base.insertAdjacentElement('afterend',card);
-  }
-
-  function rotulos(){
-    const pedidos=document.getElementById('dash-tec-media-pedidos-dia');
-    const recebidos=document.getElementById('dash-tec-media-pasta-dia');
-    if(pedidos)pedidos.previousElementSibling.textContent='Pedidos Abertos';
-    if(recebidos)recebidos.previousElementSibling.textContent='Arquivos Recebidos';
-    garantirCardTempo();
-  }
-
-  function eventoRecebimento(h){
-    const combinado=norm([h.acao,h.etapa,h.observacao,JSON.stringify(h.dados||{})].join(' '));
-    return combinado.includes('DOCUMENTO RECEBIDO')||combinado.includes('DOCUMENTO_RECEBIDO')||combinado.includes('ARQUIVO RECEBIDO');
-  }
-
-  let executando=false;
-  async function atualizar(){
-    if(executando)return;executando=true;
-    try{
-      rotulos();
-      const p=periodo(),alvo=alvoNte();
-      let processos=[],historico=[];
-      try{processos=await paginar('processos')}catch(e){console.warn('[SIGEE Indicadores] processos indisponíveis:',e)}
-      try{historico=await paginar('historico_processos')}catch(e){console.warn('[SIGEE Indicadores] histórico indisponível:',e)}
-      if(!processos.length&&Array.isArray(window.processosDB))processos=window.processosDB.slice();
-
-      const processosAlvo=alvo?processos.filter(x=>nteId(x)===alvo):processos;
-      const abertos=processosAlvo.filter(x=>noPeriodo(data(x.data_solicitacao||x.data_abertura||x.created_at||x.criado_em),p));
-
-      const procMap=new Map(processos.map(x=>[String(x.id),x]));
-      let eventos=historico.filter(eventoRecebimento).filter(h=>{
-        const proc=procMap.get(String(h.processo_id));
-        if(alvo&&nteId(proc||h)!==alvo)return false;
-        return noPeriodo(data(h.created_at||h.data),p);
-      });
-
-      /* Um recebimento por processo para medir solicitações atendidas. */
-      const primeiro=new Map();
-      eventos.sort((a,b)=>(data(a.created_at)||0)-(data(b.created_at)||0)).forEach(h=>{
-        const k=String(h.processo_id);if(!primeiro.has(k))primeiro.set(k,h);
-      });
-
-      /* Compatibilidade com registros locais feitos antes do histórico. */
-      processosAlvo.forEach(x=>{
-        const d=data(x.data_arquivo_recebido||x.arquivo_recebido_em);
-        if(d&&noPeriodo(d,p)&&!primeiro.has(String(x.id))){
-          const h={processo_id:x.id,created_at:d.toISOString(),nte:x.nte,dados:{evento:'DOCUMENTO_RECEBIDO'}};
-          primeiro.set(String(x.id),h);eventos.push(h);
-        }
-      });
-
-      const tempos=[];
-      primeiro.forEach((h,id)=>{
-        const proc=procMap.get(String(id));
-        const abertura=data(proc&&(proc.data_solicitacao||proc.data_abertura||proc.created_at||proc.criado_em));
-        const receb=data(h.created_at||h.dados?.recebido_em);
-        if(abertura&&receb&&receb>=abertura)tempos.push((receb-abertura)/86400000);
-      });
-      const media=tempos.length?tempos.reduce((a,b)=>a+b,0)/tempos.length:0;
-
-      set('dash-tec-media-pedidos-dia',abertos.length.toLocaleString('pt-BR'));
-      set('dash-tec-media-pasta-dia',primeiro.size.toLocaleString('pt-BR'));
-      set('dash-tec-media-arquivo-tempo',`${media.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})} ${Math.abs(media-1)<.05?'dia':'dias'}`);
-    }finally{executando=false}
-  }
-
-  function agendar(){setTimeout(atualizar,350)}
-  document.addEventListener('change',e=>{if(['filtro-dashboard-nte','filtro-dashboard-periodo','dashboard-data-inicial','dashboard-data-final'].includes(e.target?.id))agendar()},true);
-  window.addEventListener('sigee:arquivo-recebido',agendar);
-  window.addEventListener('sigee:analytics-dados-alterados',agendar);
-  window.addEventListener('load',()=>setTimeout(atualizar,900));
-  const nav=window.navegar;
-  window.navegar=function(aba){const r=typeof nav==='function'?nav.apply(this,arguments):undefined;if(aba==='painel')agendar();return r};
-  setInterval(()=>{if(!document.getElementById('aba-painel')?.classList.contains('hidden'))atualizar()},15000);
-})();
