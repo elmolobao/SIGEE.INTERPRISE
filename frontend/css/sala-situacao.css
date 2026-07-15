@@ -13,4 +13,3 @@
 
 /* 3.2.4: isolamento correto entre abas */
 #aba-sala-situacao.hidden{display:none!important;visibility:hidden!important;opacity:0!important;}
-#aba-sala-situacao:not(.hidden).sigee-sala-ativa{display:block!important;visibility:visible!important;opacity:1!important;min-height:600px!important;}
