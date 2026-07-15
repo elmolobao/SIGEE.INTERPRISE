@@ -135,10 +135,25 @@
   }
 
 
+  function fecharSala() {
+    var sala = document.getElementById('aba-sala-situacao');
+    if (!sala) return;
+    sala.classList.add('hidden');
+    sala.classList.remove('sigee-sala-ativa');
+    sala.style.setProperty('display', 'none', 'important');
+    sala.style.setProperty('visibility', 'hidden', 'important');
+    sala.style.setProperty('opacity', '0', 'important');
+    sala.setAttribute('aria-hidden', 'true');
+  }
+
   function mostrarSala() {
     var alvo = document.getElementById('aba-sala-situacao');
     if (!alvo) return false;
+    alvo.style.removeProperty('display');
+    alvo.style.removeProperty('visibility');
+    alvo.style.removeProperty('opacity');
     alvo.classList.remove('hidden');
+    alvo.setAttribute('aria-hidden', 'false');
     render();
     setTimeout(render, 150);
     return true;
@@ -168,11 +183,26 @@
     }
 
     var menu = document.getElementById('menu-sala-situacao');
-    if (menu && !menu.dataset.sala325) {
-      menu.dataset.sala325 = '1';
+    if (menu && !menu.dataset.sala326) {
+      menu.dataset.sala326 = '1';
       menu.addEventListener('click', function(){
         setTimeout(render, 100);
       });
+    }
+
+    /*
+     * Fecha a Sala antes de qualquer outro item do menu executar sua
+     * navegação original. Usa somente eventos de clique; não observa o DOM,
+     * não substitui window.navegar e não interfere na tela de login.
+     */
+    var nav = document.querySelector('.sigee-sidebar-nav');
+    if (nav && !nav.dataset.salaSaida326) {
+      nav.dataset.salaSaida326 = '1';
+      nav.addEventListener('click', function(ev) {
+        var botao = ev.target && ev.target.closest ? ev.target.closest('button') : null;
+        if (!botao || botao.id === 'menu-sala-situacao') return;
+        fecharSala();
+      }, true);
     }
 
     render();
@@ -183,5 +213,5 @@
     }, REFRESH_MS);
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
-  window.SIGEE_SALA_SITUACAO={render:render,version:VERSION};
+  window.SIGEE_SALA_SITUACAO={render:render,fechar:fecharSala,version:'3.2.6'};
 })();
