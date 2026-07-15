@@ -25,6 +25,7 @@
     <link rel="stylesheet" href="css/sigee_footer_institucional.css">
     <link rel="stylesheet" href="css/prontuario-processo.css?v=2.3.1">
     <link rel="stylesheet" href="css/sigee-acabamento-visual.css?v=2.3.4">
+    <link rel="stylesheet" href="css/sala-situacao.css?v=2.4.2">
 </head>
 <body class="bg-gray-100 font-sans text-gray-800 font-normal">
 
@@ -71,6 +72,7 @@
                 <button onclick="navegar('escolas')" class="sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer">🏫 Catálogo de Escolas</button>
                 <button id="menu-usuarios" onclick="navegar('usuarios')" class="hidden sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer">👥 Usuários</button>
                 <button id="menu-relatorios" onclick="navegar('painel')" class="sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer">📊 Relatórios</button>
+                <button id="menu-sala-situacao" onclick="navegar('sala-situacao')" class="sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer">📡 Sala de Situação</button>
                 <button id="menu-logs" onclick="navegar('logs')" class="hidden sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer">⚙️ Configurações</button>
             </nav>
             <div class="p-4 border-t border-blue-900 sigee-sidebar-logout">
@@ -144,6 +146,73 @@
                         <div class="bg-white p-4 rounded-xl shadow-sm border-t-4 border-amber-500 text-center"><p class="text-[10px] text-gray-500 font-bold uppercase">Pedidos Abertos/Dia</p><p id="dash-tec-media-pedidos-dia" class="text-xl font-bold mt-1">0</p></div>
                         <div class="bg-white p-4 rounded-xl shadow-sm border-t-4 border-purple-600 text-center"><p class="text-[10px] text-gray-500 font-bold uppercase">Pastas Localizadas/Dia</p><p id="dash-tec-media-pasta-dia" class="text-xl font-bold mt-1">0</p></div>
                     </div>
+                </div>
+            </section>
+
+
+            <section id="aba-sala-situacao" class="hidden sigee-sala">
+                <header class="sigee-sala-topo">
+                    <div class="sigee-sala-marca">
+                        <span>CENTRO DE OPERAÇÕES</span>
+                        <h1>Sala de Situação SIGEE</h1>
+                        <p>Monitoramento operacional em tempo real da rede de Escolas Extintas.</p>
+                    </div>
+                    <div class="sigee-sala-controles">
+                        <div class="sigee-sala-relogio">
+                            <strong id="sala-hora">--:--:--</strong>
+                            <span id="sala-data">--/--/----</span>
+                        </div>
+                        <button type="button" id="sala-btn-tela-cheia">⛶ Tela cheia</button>
+                    </div>
+                </header>
+
+                <div class="sigee-sala-sync" id="sala-sync">
+                    <i></i>
+                    <span id="sala-sync-texto">Aguardando dados do SIGEE...</span>
+                </div>
+
+                <div class="sigee-sala-kpis">
+                    <article><span>Processos ativos</span><strong id="sala-kpi-ativos">0</strong><small>Em tramitação</small></article>
+                    <article><span>Recebidos hoje</span><strong id="sala-kpi-recebidos">0</strong><small>Novas solicitações</small></article>
+                    <article><span>Concluídos hoje</span><strong id="sala-kpi-concluidos">0</strong><small>Retirados/indeferidos</small></article>
+                    <article><span>SLA operacional</span><strong id="sala-kpi-sla">100%</strong><small>Dentro do prazo</small></article>
+                    <article class="critico"><span>Processos vencidos</span><strong id="sala-kpi-vencidos">0</strong><small>Exigem atenção</small></article>
+                    <article class="prioridade"><span>Prioridades críticas</span><strong id="sala-kpi-prioridades">0</strong><small>MP, CEE, Exterior e Urgente</small></article>
+                </div>
+
+                <div class="sigee-sala-grid-principal">
+                    <article class="sigee-sala-card sigee-sala-fluxo">
+                        <header><div><span>FLUXO OPERACIONAL</span><h2>Distribuição por etapa</h2></div><b id="sala-total-processos">0 processos</b></header>
+                        <div id="sala-fluxo-etapas" class="sigee-sala-etapas"></div>
+                    </article>
+
+                    <article class="sigee-sala-card sigee-sala-alertas">
+                        <header><div><span>ALERTAS PRIORITÁRIOS</span><h2>Atenção imediata</h2></div></header>
+                        <div id="sala-alertas-lista"></div>
+                    </article>
+                </div>
+
+                <div class="sigee-sala-grid-secundario">
+                    <article class="sigee-sala-card">
+                        <header><div><span>VISÃO TERRITORIAL</span><h2>Situação dos NTEs</h2></div></header>
+                        <div id="sala-ntes" class="sigee-sala-ntes"></div>
+                    </article>
+
+                    <article class="sigee-sala-card">
+                        <header><div><span>MOVIMENTAÇÕES</span><h2>Atividade recente</h2></div></header>
+                        <div id="sala-feed" class="sigee-sala-feed"></div>
+                    </article>
+
+                    <article class="sigee-sala-card sigee-sala-saude">
+                        <header><div><span>SAÚDE DO SISTEMA</span><h2>Disponibilidade</h2></div></header>
+                        <dl>
+                            <div><dt>Aplicação</dt><dd class="ok">Operacional</dd></div>
+                            <div><dt>Banco de dados</dt><dd id="sala-saude-banco">Conectado</dd></div>
+                            <div><dt>Sincronização</dt><dd id="sala-saude-sync">Aguardando</dd></div>
+                            <div><dt>Última atualização</dt><dd id="sala-saude-atualizacao">--:--:--</dd></div>
+                            <div><dt>Versão</dt><dd>2.4.2</dd></div>
+                        </dl>
+                    </article>
                 </div>
             </section>
 
