@@ -442,8 +442,8 @@
       #cig-gargalos{display:flex!important;flex-direction:column!important;gap:12px!important;min-height:80px!important}
       #cig-gargalos .sigee-cig-barra{display:block!important;width:100%!important;opacity:1!important;visibility:visible!important}
       #cig-gargalos .sigee-cig-barra-cabecalho{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:12px!important;margin-bottom:6px!important}
-      #cig-gargalos .sigee-cig-barra-cabecalho strong{display:block!important;color:#f8fafc!important;font-size:12px!important;font-weight:800!important}
-      #cig-gargalos .sigee-cig-barra-cabecalho span{display:block!important;color:#a5c4dc!important;font-size:10px!important;font-weight:800!important;white-space:nowrap!important}
+      #cig-gargalos .sigee-cig-barra-cabecalho strong{display:inline-flex!important;align-items:center!important;color:#ffffff!important;background:rgba(2,132,199,.48)!important;border:1px solid rgba(125,211,252,.38)!important;border-radius:7px!important;padding:3px 7px!important;font-size:12px!important;font-weight:900!important;text-shadow:0 1px 2px rgba(0,0,0,.85)!important;opacity:1!important;visibility:visible!important}
+      #cig-gargalos .sigee-cig-barra-cabecalho span{display:inline-flex!important;align-items:center!important;color:#ffffff!important;background:rgba(15,23,42,.72)!important;border:1px solid rgba(148,163,184,.30)!important;border-radius:7px!important;padding:3px 7px!important;font-size:10px!important;font-weight:900!important;white-space:nowrap!important;text-shadow:0 1px 2px rgba(0,0,0,.85)!important;opacity:1!important;visibility:visible!important}
       #cig-gargalos .sigee-cig-barra-trilho{display:block!important;position:relative!important;width:100%!important;height:10px!important;min-height:10px!important;border-radius:999px!important;overflow:hidden!important;background:rgba(148,163,184,.18)!important;border:1px solid rgba(125,211,252,.16)!important}
       #cig-gargalos .sigee-cig-barra-preenchimento{display:block!important;position:absolute!important;left:0!important;top:0!important;bottom:0!important;height:100%!important;min-width:0!important;border-radius:999px!important;background:linear-gradient(90deg,#0284c7,#22d3ee)!important;box-shadow:0 0 14px rgba(34,211,238,.28)!important;opacity:1!important;visibility:visible!important;transition:width .35s ease!important}
       #cig-gargalos .sigee-cig-barra-preenchimento[data-possui-valor="1"]{min-width:6px!important}
@@ -490,7 +490,7 @@
     box.innerHTML=(dados||[]).slice(0,8).map(([nome,q])=>{
       const pct=total?q/total*100:0;
       const largura=Math.max(0,Math.min(100,pct));
-      return `<div class="sigee-cig-barra"><div class="sigee-cig-barra-cabecalho"><strong>${esc(nome)}</strong><span>${q} • ${pct.toFixed(1)}%</span></div><div class="sigee-cig-barra-trilho" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${largura.toFixed(1)}"><span class="sigee-cig-barra-preenchimento" data-possui-valor="${q>0?1:0}" style="width:${largura}% !important"></span></div></div>`;
+      return `<div class="sigee-cig-barra"><div class="sigee-cig-barra-cabecalho"><strong style="color:#fff!important;background:rgba(2,132,199,.48)!important;text-shadow:0 1px 2px #000!important;padding:3px 7px!important;border-radius:7px!important">${esc(nome)}</strong><span style="color:#fff!important;background:rgba(15,23,42,.72)!important;text-shadow:0 1px 2px #000!important;padding:3px 7px!important;border-radius:7px!important">${q} • ${pct.toFixed(1)}%</span></div><div class="sigee-cig-barra-trilho" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${largura.toFixed(1)}"><span class="sigee-cig-barra-preenchimento" data-possui-valor="${q>0?1:0}" style="width:${largura}% !important"></span></div></div>`;
     }).join('')||'<p class="sigee-cig-vazio">Não há processos ativos.</p>';
   }
   function kpi(id,label,icon,valor,sub,estado='normal'){
@@ -667,7 +667,7 @@
 
   function eventoRecebimento(h){
     const combinado=norm([h.acao,h.etapa,h.observacao,JSON.stringify(h.dados||{})].join(' '));
-    return combinado.includes('DOCUMENTO RECEBIDO')||combinado.includes('DOCUMENTO_RECEBIDO')||combinado.includes('ARQUIVO RECEBIDO');
+    return combinado.includes('DOCUMENTO RECEBIDO')||combinado.includes('DOCUMENTO_RECEBIDO')||combinado.includes('ARQUIVO RECEBIDO')||combinado.includes('TRIADO PARA ANALISE')||combinado.includes('TRIAGEM PARA ANALISE')||combinado.includes('ENVIADO PARA ANALISE')||combinado.includes('ENCAMINHADO PARA ANALISE')||combinado.includes('PASTA LOCALIZADA');
   }
 
   function dataRecebimentoProcesso(x){
@@ -755,7 +755,7 @@
       const tempos=[];
       primeiro.forEach((h,id)=>{
         const proc=procMap.get(String(id));
-        const abertura=data(proc&&(proc.data_solicitacao||proc.data_abertura||proc.created_at||proc.criado_em));
+        const abertura=data(proc&&(proc.data_solicitacao||proc.data_abertura||proc.data_inicio_desarquivamento||proc.data_inicio_ciclo||proc.prazo_inicio_ciclo||proc.prazo_inicio||proc.created_at||proc.criado_em));
         const receb=data(h.created_at||h.dados?.recebido_em);
         if(abertura&&receb&&receb>=abertura)tempos.push((receb-abertura)/86400000);
       });
@@ -764,7 +764,7 @@
       valoresAutoritativos={
         'dash-tec-media-pedidos-dia':abertos.length.toLocaleString('pt-BR'),
         'dash-tec-media-pasta-dia':primeiro.size.toLocaleString('pt-BR'),
-        'dash-tec-media-arquivo-tempo':tempos.length?`${media.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})} ${Math.abs(media-1)<.05?'dia':'dias'}`:'Sem dados históricos'
+        'dash-tec-media-arquivo-tempo':tempos.length?(media<0.0417?'Mesmo dia':media<1?`${Math.max(1,Math.round(media*24))} h`:`${media.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})} ${Math.abs(media-1)<.05?'dia':'dias'}`):'Sem dados históricos'
       };
       Object.entries(valoresAutoritativos).forEach(([id,v])=>set(id,v));
       instalarProtecao();

@@ -641,43 +641,82 @@
         renderizarProcessos();
     }
 
+    function garantirEstiloEdicaoProcessoSIGEE() {
+        if (document.getElementById('sigee-edicao-processo-style')) return;
+        const style = document.createElement('style');
+        style.id = 'sigee-edicao-processo-style';
+        style.textContent = `
+          .sigee-editproc-backdrop{position:fixed;inset:0;z-index:100005;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(2,8,23,.78);backdrop-filter:blur(7px)}
+          .sigee-editproc-panel{width:min(720px,100%);max-height:calc(100vh - 40px);overflow:auto;border:1px solid rgba(125,211,252,.28);border-radius:18px;background:#0b1f35;color:#fff;box-shadow:0 28px 90px rgba(0,0,0,.55)}
+          .sigee-editproc-head{display:flex;justify-content:space-between;align-items:center;padding:18px 20px;background:linear-gradient(135deg,#075985,#1e3a8a);border-bottom:1px solid rgba(255,255,255,.12)}
+          .sigee-editproc-head h2{margin:0;color:#fff!important;font-size:18px}.sigee-editproc-close{border:0;background:transparent!important;color:#fff!important;font-size:24px;cursor:pointer;box-shadow:none!important}
+          .sigee-editproc-body{padding:20px;display:grid;grid-template-columns:1fr 1fr;gap:15px}.sigee-editproc-body label{display:flex;flex-direction:column;gap:6px;color:#dbeafe!important;font-size:11px;font-weight:900;text-transform:uppercase}
+          .sigee-editproc-body label.full{grid-column:1/-1}.sigee-editproc-body input,.sigee-editproc-body select{width:100%;padding:11px 12px;border:1px solid rgba(125,211,252,.28)!important;border-radius:10px;background:#07182a!important;color:#fff!important;outline:none}
+          .sigee-editproc-meta{grid-column:1/-1;padding:10px 12px;border-radius:10px;background:rgba(14,165,233,.09);color:#bae6fd;font-size:11px}
+          .sigee-editproc-actions{grid-column:1/-1;display:flex;justify-content:flex-end;gap:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.10)}
+          .sigee-editproc-actions button{padding:10px 15px;border-radius:10px;font-weight:900;cursor:pointer}.sigee-editproc-cancel{background:#334155!important;color:#fff!important}.sigee-editproc-save{background:#059669!important;color:#fff!important}
+          @media(max-width:620px){.sigee-editproc-body{grid-template-columns:1fr}.sigee-editproc-body label.full,.sigee-editproc-meta,.sigee-editproc-actions{grid-column:auto}}
+        `;
+        document.head.appendChild(style);
+    }
+
     async function editarProcessoMaster(id) {
         const u = usuario();
         const p = listaProcessos().find(x => String(x.id) === String(id));
-        if (!p) return;
-
-        if (isAdmin(u)) {
-            if (!mesmoNte(nteUsuario(u), processoNte(p))) {
-                return alert('Administrador só pode corrigir processos do próprio NTE.');
-            }
-            const aluno = prompt('Nome do requerente/aluno:', processoAluno(p));
-            if (aluno === null) return;
-            const escola = prompt('Escola:', processoEscola(p));
-            if (escola === null) return;
-
-            p.aluno = p.aluno_nome = texto(aluno).toUpperCase();
-            p.escola = p.escola_nome = texto(escola).toUpperCase();
-            registrar(`[ADMINISTRADOR] Corrigiu nome/escola do processo ID ${p.id}.`);
-            await salvarProcesso(p);
-            atualizarTelas();
-            return;
+        if (!p) return alert('Processo não localizado.');
+        const admin = isAdmin(u);
+        if (admin && !mesmoNte(nteUsuario(u), processoNte(p))) {
+            return alert('Administrador só pode corrigir processos do próprio NTE.');
         }
-
-        if (!isMaster(u)) {
+        if (!isMaster(u) && !admin) {
             return alert('Correção cadastral permitida apenas para Master e Administrador.');
         }
 
-        const aluno = prompt('Aluno:', processoAluno(p)); if (aluno === null) return;
-        const escola = prompt('Instituição:', processoEscola(p)); if (escola === null) return;
-        const doc = prompt('Documento:', processoDocumento(p) || 'HISTÓRICO'); if (doc === null) return;
-        const nte = prompt('NTE:', processoNte(p)); if (nte === null) return;
-        p.aluno = p.aluno_nome = texto(aluno).toUpperCase();
-        p.escola = p.escola_nome = texto(escola).toUpperCase();
-        p.documento = p.documento_tipo = texto(doc).toUpperCase();
-        p.nte = texto(nte) || p.nte;
-        registrar(`[MASTER] Editou processo ID ${p.id}.`);
-        await salvarProcesso(p);
-        atualizarTelas();
+        garantirEstiloEdicaoProcessoSIGEE();
+        document.getElementById('sigee-modal-edicao-processo')?.remove();
+        const modal = document.createElement('div');
+        modal.id = 'sigee-modal-edicao-processo';
+        modal.className = 'sigee-editproc-backdrop';
+        const opcoesNte = Array.from({length:27},(_,i)=>`<option value="NTE-${String(i+1).padStart(2,'0')}">NTE-${String(i+1).padStart(2,'0')}</option>`).join('');
+        modal.innerHTML = `
+          <section class="sigee-editproc-panel" role="dialog" aria-modal="true" aria-labelledby="sigee-editproc-title">
+            <header class="sigee-editproc-head"><h2 id="sigee-editproc-title">✏️ ${admin?'Corrigir Cadastro':'Editar Processo'}</h2><button type="button" class="sigee-editproc-close" aria-label="Fechar">×</button></header>
+            <form class="sigee-editproc-body">
+              <div class="sigee-editproc-meta">Processo <strong>${codigoSIGEE(p)}</strong> · Etapa atual: <strong>${processoEtapa(p)}</strong></div>
+              <label class="full">Nome do requerente/aluno<input id="sigee-editproc-aluno" required value="${processoAluno(p).replace(/&/g,'&amp;').replace(/"/g,'&quot;')}"></label>
+              <label class="full">Escola/Instituição<input id="sigee-editproc-escola" required value="${processoEscola(p).replace(/&/g,'&amp;').replace(/"/g,'&quot;')}"></label>
+              ${admin?'':`<label>Documento solicitado<input id="sigee-editproc-documento" value="${processoDocumento(p).replace(/&/g,'&amp;').replace(/"/g,'&quot;')}"></label><label>NTE<select id="sigee-editproc-nte"><option value="${processoNte(p).replace(/&/g,'&amp;').replace(/"/g,'&quot;')}">${processoNte(p)||'Selecione'}</option>${opcoesNte}</select></label>`}
+              <div class="sigee-editproc-actions"><button type="button" class="sigee-editproc-cancel">Cancelar</button><button type="submit" class="sigee-editproc-save">Salvar alterações</button></div>
+            </form>
+          </section>`;
+        document.body.appendChild(modal);
+        const fechar = () => modal.remove();
+        modal.querySelector('.sigee-editproc-close').addEventListener('click', fechar);
+        modal.querySelector('.sigee-editproc-cancel').addEventListener('click', fechar);
+        modal.addEventListener('click', e => { if (e.target === modal) fechar(); });
+        modal.querySelector('form').addEventListener('submit', async e => {
+            e.preventDefault();
+            const btn = modal.querySelector('.sigee-editproc-save');
+            btn.disabled = true; btn.textContent = 'Salvando...';
+            try {
+                p.aluno = p.aluno_nome = texto(modal.querySelector('#sigee-editproc-aluno').value).toUpperCase();
+                p.escola = p.escola_nome = texto(modal.querySelector('#sigee-editproc-escola').value).toUpperCase();
+                if (!admin) {
+                    p.documento = p.documento_tipo = texto(modal.querySelector('#sigee-editproc-documento').value).toUpperCase();
+                    p.nte = texto(modal.querySelector('#sigee-editproc-nte').value) || p.nte;
+                }
+                registrar(`[${admin?'ADMINISTRADOR':'MASTER'}] Editou cadastro do processo ID ${p.id}.`);
+                await salvarProcesso(p);
+                atualizarTelas();
+                fechar();
+                try { if (typeof mostrarToast === 'function') mostrarToast('Processo atualizado com sucesso.'); } catch (_) {}
+            } catch (erro) {
+                console.error('[SIGEE] Falha ao editar processo:', erro);
+                alert('Não foi possível salvar a edição do processo.');
+                btn.disabled = false; btn.textContent = 'Salvar alterações';
+            }
+        });
+        setTimeout(()=>modal.querySelector('#sigee-editproc-aluno')?.focus(), 30);
     }
     async function moverMaster(id, direcao) {
         if (!isMaster(usuario())) return alert('Avanço ou regressão manual permitido apenas para o perfil Master.');
@@ -1581,93 +1620,3 @@
     setTimeout(aplicar,1500);
   });
 })(window);
-
-/* =====================================================================
-   SIGEE 3.2.13 — Registro autoritativo de Documento Recebido
-   Grava cada execução no historico_processos para uso dos indicadores.
-   ===================================================================== */
-(function(){
-  'use strict';
-  if(window.__SIGEE_DOC_RECEBIDO_HIST_3213__) return;
-  window.__SIGEE_DOC_RECEBIDO_HIST_3213__ = true;
-
-  const txt=v=>v==null?'':String(v).trim();
-  function cliente(){
-    try{return window.obterSupabaseSIGEE?.()||window.criarClienteSupabaseSIGEE?.()||window.SIGEE_SUPABASE?.criarCliente?.()||null;}catch(e){return null;}
-  }
-  function processoPorId(id){
-    const lista=Array.isArray(window.processosDB)?window.processosDB:[];
-    return lista.find(p=>String(p.id)===String(id))||null;
-  }
-  async function gravarEvento(dados){
-    const c=cliente();
-    if(!c||!dados?.processo_id) return;
-    const u=window.usuarioLogado||{};
-    const registro={
-      processo_id:dados.processo_id,
-      codigo_sigee:dados.codigo_sigee||'',
-      etapa:'Documento Recebido',
-      acao:'Documento Recebido',
-      observacao:`Arquivo recebido: ${dados.tipo_arquivo||'Não informado'} | Local: ${dados.local_arquivo||'Não informado'}`,
-      usuario_nome:txt(u.nome||u.name||u.email||'Usuário SIGEE'),
-      usuario_email:txt(u.email)||null,
-      usuario_perfil:txt(u.perfil)||null,
-      nte:txt(dados.nte||u.nte||u.nte_nome||u.grupo)||null,
-      dados:{
-        evento:'DOCUMENTO_RECEBIDO',
-        tipo_arquivo:dados.tipo_arquivo||null,
-        local_arquivo:dados.local_arquivo||null,
-        prioridade:dados.prioridade||null,
-        analista:dados.analista||null,
-        data_solicitacao:dados.data_solicitacao||null
-      },
-      created_at:new Date().toISOString()
-    };
-    try{
-      const {error}=await c.from('historico_processos').insert(registro);
-      if(error) throw error;
-    }catch(e){
-      console.warn('[SIGEE 3.2.13] Não foi possível registrar Documento Recebido no histórico.',e);
-    }
-  }
-
-  function instalar(){
-    const original=window.executarTransicaoDesarquivamento;
-    if(typeof original!=='function'||original.__sigee3213) return false;
-    const envolvida=function(event){
-      const id=document.getElementById('f00-id')?.value;
-      const p=processoPorId(id);
-      const snapshot=p?{
-        processo_id:p.id,
-        codigo_sigee:p.codigo_sigee||'',
-        nte:p.nte||p.nte_nome||p.grupo||'',
-        data_solicitacao:p.data_solicitacao||p.data_abertura||p.created_at||p.criado_em||null,
-        tipo_arquivo:document.getElementById('f00-tipo')?.value||'',
-        local_arquivo:document.getElementById('f00-local')?.value||'',
-        prioridade:document.getElementById('f00-prioridade')?.value||'',
-        analista:document.getElementById('f00-analista')?.value||''
-      }:null;
-      const valido=!!(snapshot?.tipo_arquivo&&snapshot?.local_arquivo&&snapshot?.prioridade&&snapshot?.analista&&document.getElementById('f00-chk-email')?.checked);
-      const retorno=original.apply(this,arguments);
-      if(valido&&snapshot){
-        const agora=new Date().toISOString();
-        p.documento_recebido_em=agora;
-        p.data_documento_recebido=agora;
-        p.tipo_arquivo_recebido=snapshot.tipo_arquivo;
-        p.local_arquivo_recebido=snapshot.local_arquivo;
-        Promise.resolve().then(()=>gravarEvento(snapshot));
-      }
-      return retorno;
-    };
-    envolvida.__sigee3213=true;
-    envolvida.__original=original;
-    window.executarTransicaoDesarquivamento=envolvida;
-    return true;
-  }
-
-  if(!instalar()){
-    let tentativas=0;
-    const timer=setInterval(()=>{tentativas++;if(instalar()||tentativas>30)clearInterval(timer);},500);
-  }
-  window.addEventListener('load',instalar);
-})();
