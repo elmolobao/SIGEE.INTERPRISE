@@ -8373,7 +8373,7 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
   console.info('[SIGEE] Formulário Inteligente do Processo 2.3.3A carregado.');
 })();
 /* =====================================================================
-   SIGEE Sprint 2.4.6F — Autoridade final do Módulo de Escolas
+   SIGEE Sprint 2.4.6G — Autoridade final do Módulo de Escolas
    Este bloco deve permanecer no FINAL de app.js.
    ===================================================================== */
 (function(){
@@ -8451,7 +8451,9 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
       if(!id)return;
       event.preventDefault();
       event.stopImmediatePropagation();
-      window.SIGEE_Escolas.abrirEditar(id);
+      const registro = window.SIGEE_Escolas.localizarNaPagina?.(id);
+      if (registro) window.SIGEE_Escolas.abrirEditarRegistro(registro);
+      else window.SIGEE_Escolas.abrirEditar(id);
     }
   },true);
 
@@ -8476,5 +8478,5 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     return retorno;
   };
 
-  console.info('[SIGEE] Autoridade final do módulo de Escolas 2.4.6F instalada.');
+  console.info('[SIGEE] Autoridade final do módulo de Escolas 2.4.6G instalada.');
 })();

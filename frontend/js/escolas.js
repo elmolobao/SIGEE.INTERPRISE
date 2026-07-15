@@ -1,5 +1,5 @@
 /* =====================================================================
-   SIGEE Enterprise — Sprint 2.4.6F — Módulo Oficial de Escolas
+   SIGEE Enterprise — Sprint 2.4.6G — Módulo Oficial de Escolas
    Módulo: Escolas
    Produção: catálogo paginado, filtro por NTE e autocomplete da Nova Solicitação.
    Substitui a lógica dependente de listas locais grandes e evita limite de 1000 registros.
@@ -195,7 +195,7 @@
     corpo.innerHTML = (lista || []).map(e => {
       const idReal = texto(e.id);
       const botao = podeEditar() && idReal
-        ? `<button type="button" data-escola-id="${escapeHtml(idReal)}" onclick="window.SIGEE_Escolas?.abrirEditar('${escapeHtml(idReal)}')" class="btn-alterar-escola-sigee bg-blue-700 hover:bg-blue-800 text-white px-2 py-1 rounded text-[10px] font-bold">Alterar</button>`
+        ? `<button type="button" data-escola-id="${escapeHtml(idReal)}" class="btn-alterar-escola-sigee bg-blue-700 hover:bg-blue-800 text-white px-2 py-1 rounded text-[10px] font-bold">Alterar</button>`
         : `<span class="text-gray-400 text-[10px] font-bold">Consulta</span>`;
       return `<tr class="hover:bg-white/10 text-[11px] text-white border-b border-white/10">
         <td class="p-3 font-mono font-bold">${escapeHtml(e.cod_mec)}</td>
@@ -265,7 +265,15 @@
   }
   function setDisabled(ids, disabled) { ids.forEach(id => { const el = document.getElementById(id); if (el) el.disabled = disabled; }); }
   async function obterEscolaPorId(id) {
-    const local = (Array.isArray(window.escolasDB) ? window.escolasDB : []).find(x => String(x.id) === String(id) || texto(x.cod_mec) === texto(id));
+    const localizar = lista => (Array.isArray(lista) ? lista : []).find(x =>
+      String(x.id ?? '') === String(id ?? '') ||
+      (texto(x.cod_mec) && texto(x.cod_mec) === texto(id))
+    );
+
+    const pagina = localizar(cachePagina);
+    if (pagina) return pagina;
+
+    const local = localizar(window.escolasDB);
     if (local) return local;
     const client = supabaseClient();
     if (!client) return null;
@@ -290,6 +298,31 @@
     if (nteEl) nteEl.disabled = perfilAtual() !== 'MASTER';
     document.getElementById('modal-cadastro-escola').classList.remove('hidden');
   }
+  function preencherModalEdicaoEscola(e) {
+    if (!e) return false;
+
+    document.getElementById('escola-form-id').value = e.id || '';
+    document.getElementById('escola-form-mec').value = texto(e.cod_mec);
+    document.getElementById('escola-form-nome').value = escolaNome(e);
+    document.getElementById('escola-form-municipio').value = texto(e.municipio);
+    preencherSelectNteEscola(e.nte_id || escolaNte(e));
+    document.getElementById('escola-form-dep').value = escolaDep(e);
+    document.getElementById('escola-form-situacao').value = escolaSituacao(e) || 'Extinta';
+    document.getElementById('escola-form-acervo').value = escolaAcervo(e) || 'Recolhido';
+    document.getElementById('escola-form-local').value = escolaLocal(e);
+
+    setDisabled(
+      ['escola-form-mec','escola-form-nome','escola-form-municipio','escola-form-dep'],
+      podeEditarLimitado()
+    );
+
+    const nteEl = document.getElementById('escola-form-nte');
+    if (nteEl) nteEl.disabled = perfilAtual() !== 'MASTER';
+
+    document.getElementById('modal-cadastro-escola').classList.remove('hidden');
+    return true;
+  }
+
   async function abrirEditarEscola(id) {
     if (!podeEditar()) return alert('Seu perfil não possui permissão para alterar escola.');
     garantirModalEscola();
@@ -300,19 +333,7 @@
       const nteId = nteIdUsuario();
       if (nteId && Number(e.nte_id) !== nteId) return alert('Acesso permitido apenas às escolas do seu NTE.');
     }
-    document.getElementById('escola-form-id').value = e.id || '';
-    document.getElementById('escola-form-mec').value = texto(e.cod_mec);
-    document.getElementById('escola-form-nome').value = escolaNome(e);
-    document.getElementById('escola-form-municipio').value = texto(e.municipio);
-    preencherSelectNteEscola(e.nte_id || escolaNte(e));
-    document.getElementById('escola-form-dep').value = escolaDep(e);
-    document.getElementById('escola-form-situacao').value = escolaSituacao(e) || 'Extinta';
-    document.getElementById('escola-form-acervo').value = escolaAcervo(e) || 'Recolhido';
-    document.getElementById('escola-form-local').value = escolaLocal(e);
-    setDisabled(['escola-form-mec','escola-form-nome','escola-form-municipio','escola-form-dep'], podeEditarLimitado());
-    const nteEl = document.getElementById('escola-form-nte');
-    if (nteEl) nteEl.disabled = perfilAtual() !== 'MASTER';
-    document.getElementById('modal-cadastro-escola').classList.remove('hidden');
+    preencherModalEdicaoEscola(e);
   }
   async function salvarEscola(event) {
     event.preventDefault();
@@ -514,9 +535,29 @@
   document.addEventListener('click', function(event) {
     const btn = event.target.closest('.btn-alterar-escola-sigee[data-escola-id]');
     if (!btn) return;
+
     event.preventDefault();
     event.stopImmediatePropagation();
-    abrirEditarEscola(btn.dataset.escolaId);
+
+    const id = btn.dataset.escolaId;
+    const registro = (cachePagina || []).find(x => String(x.id ?? '') === String(id ?? ''));
+
+    if (registro) {
+      if (!podeEditar()) return alert('Seu perfil não possui permissão para alterar escola.');
+      garantirModalEscola();
+
+      if (!isGlobal()) {
+        const nteId = nteIdUsuario();
+        if (nteId && Number(registro.nte_id) !== nteId) {
+          return alert('Acesso permitido apenas às escolas do seu NTE.');
+        }
+      }
+
+      preencherModalEdicaoEscola(registro);
+      return;
+    }
+
+    abrirEditarEscola(id);
   }, true);
 
   window.SIGEE_Escolas = {
@@ -524,6 +565,22 @@
     buscar: buscarEscolas,
     abrirNova: abrirNovaEscola,
     abrirEditar: abrirEditarEscola,
+    abrirEditarRegistro: function(registro) {
+      if (!podeEditar()) return alert('Seu perfil não possui permissão para alterar escola.');
+      garantirModalEscola();
+
+      if (!isGlobal()) {
+        const nteId = nteIdUsuario();
+        if (nteId && Number(registro?.nte_id) !== nteId) {
+          return alert('Acesso permitido apenas às escolas do seu NTE.');
+        }
+      }
+
+      return preencherModalEdicaoEscola(registro);
+    },
+    localizarNaPagina: function(id) {
+      return (cachePagina || []).find(x => String(x.id ?? '') === String(id ?? '')) || null;
+    },
     salvar: salvarEscola,
     autocompleteNovaSolicitacao: garantirAutocompleteNovaSolicitacao
   };
