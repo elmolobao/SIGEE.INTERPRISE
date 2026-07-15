@@ -2,7 +2,7 @@
 (function () {
   'use strict';
 
-  var VERSION = '3.2.1';
+  var VERSION = '3.2.2';
   var REFRESH_MS = 60000;
   var filtroNte = 'GLOBAL';
   var timer = null;
@@ -134,10 +134,40 @@
     var alertBox=document.getElementById('sala-v2-alertas'); if(alertBox) alertBox.innerHTML=alerts.slice(0,12).map(function(x){return '<div class="'+x.c+'"><i></i><span><strong>'+esc(x.t)+'</strong><small>'+esc(x.a)+'</small></span></div>';}).join('');
   }
 
+
+  function mostrarSala() {
+    var alvo = document.getElementById('aba-sala-situacao');
+    if (!alvo) return false;
+    document.body.classList.add('sigee-sala-aberta');
+    document.querySelectorAll('main > section[id^="aba-"]').forEach(function(sec){
+      if (sec !== alvo) sec.classList.add('hidden');
+    });
+    alvo.classList.remove('hidden');
+    alvo.classList.add('sigee-sala-ativa');
+    alvo.style.display = 'block';
+    alvo.style.visibility = 'visible';
+    alvo.style.opacity = '1';
+    render();
+    setTimeout(render, 100);
+    setTimeout(render, 600);
+    return true;
+  }
+
+  window.abrirSalaSituacaoSIGEE = function(event) {
+    if (event && typeof event.preventDefault === 'function') event.preventDefault();
+    try {
+      if (typeof window.navegar === 'function') window.navegar('sala-situacao');
+    } catch (e) { console.warn('[SIGEE Sala] Navegação geral não confirmou a abertura.', e); }
+    mostrarSala();
+    setTimeout(mostrarSala, 80);
+    setTimeout(mostrarSala, 350);
+    return false;
+  };
+
   function ligarNavegacao() {
     var antiga=window.navegar;
     if(typeof antiga==='function'&&!antiga.__sala321){
-      var nova=function(destino){var r=antiga.apply(this,arguments);if(destino==='sala-situacao'){setTimeout(render,50);setTimeout(render,500);}return r;};
+      var nova=function(destino){if(destino!=='sala-situacao') document.body.classList.remove('sigee-sala-aberta'); var r=antiga.apply(this,arguments);if(destino==='sala-situacao'){setTimeout(mostrarSala,20);setTimeout(mostrarSala,250);}return r;};
       nova.__sala321=true; window.navegar=nova;
       try { navegar=nova; } catch(e) {}
     }
@@ -145,8 +175,20 @@
   function init() {
     ligarNavegacao();
     if(!garantirEstrutura()) { if(retries++<20) setTimeout(init,250); return; }
+    var menu = document.getElementById('menu-sala-situacao');
+    if (menu && !menu.dataset.sala322) {
+      menu.dataset.sala322 = '1';
+      menu.addEventListener('click', function(ev){ window.abrirSalaSituacaoSIGEE(ev); }, true);
+    }
+    var sec = document.getElementById('aba-sala-situacao');
+    if (sec && !sec.__salaObserver) {
+      sec.__salaObserver = new MutationObserver(function(){
+        if (document.body.classList.contains('sigee-sala-aberta') && sec.classList.contains('hidden')) mostrarSala();
+      });
+      sec.__salaObserver.observe(sec, {attributes:true, attributeFilter:['class','style']});
+    }
     render();
-    clearInterval(timer); timer=setInterval(function(){var sec=document.getElementById('aba-sala-situacao');if(sec&&!sec.classList.contains('hidden'))render();},REFRESH_MS);
+    clearInterval(timer); timer=setInterval(function(){var s=document.getElementById('aba-sala-situacao');if(s&&!s.classList.contains('hidden'))render();},REFRESH_MS);
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
   window.SIGEE_SALA_SITUACAO={render:render,version:VERSION};
