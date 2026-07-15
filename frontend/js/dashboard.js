@@ -434,6 +434,63 @@
   const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v};
   let timer=null,ultimoResultado=null;
 
+  function dataIndicador(v){
+    if(!v)return null;
+    if(v instanceof Date)return Number.isNaN(v.getTime())?null:v;
+    const s=txt(v),br=s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+    const d=br?new Date(Number(br[3]),Number(br[2])-1,Number(br[1])):new Date(s);
+    return Number.isNaN(d.getTime())?null:d;
+  }
+  function nteIndicador(p){
+    const bruto=txt(p?.nte_id??p?.nte??p?.nte_nome??p?.grupo??p?.territorio);
+    const m=bruto.match(/\d{1,2}/); return m?Number(m[0]):null;
+  }
+  function periodoIndicadores(){
+    const tipo=document.getElementById('filtro-dashboard-periodo')?.value||'ACUMULADO';
+    const fim=new Date();fim.setHours(23,59,59,999);let inicio=null;
+    if(tipo==='HOJE'){inicio=new Date();inicio.setHours(0,0,0,0)}
+    else if(tipo==='ONTEM'){inicio=new Date(Date.now()-86400000);inicio.setHours(0,0,0,0);fim.setTime(inicio.getTime());fim.setHours(23,59,59,999)}
+    else if(tipo==='7_DIAS'){inicio=new Date(Date.now()-6*86400000);inicio.setHours(0,0,0,0)}
+    else if(tipo==='30_DIAS'){inicio=new Date(Date.now()-29*86400000);inicio.setHours(0,0,0,0)}
+    else if(tipo==='MES_ATUAL')inicio=new Date(fim.getFullYear(),fim.getMonth(),1);
+    else if(tipo==='MES_ANTERIOR'){inicio=new Date(fim.getFullYear(),fim.getMonth()-1,1);fim.setTime(new Date(fim.getFullYear(),fim.getMonth(),0,23,59,59,999).getTime())}
+    else if(tipo==='ANO_ATUAL')inicio=new Date(fim.getFullYear(),0,1);
+    else if(tipo==='PERSONALIZADO'){
+      const i=document.getElementById('dashboard-data-inicial')?.value,f=document.getElementById('dashboard-data-final')?.value;
+      if(i)inicio=new Date(i+'T00:00:00');if(f)fim.setTime(new Date(f+'T23:59:59.999').getTime());
+    }
+    return {tipo,inicio,fim};
+  }
+  function dentroIndicador(d,p){return !!d&&(p.tipo==='ACUMULADO'||(!p.inicio||d>=p.inicio)&&(!p.fim||d<=p.fim))}
+  function dataArquivoRecebido(p){
+    const direta=dataIndicador(p?.arquivo_recebido_em||p?.data_arquivo_recebido||p?.pasta_localizada_em);
+    if(direta)return direta;
+    const msg=txt(p?.ultima_mensagem_workflow);
+    let m=msg.match(/^ARQUIVO_RECEBIDO\|[^|]+\|(.+)$/i);if(m)return dataIndicador(m[1]);
+    m=msg.match(/^PASTA_LOCALIZADA\|(.+)$/i);if(m)return dataIndicador(m[1]);
+    return null;
+  }
+  function diasBaseIndicador(datas,periodo){
+    if(periodo.inicio&&periodo.fim)return Math.max(1,Math.floor((periodo.fim-periodo.inicio)/86400000)+1);
+    if(!datas.length)return 1;
+    const primeira=new Date(Math.min(...datas.map(d=>d.getTime())));primeira.setHours(0,0,0,0);
+    const fim=periodo.fim||new Date();fim.setHours(23,59,59,999);
+    return Math.max(1,Math.floor((fim-primeira)/86400000)+1);
+  }
+  function calcularIndicadoresDiarios(){
+    let processos=Array.isArray(window.processosDB)?window.processosDB.slice():[];
+    const filtro=txt(document.getElementById('filtro-dashboard-nte')?.value||'TODOS');
+    const alvo=/^(TODOS|GLOBAL)?$/i.test(filtro)?null:Number((filtro.match(/\d{1,2}/)||[])[0]||0)||null;
+    if(alvo)processos=processos.filter(p=>nteIndicador(p)===alvo);
+    const periodo=periodoIndicadores();
+    const aberturas=processos.map(p=>dataIndicador(p.data_solicitacao||p.data_abertura||p.created_at||p.criado_em)).filter(d=>dentroIndicador(d,periodo));
+    const recebimentos=processos.map(dataArquivoRecebido).filter(d=>dentroIndicador(d,periodo));
+    return {
+      pedidosDia:aberturas.length/diasBaseIndicador(aberturas,periodo),
+      arquivosDia:recebimentos.length/diasBaseIndicador(recebimentos,periodo)
+    };
+  }
+
   function garantirCIG(){
     const aba=document.getElementById('aba-painel');
     if(!aba||document.getElementById('sigee-cig'))return;
@@ -498,8 +555,9 @@
       const boxTec=document.getElementById('dash-tec-top-escolas');if(boxTec)boxTec.innerHTML=escolas;
       const boxGer=document.getElementById('dash-ger-escola-demanda');if(boxGer)boxGer.innerHTML=escolas;
       set('dash-tec-media-entrega',`${r.mediaAtendimento.toLocaleString('pt-BR',{maximumFractionDigits:1})} dias`);
-      set('dash-tec-media-pedidos-dia',r.pedidosDia.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1}));
-      set('dash-tec-media-pasta-dia',r.pastasDia.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1}));
+      const diarios=calcularIndicadoresDiarios();
+      set('dash-tec-media-pedidos-dia',diarios.pedidosDia.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1}));
+      set('dash-tec-media-pasta-dia',diarios.arquivosDia.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1}));
 
       kpi('ativos','Processos ativos','◉',r.ativos.toLocaleString('pt-BR'),'Em tramitação');
       kpi('media','Tempo médio','◷',`${r.mediaAtendimento.toLocaleString('pt-BR',{maximumFractionDigits:1})} dias`,'Processos concluídos');

@@ -3157,15 +3157,16 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             salvarBancoLocalSIGEE(); fecharModalFluxo('desarquivamento'); carregarEContarProcessosHorizontais(); return;
         }
         p.tipo_arquivo = valor('f00-tipo'); p.local_arquivo = valor('f00-local'); p.prioridade = valor('f00-prioridade'); p.analista = valor('f00-analista');
-        // Registra a localização da pasta em campos já persistidos pelo banco.
-        // Isso mantém o indicador "Pastas Localizadas/Dia" após F5 e novos acessos.
+        // Todo arquivo recebido integra o indicador gerencial, independentemente do tipo.
+        // O registro utiliza campos do workflow já persistidos pelo projeto.
+        const dataArquivoRecebidoISO = new Date().toISOString();
+        const tipoArquivoRecebido = semAcentoSIGEE(p.tipo_arquivo).replace(/\s+/g, '_');
+        p.arquivo_recebido_em = dataArquivoRecebidoISO;
+        p.tipo_arquivo_recebido = p.tipo_arquivo;
+        p.ultimo_evento_workflow = 'DOCUMENTO_RECEBIDO_' + tipoArquivoRecebido;
+        p.ultima_mensagem_workflow = 'ARQUIVO_RECEBIDO|' + p.tipo_arquivo + '|' + dataArquivoRecebidoISO;
         if (semAcentoSIGEE(p.tipo_arquivo).includes('PASTA')) {
-            const dataPastaISO = new Date().toISOString();
-            p.pasta_localizada_em = dataPastaISO;
-            p.ultimo_evento_workflow = 'DOCUMENTO_RECEBIDO_PASTA';
-            p.ultima_mensagem_workflow = 'PASTA_LOCALIZADA|' + dataPastaISO;
-        } else {
-            p.ultimo_evento_workflow = 'DOCUMENTO_RECEBIDO_' + semAcentoSIGEE(p.tipo_arquivo).replace(/\s+/g, '_');
+            p.pasta_localizada_em = dataArquivoRecebidoISO;
         }
         p.etapa='Análise'; p.data_etapa_atual=obterDataAtualFormatada(); p.prazo_etapa=7;
         registrarLog(`Processo [${p.aluno}]: Documento recebido e enviado para Análise. Analista: ${p.analista}.`);
