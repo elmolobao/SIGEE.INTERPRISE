@@ -8372,4 +8372,109 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
 
   console.info('[SIGEE] Formulário Inteligente do Processo 2.3.3A carregado.');
 })();
+/* =====================================================================
+   SIGEE Sprint 2.4.6E — Autoridade final do Módulo de Escolas
+   Este bloco deve permanecer no FINAL de app.js.
+   ===================================================================== */
+(function(){
+  'use strict';
 
+  function perfilAtualEscolas246E(){
+    const u=window.usuarioLogado||{};
+    return String(u.perfil||'')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+      .toUpperCase().trim();
+  }
+
+  function podeCadastrarEscola246E(){
+    const p=perfilAtualEscolas246E();
+    return p==='MASTER'||p==='ADMINISTRADOR';
+  }
+
+  function aplicarAutoridadeEscolas246E(){
+    const modulo=window.SIGEE_Escolas;
+    if(!modulo)return false;
+
+    window.abrirModalNovaEscola=function(){
+      return modulo.abrirNova();
+    };
+    window.abrirModalEditarEscolaSIGEE=function(id){
+      return modulo.abrirEditar(id);
+    };
+    window.editarEscolaSIGEE=function(id){
+      return modulo.abrirEditar(id);
+    };
+    window.editarEscolaSIGEEV45=function(id){
+      return modulo.abrirEditar(id);
+    };
+    window.salvarEscolaFormularioSIGEE=function(event){
+      return modulo.salvar(event);
+    };
+    window.renderizarListaEscolasBufferMemoria=function(){
+      return modulo.renderizar();
+    };
+
+    try{
+      abrirModalNovaEscola=window.abrirModalNovaEscola;
+      abrirModalEditarEscolaSIGEE=window.abrirModalEditarEscolaSIGEE;
+      editarEscolaSIGEEV45=window.editarEscolaSIGEEV45;
+      salvarEscolaFormularioSIGEE=window.salvarEscolaFormularioSIGEE;
+      renderizarListaEscolasBufferMemoria=window.renderizarListaEscolasBufferMemoria;
+    }catch(_){}
+
+    document.querySelectorAll(
+      'button[onclick*="abrirModalNovaEscola"], .btn-nova-escola'
+    ).forEach(btn=>{
+      btn.classList.toggle('hidden',!podeCadastrarEscola246E());
+    });
+
+    return true;
+  }
+
+  document.addEventListener('click',function(event){
+    const novo=event.target.closest(
+      'button[onclick*="abrirModalNovaEscola"], .btn-nova-escola'
+    );
+    if(novo&&window.SIGEE_Escolas){
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      window.SIGEE_Escolas.abrirNova();
+      return;
+    }
+
+    const alterar=event.target.closest(
+      '.btn-alterar-escola-sigee[data-escola-id], button[onclick*="editarEscolaSIGEEV45"], button[onclick*="abrirModalEditarEscolaSIGEE"]'
+    );
+    if(alterar&&window.SIGEE_Escolas){
+      const id=alterar.dataset.escolaId||
+        (alterar.getAttribute('onclick')||'').match(/\(\s*['"]?([^'")]+)['"]?\s*\)/)?.[1];
+      if(!id)return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      window.SIGEE_Escolas.abrirEditar(id);
+    }
+  },true);
+
+  function iniciar(){
+    if(!aplicarAutoridadeEscolas246E()){
+      setTimeout(iniciar,100);
+      return;
+    }
+    setTimeout(aplicarAutoridadeEscolas246E,500);
+    setTimeout(aplicarAutoridadeEscolas246E,1500);
+  }
+
+  document.addEventListener('DOMContentLoaded',iniciar);
+  window.addEventListener('load',()=>setTimeout(iniciar,50));
+
+  const navegarAnterior246E=window.navegar;
+  window.navegar=function(){
+    const retorno=typeof navegarAnterior246E==='function'
+      ?navegarAnterior246E.apply(this,arguments)
+      :undefined;
+    setTimeout(aplicarAutoridadeEscolas246E,60);
+    return retorno;
+  };
+
+  console.info('[SIGEE] Autoridade final do módulo de Escolas 2.4.6E instalada.');
+})();

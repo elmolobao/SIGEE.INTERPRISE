@@ -1,8 +1,5 @@
 /* =====================================================================
-   SIGEE Enterprise — Sprint 2.4.6C
-   Consolidação definitiva do módulo de Escolas.
-
-   Base histórica: Sprint 2.2
+   SIGEE Enterprise — Sprint 2.4.6E — Módulo Oficial de Escolas
    Módulo: Escolas
    Produção: catálogo paginado, filtro por NTE e autocomplete da Nova Solicitação.
    Substitui a lógica dependente de listas locais grandes e evita limite de 1000 registros.
@@ -146,8 +143,8 @@
     const corpo = document.getElementById('tabela-escolas-corpo');
     if (!corpo) return;
     corpo.innerHTML = (lista || []).map(e => {
-      const idReal = e?.id;
-      const botao = podeEditar() && idReal !== null && idReal !== undefined && texto(idReal) !== ''
+      const idReal = texto(e.id);
+      const botao = podeEditar() && idReal
         ? `<button type="button" data-escola-id="${escapeHtml(idReal)}" class="btn-alterar-escola-sigee bg-blue-700 hover:bg-blue-800 text-white px-2 py-1 rounded text-[10px] font-bold">Alterar</button>`
         : `<span class="text-gray-400 text-[10px] font-bold">Consulta</span>`;
       return `<tr class="hover:bg-white/10 text-[11px] text-white border-b border-white/10">
@@ -208,8 +205,6 @@
       <div class="bg-blue-900 text-white px-5 py-4 flex justify-between items-center"><h3 class="font-bold text-sm">🏫 Cadastrar/Editar Escola</h3><button onclick="fecharModalEscola()" class="text-white font-bold cursor-pointer">✕</button></div>
       <form onsubmit="salvarEscolaFormularioSIGEE(event)" class="p-5 space-y-3">
         <input type="hidden" id="escola-form-id">
-        <input type="hidden" id="escola-form-modo">
-        <div id="escola-form-aviso-perfil" class="hidden p-3 rounded-lg border text-xs font-bold"></div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3"><div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">Código MEC</label><input id="escola-form-mec" class="w-full p-2 border rounded text-xs font-bold"></div><div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">Município</label><input id="escola-form-municipio" class="w-full p-2 border rounded text-xs font-bold uppercase"></div></div>
         <div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">Nome da Escola</label><input id="escola-form-nome" class="w-full p-2 border rounded text-xs font-bold uppercase"></div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3"><div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">NTE</label><input id="escola-form-nte" class="w-full p-2 border rounded text-xs font-bold"></div><div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">Dependência</label><input id="escola-form-dep" class="w-full p-2 border rounded text-xs font-bold"></div></div>
@@ -219,38 +214,6 @@
     document.body.appendChild(div);
   }
   function setDisabled(ids, disabled) { ids.forEach(id => { const el = document.getElementById(id); if (el) el.disabled = disabled; }); }
-  function configurarPermissoesModal() {
-    const camposCompletos = ['escola-form-mec','escola-form-nome','escola-form-municipio','escola-form-nte','escola-form-dep'];
-    const aviso = document.getElementById('escola-form-aviso-perfil');
-
-    setDisabled(camposCompletos, false);
-    ['escola-form-situacao','escola-form-acervo','escola-form-local'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.disabled = false;
-    });
-
-    if (podeEditarLimitado()) {
-      setDisabled(camposCompletos, true);
-      if (aviso) {
-        aviso.className = 'p-3 rounded-lg border text-xs font-bold bg-blue-50 text-blue-900 border-blue-200';
-        aviso.textContent = 'Perfil Técnico: somente Situação Funcional, Status do Acervo e Local do Acervo podem ser alterados.';
-      }
-      return;
-    }
-
-    if (perfilAtual() === 'ADMINISTRADOR') {
-      const nte = document.getElementById('escola-form-nte');
-      if (nte) nte.disabled = true;
-    }
-
-    if (aviso) aviso.className = 'hidden p-3 rounded-lg border text-xs font-bold';
-  }
-
-  function aplicarVisibilidadeBotaoNovaEscola() {
-    document.querySelectorAll('button[onclick*="abrirModalNovaEscola"],.btn-nova-escola').forEach(btn => {
-      btn.classList.toggle('hidden', !podeCadastrar());
-    });
-  }
   async function obterEscolaPorId(id) {
     const local = (Array.isArray(window.escolasDB) ? window.escolasDB : []).find(x => String(x.id) === String(id) || texto(x.cod_mec) === texto(id));
     if (local) return local;
@@ -265,20 +228,12 @@
     return e;
   }
   function abrirNovaEscola() {
-    if (!podeCadastrar()) return alert('Somente Master e Administrador podem cadastrar nova escola.');
+    if (!podeCadastrar()) return alert('Somente Master e Administrador podem cadastrar escola.');
     garantirModalEscola();
-    ['id','mec','nome','municipio','nte','dep','local'].forEach(k => {
-      const el = document.getElementById(`escola-form-${k}`);
-      if (el) el.value = '';
-    });
-    document.getElementById('escola-form-modo').value = 'novo';
-    document.getElementById('escola-form-situacao').value = 'Extinta';
-    document.getElementById('escola-form-acervo').value = 'Recolhido';
-
+    ['id','mec','nome','municipio','nte','dep','local'].forEach(k => { const el = document.getElementById(`escola-form-${k}`); if (el) el.value = ''; });
     const nteEl = document.getElementById('escola-form-nte');
-    if (nteEl && perfilAtual() === 'ADMINISTRADOR') nteEl.value = nteTextoUsuario();
-
-    configurarPermissoesModal();
+    if (nteEl && !isGlobal()) nteEl.value = nteTextoUsuario();
+    setDisabled(['escola-form-mec','escola-form-nome','escola-form-municipio','escola-form-nte','escola-form-dep'], false);
     document.getElementById('modal-cadastro-escola').classList.remove('hidden');
   }
   async function abrirEditarEscola(id) {
@@ -292,7 +247,6 @@
       if (nteId && Number(e.nte_id) !== nteId) return alert('Acesso permitido apenas às escolas do seu NTE.');
     }
     document.getElementById('escola-form-id').value = e.id || '';
-    document.getElementById('escola-form-modo').value = 'editar';
     document.getElementById('escola-form-mec').value = texto(e.cod_mec);
     document.getElementById('escola-form-nome').value = escolaNome(e);
     document.getElementById('escola-form-municipio').value = texto(e.municipio);
@@ -301,112 +255,45 @@
     document.getElementById('escola-form-situacao').value = escolaSituacao(e) || 'Extinta';
     document.getElementById('escola-form-acervo').value = escolaAcervo(e) || 'Recolhido';
     document.getElementById('escola-form-local').value = escolaLocal(e);
-    configurarPermissoesModal();
+    setDisabled(['escola-form-mec','escola-form-nome','escola-form-municipio','escola-form-nte','escola-form-dep'], podeEditarLimitado());
     document.getElementById('modal-cadastro-escola').classList.remove('hidden');
   }
   async function salvarEscola(event) {
     event.preventDefault();
-
     const id = texto(document.getElementById('escola-form-id')?.value);
-    const modo = texto(document.getElementById('escola-form-modo')?.value) || (id ? 'editar' : 'novo');
-
-    if (modo === 'novo' && !podeCadastrar()) {
-      return alert('Somente Master e Administrador podem cadastrar nova escola.');
-    }
-    if (modo === 'editar' && !podeEditar()) {
-      return alert('Seu perfil não possui permissão para alterar escola.');
-    }
-
     const existente = id ? await obterEscolaPorId(id) : null;
-    if (modo === 'editar' && !existente) return alert('Escola não localizada.');
-
-    if (existente && !isGlobal()) {
-      const nteId = nteIdUsuario();
-      if (nteId && Number(existente.nte_id) !== nteId) {
-        return alert('Acesso permitido apenas às escolas do seu NTE.');
-      }
+    const payload = existente ? { ...existente } : {};
+    if (!existente || podeEditarCompleto()) {
+      payload.cod_mec = texto(document.getElementById('escola-form-mec').value);
+      payload.nome_escola = texto(document.getElementById('escola-form-nome').value).toUpperCase();
+      payload.nome = payload.nome_escola;
+      payload.municipio = texto(document.getElementById('escola-form-municipio').value);
+      payload.nte = texto(document.getElementById('escola-form-nte').value || nteTextoUsuario());
+      payload.nte_id = Number((payload.nte.match(/\d{1,2}/) || [payload.nte_id || nteIdUsuario() || 0])[0]) || payload.nte_id || nteIdUsuario();
+      payload.dependencia_adm = texto(document.getElementById('escola-form-dep').value);
+      payload.dependencia = payload.dependencia_adm;
     }
-
-    let payload;
-    if (podeEditarLimitado()) {
-      payload = {
-        situacao_funcional: texto(document.getElementById('escola-form-situacao').value),
-        status_acervo: texto(document.getElementById('escola-form-acervo').value),
-        acervo: texto(document.getElementById('escola-form-acervo').value),
-        local_acervo: texto(document.getElementById('escola-form-local').value)
-      };
-    } else {
-      const nteTexto = perfilAtual() === 'ADMINISTRADOR'
-        ? nteTextoUsuario()
-        : texto(document.getElementById('escola-form-nte').value);
-
-      payload = {
-        cod_mec: texto(document.getElementById('escola-form-mec').value),
-        nome_escola: texto(document.getElementById('escola-form-nome').value).toUpperCase(),
-        municipio: texto(document.getElementById('escola-form-municipio').value).toUpperCase(),
-        nte: nteTexto,
-        nte_id: Number((nteTexto.match(/\d{1,2}/) || [nteIdUsuario() || 0])[0]) || nteIdUsuario(),
-        dependencia_adm: texto(document.getElementById('escola-form-dep').value),
-        situacao_funcional: texto(document.getElementById('escola-form-situacao').value),
-        status_acervo: texto(document.getElementById('escola-form-acervo').value),
-        acervo: texto(document.getElementById('escola-form-acervo').value),
-        local_acervo: texto(document.getElementById('escola-form-local').value),
-        ativo: true
-      };
-
-      if (!payload.cod_mec || !payload.nome_escola || !payload.municipio || !payload.nte_id) {
-        return alert('Preencha Código MEC, Nome da Escola, Município e NTE.');
-      }
-
-      const duplicadaLocal = (window.escolasDB || []).find(x =>
-        String(x.id || '') !== String(id || '') &&
-        normalizar(x.cod_mec) === normalizar(payload.cod_mec) &&
-        normalizar(escolaNome(x)) === normalizar(payload.nome_escola) &&
-        normalizar(x.municipio) === normalizar(payload.municipio)
-      );
-      if (duplicadaLocal) {
-        return alert('Duplicidade real: já existe escola com o mesmo Código MEC, nome e município.');
-      }
-    }
-
+    payload.situacao_funcional = texto(document.getElementById('escola-form-situacao').value);
+    payload.situacao = payload.situacao_funcional;
+    payload.status_acervo = texto(document.getElementById('escola-form-acervo').value);
+    payload.acervo = payload.status_acervo;
+    payload.local_acervo = texto(document.getElementById('escola-form-local').value);
+    if (id) payload.id = Number(id) || id;
     const client = supabaseClient();
-    if (!client) return alert('Cliente Supabase indisponível.');
-
     try {
-      let data, error;
-      if (modo === 'novo') {
-        ({ data, error } = await client
-          .from(tabelaEscolas())
-          .insert([payload])
-          .select()
-          .single());
-      } else {
-        ({ data, error } = await client
-          .from(tabelaEscolas())
-          .update(payload)
-          .eq('id', existente.id)
-          .select()
-          .single());
+      if (client) {
+        const { data, error } = await client.from(tabelaEscolas()).upsert(payload, { onConflict: payload.id ? 'id' : 'cod_mec' }).select().limit(1);
+        if (error) throw error;
+        if (data && data[0]) Object.assign(payload, data[0]);
       }
-
-      if (error) throw error;
-
-      const salvo = data || { ...(existente || {}), ...payload };
-      upsertCacheLocal(salvo);
-
-      if (typeof registrarLog === 'function') {
-        registrarLog(`${modo === 'novo' ? 'Cadastrou' : 'Alterou'} escola: ${escolaNome(salvo)}`);
-      }
-
+      upsertCacheLocal(payload);
+      if (typeof registrarLog === 'function') registrarLog(`${existente ? 'Alterou' : 'Cadastrou'} escola: ${payload.nome_escola || payload.nome}`);
       fecharModal();
-      await renderizarLista();
-      if (typeof window.carregarDadosDashboardReal === 'function') {
-        window.carregarDadosDashboardReal();
-      }
-      alert(modo === 'novo' ? 'Escola cadastrada com sucesso.' : 'Escola alterada com sucesso.');
+      renderizarLista();
+      if (typeof window.carregarDadosDashboardReal === 'function') window.carregarDadosDashboardReal();
     } catch (e) {
       console.error('[SIGEE Escolas] Falha ao salvar escola:', e);
-      alert(`Não foi possível salvar a escola: ${e?.message || e}`);
+      alert('Não foi possível salvar a escola. Verifique o console.');
     }
   }
   function fecharModal() { const m = document.getElementById('modal-cadastro-escola'); if (m) m.classList.add('hidden'); }
@@ -545,7 +432,9 @@
 
   function aplicarModulo() {
     observarCamposPesquisaEscola();
-    aplicarVisibilidadeBotaoNovaEscola();
+    document.querySelectorAll('button[onclick*="abrirModalNovaEscola"], .btn-nova-escola').forEach(btn => {
+      btn.classList.toggle('hidden', !podeCadastrar());
+    });
     window.renderizarListaEscolasBufferMemoria = renderizarLista;
     window.filtrarPorBusca = filtrar;
     window.mudarPaginaEscola = mudarPagina;
@@ -558,13 +447,13 @@
     window.abrirFormularioNovaSolicitacao = abrirFormularioNovaSolicitacaoSIGEE;
     window.handleSelecaoInstituicaoFluxoAutomatico = handleSelecaoInstituicaoSIGEE;
   }
-  document.addEventListener('click', event => {
+  document.addEventListener('click', function(event) {
     const btn = event.target.closest('.btn-alterar-escola-sigee[data-escola-id]');
     if (!btn) return;
     event.preventDefault();
-    event.stopPropagation();
+    event.stopImmediatePropagation();
     abrirEditarEscola(btn.dataset.escolaId);
-  });
+  }, true);
 
   window.SIGEE_Escolas = {
     renderizar: renderizarLista,
