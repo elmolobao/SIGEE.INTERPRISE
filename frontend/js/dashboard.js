@@ -438,6 +438,9 @@
   let indicadoresTecnicosEsperados=null;
   let protegendoIndicadoresTecnicos=false;
   let observadorIndicadoresTecnicos=null;
+  let filtroEstavelTimer=null;
+  let ultimoFiltroConfirmado=null;
+  let filtroInicialConfirmado=false;
 
   const NOMES_OFICIAIS_NTE = Object.freeze({
     1:'Irecê',2:'Bom Jesus da Lapa',3:'Seabra',4:'Serrinha',5:'Itabuna',
@@ -555,9 +558,63 @@
   const vencido=p=>ativos(p)&&limite(p)!=null&&dias(entradaEtapa(p))>limite(p);
   const pertoVencer=p=>ativos(p)&&limite(p)!=null&&dias(entradaEtapa(p))>=Math.max(0,limite(p)-2)&&!vencido(p);
 
+  function filtroDashboardAtual(){
+    const seletor=document.getElementById('filtro-dashboard-nte');
+    const valorDOM=txt(seletor?.value||'');
+    const valorMemoria=txt(window.filtroDashboardNteAtualSIGEE||'');
+
+    if(valorDOM && !['', 'UNDEFINED', 'NULL'].includes(norm(valorDOM))) return valorDOM;
+    if(valorMemoria) return valorMemoria;
+    return 'TODOS';
+  }
+
+  function filtroTerritorialPronto(){
+    const seletor=document.getElementById('filtro-dashboard-nte');
+    if(!seletor)return false;
+
+    const opcoes=Array.from(seletor.options||[]);
+    if(!opcoes.length)return false;
+
+    /*
+     * Para perfis globais, o filtro autoritativo deve possuir "Todos"
+     * e os NTEs carregados. Para perfis vinculados, basta existir valor.
+     */
+    const temTodos=opcoes.some(o=>['TODOS','GLOBAL'].includes(norm(o.value)));
+    const quantidadeNtes=opcoes.filter(o=>/\d{1,2}/.test(txt(o.value))).length;
+    const usuarioGlobal=['MASTER','SEC'].some(x=>norm(window.usuarioLogado?.perfil).includes(x));
+
+    if(usuarioGlobal && (!temTodos || quantidadeNtes<20))return false;
+    return !!filtroDashboardAtual();
+  }
+
+  function aguardarFiltroEstavel(callback,tentativa=0){
+    clearTimeout(filtroEstavelTimer);
+
+    if(!filtroTerritorialPronto()){
+      if(tentativa<40){
+        filtroEstavelTimer=setTimeout(()=>aguardarFiltroEstavel(callback,tentativa+1),100);
+      }else{
+        callback();
+      }
+      return;
+    }
+
+    const valor=filtroDashboardAtual();
+    filtroEstavelTimer=setTimeout(()=>{
+      const confirmado=filtroDashboardAtual();
+      if(confirmado!==valor && tentativa<40){
+        aguardarFiltroEstavel(callback,tentativa+1);
+        return;
+      }
+      ultimoFiltroConfirmado=confirmado;
+      filtroInicialConfirmado=true;
+      callback();
+    },180);
+  }
+
   function processosBase(){
     const arr=Array.isArray(window.processosDB)?window.processosDB:[];
-    const filtro=document.getElementById('filtro-dashboard-nte')?.value;
+    const filtro=ultimoFiltroConfirmado||filtroDashboardAtual();
     if(!filtro||['TODOS','GLOBAL'].includes(norm(filtro)))return arr.slice();
     const alvo=Number(txt(filtro).match(/\d{1,2}/)?.[0]||0);
     return alvo?arr.filter(p=>Number(txt(p.nte||p.nte_nome||p.grupo).match(/\d{1,2}/)?.[0]||0)===alvo):arr.slice();
@@ -868,7 +925,7 @@
     box.innerHTML=alertas.map(a=>`<div class="${a.tipo}"><b>${a.icone}</b><span>${a.texto}</span></div>`).join('');
   }
 
-  function atualizar(){
+  function atualizarAgora(){
     garantirEstrutura();
     const root=document.getElementById('sigee-cig');
     if(!root)return;
@@ -890,7 +947,7 @@
     const assinatura=[
       lista.length,
       lista.reduce((s,x)=>s+Number(x?.id||0),0),
-      document.getElementById('filtro-dashboard-nte')?.value||'TODOS',
+      ultimoFiltroConfirmado||filtroDashboardAtual(),
       document.getElementById('filtro-dashboard-periodo')?.value||'ACUMULADO',
       document.getElementById('dashboard-data-inicial')?.value||'',
       document.getElementById('dashboard-data-final')?.value||''
@@ -935,10 +992,14 @@
     cigJaRenderizado=true;
   }
 
+  function atualizar(){
+    aguardarFiltroEstavel(atualizarAgora);
+  }
+
   let timer=null;
   function agendar(){
     clearTimeout(timer);
-    timer=setTimeout(atualizar,80);
+    timer=setTimeout(atualizar,120);
   }
 
   const antigo=window.carregarDadosDashboardReal;
@@ -949,10 +1010,45 @@
   };
 
   document.addEventListener('change',e=>{
-    if(['filtro-dashboard-nte','filtro-dashboard-periodo','dashboard-data-inicial','dashboard-data-final'].includes(e.target?.id))agendar();
-  });
-  document.addEventListener('DOMContentLoaded',agendar);
-  window.addEventListener('load',()=>setTimeout(agendar,500));
+    const id=e.target?.id;
+    if(id==='filtro-dashboard-nte'){
+      ultimoFiltroConfirmado=null;
+      filtroInicialConfirmado=false;
+      ultimaAssinaturaDados='';
+      metricasCache=null;
+      aguardarFiltroEstavel(atualizarAgora);
+      return;
+    }
+    if(['filtro-dashboard-periodo','dashboard-data-inicial','dashboard-data-final'].includes(id)){
+      ultimaAssinaturaDados='';
+      metricasCache=null;
+      agendar();
+    }
+  },true);
+  function observarFiltroTerritorial(){
+    const seletor=document.getElementById('filtro-dashboard-nte');
+    if(!seletor){
+      setTimeout(observarFiltroTerritorial,120);
+      return;
+    }
+    if(seletor.dataset.cigFiltroObservado==='1')return;
+    seletor.dataset.cigFiltroObservado='1';
+
+    const obs=new MutationObserver(()=>{
+      const atual=filtroDashboardAtual();
+      if(!filtroInicialConfirmado || atual!==ultimoFiltroConfirmado){
+        ultimoFiltroConfirmado=null;
+        filtroInicialConfirmado=false;
+        ultimaAssinaturaDados='';
+        metricasCache=null;
+        aguardarFiltroEstavel(atualizarAgora);
+      }
+    });
+    obs.observe(seletor,{childList:true,subtree:true,attributes:true,attributeFilter:['value']});
+  }
+
+  document.addEventListener('DOMContentLoaded',()=>{observarFiltroTerritorial();agendar();});
+  window.addEventListener('load',()=>{observarFiltroTerritorial();setTimeout(agendar,500);});
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)agendar()});
   setInterval(()=>{
     const aba=document.getElementById('aba-painel');
@@ -980,6 +1076,6 @@
   window.addEventListener('sigee:processos-atualizados',verificarMudancaDados);
 
   window.atualizarCentroInteligenciaSIGEE=atualizar;
-  console.info('[SIGEE] Centro de Inteligência Gerencial 2.4.1C carregado.');
+  console.info('[SIGEE] Centro de Inteligência Gerencial 2.4.1D carregado.');
 })();
 
