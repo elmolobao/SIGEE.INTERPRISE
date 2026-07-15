@@ -25,3 +25,25 @@
   color: #fff !important;
   border-color: rgba(56,189,248,.4) !important;
 }
+
+
+/* SIGEE Enterprise 3.2.8 — gráficos executivos nativos, sem biblioteca externa */
+.sala-v2-graficos{display:grid;grid-template-columns:1.35fr .65fr;gap:16px;margin-top:18px}
+.sala-grafico-evolucao,.sala-grafico-territorial{grid-column:span 1}
+.sala-chart-bars{display:flex;flex-direction:column;gap:9px}
+.sala-bar-row{display:grid;grid-template-columns:132px minmax(90px,1fr) 38px;align-items:center;gap:10px}
+.sala-bar-row>span{font-size:10px;color:#b8d0e3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sala-bar-row>div{height:12px;border-radius:999px;background:rgba(255,255,255,.07);overflow:hidden}
+.sala-bar-row i{display:block;height:100%;min-width:3px;border-radius:999px;box-shadow:0 0 12px currentColor;transition:width .45s ease}
+.sala-bar-row strong{font-size:12px;color:#fff;text-align:right}
+.sala-chart-donut-wrap{display:flex;align-items:center;justify-content:center;gap:24px;min-height:220px}
+.sala-donut{width:164px;height:164px;border-radius:50%;display:grid;place-items:center;box-shadow:0 0 30px rgba(34,211,238,.15)}
+.sala-donut>div{width:106px;height:106px;border-radius:50%;background:#0a1b30;display:grid;place-content:center;text-align:center;border:1px solid rgba(103,232,249,.15)}
+.sala-donut strong{font-size:28px;color:#fff}.sala-donut span{font-size:9px;color:#91abc3;text-transform:uppercase;letter-spacing:.08em}
+.sala-donut-legend{display:flex;flex-direction:column;gap:10px}.sala-donut-legend p{display:grid;grid-template-columns:10px 1fr auto;align-items:center;gap:7px;margin:0;color:#b8d0e3;font-size:10px}.sala-donut-legend i{width:9px;height:9px;border-radius:50%}.sala-donut-legend b{color:#fff}
+.sala-chart-line{width:100%;min-height:250px}.sala-chart-line svg{display:block;width:100%;height:250px;overflow:visible}.sala-chart-line text{fill:#8faabe;font-size:10px;text-transform:uppercase}
+.sala-chart-territorial{display:flex;flex-direction:column;gap:8px}.sala-chart-territorial button{display:grid;grid-template-columns:58px minmax(80px,1fr) 42px 52px;align-items:center;gap:9px;padding:7px 9px;border:1px solid rgba(255,255,255,.06)!important;background:rgba(4,18,34,.55)!important;color:#fff!important;border-radius:10px!important;box-shadow:none!important;cursor:pointer}.sala-chart-territorial button:hover{border-color:rgba(103,232,249,.35)!important}.sala-chart-territorial span{font-size:10px;font-weight:900}.sala-chart-territorial div{height:9px;background:rgba(255,255,255,.07);border-radius:999px;overflow:hidden}.sala-chart-territorial i{display:block;height:100%;border-radius:999px;background:#ef4444}.sala-chart-territorial i.excelente{background:#10b981}.sala-chart-territorial i.bom{background:#3b82f6}.sala-chart-territorial i.atencao{background:#eab308}.sala-chart-territorial i.critico{background:#f97316}.sala-chart-territorial strong{font-size:11px;text-align:right}.sala-chart-territorial small{font-size:9px;color:#8faabe;text-align:right}
+#aba-sala-situacao:fullscreen{overflow:auto;background:#06111f;padding:24px}
+#aba-sala-situacao:fullscreen .sigee-sala-topo{position:sticky;top:0;z-index:5}
+@media(max-width:1050px){.sala-v2-graficos{grid-template-columns:1fr}.sala-grafico-evolucao,.sala-grafico-territorial{grid-column:auto}}
+@media(max-width:640px){.sala-chart-donut-wrap{flex-direction:column}.sala-bar-row{grid-template-columns:95px minmax(70px,1fr) 30px}.sala-chart-territorial button{grid-template-columns:50px 1fr 38px}.sala-chart-territorial small{display:none}}
