@@ -764,7 +764,7 @@
       valoresAutoritativos={
         'dash-tec-media-pedidos-dia':abertos.length.toLocaleString('pt-BR'),
         'dash-tec-media-pasta-dia':primeiro.size.toLocaleString('pt-BR'),
-        'dash-tec-media-arquivo-tempo':tempos.length?(media<0.0417?'Mesmo dia':media<1?`${Math.max(1,Math.round(media*24))} h`:`${media.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})} ${Math.abs(media-1)<.05?'dia':'dias'}`):'Sem dados históricos'
+        'dash-tec-media-arquivo-tempo':tempos.length?`${media.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})} ${Math.abs(media-1)<.05?'dia':'dias'}`:'Sem dados históricos'
       };
       Object.entries(valoresAutoritativos).forEach(([id,v])=>set(id,v));
       instalarProtecao();
