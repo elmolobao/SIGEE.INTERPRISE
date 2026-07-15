@@ -2,7 +2,7 @@
 (function () {
   'use strict';
 
-  var VERSION = '3.2.2';
+  var VERSION = '3.2.5';
   var REFRESH_MS = 60000;
   var filtroNte = 'GLOBAL';
   var timer = null;
@@ -138,92 +138,49 @@
   function mostrarSala() {
     var alvo = document.getElementById('aba-sala-situacao');
     if (!alvo) return false;
-    document.body.classList.add('sigee-sala-aberta');
-    document.querySelectorAll('main > section[id^="aba-"]').forEach(function(sec){
-      if (sec !== alvo) sec.classList.add('hidden');
-    });
     alvo.classList.remove('hidden');
-    alvo.classList.add('sigee-sala-ativa');
-    alvo.style.display = 'block';
-    alvo.style.visibility = 'visible';
-    alvo.style.opacity = '1';
     render();
-    setTimeout(render, 100);
-    setTimeout(render, 600);
+    setTimeout(render, 150);
     return true;
   }
 
   window.abrirSalaSituacaoSIGEE = function(event) {
     if (event && typeof event.preventDefault === 'function') event.preventDefault();
     try {
-      if (typeof window.navegar === 'function') window.navegar('sala-situacao');
-    } catch (e) { console.warn('[SIGEE Sala] Navegação geral não confirmou a abertura.', e); }
+      if (typeof window.navegar === 'function') {
+        window.navegar('sala-situacao');
+      } else {
+        document.querySelectorAll('main > section[id^="aba-"]').forEach(function(sec){
+          sec.classList.add('hidden');
+        });
+      }
+    } catch (e) {
+      console.warn('[SIGEE Sala] Falha na navegação geral.', e);
+    }
     mostrarSala();
-    setTimeout(mostrarSala, 80);
-    setTimeout(mostrarSala, 350);
     return false;
   };
 
-  function fecharSala() {
-    var sec = document.getElementById('aba-sala-situacao');
-    document.body.classList.remove('sigee-sala-aberta');
-    if (!sec) return;
-    sec.classList.remove('sigee-sala-ativa');
-    sec.classList.add('hidden');
-    sec.style.removeProperty('display');
-    sec.style.removeProperty('visibility');
-    sec.style.removeProperty('opacity');
-    sec.style.removeProperty('min-height');
-  }
-
-  function ligarNavegacao() {
-    var antiga=window.navegar;
-    if(typeof antiga==='function'&&!antiga.__sala323){
-      var nova=function(destino){
-        if(destino!=='sala-situacao') fecharSala();
-        var r=antiga.apply(this,arguments);
-        if(destino==='sala-situacao'){
-          setTimeout(mostrarSala,20);
-          setTimeout(mostrarSala,250);
-        }
-        return r;
-      };
-      nova.__sala323=true; window.navegar=nova;
-      try { navegar=nova; } catch(e) {}
-    }
-  }
   function init() {
-    ligarNavegacao();
-    if(!garantirEstrutura()) { if(retries++<20) setTimeout(init,250); return; }
+    if(!garantirEstrutura()) {
+      if(retries++ < 20) setTimeout(init, 250);
+      return;
+    }
+
     var menu = document.getElementById('menu-sala-situacao');
-    if (menu && !menu.dataset.sala324) {
-      menu.dataset.sala324 = '1';
-      menu.addEventListener('click', function(ev){ window.abrirSalaSituacaoSIGEE(ev); }, true);
+    if (menu && !menu.dataset.sala325) {
+      menu.dataset.sala325 = '1';
+      menu.addEventListener('click', function(){
+        setTimeout(render, 100);
+      });
     }
 
-    if (!document.documentElement.dataset.sala324Nav) {
-      document.documentElement.dataset.sala324Nav = '1';
-      document.addEventListener('click', function(ev) {
-        var botao = ev.target && ev.target.closest ? ev.target.closest('nav button') : null;
-        if (botao && botao.id !== 'menu-sala-situacao') fecharSala();
-      }, true);
-
-      var main = document.querySelector('main');
-      if (main && window.MutationObserver) {
-        var obs = new MutationObserver(function() {
-          var sala = document.getElementById('aba-sala-situacao');
-          if (!sala) return;
-          var outraVisivel = Array.prototype.some.call(
-            document.querySelectorAll('main > section[id^="aba-"]'),
-            function(sec) { return sec !== sala && !sec.classList.contains('hidden'); }
-          );
-          if (outraVisivel) fecharSala();
-        });
-        obs.observe(main, {subtree:true, attributes:true, attributeFilter:['class']});
-      }
-    }
     render();
-    clearInterval(timer); timer=setInterval(function(){var s=document.getElementById('aba-sala-situacao');if(s&&!s.classList.contains('hidden'))render();},REFRESH_MS);
+    clearInterval(timer);
+    timer = setInterval(function(){
+      var sala = document.getElementById('aba-sala-situacao');
+      if (sala && !sala.classList.contains('hidden')) render();
+    }, REFRESH_MS);
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
   window.SIGEE_SALA_SITUACAO={render:render,version:VERSION};
