@@ -764,3 +764,82 @@ button[id^="btn-fase-"] span:not(.status-ico){
         overflow-y:visible !important;
     }
 }
+
+
+/* =====================================================================
+   SIGEE Enterprise — Sprint 2.5
+   Homologação visual final do Workflow
+   ===================================================================== */
+.sigee-workflow-action{
+    display:inline-flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    gap:6px !important;
+    min-height:34px !important;
+    padding:7px 11px !important;
+    border:1px solid rgba(255,255,255,.28) !important;
+    border-radius:10px !important;
+    color:#fff !important;
+    font-size:11px !important;
+    font-weight:900 !important;
+    line-height:1.15 !important;
+    text-align:center !important;
+    cursor:pointer !important;
+    box-shadow:0 8px 20px rgba(0,0,0,.26) !important;
+    opacity:1 !important;
+    visibility:visible !important;
+}
+.sigee-workflow-action:hover{transform:translateY(-1px) !important;filter:brightness(1.12) !important;}
+.sigee-workflow-action:focus-visible{outline:3px solid rgba(255,255,255,.86) !important;outline-offset:2px !important;}
+.sigee-workflow-action:disabled,
+.sigee-acoes33 button:disabled{
+    cursor:not-allowed !important;
+    opacity:.58 !important;
+    filter:grayscale(.25) !important;
+    transform:none !important;
+    box-shadow:none !important;
+}
+.sigee-workflow-action--digitacao{background:linear-gradient(135deg,#c2410c,#f97316) !important;}
+.sigee-workflow-action--conferencia{background:linear-gradient(135deg,#047857,#10b981) !important;}
+.sigee-workflow-action--deferido{background:linear-gradient(135deg,#166534,#16a34a) !important;}
+.sigee-workflow-action--retirada{background:linear-gradient(135deg,#334155,#475569) !important;}
+
+.sigee-acoes33{
+    display:flex !important;
+    flex-wrap:wrap !important;
+    justify-content:flex-end !important;
+    align-items:center !important;
+    gap:10px !important;
+    margin-top:20px !important;
+    padding-top:16px !important;
+    border-top:1px solid rgba(148,163,184,.24) !important;
+}
+.sigee-acoes33 .btn33{
+    display:inline-flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    min-height:42px !important;
+    padding:10px 16px !important;
+    border:1px solid rgba(255,255,255,.25) !important;
+    border-radius:11px !important;
+    color:#fff !important;
+    font-size:12px !important;
+    font-weight:900 !important;
+    opacity:1 !important;
+    visibility:visible !important;
+}
+.sigee-acoes33 .btn33-verde{background:linear-gradient(135deg,#047857,#16a34a) !important;}
+.sigee-acoes33 .btn33-amarelo{background:linear-gradient(135deg,#b45309,#f59e0b) !important;color:#fff !important;}
+.sigee-acoes33 .btn33-roxo{background:linear-gradient(135deg,#6d28d9,#8b5cf6) !important;}
+.sigee-acoes33 .btn33-vermelho{background:linear-gradient(135deg,#b91c1c,#e11d48) !important;}
+.sigee-acoes33 .btn33-cinza{background:linear-gradient(135deg,#334155,#475569) !important;}
+.sigee-aviso33{
+    margin:14px 0 !important;
+    padding:12px 14px !important;
+    border:1px solid rgba(245,158,11,.48) !important;
+    border-left:4px solid #f59e0b !important;
+    border-radius:10px !important;
+    background:rgba(120,53,15,.30) !important;
+    color:#fef3c7 !important;
+    font-weight:800 !important;
+}
