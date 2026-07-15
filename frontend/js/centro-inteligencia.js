@@ -172,7 +172,34 @@
     list.querySelectorAll('[data-rule]').forEach((b,i)=>b.addEventListener('click',()=>showDetail(rules[i])));
   }
 
-  function boot(){ ensureUI(); setTimeout(()=>{ if(canAccess()) render(); },1500); }
+  function closeIntelligence() {
+    const section = document.getElementById('aba-inteligencia');
+    if (section) {
+      section.classList.add('hidden');
+      section.style.removeProperty('display');
+      section.style.removeProperty('visibility');
+      section.style.removeProperty('opacity');
+    }
+    document.getElementById('intel-detail')?.classList.add('hidden');
+    document.getElementById('menu-inteligencia')?.classList.remove('sigee-menu-ativo');
+  }
+
+  function installSafeExit() {
+    const nav = document.querySelector('.sigee-sidebar-nav');
+    if (!nav || nav.dataset.intelSafeExit === '1') return;
+    nav.dataset.intelSafeExit = '1';
+    nav.addEventListener('click', event => {
+      const button = event.target.closest('button');
+      if (!button || button.id === 'menu-inteligencia') return;
+      closeIntelligence();
+    }, true);
+  }
+
+  function boot(){
+    ensureUI();
+    installSafeExit();
+    setTimeout(()=>{ if(canAccess()) render(); },1500);
+  }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
-  window.SIGEE_CENTRO_INTELIGENCIA={open,render,diagnostics};
+  window.SIGEE_CENTRO_INTELIGENCIA={open,close:closeIntelligence,render,diagnostics};
 })();
