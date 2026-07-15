@@ -578,3 +578,164 @@
   }
 }
 
+
+/* =====================================================================
+   SIGEE Sprint 2.4.5C — Correção de contraste e interação
+   Não move, recria ou sobrepõe campos do Workflow.
+   ===================================================================== */
+
+/* Garante clique e interação do select */
+.sigee-responsavel-card,
+.sigee-responsavel-card *,
+.sigee-wam-selection,
+.sigee-wam-responsible,
+.sigee-wfe-responsible{
+  pointer-events:auto!important;
+}
+
+.sigee-responsavel-card select,
+.sigee-wam-selection select,
+.sigee-wam-responsible select,
+.sigee-wfe-responsible select{
+  position:relative!important;
+  z-index:5!important;
+  pointer-events:auto!important;
+  cursor:pointer!important;
+  opacity:1!important;
+  visibility:visible!important;
+}
+
+/* Fundo claro definitivo */
+.sigee-responsavel-card,
+.sigee-wam-selection.sigee-responsavel-card,
+.sigee-wam-responsible.sigee-responsavel-card,
+.sigee-wfe-responsible.sigee-responsavel-card{
+  background:#ffffff!important;
+  background-image:none!important;
+  color:#172033!important;
+  border:2px solid #ff7a00!important;
+}
+
+/* Corrige qualquer herança de texto branco/amarelo */
+.sigee-responsavel-card h1,
+.sigee-responsavel-card h2,
+.sigee-responsavel-card h3,
+.sigee-responsavel-card h4,
+.sigee-responsavel-card strong,
+.sigee-responsavel-card .sigee-wam-title,
+.sigee-responsavel-card .sigee-wfe-title,
+.sigee-responsavel-card [class*="title"],
+.sigee-responsavel-card [class*="text-white"],
+.sigee-responsavel-card [class*="text-yellow"],
+.sigee-responsavel-card [class*="text-amber"]{
+  color:#0b4f8a!important;
+  opacity:1!important;
+  text-shadow:none!important;
+}
+
+.sigee-responsavel-card p,
+.sigee-responsavel-card small,
+.sigee-responsavel-card span:not(.sigee-responsavel-status):not(.sigee-responsavel-status *),
+.sigee-responsavel-card [class*="subtitle"],
+.sigee-responsavel-card [class*="description"]{
+  color:#5f7186!important;
+  opacity:1!important;
+  text-shadow:none!important;
+}
+
+/* Título específico "SELEÇÃO OBRIGATÓRIA" */
+.sigee-responsavel-card .sigee-selecao-obrigatoria-titulo{
+  display:block!important;
+  color:#0b4f8a!important;
+  font-size:14px!important;
+  font-weight:950!important;
+  text-transform:uppercase!important;
+  letter-spacing:.04em!important;
+  margin-bottom:4px!important;
+}
+
+/* Subtítulo específico */
+.sigee-responsavel-card .sigee-selecao-obrigatoria-subtitulo{
+  display:block!important;
+  color:#66758a!important;
+  font-size:11px!important;
+  font-weight:750!important;
+}
+
+/* Label do campo */
+.sigee-responsavel-card label,
+.sigee-wam-selection.sigee-responsavel-card label,
+.sigee-wam-responsible.sigee-responsavel-card label,
+.sigee-wfe-responsible.sigee-responsavel-card label{
+  color:#34465b!important;
+  opacity:1!important;
+  font-weight:900!important;
+  text-shadow:none!important;
+}
+
+/* Mensagem de validação */
+.sigee-responsavel-status{
+  color:#138a3d!important;
+  opacity:1!important;
+  font-weight:900!important;
+  text-shadow:none!important;
+}
+
+.sigee-responsavel-status.pendente{
+  color:#9a6700!important;
+  background:#fff8df!important;
+  border:1px solid #efd48b!important;
+  border-radius:9px!important;
+  padding:9px 11px!important;
+}
+
+/* Select legível */
+.sigee-responsavel-card select{
+  background:#fff!important;
+  color:#172033!important;
+  border:2px solid #2d6df6!important;
+  font-weight:900!important;
+  -webkit-text-fill-color:#172033!important;
+}
+
+/* Remove pseudo-camadas que possam cobrir o select */
+.sigee-responsavel-card::before,
+.sigee-responsavel-card::after{
+  pointer-events:none!important;
+}
+
+/* Tarefa obrigatória: contraste forte */
+.sigee-tarefa-card,
+.sigee-wam-task.sigee-tarefa-card,
+.sigee-wfe-action.sigee-tarefa-card{
+  background:#fff!important;
+  background-image:none!important;
+}
+
+.sigee-tarefa-card h1,
+.sigee-tarefa-card h2,
+.sigee-tarefa-card h3,
+.sigee-tarefa-card strong,
+.sigee-tarefa-card [class*="text-white"]{
+  color:#082f5b!important;
+  opacity:1!important;
+  text-shadow:none!important;
+}
+
+.sigee-tarefa-card p,
+.sigee-tarefa-card span,
+.sigee-tarefa-card small{
+  color:#5f7186!important;
+  opacity:1!important;
+  text-shadow:none!important;
+}
+
+.sigee-tarefa-confirmacao{
+  color:#24405e!important;
+  background:#f3f8ff!important;
+}
+
+.sigee-tarefa-confirmacao *{
+  color:#24405e!important;
+}
+
