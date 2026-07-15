@@ -25,7 +25,7 @@
     <link rel="stylesheet" href="css/sigee_footer_institucional.css">
     <link rel="stylesheet" href="css/prontuario-processo.css?v=2.3.1">
     <link rel="stylesheet" href="css/sigee-acabamento-visual.css?v=2.3.4">
-    <link rel="stylesheet" href="css/sala-situacao.css?v=3.2.4">
+    <link rel="stylesheet" href="css/sala-situacao.css?v=3.2.7">
     <link rel="stylesheet" href="css/administracao.css?v=2.4.4A">
     <link rel="stylesheet" href="css/workflow-design-system.css?v=2.4.5C">
     <link rel="stylesheet" href="css/dashboard-executivo.css?v=3.0.1">
@@ -76,7 +76,7 @@
                 <button onclick="navegar('escolas')" class="sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer">🏫 Catálogo de Escolas</button>
                 <button id="menu-usuarios" onclick="navegar('usuarios')" class="hidden sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer">👥 Usuários</button>
                 <button id="menu-relatorios" onclick="navegar('painel')" class="sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer">📊 Relatórios</button>
-                <button id="menu-sala-situacao" onclick="return abrirSalaSituacaoSIGEE(event)" class="sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer">📡 Sala de Situação</button>
+                <button id="menu-sala-situacao" onclick="navegar('sala-situacao')" class="sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer">📡 Sala de Situação</button>
                 <button id="menu-logs" onclick="navegar('logs')" class="hidden sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer">⚙️ Configurações</button>
             </nav>
             <div class="p-4 border-t border-blue-900 sigee-sidebar-logout">
@@ -824,7 +824,7 @@
 <script src="js/app-core.js"></script>
 <script src="js/components/WorkflowActionModal.js"></script>
 <script src="js/municipios-territorios.js"></script>
-<script src="js/app.js?v=1.0.2.002"></script>
+<script src="js/app.js?v=3.2.7"></script>
 <script src="js/workflow/workflow-externo.js?v=1.0.2.008"></script>
 <script src="js/sigee_footer_institucional.js"></script>
 <script src="js/sigee_nova_solicitacao_autocomplete_fix.js"></script>
@@ -849,7 +849,7 @@ window.filtrarTabelaUsuariosSIGEE = function (termo) {
 <script src="js/prontuario-processo.js?v=2.3.1A"></script>
 <script src="js/sigee-acabamento-visual.js?v=2.3.4"></script>
     
-<script src="js/sala-situacao.js?v=3.2.4"></script>
+<script src="js/sala-situacao.js?v=3.2.7"></script>
 <script src="js/administracao-segura.js?v=2.4.4A"></script>
 <script src="js/diagnostico-seguro.js?v=2.4.4A"></script>
 <script src="js/workflow-design-system.js?v=2.4.5C"></script>
@@ -857,5 +857,12 @@ window.filtrarTabelaUsuariosSIGEE = function (termo) {
 <script src="js/escolas-authority.js?v=2.4.6D"></script>
     <script src="js/dashboard-executivo.js?v=3.0.1"></script>
     <script src="js/centro-inteligencia.js?v=3.1.2"></script>
+
+<script>
+/* Reinstala a autoridade de navegação após todos os módulos legados. */
+if (window.SIGEE_NAVIGATION && typeof window.SIGEE_NAVIGATION.install === 'function') {
+  window.SIGEE_NAVIGATION.install();
+}
+</script>
 </body>
 </html>
