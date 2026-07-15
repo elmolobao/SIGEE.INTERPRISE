@@ -47,3 +47,18 @@
 #aba-sala-situacao:fullscreen .sigee-sala-topo{position:sticky;top:0;z-index:5}
 @media(max-width:1050px){.sala-v2-graficos{grid-template-columns:1fr}.sala-grafico-evolucao,.sala-grafico-territorial{grid-column:auto}}
 @media(max-width:640px){.sala-chart-donut-wrap{flex-direction:column}.sala-bar-row{grid-template-columns:95px minmax(70px,1fr) 30px}.sala-chart-territorial button{grid-template-columns:50px 1fr 38px}.sala-chart-territorial small{display:none}}
+
+
+/* SIGEE 3.2.9 — Visão Territorial Inteligente */
+.sigee-sala-ntes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.sala-territorio-card{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid rgba(255,255,255,.09)!important;border-radius:13px;background:rgba(4,18,34,.68)!important;color:#fff!important;text-align:left;box-shadow:none!important;cursor:pointer}
+.sala-territorio-card:hover,.sala-territorio-card.ativo{transform:translateY(-2px);border-color:#67e8f9!important;box-shadow:0 0 0 2px rgba(103,232,249,.1)!important}
+.sala-territorio-topo{display:flex;justify-content:space-between;align-items:center}.sala-territorio-topo strong{font-size:12px}.sala-territorio-topo em{font-style:normal;font-size:22px;font-weight:900}
+.sala-territorio-card.excelente em{color:#34d399}.sala-territorio-card.bom em{color:#60a5fa}.sala-territorio-card.atencao em{color:#facc15}.sala-territorio-card.critico em{color:#fb923c}.sala-territorio-card.intervencao em{color:#f87171}
+.sala-territorio-status{min-height:24px;color:#a9c3d7;font-size:9px;font-weight:700}
+.sala-territorio-card dl{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin:0}.sala-territorio-card dl div{padding:6px;border-radius:8px;background:rgba(255,255,255,.045)}.sala-territorio-card dt{font-size:8px;color:#87a6bd}.sala-territorio-card dd{margin:2px 0 0;font-size:11px;font-weight:900;color:#fff}
+.sala-v2-nte em{display:block;margin-top:4px;font-style:normal;font-size:8px;color:#8faabe}
+.sala-ranking-tabs{display:grid!important;grid-template-columns:repeat(3,1fr)!important;gap:5px!important;padding:0!important;background:transparent!important}.sala-ranking-tabs button{padding:7px 5px;border:1px solid rgba(103,232,249,.16)!important;border-radius:8px;background:rgba(4,18,34,.6)!important;color:#8faabe!important;font-size:8px;font-weight:900;cursor:pointer}.sala-ranking-tabs button.ativo{background:rgba(14,116,144,.45)!important;color:#eaffff!important;border-color:#22d3ee!important}
+.sala-ranking-lista{display:flex;flex-direction:column;gap:8px}.sala-ranking-lista.hidden{display:none!important}
+@media(max-width:1200px){.sigee-sala-ntes{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:640px){.sigee-sala-ntes{grid-template-columns:1fr}}
