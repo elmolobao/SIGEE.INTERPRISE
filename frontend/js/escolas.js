@@ -1,5 +1,5 @@
 /* =====================================================================
-   SIGEE Enterprise — Sprint 2.4.7D — Módulo Oficial de Escolas
+   SIGEE Enterprise — Sprint 2.4.7E — Módulo Oficial de Escolas
    Módulo: Escolas
    Produção: catálogo paginado, filtro por NTE e autocomplete da Nova Solicitação.
    Substitui a lógica dependente de listas locais grandes e evita limite de 1000 registros.
@@ -511,10 +511,24 @@
     definir('escola-form-nome', escolaNome(e));
     preencherSelectNteEscola(e.nte_id || escolaNte(e));
     instalarVinculoNteMunicipio();
-    preencherSelectMunicipio(
-      Number(e.nte_id || extrairNteEscola(escolaNte(e)) || 0),
-      texto(e.municipio)
-    );
+
+    const municipioAtual = texto(e.municipio).toUpperCase();
+    const municipioEl = campo('escola-form-municipio');
+    const municipioAjuda = campo('escola-form-municipio-ajuda');
+
+    if (municipioEl) {
+      municipioEl.innerHTML = '';
+      const option = document.createElement('option');
+      option.value = municipioAtual;
+      option.textContent = municipioAtual || 'MUNICÍPIO NÃO INFORMADO';
+      municipioEl.appendChild(option);
+      municipioEl.value = municipioAtual;
+      municipioEl.disabled = true;
+    }
+
+    if (municipioAjuda) {
+      municipioAjuda.textContent = 'Município do cadastro original — campo bloqueado na alteração.';
+    }
 
     definir(
       'escola-form-dep',
@@ -528,8 +542,8 @@
       ['escola-form-mec','escola-form-nome','escola-form-dep'],
       podeEditarLimitado()
     );
-    const municipioEl = campo('escola-form-municipio');
-    if (municipioEl) municipioEl.disabled = podeEditarLimitado();
+    const municipioElPermissao = campo('escola-form-municipio');
+    if (municipioElPermissao) municipioElPermissao.disabled = true;
 
     const localSelect = campo('escola-form-local');
     const localOutro = campo('escola-form-local-outro');
