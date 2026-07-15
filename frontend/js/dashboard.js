@@ -520,8 +520,6 @@
       const boxTec=document.getElementById('dash-tec-top-escolas');if(boxTec)boxTec.innerHTML=escolas;
       const boxGer=document.getElementById('dash-ger-escola-demanda');if(boxGer)boxGer.innerHTML=escolas;
       set('dash-tec-media-entrega',`${r.mediaAtendimento.toLocaleString('pt-BR',{maximumFractionDigits:1})} dias`);
-      set('dash-tec-media-pedidos-dia',r.pedidosDia.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1}));
-      set('dash-tec-media-pasta-dia',r.pastasDia.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1}));
 
       kpi('ativos','Processos ativos','◉',r.ativos.toLocaleString('pt-BR'),'Em tramitação');
       kpi('media','Tempo médio','◷',`${r.mediaAtendimento.toLocaleString('pt-BR',{maximumFractionDigits:1})} dias`,'Processos concluídos');
@@ -569,3 +567,204 @@
   console.info('[SIGEE] Dashboard e CIG integrados ao Motor 2.4.3B.');
 })();
 
+
+/* =====================================================================
+   SIGEE Enterprise 3.2.14 — Indicadores Operacionais Autoritativos
+   - Pedidos Abertos: total de novas solicitações no período (não média)
+   - Arquivos Recebidos: total de execuções de Documento Recebido
+   - Tempo médio: abertura até o primeiro arquivo recebido
+   ===================================================================== */
+(function(){
+  'use strict';
+  if(window.__SIGEE_INDICADORES_OPERACIONAIS_3214__) return;
+  window.__SIGEE_INDICADORES_OPERACIONAIS_3214__=true;
+
+  const txt=v=>v==null?'':String(v).trim();
+  const norm=v=>txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/\s+/g,' ');
+  const data=v=>{
+    if(!v)return null;
+    const s=txt(v), br=s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+    const d=br?new Date(Number(br[3]),Number(br[2])-1,Number(br[1])):new Date(s);
+    return Number.isNaN(d.getTime())?null:d;
+  };
+  const nteId=o=>{
+    if(!o)return null;
+    const direto=o.nte_id??o.nteId;
+    if(direto!==null&&direto!==undefined&&txt(direto)!=='')return Number(direto)||null;
+    const m=txt(o.nte||o.nte_nome||o.grupo||o.territorio).match(/\d{1,2}/);
+    return m?Number(m[0]):null;
+  };
+  const cliente=()=>{try{return window.obterSupabaseSIGEE?.()||window.SIGEE_SUPABASE_CLIENT||null}catch(e){return null}};
+  const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v};
+
+  function alvoNte(){
+    const perfil=norm(window.usuarioLogado?.perfil);
+    const global=perfil.includes('MASTER')||perfil==='SEC'||perfil.includes('SECRETARIA');
+    if(!global)return nteId(window.usuarioLogado);
+    const v=txt(document.getElementById('filtro-dashboard-nte')?.value||'TODOS');
+    if(!v||['TODOS','GLOBAL'].includes(norm(v)))return null;
+    const m=v.match(/\d{1,2}/);return m?Number(m[0]):null;
+  }
+
+  function periodo(){
+    const tipo=document.getElementById('filtro-dashboard-periodo')?.value||'ACUMULADO';
+    const agora=new Date();agora.setHours(23,59,59,999);
+    let inicio=null,fim=null;
+    const inicioDia=d=>{d.setHours(0,0,0,0);return d};
+    if(tipo==='HOJE'){inicio=inicioDia(new Date());fim=agora}
+    else if(tipo==='ONTEM'){inicio=inicioDia(new Date(Date.now()-86400000));fim=new Date(inicio);fim.setHours(23,59,59,999)}
+    else if(tipo==='7_DIAS'){inicio=inicioDia(new Date(Date.now()-6*86400000));fim=agora}
+    else if(tipo==='30_DIAS'){inicio=inicioDia(new Date(Date.now()-29*86400000));fim=agora}
+    else if(tipo==='MES_ATUAL'){inicio=new Date(agora.getFullYear(),agora.getMonth(),1);fim=agora}
+    else if(tipo==='MES_ANTERIOR'){inicio=new Date(agora.getFullYear(),agora.getMonth()-1,1);fim=new Date(agora.getFullYear(),agora.getMonth(),0,23,59,59,999)}
+    else if(tipo==='ANO_ATUAL'){inicio=new Date(agora.getFullYear(),0,1);fim=agora}
+    else if(tipo==='PERSONALIZADO'){
+      const i=document.getElementById('dashboard-data-inicial')?.value;
+      const f=document.getElementById('dashboard-data-final')?.value;
+      if(i)inicio=new Date(i+'T00:00:00');if(f)fim=new Date(f+'T23:59:59.999');
+    }
+    return {tipo,inicio,fim};
+  }
+  function noPeriodo(d,p){if(p.tipo==='ACUMULADO')return true;if(!d)return false;return (!p.inicio||d>=p.inicio)&&(!p.fim||d<=p.fim)}
+
+  async function paginar(tabela){
+    const c=cliente();if(!c)return [];
+    let todos=[],ini=0;
+    while(true){
+      const {data:linhas,error}=await c.from(tabela).select('*').range(ini,ini+999);
+      if(error)throw error;
+      todos.push(...(linhas||[]));
+      if(!linhas||linhas.length<1000)break;
+      ini+=1000;if(ini>=100000)break;
+    }
+    return todos;
+  }
+
+  function garantirCardTempo(){
+    const base=document.getElementById('dash-tec-media-pasta-dia')?.closest('.bg-white');
+    if(!base||document.getElementById('dash-tec-media-arquivo-tempo'))return;
+    const card=document.createElement('div');
+    card.className='bg-white p-4 rounded-xl shadow-sm border-t-4 border-cyan-500 text-center';
+    card.innerHTML='<p class="text-[10px] text-gray-500 font-bold uppercase">Tempo Médio até Arquivo Recebido</p><p id="dash-tec-media-arquivo-tempo" class="text-xl font-bold mt-1">0 dia</p>';
+    base.insertAdjacentElement('afterend',card);
+  }
+
+  function rotulos(){
+    const pedidos=document.getElementById('dash-tec-media-pedidos-dia');
+    const recebidos=document.getElementById('dash-tec-media-pasta-dia');
+    if(pedidos)pedidos.previousElementSibling.textContent='Pedidos Abertos no Período';
+    if(recebidos)recebidos.previousElementSibling.textContent='Arquivos Recebidos no Período';
+    garantirCardTempo();
+  }
+
+  function eventoRecebimento(h){
+    const combinado=norm([h.acao,h.etapa,h.observacao,JSON.stringify(h.dados||{})].join(' '));
+    return combinado.includes('DOCUMENTO RECEBIDO')||combinado.includes('DOCUMENTO_RECEBIDO')||combinado.includes('ARQUIVO RECEBIDO');
+  }
+
+  function dataRecebimentoProcesso(x){
+    return data(
+      x.data_arquivo_recebido || x.arquivo_recebido_em || x.data_documento_recebido ||
+      x.documento_recebido_em || x.data_recebimento_arquivo || x.recebido_em ||
+      x.data_inicio_analise || x.analise_iniciada_em ||
+      (norm(x.etapa_atual||x.etapa||x.fase_atual)==='ANALISE' ? (x.data_etapa_atual||x.prazo_inicio) : null)
+    );
+  }
+  function processoJaRecebeuArquivo(x){
+    if(dataRecebimentoProcesso(x))return true;
+    const e=norm(x.etapa_atual||x.etapa||x.fase_atual||'');
+    const cod=norm(x.etapa_codigo||'');
+    const ciclo=['DES','RET','REU','CFD','PAS'].includes(cod)||[
+      'DESARQUIVAMENTO','REITERACAO','REITERACAO COM URGENCIA','REITERACAO URGENTE',
+      'CONFIRMACAO DOS DADOS DA BUSCA','CONFIRMAR DADOS DA BUSCA','PEDIDO DE ATAS SEM PASTA'
+    ].includes(e);
+    return !!e && !ciclo;
+  }
+
+  let executando=false;
+  let valoresAutoritativos={};
+  let observadorIndicadores=null;
+  let restaurando=false;
+  async function atualizar(){
+    if(executando)return;executando=true;
+    try{
+      rotulos();
+      const p=periodo(),alvo=alvoNte();
+      let processos=[],historico=[];
+      try{processos=await paginar('processos')}catch(e){console.warn('[SIGEE Indicadores] processos indisponíveis:',e)}
+      try{historico=await paginar('historico_processos')}catch(e){console.warn('[SIGEE Indicadores] histórico indisponível:',e)}
+      if(!processos.length&&Array.isArray(window.processosDB))processos=window.processosDB.slice();
+
+      const processosAlvo=alvo?processos.filter(x=>nteId(x)===alvo):processos;
+      const abertos=processosAlvo.filter(x=>noPeriodo(data(x.data_solicitacao||x.data_abertura||x.created_at||x.criado_em),p));
+
+      const procMap=new Map(processos.map(x=>[String(x.id),x]));
+      let eventos=historico.filter(eventoRecebimento).filter(h=>{
+        const proc=procMap.get(String(h.processo_id));
+        if(alvo&&nteId(proc||h)!==alvo)return false;
+        return noPeriodo(data(h.created_at||h.data),p);
+      });
+
+      /* Um recebimento por processo para medir solicitações atendidas. */
+      const primeiro=new Map();
+      eventos.sort((a,b)=>(data(a.created_at)||0)-(data(b.created_at)||0)).forEach(h=>{
+        const k=String(h.processo_id);if(!primeiro.has(k))primeiro.set(k,h);
+      });
+
+      /* Compatibilidade com processos antigos: campos explícitos ou etapa posterior ao recebimento. */
+      processosAlvo.forEach(x=>{
+        const d=dataRecebimentoProcesso(x);
+        const elegivelData=d&&noPeriodo(d,p);
+        const acumuladoSemData=p.tipo==='ACUMULADO'&&!d&&processoJaRecebeuArquivo(x);
+        if((elegivelData||acumuladoSemData)&&!primeiro.has(String(x.id))){
+          const h={processo_id:x.id,created_at:d?d.toISOString():null,nte:x.nte,dados:{evento:'DOCUMENTO_RECEBIDO_INFERIDO'}};
+          primeiro.set(String(x.id),h);eventos.push(h);
+        }
+      });
+
+      const tempos=[];
+      primeiro.forEach((h,id)=>{
+        const proc=procMap.get(String(id));
+        const abertura=data(proc&&(proc.data_solicitacao||proc.data_abertura||proc.created_at||proc.criado_em));
+        const receb=data(h.created_at||h.dados?.recebido_em);
+        if(abertura&&receb&&receb>=abertura)tempos.push((receb-abertura)/86400000);
+      });
+      const media=tempos.length?tempos.reduce((a,b)=>a+b,0)/tempos.length:0;
+
+      valoresAutoritativos={
+        'dash-tec-media-pedidos-dia':abertos.length.toLocaleString('pt-BR'),
+        'dash-tec-media-pasta-dia':primeiro.size.toLocaleString('pt-BR'),
+        'dash-tec-media-arquivo-tempo':`${media.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})} ${Math.abs(media-1)<.05?'dia':'dias'}`
+      };
+      Object.entries(valoresAutoritativos).forEach(([id,v])=>set(id,v));
+      instalarProtecao();
+    }finally{executando=false}
+  }
+
+  function instalarProtecao(){
+    if(observadorIndicadores)return;
+    const elementos=['dash-tec-media-pedidos-dia','dash-tec-media-pasta-dia','dash-tec-media-arquivo-tempo']
+      .map(id=>document.getElementById(id)).filter(Boolean);
+    if(!elementos.length)return;
+    observadorIndicadores=new MutationObserver(()=>{
+      if(restaurando||!Object.keys(valoresAutoritativos).length)return;
+      const divergente=Object.entries(valoresAutoritativos).some(([id,v])=>document.getElementById(id)?.textContent?.trim()!==String(v));
+      if(!divergente)return;
+      restaurando=true;
+      queueMicrotask(()=>{
+        Object.entries(valoresAutoritativos).forEach(([id,v])=>set(id,v));
+        restaurando=false;
+      });
+    });
+    elementos.forEach(el=>observadorIndicadores.observe(el,{childList:true,characterData:true,subtree:true}));
+  }
+
+  function agendar(){setTimeout(atualizar,350)}
+  document.addEventListener('change',e=>{if(['filtro-dashboard-nte','filtro-dashboard-periodo','dashboard-data-inicial','dashboard-data-final'].includes(e.target?.id))agendar()},true);
+  window.addEventListener('sigee:arquivo-recebido',agendar);
+  window.addEventListener('sigee:analytics-dados-alterados',agendar);
+  window.addEventListener('load',()=>setTimeout(atualizar,900));
+  const nav=window.navegar;
+  window.navegar=function(aba){const r=typeof nav==='function'?nav.apply(this,arguments):undefined;if(aba==='painel')agendar();return r};
+  setInterval(()=>{if(!document.getElementById('aba-painel')?.classList.contains('hidden'))atualizar()},15000);
+})();
