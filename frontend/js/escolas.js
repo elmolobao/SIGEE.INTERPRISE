@@ -1,5 +1,5 @@
 /* =====================================================================
-   SIGEE Enterprise — Sprint 2.4.6H — Módulo Oficial de Escolas
+   SIGEE Enterprise — Sprint 2.4.7C — Módulo Oficial de Escolas
    Módulo: Escolas
    Produção: catálogo paginado, filtro por NTE e autocomplete da Nova Solicitação.
    Substitui a lógica dependente de listas locais grandes e evita limite de 1000 registros.
@@ -96,6 +96,89 @@
     select.disabled = true;
     if (ajuda) ajuda.textContent = 'NTE vinculado ao perfil do usuário.';
   }
+
+  async function buscarMunicipiosDoNte(nteId) {
+    const n = Number(nteId || 0);
+    if (!n) return [];
+
+    const locais = (Array.isArray(window.escolasDB) ? window.escolasDB : [])
+      .filter(e => Number(e.nte_id || extrairNteEscola(e.nte)) === n)
+      .map(e => texto(e.municipio))
+      .filter(Boolean);
+
+    if (!payload.situacao_funcional) return alert('Selecione a Situação Funcional.');
+    if (!payload.status_acervo) return alert('Selecione o Status do Acervo.');
+
+    const client = supabaseClient();
+    if (client) {
+      try {
+        const { data, error } = await client
+          .from(tabelaEscolas())
+          .select('municipio')
+          .eq('nte_id', n)
+          .not('municipio', 'is', null)
+          .order('municipio', { ascending: true })
+          .limit(500);
+        if (!error && Array.isArray(data)) {
+          data.forEach(item => {
+            const municipio = texto(item.municipio);
+            if (municipio) locais.push(municipio);
+          });
+        }
+      } catch (err) {
+        console.warn('[SIGEE Escolas] Não foi possível carregar municípios do NTE:', err);
+      }
+    }
+
+    return [...new Map(locais.map(nome => [normalizar(nome), nome.toUpperCase()])).values()]
+      .sort((a,b) => a.localeCompare(b, 'pt-BR'));
+  }
+
+  async function preencherSelectMunicipio(nteId, valorAtual = '') {
+    const select = document.getElementById('escola-form-municipio');
+    const ajuda = document.getElementById('escola-form-municipio-ajuda');
+    if (!select) return;
+
+    select.disabled = true;
+    select.innerHTML = '<option value="">CARREGANDO MUNICÍPIOS...</option>';
+
+    const municipios = await buscarMunicipiosDoNte(nteId);
+    const atual = texto(valorAtual).toUpperCase();
+
+    select.innerHTML = '<option value="">SELECIONE O MUNICÍPIO</option>';
+
+    if (atual && !municipios.some(m => normalizar(m) === normalizar(atual))) {
+      municipios.push(atual);
+      municipios.sort((a,b) => a.localeCompare(b, 'pt-BR'));
+    }
+
+    municipios.forEach(municipio => {
+      const op = document.createElement('option');
+      op.value = municipio;
+      op.textContent = municipio;
+      select.appendChild(op);
+    });
+
+    if (atual) select.value = municipios.find(m => normalizar(m) === normalizar(atual)) || atual;
+
+    const tecnico = perfilAtual() === 'TECNICO';
+    select.disabled = tecnico;
+    if (ajuda) {
+      ajuda.textContent = municipios.length
+        ? `${municipios.length} município(s) disponível(is) para o NTE selecionado.`
+        : 'Nenhum município cadastrado para este NTE.';
+    }
+  }
+
+  function instalarVinculoNteMunicipio() {
+    const nte = document.getElementById('escola-form-nte');
+    if (!nte || nte.dataset.municipioVinculado === '1') return;
+    nte.dataset.municipioVinculado = '1';
+    nte.addEventListener('change', () => {
+      preencherSelectMunicipio(Number(nte.value || 0), '');
+    });
+  }
+
   function supabaseClient() {
     try {
       if (window.SIGEE_SUPABASE && typeof window.SIGEE_SUPABASE.criarCliente === 'function') return window.SIGEE_SUPABASE.criarCliente();
@@ -130,10 +213,27 @@
   function upsertCacheLocal(escola) {
     if (!escola) return;
     window.escolasDB = Array.isArray(window.escolasDB) ? window.escolasDB : [];
-    try { if (typeof escolasDB !== 'undefined' && !Array.isArray(escolasDB)) escolasDB = window.escolasDB; } catch (e) {}
-    const idx = window.escolasDB.findIndex(x => String(x.id || '') === String(escola.id || '') || (texto(x.cod_mec) && texto(x.cod_mec) === texto(escola.cod_mec)));
-    if (idx >= 0) window.escolasDB[idx] = { ...window.escolasDB[idx], ...escola };
-    else window.escolasDB.push(escola);
+    try {
+      if (typeof escolasDB !== 'undefined' && !Array.isArray(escolasDB)) {
+        escolasDB = window.escolasDB;
+      }
+    } catch (e) {}
+
+    const id = texto(escola.id);
+    let idx = -1;
+
+    // O único identificador de atualização é o ID real do banco.
+    // Códigos SEC/MEC podem se repetir em sede, anexo e unidades vinculadas.
+    if (id) {
+      idx = window.escolasDB.findIndex(x => texto(x.id) === id);
+    }
+
+    if (idx >= 0) {
+      window.escolasDB[idx] = { ...window.escolasDB[idx], ...escola };
+    } else {
+      window.escolasDB.push({ ...escola });
+    }
+
     try { escolasDB = window.escolasDB; } catch (e) {}
   }
   function aplicarFiltrosQuery(query, termo) {
@@ -166,7 +266,7 @@
     const inicio = (page - 1) * limit;
     let query = client
       .from(tabelaEscolas())
-      .select('id,cod_mec,nome_escola,nome,municipio,nte_id,nte,dependencia_adm,dependencia,situacao_funcional,situacao,status_acervo,acervo,local_acervo,ativo', { count: 'exact' });
+      .select('id,cod_mec,cod_sec,nome_escola,nome,municipio,nte_id,nte,dependencia_adm,dependencia,situacao_funcional,situacao,status_acervo,acervo,local_acervo,tipo_unidade,ativo', { count: 'exact' });
     query = aplicarFiltrosQuery(query, termo);
     query = query.order('nome_escola', { ascending: true, nullsFirst: false }).range(inicio, inicio + limit - 1);
     const { data, error, count } = await query;
@@ -246,6 +346,52 @@
     paginaAtual = Math.min(totalPaginas, Math.max(1, paginaAtual + Number(dir || 0)));
     renderizarLista();
   }
+  function normalizarLocalAcervo(valor) {
+    const original = texto(valor);
+    const chave = normalizar(original);
+    const mapa = {
+      'ACERVO DO NTE': 'NTE',
+      'NTE': 'NTE',
+      'SEC': 'SEC',
+      'SECRETARIA MUNICIPAL': 'Secretaria Municipal',
+      'INSTITUICAO MANTENEDORA': 'Instituição Mantenedora',
+      'DESCONHECIDO': 'Desconhecido',
+      'SETOR DE DESARQUIVAMENTO': 'Setor de Desarquivamento'
+    };
+    if (mapa[chave]) return mapa[chave];
+    return original ? 'Outro' : '';
+  }
+
+  function configurarCampoOutroLocal(valorOriginal = '') {
+    const select = document.getElementById('escola-form-local');
+    const wrap = document.getElementById('escola-form-local-outro-wrap');
+    const outro = document.getElementById('escola-form-local-outro');
+    if (!select || !wrap || !outro) return;
+
+    const padrao = normalizarLocalAcervo(valorOriginal);
+    select.value = padrao;
+    const ehOutro = padrao === 'Outro';
+    wrap.classList.toggle('hidden', !ehOutro);
+    outro.required = ehOutro;
+    outro.value = ehOutro ? texto(valorOriginal) : '';
+  }
+
+  function instalarCampoOutroLocal() {
+    const select = document.getElementById('escola-form-local');
+    if (!select || select.dataset.outroInstalado === '1') return;
+    select.dataset.outroInstalado = '1';
+    select.addEventListener('change', () => {
+      const wrap = document.getElementById('escola-form-local-outro-wrap');
+      const outro = document.getElementById('escola-form-local-outro');
+      const ehOutro = select.value === 'Outro';
+      if (wrap) wrap.classList.toggle('hidden', !ehOutro);
+      if (outro) {
+        outro.required = ehOutro;
+        if (!ehOutro) outro.value = '';
+      }
+    });
+  }
+
   function garantirModalEscola() {
     const camposObrigatorios = [
       'escola-form-id',
@@ -256,7 +402,8 @@
       'escola-form-dep',
       'escola-form-situacao',
       'escola-form-acervo',
-      'escola-form-local'
+      'escola-form-local',
+      'escola-form-local-outro'
     ];
 
     const existente = document.getElementById('modal-cadastro-escola');
@@ -274,21 +421,42 @@
       <div class="bg-blue-900 text-white px-5 py-4 flex justify-between items-center"><h3 class="font-bold text-sm">🏫 Cadastrar/Editar Escola</h3><button onclick="fecharModalEscola()" class="text-white font-bold cursor-pointer">✕</button></div>
       <form onsubmit="salvarEscolaFormularioSIGEE(event)" class="p-5 space-y-3">
         <input type="hidden" id="escola-form-id">
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3"><div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">Código MEC</label><input id="escola-form-mec" class="w-full p-2 border rounded text-xs font-bold"></div><div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">Município</label><input id="escola-form-municipio" class="w-full p-2 border rounded text-xs font-bold uppercase"></div></div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3"><div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">Código MEC</label><input id="escola-form-mec" class="w-full p-2 border rounded text-xs font-bold"></div><div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">Município</label><select id="escola-form-municipio" class="w-full p-2 border rounded text-xs font-bold uppercase bg-white"><option value="">SELECIONE O MUNICÍPIO</option></select><small id="escola-form-municipio-ajuda" class="block mt-1 text-[9px] text-gray-500"></small></div></div>
         <div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">Nome da Escola</label><input id="escola-form-nome" class="w-full p-2 border rounded text-xs font-bold uppercase"></div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3"><div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">NTE</label><select id="escola-form-nte" class="w-full p-2 border rounded text-xs font-bold bg-white"></select><small id="escola-form-nte-ajuda" class="block mt-1 text-[9px] text-gray-500"></small></div><div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">Dependência</label><input id="escola-form-dep" class="w-full p-2 border rounded text-xs font-bold"></div></div>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3"><div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">Situação</label><select id="escola-form-situacao" class="w-full p-2 border rounded text-xs font-bold"><option>Ativa</option><option>Extinta</option></select></div><div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">Status do Acervo</label><select id="escola-form-acervo" class="w-full p-2 border rounded text-xs font-bold"><option>Recolhido</option><option>Não recolhido</option><option>Não acolhido</option></select></div><div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">Local do Acervo</label><input id="escola-form-local" class="w-full p-2 border rounded text-xs font-bold"></div></div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3"><div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">NTE</label><select id="escola-form-nte" class="w-full p-2 border rounded text-xs font-bold bg-white"></select><small id="escola-form-nte-ajuda" class="block mt-1 text-[9px] text-gray-500"></small></div><div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">Dependência Administrativa</label><select id="escola-form-dep" class="w-full p-2 border rounded text-xs font-bold bg-white">
+<option value="">SELECIONE</option>
+<option value="Estadual">ESTADUAL</option>
+<option value="Municipal">MUNICIPAL</option>
+<option value="Particular">PARTICULAR</option>
+<option value="Federal">FEDERAL</option>
+<option value="Conveniada">CONVENIADA</option>
+<option value="Municipalizada">MUNICIPALIZADA</option>
+</select></div></div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+<div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">Situação Funcional</label><select id="escola-form-situacao" class="w-full p-2 border rounded text-xs font-bold bg-white"><option value="">SELECIONE</option><option value="Ativa">ATIVA</option><option value="Extinta">EXTINTA</option><option value="Paralisada">PARALISADA</option><option value="Em processo">EM PROCESSO</option></select></div>
+<div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">Status do Acervo</label><select id="escola-form-acervo" class="w-full p-2 border rounded text-xs font-bold bg-white"><option value="">SELECIONE</option><option value="Recolhido">RECOLHIDO</option><option value="Não recolhido">NÃO RECOLHIDO</option><option value="A recolher">A RECOLHER</option><option value="Aguardando Entrega">AGUARDANDO ENTREGA</option></select></div>
+<div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">Local do Acervo</label><select id="escola-form-local" class="w-full p-2 border rounded text-xs font-bold bg-white"><option value="">SELECIONE</option><option value="Instituição Mantenedora">INSTITUIÇÃO MANTENEDORA</option><option value="SEC">SEC</option><option value="Secretaria Municipal">SECRETARIA MUNICIPAL</option><option value="Desconhecido">DESCONHECIDO</option><option value="NTE">NTE</option><option value="Setor de Desarquivamento">SETOR DE DESARQUIVAMENTO</option><option value="Outro">OUTRO</option></select><div id="escola-form-local-outro-wrap" class="hidden mt-2"><input id="escola-form-local-outro" class="w-full p-2 border rounded text-xs font-bold" placeholder="Descreva o outro local"></div></div>
+</div>
         <div class="flex justify-end gap-2 border-t pt-3"><button type="button" onclick="fecharModalEscola()" class="px-4 py-2 border rounded-lg text-xs font-semibold bg-gray-100">Cancelar</button><button type="submit" class="bg-blue-900 text-white font-bold px-5 py-2 rounded-lg text-xs shadow">Salvar Escola</button></div>
       </form></div>`;
     document.body.appendChild(div);
+    instalarVinculoNteMunicipio();
+    instalarCampoOutroLocal();
     return div;
   }
   function setDisabled(ids, disabled) { ids.forEach(id => { const el = document.getElementById(id); if (el) el.disabled = disabled; }); }
   async function obterEscolaPorId(id) {
-    const localizar = lista => (Array.isArray(lista) ? lista : []).find(x =>
-      String(x.id ?? '') === String(id ?? '') ||
-      (texto(x.cod_mec) && texto(x.cod_mec) === texto(id))
-    );
+    const localizar = lista => {
+      const itens = Array.isArray(lista) ? lista : [];
+      const idBuscado = texto(id);
+
+      const porId = itens.find(x => texto(x.id) === idBuscado);
+      if (porId) return porId;
+
+      // Compatibilidade apenas para botões legados sem ID.
+      // Nunca é usada para substituir ou mesclar registros no cache.
+      return itens.find(x => !idBuscado.includes('-') && texto(x.cod_mec) === idBuscado);
+    };
 
     const pagina = localizar(cachePagina);
     if (pagina) return pagina;
@@ -313,7 +481,14 @@
     garantirModalEscola();
     ['id','mec','nome','municipio','nte','dep','local'].forEach(k => { const el = document.getElementById(`escola-form-${k}`); if (el) el.value = ''; });
     preencherSelectNteEscola(nteIdUsuario());
-    setDisabled(['escola-form-mec','escola-form-nome','escola-form-municipio','escola-form-dep'], false);
+    instalarVinculoNteMunicipio();
+    preencherSelectMunicipio(
+      perfilAtual() === 'MASTER'
+        ? Number(document.getElementById('escola-form-nte').value || 0)
+        : nteIdUsuario(),
+      ''
+    );
+    setDisabled(['escola-form-mec','escola-form-nome','escola-form-dep'], false);
     const nteEl = document.getElementById('escola-form-nte');
     if (nteEl) nteEl.disabled = perfilAtual() !== 'MASTER';
     document.getElementById('modal-cadastro-escola').classList.remove('hidden');
@@ -334,19 +509,32 @@
     definir('escola-form-id', e.id || '');
     definir('escola-form-mec', texto(e.cod_mec));
     definir('escola-form-nome', escolaNome(e));
-    definir('escola-form-municipio', texto(e.municipio));
-
     preencherSelectNteEscola(e.nte_id || escolaNte(e));
+    instalarVinculoNteMunicipio();
+    preencherSelectMunicipio(
+      Number(e.nte_id || extrairNteEscola(escolaNte(e)) || 0),
+      texto(e.municipio)
+    );
 
-    definir('escola-form-dep', escolaDep(e));
+    definir(
+      'escola-form-dep',
+      ['PRIVADA','PARTICULAR'].includes(normalizar(escolaDep(e))) ? 'Particular' : escolaDep(e)
+    );
     definir('escola-form-situacao', escolaSituacao(e) || 'Extinta');
     definir('escola-form-acervo', escolaAcervo(e) || 'Recolhido');
-    definir('escola-form-local', escolaLocal(e));
+    configurarCampoOutroLocal(escolaLocal(e));
 
     setDisabled(
-      ['escola-form-mec','escola-form-nome','escola-form-municipio','escola-form-dep'],
+      ['escola-form-mec','escola-form-nome','escola-form-dep'],
       podeEditarLimitado()
     );
+    const municipioEl = campo('escola-form-municipio');
+    if (municipioEl) municipioEl.disabled = podeEditarLimitado();
+
+    const localSelect = campo('escola-form-local');
+    const localOutro = campo('escola-form-local-outro');
+    if (localSelect) localSelect.disabled = false;
+    if (localOutro) localOutro.disabled = false;
 
     const nteEl = campo('escola-form-nte');
     if (nteEl) nteEl.disabled = perfilAtual() !== 'MASTER';
@@ -377,17 +565,41 @@
       payload.nome_escola = texto(document.getElementById('escola-form-nome').value).toUpperCase();
       payload.nome = payload.nome_escola;
       payload.municipio = texto(document.getElementById('escola-form-municipio').value);
-      payload.nte_id = Number(document.getElementById('escola-form-nte').value || nteIdUsuario() || payload.nte_id || 0);
+      payload.nte_id = perfilAtual() === 'MASTER'
+        ? Number(document.getElementById('escola-form-nte').value || 0)
+        : Number(nteIdUsuario() || payload.nte_id || 0);
       payload.nte = rotuloNteEscola(payload.nte_id);
       payload.dependencia_adm = texto(document.getElementById('escola-form-dep').value);
       payload.dependencia = payload.dependencia_adm;
+
+      if (!payload.municipio || !payload.dependencia_adm) {
+        return alert('Selecione Município e Dependência Administrativa.');
+      }
     }
     payload.situacao_funcional = texto(document.getElementById('escola-form-situacao').value);
     payload.situacao = payload.situacao_funcional;
     payload.status_acervo = texto(document.getElementById('escola-form-acervo').value);
     payload.acervo = payload.status_acervo;
-    payload.local_acervo = texto(document.getElementById('escola-form-local').value);
+    const localSelecionado = texto(document.getElementById('escola-form-local').value);
+    const localOutro = texto(document.getElementById('escola-form-local-outro')?.value);
+    if (!localSelecionado) return alert('Selecione o Local do Acervo.');
+    if (localSelecionado === 'Outro' && !localOutro) {
+      return alert('Descreva o Local do Acervo quando selecionar Outro.');
+    }
+    payload.local_acervo = localSelecionado === 'Outro' ? localOutro : localSelecionado;
     if (id) payload.id = Number(id) || id;
+    if (!existente) {
+      const semelhantes = (window.escolasDB || []).filter(x =>
+        normalizar(x.cod_mec) === normalizar(payload.cod_mec)
+      );
+      if (semelhantes.length) {
+        console.info(
+          `[SIGEE Escolas] ${semelhantes.length} escola(s) já utiliza(m) o mesmo código. ` +
+          'O novo registro será preservado com ID próprio.'
+        );
+      }
+    }
+
     const client = supabaseClient();
     try {
       if (client) {
@@ -403,6 +615,11 @@
         if (error) throw error;
         if (data && data[0]) Object.assign(payload, data[0]);
       }
+
+      if (!texto(payload.id)) {
+        throw new Error('O banco não retornou o ID da escola cadastrada.');
+      }
+
       upsertCacheLocal(payload);
       if (typeof registrarLog === 'function') registrarLog(`${existente ? 'Alterou' : 'Cadastrou'} escola: ${payload.nome_escola || payload.nome}`);
       fecharModal();
