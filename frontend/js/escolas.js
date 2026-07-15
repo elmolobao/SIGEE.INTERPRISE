@@ -1,5 +1,5 @@
 /* =====================================================================
-   SIGEE Enterprise — Sprint 2.4.6G — Módulo Oficial de Escolas
+   SIGEE Enterprise — Sprint 2.4.6H — Módulo Oficial de Escolas
    Módulo: Escolas
    Produção: catálogo paginado, filtro por NTE e autocomplete da Nova Solicitação.
    Substitui a lógica dependente de listas locais grandes e evita limite de 1000 registros.
@@ -247,7 +247,26 @@
     renderizarLista();
   }
   function garantirModalEscola() {
-    if (document.getElementById('modal-cadastro-escola')) return;
+    const camposObrigatorios = [
+      'escola-form-id',
+      'escola-form-mec',
+      'escola-form-nome',
+      'escola-form-municipio',
+      'escola-form-nte',
+      'escola-form-dep',
+      'escola-form-situacao',
+      'escola-form-acervo',
+      'escola-form-local'
+    ];
+
+    const existente = document.getElementById('modal-cadastro-escola');
+    const compativel = existente &&
+      camposObrigatorios.every(id => existente.querySelector(`#${id}`));
+
+    if (compativel) return existente;
+
+    if (existente) existente.remove();
+
     const div = document.createElement('div');
     div.id = 'modal-cadastro-escola';
     div.className = 'hidden fixed inset-0 bg-blue-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-50';
@@ -262,6 +281,7 @@
         <div class="flex justify-end gap-2 border-t pt-3"><button type="button" onclick="fecharModalEscola()" class="px-4 py-2 border rounded-lg text-xs font-semibold bg-gray-100">Cancelar</button><button type="submit" class="bg-blue-900 text-white font-bold px-5 py-2 rounded-lg text-xs shadow">Salvar Escola</button></div>
       </form></div>`;
     document.body.appendChild(div);
+    return div;
   }
   function setDisabled(ids, disabled) { ids.forEach(id => { const el = document.getElementById(id); if (el) el.disabled = disabled; }); }
   async function obterEscolaPorId(id) {
@@ -301,25 +321,37 @@
   function preencherModalEdicaoEscola(e) {
     if (!e) return false;
 
-    document.getElementById('escola-form-id').value = e.id || '';
-    document.getElementById('escola-form-mec').value = texto(e.cod_mec);
-    document.getElementById('escola-form-nome').value = escolaNome(e);
-    document.getElementById('escola-form-municipio').value = texto(e.municipio);
+    const modal = garantirModalEscola();
+    if (!modal) return false;
+
+    const campo = id => modal.querySelector(`#${id}`);
+    const definir = (id, valor) => {
+      const el = campo(id);
+      if (el) el.value = valor ?? '';
+      return el;
+    };
+
+    definir('escola-form-id', e.id || '');
+    definir('escola-form-mec', texto(e.cod_mec));
+    definir('escola-form-nome', escolaNome(e));
+    definir('escola-form-municipio', texto(e.municipio));
+
     preencherSelectNteEscola(e.nte_id || escolaNte(e));
-    document.getElementById('escola-form-dep').value = escolaDep(e);
-    document.getElementById('escola-form-situacao').value = escolaSituacao(e) || 'Extinta';
-    document.getElementById('escola-form-acervo').value = escolaAcervo(e) || 'Recolhido';
-    document.getElementById('escola-form-local').value = escolaLocal(e);
+
+    definir('escola-form-dep', escolaDep(e));
+    definir('escola-form-situacao', escolaSituacao(e) || 'Extinta');
+    definir('escola-form-acervo', escolaAcervo(e) || 'Recolhido');
+    definir('escola-form-local', escolaLocal(e));
 
     setDisabled(
       ['escola-form-mec','escola-form-nome','escola-form-municipio','escola-form-dep'],
       podeEditarLimitado()
     );
 
-    const nteEl = document.getElementById('escola-form-nte');
+    const nteEl = campo('escola-form-nte');
     if (nteEl) nteEl.disabled = perfilAtual() !== 'MASTER';
 
-    document.getElementById('modal-cadastro-escola').classList.remove('hidden');
+    modal.classList.remove('hidden');
     return true;
   }
 
