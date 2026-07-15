@@ -26,6 +26,7 @@
     <link rel="stylesheet" href="css/prontuario-processo.css?v=2.3.1">
     <link rel="stylesheet" href="css/sigee-acabamento-visual.css?v=2.3.4">
     <link rel="stylesheet" href="css/sala-situacao.css?v=2.4.2">
+    <link rel="stylesheet" href="css/administracao.css?v=2.4.4">
 </head>
 <body class="bg-gray-100 font-sans text-gray-800 font-normal">
 
@@ -73,7 +74,15 @@
                 <button id="menu-usuarios" onclick="navegar('usuarios')" class="hidden sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer">👥 Usuários</button>
                 <button id="menu-relatorios" onclick="navegar('painel')" class="sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer">📊 Relatórios</button>
                 <button id="menu-sala-situacao" onclick="navegar('sala-situacao')" class="sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer">📡 Sala de Situação</button>
-                <button id="menu-logs" onclick="navegar('logs')" class="hidden sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer">⚙️ Configurações</button>
+                <div id="menu-administracao-bloco" class="hidden sigee-admin-menu">
+                    <button id="menu-logs" type="button" onclick="toggleMenuAdministracaoSIGEE()" class="sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer flex items-center justify-between">
+                        <span>⚙️ Administração</span><span id="admin-menu-seta" aria-hidden="true">▾</span>
+                    </button>
+                    <div id="submenu-administracao" class="hidden sigee-admin-submenu" aria-label="Submenu Administração">
+                        <button type="button" onclick="abrirAdministracaoSIGEE('historico')">📝 Histórico de Atividades</button>
+                        <button type="button" onclick="abrirAdministracaoSIGEE('diagnostico')">🩺 Centro de Diagnóstico</button>
+                    </div>
+                </div>
             </nav>
             <div class="p-4 border-t border-blue-900 sigee-sidebar-logout">
                 <button onclick="logout()" class="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2 rounded-lg text-sm transition cursor-pointer">Sair</button>
@@ -345,6 +354,41 @@
                         </thead>
                         <tbody id="tabela-usuarios-corpo" class="divide-y divide-gray-100"></tbody>
                     </table>
+                    </div>
+                </div>
+            </section>
+
+
+            <section id="aba-diagnostico" class="hidden sigee-diagnostico space-y-5">
+                <header class="sigee-admin-page-head">
+                    <div><span>ADMINISTRAÇÃO</span><h1>Centro de Diagnóstico</h1><p>Saúde, integração e desempenho dos principais componentes do SIGEE.</p></div>
+                    <button type="button" onclick="atualizarDiagnosticoSIGEE(true)">↻ Atualizar diagnóstico</button>
+                </header>
+
+                <div id="diagnostico-resumo" class="sigee-diagnostico-resumo">
+                    <div class="sigee-diag-indicador"><i></i><div><strong id="diag-status-geral">Verificando...</strong><span id="diag-atualizado">Aguardando análise</span></div></div>
+                    <div><span>Versão instalada</span><strong>2.4.4</strong></div>
+                    <div><span>Ambiente</span><strong>Vercel + Supabase</strong></div>
+                </div>
+
+                <div class="sigee-diag-grid" id="diag-componentes"></div>
+
+                <div class="sigee-diag-metricas">
+                    <article><span>Processos em memória</span><strong id="diag-processos">0</strong><small>processosDB</small></article>
+                    <article><span>Escolas em memória</span><strong id="diag-escolas">0</strong><small>escolasDB</small></article>
+                    <article><span>Usuários em memória</span><strong id="diag-usuarios">0</strong><small>usuariosDB</small></article>
+                    <article><span>Tempo do cálculo</span><strong id="diag-tempo-calculo">—</strong><small>Motor Analítico</small></article>
+                    <article><span>Última sincronização</span><strong id="diag-ultima-sync">—</strong><small>Dados locais</small></article>
+                    <article><span>Conectividade</span><strong id="diag-conectividade">—</strong><small>Navegador</small></article>
+                </div>
+
+                <div class="sigee-admin-futuro">
+                    <h2>Estrutura administrativa preparada</h2>
+                    <div class="sigee-admin-futuro-grid">
+                        <article><span>🔒</span><strong>Segurança</strong><small>Em desenvolvimento</small></article>
+                        <article><span>💾</span><strong>Backup</strong><small>Em desenvolvimento</small></article>
+                        <article><span>📚</span><strong>Documentação</strong><small>Em desenvolvimento</small></article>
+                        <article><span>ℹ️</span><strong>Sobre o SIGEE</strong><small>Em desenvolvimento</small></article>
                     </div>
                 </div>
             </section>
@@ -846,5 +890,7 @@ window.filtrarTabelaUsuariosSIGEE = function (termo) {
 <script src="js/sigee-acabamento-visual.js?v=2.3.4"></script>
     
 <script src="js/sala-situacao.js?v=2.4.3B"></script>
+<script src="js/administracao.js?v=2.4.4"></script>
+<script src="js/diagnostico.js?v=2.4.4"></script>
 </body>
 </html>
