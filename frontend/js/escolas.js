@@ -1,5 +1,5 @@
 /* =====================================================================
-   SIGEE Enterprise — Sprint 2.4.7H — Módulo Oficial de Escolas
+   SIGEE Enterprise — Sprint 2.4.7I — Módulo Oficial de Escolas
    Módulo: Escolas
    Produção: catálogo paginado, filtro por NTE e autocomplete da Nova Solicitação.
    Substitui a lógica dependente de listas locais grandes e evita limite de 1000 registros.
@@ -512,6 +512,15 @@
     const municipioAjudaNovo = document.getElementById('escola-form-municipio-ajuda');
 
     if (perfilAtual() === 'MASTER') {
+      const nteGlobal = document.getElementById('escola-form-nte');
+      if (nteGlobal) {
+        nteGlobal.disabled = false;
+        nteGlobal.removeAttribute('disabled');
+        nteGlobal.style.pointerEvents = 'auto';
+        nteGlobal.style.opacity = '1';
+        nteGlobal.style.cursor = 'pointer';
+      }
+
       if (municipioElNovo) {
         municipioElNovo.innerHTML = '<option value="">SELECIONE PRIMEIRO O NTE</option>';
         municipioElNovo.disabled = true;
@@ -527,8 +536,21 @@
     }
 
     setDisabled(['escola-form-mec','escola-form-nome','escola-form-dep'], false);
+
+    if (perfilAtual() === 'MASTER') {
+      const nteGlobal = document.getElementById('escola-form-nte');
+      if (nteGlobal) nteGlobal.disabled = false;
+    }
     const nteEl = document.getElementById('escola-form-nte');
-    if (nteEl) nteEl.disabled = perfilAtual() !== 'MASTER';
+    if (nteEl) {
+      nteEl.disabled = perfilAtual() !== 'MASTER';
+      if (perfilAtual() === 'MASTER') {
+        nteEl.removeAttribute('disabled');
+        nteEl.style.pointerEvents = 'auto';
+        nteEl.style.opacity = '1';
+        nteEl.style.cursor = 'pointer';
+      }
+    }
     document.getElementById('modal-cadastro-escola').classList.remove('hidden');
   }
   function preencherModalEdicaoEscola(e) {
