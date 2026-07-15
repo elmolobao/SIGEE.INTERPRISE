@@ -739,3 +739,121 @@
   color:#24405e!important;
 }
 
+
+/* =====================================================================
+   SIGEE Sprint 2.4.8A — Visibilidade dos botões de avanço do Workflow
+   Corrige especialmente Assinatura → Deferido.
+   ===================================================================== */
+
+/* Área de ações sempre claramente apresentada */
+.sigee-acoes33,
+.sigee-wam__footer,
+.sigee-wfe-footer,
+.sigee-workflow-actions {
+  display: flex !important;
+  justify-content: flex-end !important;
+  align-items: center !important;
+  gap: 12px !important;
+  min-height: 56px !important;
+}
+
+/* Botões de confirmação/avanço: estrutura base */
+.btn33[data-confirmar093],
+.sigee-wam__button--confirm,
+.sigee-wfe-button--confirm,
+.sigee-workflow-confirm,
+button[data-confirmar-workflow] {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: 190px !important;
+  min-height: 44px !important;
+  padding: 11px 20px !important;
+  border-radius: 12px !important;
+  border: 2px solid transparent !important;
+  font-weight: 900 !important;
+  font-size: 13px !important;
+  line-height: 1.1 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  text-shadow: none !important;
+  transition: transform .15s ease, box-shadow .15s ease, background-color .15s ease !important;
+}
+
+/* Estado bloqueado: visível e claramente indisponível */
+.btn33[data-confirmar093]:disabled,
+.sigee-wam__button--confirm:disabled,
+.sigee-wfe-button--confirm:disabled,
+.sigee-workflow-confirm:disabled,
+button[data-confirmar-workflow]:disabled {
+  display: inline-flex !important;
+  background: #cbd5e1 !important;
+  background-image: none !important;
+  color: #334155 !important;
+  -webkit-text-fill-color: #334155 !important;
+  border-color: #94a3b8 !important;
+  box-shadow: 0 3px 8px rgba(51, 65, 85, .18) !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  cursor: not-allowed !important;
+  filter: none !important;
+  pointer-events: auto !important;
+}
+
+/* Estado liberado: verde institucional */
+.btn33.btn33-verde[data-confirmar093]:not(:disabled),
+.sigee-wam__button--confirm:not(:disabled),
+.sigee-wfe-button--confirm:not(:disabled),
+.sigee-workflow-confirm:not(:disabled),
+button[data-confirmar-workflow]:not(:disabled) {
+  background: #15803d !important;
+  background-image: linear-gradient(135deg, #16a34a, #166534) !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  border-color: #14532d !important;
+  box-shadow: 0 7px 18px rgba(21, 128, 61, .30) !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  cursor: pointer !important;
+}
+
+.btn33.btn33-verde[data-confirmar093]:not(:disabled):hover,
+.sigee-wam__button--confirm:not(:disabled):hover,
+.sigee-wfe-button--confirm:not(:disabled):hover,
+.sigee-workflow-confirm:not(:disabled):hover,
+button[data-confirmar-workflow]:not(:disabled):hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 9px 22px rgba(21, 128, 61, .38) !important;
+}
+
+/* Checkbox obrigatório com contraste institucional */
+.sigee-tarefa-confirmacao,
+.sigee-wam__confirmation,
+label:has(> #wf-email093) {
+  background: #eff6ff !important;
+  color: #243b53 !important;
+  border: 1px solid #bfdbfe !important;
+  opacity: 1 !important;
+}
+
+.sigee-tarefa-confirmacao input[type="checkbox"],
+.sigee-wam__confirmation input[type="checkbox"],
+#wf-email093 {
+  width: 22px !important;
+  height: 22px !important;
+  accent-color: #15803d !important;
+  opacity: 1 !important;
+}
+
+/* Cancelar permanece distinto do botão de avanço */
+.btn33.btn33-cinza,
+.sigee-wam__button--cancel,
+.sigee-wfe-button--cancel {
+  background: #475569 !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  border-color: #334155 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
