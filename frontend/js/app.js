@@ -2171,13 +2171,8 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             const elPastas = document.getElementById('dash-tec-media-pasta-dia');
             if (elEntrega) elEntrega.innerText = mediaEntrega + (mediaEntrega === 1 ? ' dia' : ' dias');
             if (elPedidos) elPedidos.innerText = mediaPorDiaSIGEE(procVisiveis, 'data_etapa_atual');
-            const pastas = (procVisiveis || []).filter(p => {
-                const tipo = semAcentoSIGEE(p.tipo_arquivo || p.tipo_arquivo_recebido || p.arquivo_tipo || '');
-                const evento = semAcentoSIGEE(p.ultimo_evento_workflow || '');
-                const mensagem = semAcentoSIGEE(p.ultima_mensagem_workflow || '');
-                return tipo.includes('PASTA') || evento.includes('PASTA') || mensagem.includes('PASTA_LOCALIZADA');
-            });
-            if (elPastas) elPastas.innerText = mediaPorDiaSIGEE(pastas, 'pasta_localizada_em');
+            const pastas = (procVisiveis || []).filter(p => semAcentoSIGEE(p.tipo_arquivo || p.tipo_arquivo_recebido || '').includes('PASTA') || semAcentoSIGEE(p.etapa).includes('ANALISE'));
+            if (elPastas) elPastas.innerText = mediaPorDiaSIGEE(pastas, 'data_etapa_atual');
         }
 
         carregarDadosDashboardReal = function() {
@@ -3156,20 +3151,50 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             registrarLog(`Processo [${p.aluno}]: ${alerta.titulo} com retificação. Ciclo de Desarquivamento reiniciado.`);
             salvarBancoLocalSIGEE(); fecharModalFluxo('desarquivamento'); carregarEContarProcessosHorizontais(); return;
         }
+        const recebidoEmSIGEE = new Date().toISOString();
         p.tipo_arquivo = valor('f00-tipo'); p.local_arquivo = valor('f00-local'); p.prioridade = valor('f00-prioridade'); p.analista = valor('f00-analista');
-        // Todo arquivo recebido integra o indicador gerencial, independentemente do tipo.
-        // O registro utiliza campos do workflow já persistidos pelo projeto.
-        const dataArquivoRecebidoISO = new Date().toISOString();
-        const tipoArquivoRecebido = semAcentoSIGEE(p.tipo_arquivo).replace(/\s+/g, '_');
-        p.arquivo_recebido_em = dataArquivoRecebidoISO;
-        p.tipo_arquivo_recebido = p.tipo_arquivo;
-        p.ultimo_evento_workflow = 'DOCUMENTO_RECEBIDO_' + tipoArquivoRecebido;
-        p.ultima_mensagem_workflow = 'ARQUIVO_RECEBIDO|' + p.tipo_arquivo + '|' + dataArquivoRecebidoISO;
-        if (semAcentoSIGEE(p.tipo_arquivo).includes('PASTA')) {
-            p.pasta_localizada_em = dataArquivoRecebidoISO;
-        }
-        p.etapa='Análise'; p.data_etapa_atual=obterDataAtualFormatada(); p.prazo_etapa=7;
+        p.data_arquivo_recebido = recebidoEmSIGEE;
+        p.ultimo_evento_workflow = 'DOCUMENTO_RECEBIDO';
+        p.etapa='Análise'; p.data_etapa_atual=obterDataAtualFormatada(); p.prazo_etapa=7; p.updated_at=recebidoEmSIGEE;
         registrarLog(`Processo [${p.aluno}]: Documento recebido e enviado para Análise. Analista: ${p.analista}.`);
+
+        /*
+         * Registro gerencial autoritativo. O Dashboard usa este evento para
+         * contabilizar todo arquivo recebido, independentemente do tipo.
+         * A gravação é independente do salvamento do processo para não exigir
+         * novas colunas na tabela processos.
+         */
+        try {
+            const clienteHistoricoSIGEE = obterSupabaseSIGEE();
+            if (clienteHistoricoSIGEE) {
+                clienteHistoricoSIGEE.from('historico_processos').insert({
+                    processo_id: p.id,
+                    codigo_sigee: p.codigo_sigee || '',
+                    etapa: 'Análise',
+                    acao: 'Documento Recebido',
+                    observacao: `Arquivo recebido: ${p.tipo_arquivo || 'Não informado'} | Local: ${p.local_arquivo || 'Não informado'}`,
+                    usuario_nome: usuarioLogado?.nome || usuarioLogado?.email || 'Usuário SIGEE',
+                    usuario_email: usuarioLogado?.email || null,
+                    usuario_perfil: usuarioLogado?.perfil || null,
+                    nte: p.nte || usuarioLogado?.nte || null,
+                    dados: {
+                        evento: 'DOCUMENTO_RECEBIDO',
+                        tipo_arquivo: p.tipo_arquivo || null,
+                        local_arquivo: p.local_arquivo || null,
+                        prioridade: p.prioridade || null,
+                        analista: p.analista || null,
+                        recebido_em: recebidoEmSIGEE
+                    },
+                    created_at: recebidoEmSIGEE
+                }).then(({ error }) => {
+                    if (error) console.warn('[SIGEE] Evento Documento Recebido não gravado no histórico:', error);
+                    else window.dispatchEvent(new CustomEvent('sigee:arquivo-recebido', { detail: { processoId: p.id } }));
+                });
+            }
+        } catch (erroHistoricoSIGEE) {
+            console.warn('[SIGEE] Falha ao registrar Documento Recebido para indicadores:', erroHistoricoSIGEE);
+        }
+
         salvarBancoLocalSIGEE(); fecharModalFluxo('desarquivamento'); carregarEContarProcessosHorizontais();
     };
 
@@ -7966,28 +7991,8 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     let diasPeriodo=1;
     if(datasAbertura.length){const min=new Date(Math.min(...datasAbertura));const max=new Date(Math.max(...datasAbertura));diasPeriodo=Math.max(1,diffDias(min,max)+1);}
     set('dash-tec-media-pedidos-dia',(processos.length/diasPeriodo).toFixed(1).replace('.',','));
-    const pastaLocalizada = p => {
-      const tipo=norm(p.tipo_arquivo||p.tipo_arquivo_recebido||p.arquivo_tipo||'');
-      const evento=norm(p.ultimo_evento_workflow||'');
-      const mensagem=norm(p.ultima_mensagem_workflow||'');
-      return tipo.includes('PASTA') || evento.includes('PASTA') || mensagem.includes('PASTA_LOCALIZADA');
-    };
-    const dataPasta = p => {
-      const direta=dataValida(p.pasta_localizada_em||p.data_pasta_localizada);
-      if(direta) return direta;
-      const msg=txt(p.ultima_mensagem_workflow||'');
-      const m=msg.match(/PASTA_LOCALIZADA\|([^|]+)/i);
-      return m ? dataValida(m[1]) : abertura(p);
-    };
-    const pastas=processos.filter(pastaLocalizada);
-    const datasPastas=pastas.map(dataPasta).filter(Boolean);
-    let diasPastas=diasPeriodo;
-    if(datasPastas.length){
-      const minP=new Date(Math.min(...datasPastas));
-      const maxP=new Date(Math.max(...datasPastas));
-      diasPastas=Math.max(1,diffDias(minP,maxP)+1);
-    }
-    set('dash-tec-media-pasta-dia',(pastas.length/diasPastas).toFixed(1).replace('.',','));
+    const pastas=processos.filter(p=>norm(p.tipo_arquivo||p.tipo_arquivo_recebido||p.arquivo_tipo).includes('PASTA'));
+    set('dash-tec-media-pasta-dia',(pastas.length/diasPeriodo).toFixed(1).replace('.',','));
   }
 
   function carregar(){
@@ -8515,112 +8520,4 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
   };
 
   console.info('[SIGEE] Autoridade final do módulo de Escolas 2.4.7J instalada.');
-})();
-
-
-/* =====================================================================
-   SIGEE Enterprise 3.2.7 — Autoridade central de navegação
-   Todas as abas usam uma única rotina. Não aplica estilos inline e não
-   interfere no login. Deve ser reinstalada ao final do index.html porque
-   módulos legados podem encapsular window.navegar durante o carregamento.
-   ===================================================================== */
-(function () {
-  'use strict';
-
-  var MAPA_ABAS = {
-    painel: 'aba-painel',
-    processos: 'aba-processos',
-    escolas: 'aba-escolas',
-    usuarios: 'aba-usuarios',
-    logs: 'aba-logs',
-    'sala-situacao': 'aba-sala-situacao',
-    inteligencia: 'aba-inteligencia',
-    'centro-inteligencia': 'aba-inteligencia'
-  };
-
-  function todasAsAbas() {
-    return Array.prototype.slice.call(document.querySelectorAll('#sistema-dashboard main > section[id^="aba-"]'));
-  }
-
-  function limparVisibilidade(secao) {
-    if (!secao) return;
-    secao.classList.remove('sigee-sala-ativa', 'sigee-inteligencia-ativa');
-    secao.style.removeProperty('display');
-    secao.style.removeProperty('visibility');
-    secao.style.removeProperty('opacity');
-    secao.style.removeProperty('height');
-    secao.style.removeProperty('min-height');
-    secao.style.removeProperty('overflow');
-    secao.style.removeProperty('pointer-events');
-    secao.style.removeProperty('margin');
-    secao.style.removeProperty('padding');
-    secao.style.removeProperty('border');
-  }
-
-  function ocultarTodas() {
-    todasAsAbas().forEach(function (secao) {
-      limparVisibilidade(secao);
-      secao.classList.add('hidden');
-      secao.setAttribute('aria-hidden', 'true');
-    });
-  }
-
-  function executarPosNavegacao(aba) {
-    try {
-      if (aba === 'painel' && typeof window.carregarDadosDashboardReal === 'function') window.carregarDadosDashboardReal();
-      if (aba === 'processos' && typeof window.carregarEContarProcessosHorizontais === 'function') window.carregarEContarProcessosHorizontais();
-      if (aba === 'escolas' && typeof window.renderizarListaEscolasBufferMemoria === 'function') window.renderizarListaEscolasBufferMemoria();
-      if (aba === 'usuarios' && typeof window.carregarListaUsuarios === 'function') window.carregarListaUsuarios();
-      if (aba === 'logs' && typeof window.carregarLogs === 'function') window.carregarLogs();
-      if (aba === 'sala-situacao' && window.SIGEE_SALA_SITUACAO && typeof window.SIGEE_SALA_SITUACAO.render === 'function') window.SIGEE_SALA_SITUACAO.render();
-      if ((aba === 'inteligencia' || aba === 'centro-inteligencia') && window.SIGEE_CENTRO_INTELIGENCIA && typeof window.SIGEE_CENTRO_INTELIGENCIA.render === 'function') window.SIGEE_CENTRO_INTELIGENCIA.render();
-    } catch (erro) {
-      console.warn('[SIGEE Navegação] Falha na atualização da aba:', aba, erro);
-    }
-  }
-
-  function navegarCentral(aba) {
-    var chave = String(aba || '').trim().toLowerCase();
-    var id = MAPA_ABAS[chave] || ('aba-' + chave);
-    var alvo = document.getElementById(id);
-
-    ocultarTodas();
-    if (!alvo) {
-      console.warn('[SIGEE Navegação] Aba não localizada:', id);
-      return false;
-    }
-
-    limparVisibilidade(alvo);
-    alvo.classList.remove('hidden');
-    alvo.setAttribute('aria-hidden', 'false');
-
-    document.querySelectorAll('.sigee-sidebar-nav button').forEach(function (botao) {
-      botao.classList.remove('sigee-menu-ativo');
-      botao.removeAttribute('aria-current');
-    });
-    var menu = document.querySelector('.sigee-sidebar-nav button[onclick*="' + chave + '"]');
-    if (menu) {
-      menu.classList.add('sigee-menu-ativo');
-      menu.setAttribute('aria-current', 'page');
-    }
-
-    executarPosNavegacao(chave);
-    setTimeout(function () { executarPosNavegacao(chave); }, 80);
-    return true;
-  }
-
-  function instalar() {
-    window.navegar = navegarCentral;
-    try { navegar = navegarCentral; } catch (e) {}
-    document.documentElement.dataset.sigeeNavegacao = '3.2.7';
-    return navegarCentral;
-  }
-
-  window.SIGEE_NAVIGATION = {
-    install: instalar,
-    navegar: navegarCentral,
-    ocultarTodas: ocultarTodas,
-    version: '3.2.7'
-  };
-  instalar();
 })();

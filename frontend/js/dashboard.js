@@ -549,97 +549,156 @@
 
 
 /* =====================================================================
-   SIGEE 3.2.13 — Indicadores diários baseados no histórico real
-   - Pedidos Abertos/Dia: novas solicitações cadastradas.
-   - Arquivos Recebidos/Dia: eventos Documento Recebido.
-   - Tempo Médio até Arquivo Recebido: abertura -> primeiro recebimento.
+   SIGEE Enterprise 3.2.14 — Indicadores Operacionais Autoritativos
+   - Pedidos Abertos: total de novas solicitações no período (não média)
+   - Arquivos Recebidos: total de execuções de Documento Recebido
+   - Tempo médio: abertura até o primeiro arquivo recebido
    ===================================================================== */
 (function(){
   'use strict';
-  if(window.__SIGEE_INDICADORES_DIARIOS_3213__) return;
-  window.__SIGEE_INDICADORES_DIARIOS_3213__=true;
+  if(window.__SIGEE_INDICADORES_OPERACIONAIS_3214__) return;
+  window.__SIGEE_INDICADORES_OPERACIONAIS_3214__=true;
 
   const txt=v=>v==null?'':String(v).trim();
-  const norm=v=>txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
-  function cliente(){try{return window.obterSupabaseSIGEE?.()||window.criarClienteSupabaseSIGEE?.()||window.SIGEE_SUPABASE?.criarCliente?.()||null;}catch(e){return null;}}
-  function data(v){if(!v)return null;const s=txt(v);const br=s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);const d=br?new Date(+br[3],+br[2]-1,+br[1]):new Date(s);return Number.isNaN(d.getTime())?null:d;}
-  function nteId(v){const m=txt(v).match(/(?:NTE\s*[- ]?)?(\d{1,2})/i);return m?Number(m[1]):null;}
-  function filtroNte(){
-    const u=window.usuarioLogado||{};const p=norm(u.perfil);
-    const global=p.includes('MASTER')||p==='SEC'||p.includes('SECRETARIA');
-    if(!global)return nteId(u.nte_id||u.nte||u.nte_nome||u.grupo);
-    const v=document.getElementById('filtro-dashboard-nte')?.value;
-    return !v||['TODOS','GLOBAL'].includes(norm(v))?null:nteId(v);
+  const norm=v=>txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/\s+/g,' ');
+  const data=v=>{
+    if(!v)return null;
+    const s=txt(v), br=s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+    const d=br?new Date(Number(br[3]),Number(br[2])-1,Number(br[1])):new Date(s);
+    return Number.isNaN(d.getTime())?null:d;
+  };
+  const nteId=o=>{
+    if(!o)return null;
+    const direto=o.nte_id??o.nteId;
+    if(direto!==null&&direto!==undefined&&txt(direto)!=='')return Number(direto)||null;
+    const m=txt(o.nte||o.nte_nome||o.grupo||o.territorio).match(/\d{1,2}/);
+    return m?Number(m[0]):null;
+  };
+  const cliente=()=>{try{return window.obterSupabaseSIGEE?.()||window.SIGEE_SUPABASE_CLIENT||null}catch(e){return null}};
+  const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v};
+
+  function alvoNte(){
+    const perfil=norm(window.usuarioLogado?.perfil);
+    const global=perfil.includes('MASTER')||perfil==='SEC'||perfil.includes('SECRETARIA');
+    if(!global)return nteId(window.usuarioLogado);
+    const v=txt(document.getElementById('filtro-dashboard-nte')?.value||'TODOS');
+    if(!v||['TODOS','GLOBAL'].includes(norm(v)))return null;
+    const m=v.match(/\d{1,2}/);return m?Number(m[0]):null;
   }
+
   function periodo(){
     const tipo=document.getElementById('filtro-dashboard-periodo')?.value||'ACUMULADO';
-    const fim=new Date();fim.setHours(23,59,59,999);let inicio=null;
-    if(tipo==='HOJE'){inicio=new Date();inicio.setHours(0,0,0,0);}
-    else if(tipo==='ONTEM'){inicio=new Date(Date.now()-86400000);inicio.setHours(0,0,0,0);fim.setTime(inicio.getTime());fim.setHours(23,59,59,999);}
-    else if(tipo==='7_DIAS'){inicio=new Date(Date.now()-6*86400000);inicio.setHours(0,0,0,0);}
-    else if(tipo==='30_DIAS'){inicio=new Date(Date.now()-29*86400000);inicio.setHours(0,0,0,0);}
-    else if(tipo==='MES_ATUAL')inicio=new Date(fim.getFullYear(),fim.getMonth(),1);
-    else if(tipo==='MES_ANTERIOR'){inicio=new Date(fim.getFullYear(),fim.getMonth()-1,1);fim.setTime(new Date(fim.getFullYear(),fim.getMonth(),0,23,59,59,999).getTime());}
-    else if(tipo==='ANO_ATUAL')inicio=new Date(fim.getFullYear(),0,1);
+    const agora=new Date();agora.setHours(23,59,59,999);
+    let inicio=null,fim=null;
+    const inicioDia=d=>{d.setHours(0,0,0,0);return d};
+    if(tipo==='HOJE'){inicio=inicioDia(new Date());fim=agora}
+    else if(tipo==='ONTEM'){inicio=inicioDia(new Date(Date.now()-86400000));fim=new Date(inicio);fim.setHours(23,59,59,999)}
+    else if(tipo==='7_DIAS'){inicio=inicioDia(new Date(Date.now()-6*86400000));fim=agora}
+    else if(tipo==='30_DIAS'){inicio=inicioDia(new Date(Date.now()-29*86400000));fim=agora}
+    else if(tipo==='MES_ATUAL'){inicio=new Date(agora.getFullYear(),agora.getMonth(),1);fim=agora}
+    else if(tipo==='MES_ANTERIOR'){inicio=new Date(agora.getFullYear(),agora.getMonth()-1,1);fim=new Date(agora.getFullYear(),agora.getMonth(),0,23,59,59,999)}
+    else if(tipo==='ANO_ATUAL'){inicio=new Date(agora.getFullYear(),0,1);fim=agora}
     else if(tipo==='PERSONALIZADO'){
-      const i=document.getElementById('dashboard-data-inicial')?.value,f=document.getElementById('dashboard-data-final')?.value;
-      if(i)inicio=new Date(i+'T00:00:00');if(f){const x=new Date(f+'T23:59:59.999');fim.setTime(x.getTime());}
+      const i=document.getElementById('dashboard-data-inicial')?.value;
+      const f=document.getElementById('dashboard-data-final')?.value;
+      if(i)inicio=new Date(i+'T00:00:00');if(f)fim=new Date(f+'T23:59:59.999');
     }
     return {tipo,inicio,fim};
   }
-  function dentro(d,p){if(!d)return false;if(p.tipo==='ACUMULADO')return true;return (!p.inicio||d>=p.inicio)&&(!p.fim||d<=p.fim);}
-  function diasPeriodo(p,dates){
-    if(p.tipo!=='ACUMULADO'&&p.inicio&&p.fim)return Math.max(1,Math.floor((p.fim-p.inicio)/86400000)+1);
-    const validas=dates.filter(Boolean).sort((a,b)=>a-b);if(!validas.length)return 1;
-    const fim=new Date();fim.setHours(23,59,59,999);return Math.max(1,Math.floor((fim-validas[0])/86400000)+1);
-  }
-  function set(id,v){const e=document.getElementById(id);if(e)e.textContent=v;}
-  async function buscarHistorico(){
+  function noPeriodo(d,p){if(p.tipo==='ACUMULADO')return true;if(!d)return false;return (!p.inicio||d>=p.inicio)&&(!p.fim||d<=p.fim)}
+
+  async function paginar(tabela){
     const c=cliente();if(!c)return [];
-    try{
-      const {data:rows,error}=await c.from('historico_processos').select('processo_id,nte,acao,etapa,observacao,dados,created_at').or('acao.ilike.%Documento Recebido%,etapa.ilike.%Documento Recebido%,observacao.ilike.%Documento recebido%').order('created_at',{ascending:true});
-      if(error)throw error;return rows||[];
-    }catch(e){console.warn('[SIGEE 3.2.13] Histórico de Documento Recebido indisponível.',e);return [];}
+    let todos=[],ini=0;
+    while(true){
+      const {data:linhas,error}=await c.from(tabela).select('*').range(ini,ini+999);
+      if(error)throw error;
+      todos.push(...(linhas||[]));
+      if(!linhas||linhas.length<1000)break;
+      ini+=1000;if(ini>=100000)break;
+    }
+    return todos;
   }
-  async function buscarLogsLegados(){
-    const c=cliente();if(!c)return [];
-    try{
-      const {data:rows,error}=await c.from('logs_sigee').select('nte,acao,detalhes,created_at').ilike('acao','%Documento recebido%').order('created_at',{ascending:true});
-      if(error)throw error;return (rows||[]).map((r,i)=>({processo_id:null,nte:r.nte,acao:r.acao,observacao:r.detalhes,created_at:r.created_at,_legado:true,_id:i}));
-    }catch(e){return [];}
+
+  function garantirCardTempo(){
+    const base=document.getElementById('dash-tec-media-pasta-dia')?.closest('.bg-white');
+    if(!base||document.getElementById('dash-tec-media-arquivo-tempo'))return;
+    const card=document.createElement('div');
+    card.className='bg-white p-4 rounded-xl shadow-sm border-t-4 border-cyan-500 text-center';
+    card.innerHTML='<p class="text-[10px] text-gray-500 font-bold uppercase">Tempo Médio até Arquivo Recebido</p><p id="dash-tec-media-arquivo-tempo" class="text-xl font-bold mt-1">0 dia</p>';
+    base.insertAdjacentElement('afterend',card);
   }
+
+  function rotulos(){
+    const pedidos=document.getElementById('dash-tec-media-pedidos-dia');
+    const recebidos=document.getElementById('dash-tec-media-pasta-dia');
+    if(pedidos)pedidos.previousElementSibling.textContent='Pedidos Abertos';
+    if(recebidos)recebidos.previousElementSibling.textContent='Arquivos Recebidos';
+    garantirCardTempo();
+  }
+
+  function eventoRecebimento(h){
+    const combinado=norm([h.acao,h.etapa,h.observacao,JSON.stringify(h.dados||{})].join(' '));
+    return combinado.includes('DOCUMENTO RECEBIDO')||combinado.includes('DOCUMENTO_RECEBIDO')||combinado.includes('ARQUIVO RECEBIDO');
+  }
+
+  let executando=false;
   async function atualizar(){
-    const processos=Array.isArray(window.processosDB)?window.processosDB:[];
-    const alvo=filtroNte(),p=periodo();
-    const procFiltrados=processos.filter(x=>!alvo||nteId(x.nte_id||x.nte||x.nte_nome||x.grupo)===alvo);
-    const aberturas=procFiltrados.map(x=>data(x.data_solicitacao||x.data_abertura||x.created_at||x.criado_em)).filter(d=>dentro(d,p));
-    const historico=await buscarHistorico();
-    const eventosNovos=historico.filter(h=>(!alvo||nteId(h.nte)===alvo)&&dentro(data(h.created_at),p));
-    let eventos=eventosNovos;
-    if(!eventos.length){const legados=await buscarLogsLegados();eventos=legados.filter(h=>(!alvo||nteId(h.nte)===alvo)&&dentro(data(h.created_at),p));}
-    const datasBase=[...aberturas,...eventos.map(e=>data(e.created_at))];
-    const divisor=diasPeriodo(p,datasBase);
-    const pedidosDia=aberturas.length/divisor;
-    const arquivosDia=eventos.length/divisor;
+    if(executando)return;executando=true;
+    try{
+      rotulos();
+      const p=periodo(),alvo=alvoNte();
+      let processos=[],historico=[];
+      try{processos=await paginar('processos')}catch(e){console.warn('[SIGEE Indicadores] processos indisponíveis:',e)}
+      try{historico=await paginar('historico_processos')}catch(e){console.warn('[SIGEE Indicadores] histórico indisponível:',e)}
+      if(!processos.length&&Array.isArray(window.processosDB))processos=window.processosDB.slice();
 
-    const mapaProc=new Map(procFiltrados.map(x=>[String(x.id),x]));
-    const primeiro=new Map();
-    historico.forEach(h=>{if(h.processo_id==null)return;const k=String(h.processo_id),d=data(h.created_at);if(!d)return;if(!primeiro.has(k)||d<primeiro.get(k))primeiro.set(k,d);});
-    const tempos=[];
-    primeiro.forEach((recebido,id)=>{const pr=mapaProc.get(id);if(!pr)return;if(alvo&&nteId(pr.nte_id||pr.nte||pr.nte_nome||pr.grupo)!==alvo)return;if(!dentro(recebido,p))return;const aberto=data(pr.data_solicitacao||pr.data_abertura||pr.created_at||pr.criado_em);if(aberto&&recebido>=aberto)tempos.push((recebido-aberto)/86400000);});
-    const media=tempos.length?tempos.reduce((a,b)=>a+b,0)/tempos.length:0;
+      const processosAlvo=alvo?processos.filter(x=>nteId(x)===alvo):processos;
+      const abertos=processosAlvo.filter(x=>noPeriodo(data(x.data_solicitacao||x.data_abertura||x.created_at||x.criado_em),p));
 
-    set('dash-tec-media-pedidos-dia',pedidosDia.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1}));
-    set('dash-tec-media-pasta-dia',arquivosDia.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1}));
-    set('dash-tec-media-arquivo-recebido',`${media.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})} dias`);
-    const card=document.getElementById('dash-tec-media-pasta-dia')?.closest('div');
-    const label=card?.querySelector('p:first-child');if(label)label.textContent='Arquivos Recebidos/Dia';
+      const procMap=new Map(processos.map(x=>[String(x.id),x]));
+      let eventos=historico.filter(eventoRecebimento).filter(h=>{
+        const proc=procMap.get(String(h.processo_id));
+        if(alvo&&nteId(proc||h)!==alvo)return false;
+        return noPeriodo(data(h.created_at||h.data),p);
+      });
+
+      /* Um recebimento por processo para medir solicitações atendidas. */
+      const primeiro=new Map();
+      eventos.sort((a,b)=>(data(a.created_at)||0)-(data(b.created_at)||0)).forEach(h=>{
+        const k=String(h.processo_id);if(!primeiro.has(k))primeiro.set(k,h);
+      });
+
+      /* Compatibilidade com registros locais feitos antes do histórico. */
+      processosAlvo.forEach(x=>{
+        const d=data(x.data_arquivo_recebido||x.arquivo_recebido_em);
+        if(d&&noPeriodo(d,p)&&!primeiro.has(String(x.id))){
+          const h={processo_id:x.id,created_at:d.toISOString(),nte:x.nte,dados:{evento:'DOCUMENTO_RECEBIDO'}};
+          primeiro.set(String(x.id),h);eventos.push(h);
+        }
+      });
+
+      const tempos=[];
+      primeiro.forEach((h,id)=>{
+        const proc=procMap.get(String(id));
+        const abertura=data(proc&&(proc.data_solicitacao||proc.data_abertura||proc.created_at||proc.criado_em));
+        const receb=data(h.created_at||h.dados?.recebido_em);
+        if(abertura&&receb&&receb>=abertura)tempos.push((receb-abertura)/86400000);
+      });
+      const media=tempos.length?tempos.reduce((a,b)=>a+b,0)/tempos.length:0;
+
+      set('dash-tec-media-pedidos-dia',abertos.length.toLocaleString('pt-BR'));
+      set('dash-tec-media-pasta-dia',primeiro.size.toLocaleString('pt-BR'));
+      set('dash-tec-media-arquivo-tempo',`${media.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})} ${Math.abs(media-1)<.05?'dia':'dias'}`);
+    }finally{executando=false}
   }
-  function agendar(){clearTimeout(agendar.t);agendar.t=setTimeout(atualizar,350);}
-  window.addEventListener('load',()=>{agendar();setTimeout(agendar,2500);});
-  document.addEventListener('change',e=>{if(['filtro-dashboard-nte','filtro-dashboard-periodo','dashboard-data-inicial','dashboard-data-final'].includes(e.target?.id))agendar();});
-  const original=window.carregarDadosDashboardReal;
-  if(typeof original==='function'&&!original.__indicadores3213){
-    const wrap=async function(){const r=await original.apply(this,arguments);agendar();return r;};wrap.__indicadores3213=true;window.carregarDadosDashboardReal=wrap;
-  }
+
+  function agendar(){setTimeout(atualizar,350)}
+  document.addEventListener('change',e=>{if(['filtro-dashboard-nte','filtro-dashboard-periodo','dashboard-data-inicial','dashboard-data-final'].includes(e.target?.id))agendar()},true);
+  window.addEventListener('sigee:arquivo-recebido',agendar);
+  window.addEventListener('sigee:analytics-dados-alterados',agendar);
+  window.addEventListener('load',()=>setTimeout(atualizar,900));
+  const nav=window.navegar;
+  window.navegar=function(aba){const r=typeof nav==='function'?nav.apply(this,arguments):undefined;if(aba==='painel')agendar();return r};
+  setInterval(()=>{if(!document.getElementById('aba-painel')?.classList.contains('hidden'))atualizar()},15000);
 })();
