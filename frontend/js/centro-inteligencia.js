@@ -12,7 +12,19 @@
   const arr = (...names) => { for (const n of names) { try { if (Array.isArray(window[n])) return window[n]; } catch (_) {} } return []; };
   const profile = () => norm(val(window.usuarioLogado || {}, 'perfil', 'role') || 'TECNICO');
   const userNte = () => text(val(window.usuarioLogado || {}, 'nte', 'nte_nome', 'grupo'));
-  const nteOf = o => text(val(o, 'nte', 'nte_nome', 'grupo', 'NTE'));
+  const nteOf = o => text(val(o, 'nte', 'nte_nome', 'grupo', 'NTE', 'nte_id', 'id_nte', 'territorio_id'));
+  const stableId = o => text(val(o,'id','uuid','codigo_sigee'));
+  const uniqueById = list => {
+    const seen = new Set();
+    return list.filter((item, index) => {
+      const id = stableId(item);
+      if (!id) return true;
+      const k = `${typeof item}:${id}`;
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+  };
   const sameNte = (a,b) => {
     const na = String(a).match(/\d{1,2}/)?.[0], nb = String(b).match(/\d{1,2}/)?.[0];
     return na && nb ? Number(na) === Number(nb) : norm(a) === norm(b);
@@ -26,6 +38,14 @@
   const processStage = o => text(val(o,'etapa_atual','etapa','fase_atual'));
   const processOwner = o => text(val(o,'tecnico_responsavel','tecnico_responsavel_nome','responsavel','responsavel_nome','analista','analista_nome','digitador','digitador_nome','conferente','conferente_nome'));
   const codeMec = o => text(val(o,'cod_mec','codigo_mec','codigoMec','inep','codigo_inep'));
+  const validMecKey = o => {
+    const raw = codeMec(o);
+    const normalized = norm(raw);
+    if (!raw || ['SEM CODIGO','NAO INFORMADO','NAO POSSUI','N/A','NA'].includes(normalized)) return '';
+    const digits = raw.replace(/\D/g,'');
+    if (digits.length < 7 || digits.length > 9 || /^0+$/.test(digits)) return '';
+    return digits;
+  };
   const municipality = o => text(val(o,'municipio','cidade'));
   const schoolStatus = o => text(val(o,'situacao_funcional','situacao','status_escola'));
   const archiveStatus = o => text(val(o,'status_acervo','acervo','situacao_acervo'));
@@ -38,15 +58,15 @@
   }
 
   function diagnostics() {
-    const schools = scoped(arr('escolasDB','escolas','catalogoEscolas'));
-    const processes = scoped(arr('processosDB','processos'));
-    const users = scoped(arr('usuariosDB','usuarios'));
+    const schools = uniqueById(scoped(arr('escolasDB','escolas','catalogoEscolas')));
+    const processes = uniqueById(scoped(arr('processosDB','processos')));
+    const users = uniqueById(scoped(arr('usuariosDB','usuarios')));
     const schoolNames = new Set(schools.map(s => key(schoolName(s))).filter(Boolean));
     const schoolIds = new Set(schools.map(s => text(val(s,'id','escola_id'))).filter(Boolean));
-    const schoolMecCodes = new Set(schools.map(s => key(codeMec(s))).filter(Boolean));
+    const schoolMecCodes = new Set(schools.map(validMecKey).filter(Boolean));
 
     const rules = [
-      {cat:'Escolas', key:'mec-duplicado', level:'critical', title:'Código MEC duplicado', hint:'O mesmo código identifica mais de uma escola.', items:groupDup(schools,codeMec).flatMap(([,x])=>x)},
+      {cat:'Escolas', key:'mec-duplicado', level:'critical', title:'Código MEC duplicado', hint:'O mesmo código MEC válido identifica mais de uma escola.', items:groupDup(schools,validMecKey).flatMap(([,x])=>x)},
       {cat:'Escolas', key:'nome-duplicado', level:'critical', title:'Nome de escola duplicado', hint:'Nomes idênticos devem ser conferidos antes de qualquer fusão.', items:groupDup(schools,s=>`${schoolName(s)}|${municipality(s)}`).flatMap(([,x])=>x)},
       {cat:'Escolas', key:'sem-nte', level:'warning', title:'Escolas sem NTE', hint:'Registros sem território prejudicam filtros e permissões.', items:schools.filter(s=>!nteOf(s))},
       {cat:'Escolas', key:'sem-municipio', level:'warning', title:'Escolas sem município', hint:'O município é obrigatório para diagnóstico territorial.', items:schools.filter(s=>!municipality(s))},
@@ -57,14 +77,20 @@
       {cat:'Processos', key:'escola-nao-localizada', level:'critical', title:'Processos com escola não localizada', hint:'Nenhuma correspondência foi encontrada por ID, Código MEC ou nome normalizado.', items:processes.filter(p=>{
         const sid=text(val(p,'escola_id'));
         const sn=key(processSchool(p));
-        const smec=key(val(p,'cod_mec','codigo_mec','escola_cod_mec','escola_codigo_mec','codigo_inep'));
+        const rawMec=text(val(p,'cod_mec','codigo_mec','escola_cod_mec','escola_codigo_mec','codigo_inep'));
+        const mecDigits=rawMec.replace(/\D/g,'');
+        const smec=(mecDigits.length>=7 && mecDigits.length<=9 && !/^0+$/.test(mecDigits)) ? mecDigits : '';
         const localizadoPorId=Boolean(sid && schoolIds.has(sid));
         const localizadoPorMec=Boolean(smec && schoolMecCodes.has(smec));
         const localizadoPorNome=Boolean(sn && schoolNames.has(sn));
         const possuiReferencia=Boolean(sid || smec || sn);
         return possuiReferencia && !localizadoPorId && !localizadoPorMec && !localizadoPorNome;
       })},
-      {cat:'Processos', key:'sem-responsavel', level:'warning', title:'Processos sem responsável', hint:'Etapas operacionais precisam de profissional atribuído.', items:processes.filter(p=>!processOwner(p) && !['DESARQUIVAMENTO','RETIRADO','INDEFERIDO'].includes(norm(processStage(p))))},
+      {cat:'Processos', key:'sem-responsavel', level:'warning', title:'Processos sem responsável', hint:'Somente etapas operacionais com atribuição obrigatória são verificadas.', items:processes.filter(p=>{
+        const stage=norm(processStage(p));
+        const requiresOwner=['ANALISE','PENDENCIA','DIGITACAO','CONFERENCIA','ASSINATURA'].some(x=>stage.includes(x));
+        return requiresOwner && !processOwner(p);
+      })},
       {cat:'Processos', key:'sem-etapa', level:'critical', title:'Processos sem etapa', hint:'A ausência de etapa impede o workflow.', items:processes.filter(p=>!processStage(p))},
       {cat:'Processos', key:'sem-prioridade', level:'warning', title:'Processos sem prioridade', hint:'Defina a prioridade para ordenar corretamente a fila.', items:processes.filter(p=>!text(val(p,'prioridade')))},
       {cat:'Processos', key:'sem-workflow-id', level:'critical', title:'Processos sem workflow_instance_id', hint:'A instância é necessária para rastrear ações e ciclos.', items:processes.filter(p=>!text(val(p,'workflow_instance_id')))},
@@ -135,7 +161,9 @@
     const critical=data.rules.filter(r=>r.level==='critical').reduce((n,r)=>n+r.items.length,0);
     const warning=data.rules.filter(r=>r.level==='warning').reduce((n,r)=>n+r.items.length,0);
     const healthy=data.rules.filter(r=>r.items.length===0).length;
-    const score=Math.max(0,Math.round(100-Math.min(100,critical*2+warning*.5)));
+    const baseSize=Math.max(1,data.schools.length+data.processes.length+data.users.length);
+    const weightedIssues=(critical*3)+(warning*1);
+    const score=Math.max(0,Math.round(100-(weightedIssues/baseSize)*100));
     const summary=document.getElementById('intel-summary');
     if(summary) summary.innerHTML=`<article><span>Índice de integridade</span><strong>${score}</strong><small>de 100 pontos</small></article><article class="critical"><span>Ocorrências críticas</span><strong>${critical}</strong><small>Exigem correção</small></article><article class="warning"><span>Pontos de atenção</span><strong>${warning}</strong><small>Revisão recomendada</small></article><article><span>Regras sem ocorrência</span><strong>${healthy}</strong><small>de ${data.rules.length} verificações</small></article><article><span>Base analisada</span><strong>${data.schools.length+data.processes.length+data.users.length}</strong><small>${data.schools.length} escolas · ${data.processes.length} processos · ${data.users.length} usuários</small></article>`;
     const rules=data.rules.filter(r => (category === 'TODOS' || r.cat === category) && (level === 'TODOS' || r.level === level) && (!search || norm(`${r.title} ${r.hint} ${r.cat} ${r.items.map(i => itemLabel(i, r.cat)).join(' ')}`).includes(search)));
