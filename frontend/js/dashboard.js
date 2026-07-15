@@ -434,71 +434,6 @@
   const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v};
   let timer=null,ultimoResultado=null;
 
-  function dataIndicador(v){
-    if(!v)return null;
-    if(v instanceof Date)return Number.isNaN(v.getTime())?null:v;
-    const s=txt(v),br=s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
-    const d=br?new Date(Number(br[3]),Number(br[2])-1,Number(br[1])):new Date(s);
-    return Number.isNaN(d.getTime())?null:d;
-  }
-  function nteIndicador(p){
-    const bruto=txt(p?.nte_id??p?.nte??p?.nte_nome??p?.grupo??p?.territorio);
-    const m=bruto.match(/\d{1,2}/); return m?Number(m[0]):null;
-  }
-  function periodoIndicadores(){
-    const tipo=document.getElementById('filtro-dashboard-periodo')?.value||'ACUMULADO';
-    const fim=new Date();fim.setHours(23,59,59,999);let inicio=null;
-    if(tipo==='HOJE'){inicio=new Date();inicio.setHours(0,0,0,0)}
-    else if(tipo==='ONTEM'){inicio=new Date(Date.now()-86400000);inicio.setHours(0,0,0,0);fim.setTime(inicio.getTime());fim.setHours(23,59,59,999)}
-    else if(tipo==='7_DIAS'){inicio=new Date(Date.now()-6*86400000);inicio.setHours(0,0,0,0)}
-    else if(tipo==='30_DIAS'){inicio=new Date(Date.now()-29*86400000);inicio.setHours(0,0,0,0)}
-    else if(tipo==='MES_ATUAL')inicio=new Date(fim.getFullYear(),fim.getMonth(),1);
-    else if(tipo==='MES_ANTERIOR'){inicio=new Date(fim.getFullYear(),fim.getMonth()-1,1);fim.setTime(new Date(fim.getFullYear(),fim.getMonth(),0,23,59,59,999).getTime())}
-    else if(tipo==='ANO_ATUAL')inicio=new Date(fim.getFullYear(),0,1);
-    else if(tipo==='PERSONALIZADO'){
-      const i=document.getElementById('dashboard-data-inicial')?.value,f=document.getElementById('dashboard-data-final')?.value;
-      if(i)inicio=new Date(i+'T00:00:00');if(f)fim.setTime(new Date(f+'T23:59:59.999').getTime());
-    }
-    return {tipo,inicio,fim};
-  }
-  function dentroIndicador(d,p){return !!d&&(p.tipo==='ACUMULADO'||(!p.inicio||d>=p.inicio)&&(!p.fim||d<=p.fim))}
-  function dataArquivoRecebido(p){
-    const direta=dataIndicador(p?.arquivo_recebido_em||p?.data_arquivo_recebido||p?.pasta_localizada_em);
-    if(direta)return direta;
-    const msg=txt(p?.ultima_mensagem_workflow);
-    let m=msg.match(/^ARQUIVO_RECEBIDO\|[^|]+\|(.+)$/i);if(m)return dataIndicador(m[1]);
-    m=msg.match(/^PASTA_LOCALIZADA\|(.+)$/i);if(m)return dataIndicador(m[1]);
-    return null;
-  }
-  function diasBaseIndicador(datas,periodo){
-    if(periodo.inicio&&periodo.fim)return Math.max(1,Math.floor((periodo.fim-periodo.inicio)/86400000)+1);
-    if(!datas.length)return 1;
-    const primeira=new Date(Math.min(...datas.map(d=>d.getTime())));primeira.setHours(0,0,0,0);
-    const fim=periodo.fim||new Date();fim.setHours(23,59,59,999);
-    return Math.max(1,Math.floor((fim-primeira)/86400000)+1);
-  }
-  function calcularIndicadoresDiarios(){
-    let processos=Array.isArray(window.processosDB)?window.processosDB.slice():[];
-    const filtro=txt(document.getElementById('filtro-dashboard-nte')?.value||'TODOS');
-    const alvo=/^(TODOS|GLOBAL)?$/i.test(filtro)?null:Number((filtro.match(/\d{1,2}/)||[])[0]||0)||null;
-    if(alvo)processos=processos.filter(p=>nteIndicador(p)===alvo);
-    const periodo=periodoIndicadores();
-    const aberturas=processos.map(p=>dataIndicador(p.data_solicitacao||p.data_abertura||p.created_at||p.criado_em)).filter(d=>dentroIndicador(d,periodo));
-    const recebimentos=processos.map(dataArquivoRecebido).filter(d=>dentroIndicador(d,periodo));
-    const temposAteArquivo=processos.map(p=>{
-      const abertura=dataIndicador(p?.data_solicitacao||p?.data_abertura||p?.created_at||p?.criado_em);
-      const recebimento=dataArquivoRecebido(p);
-      if(!abertura||!recebimento||!dentroIndicador(recebimento,periodo)||recebimento<abertura)return null;
-      return Math.max(0,(recebimento.getTime()-abertura.getTime())/86400000);
-    }).filter(v=>v!==null&&Number.isFinite(v));
-    return {
-      pedidosDia:aberturas.length/diasBaseIndicador(aberturas,periodo),
-      arquivosDia:recebimentos.length/diasBaseIndicador(recebimentos,periodo),
-      tempoMedioAteArquivo:temposAteArquivo.length?temposAteArquivo.reduce((a,b)=>a+b,0)/temposAteArquivo.length:0,
-      solicitacoesAtendidas:temposAteArquivo.length
-    };
-  }
-
   function garantirCIG(){
     const aba=document.getElementById('aba-painel');
     if(!aba||document.getElementById('sigee-cig'))return;
@@ -563,12 +498,8 @@
       const boxTec=document.getElementById('dash-tec-top-escolas');if(boxTec)boxTec.innerHTML=escolas;
       const boxGer=document.getElementById('dash-ger-escola-demanda');if(boxGer)boxGer.innerHTML=escolas;
       set('dash-tec-media-entrega',`${r.mediaAtendimento.toLocaleString('pt-BR',{maximumFractionDigits:1})} dias`);
-      const diarios=calcularIndicadoresDiarios();
-      set('dash-tec-media-pedidos-dia',diarios.pedidosDia.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1}));
-      set('dash-tec-media-pasta-dia',diarios.arquivosDia.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1}));
-      set('dash-tec-media-atendimento-arquivo',`${diarios.tempoMedioAteArquivo.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})} ${Math.abs(diarios.tempoMedioAteArquivo-1)<0.05?'dia':'dias'}`);
-      const cardAtendimento=document.getElementById('dash-tec-media-atendimento-arquivo');
-      if(cardAtendimento)cardAtendimento.title=`${diarios.solicitacoesAtendidas.toLocaleString('pt-BR')} solicitação(ões) com arquivo recebido no período`;
+      set('dash-tec-media-pedidos-dia',r.pedidosDia.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1}));
+      set('dash-tec-media-pasta-dia',r.pastasDia.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1}));
 
       kpi('ativos','Processos ativos','◉',r.ativos.toLocaleString('pt-BR'),'Em tramitação');
       kpi('media','Tempo médio','◷',`${r.mediaAtendimento.toLocaleString('pt-BR',{maximumFractionDigits:1})} dias`,'Processos concluídos');
@@ -616,3 +547,99 @@
   console.info('[SIGEE] Dashboard e CIG integrados ao Motor 2.4.3B.');
 })();
 
+
+/* =====================================================================
+   SIGEE 3.2.13 — Indicadores diários baseados no histórico real
+   - Pedidos Abertos/Dia: novas solicitações cadastradas.
+   - Arquivos Recebidos/Dia: eventos Documento Recebido.
+   - Tempo Médio até Arquivo Recebido: abertura -> primeiro recebimento.
+   ===================================================================== */
+(function(){
+  'use strict';
+  if(window.__SIGEE_INDICADORES_DIARIOS_3213__) return;
+  window.__SIGEE_INDICADORES_DIARIOS_3213__=true;
+
+  const txt=v=>v==null?'':String(v).trim();
+  const norm=v=>txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
+  function cliente(){try{return window.obterSupabaseSIGEE?.()||window.criarClienteSupabaseSIGEE?.()||window.SIGEE_SUPABASE?.criarCliente?.()||null;}catch(e){return null;}}
+  function data(v){if(!v)return null;const s=txt(v);const br=s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);const d=br?new Date(+br[3],+br[2]-1,+br[1]):new Date(s);return Number.isNaN(d.getTime())?null:d;}
+  function nteId(v){const m=txt(v).match(/(?:NTE\s*[- ]?)?(\d{1,2})/i);return m?Number(m[1]):null;}
+  function filtroNte(){
+    const u=window.usuarioLogado||{};const p=norm(u.perfil);
+    const global=p.includes('MASTER')||p==='SEC'||p.includes('SECRETARIA');
+    if(!global)return nteId(u.nte_id||u.nte||u.nte_nome||u.grupo);
+    const v=document.getElementById('filtro-dashboard-nte')?.value;
+    return !v||['TODOS','GLOBAL'].includes(norm(v))?null:nteId(v);
+  }
+  function periodo(){
+    const tipo=document.getElementById('filtro-dashboard-periodo')?.value||'ACUMULADO';
+    const fim=new Date();fim.setHours(23,59,59,999);let inicio=null;
+    if(tipo==='HOJE'){inicio=new Date();inicio.setHours(0,0,0,0);}
+    else if(tipo==='ONTEM'){inicio=new Date(Date.now()-86400000);inicio.setHours(0,0,0,0);fim.setTime(inicio.getTime());fim.setHours(23,59,59,999);}
+    else if(tipo==='7_DIAS'){inicio=new Date(Date.now()-6*86400000);inicio.setHours(0,0,0,0);}
+    else if(tipo==='30_DIAS'){inicio=new Date(Date.now()-29*86400000);inicio.setHours(0,0,0,0);}
+    else if(tipo==='MES_ATUAL')inicio=new Date(fim.getFullYear(),fim.getMonth(),1);
+    else if(tipo==='MES_ANTERIOR'){inicio=new Date(fim.getFullYear(),fim.getMonth()-1,1);fim.setTime(new Date(fim.getFullYear(),fim.getMonth(),0,23,59,59,999).getTime());}
+    else if(tipo==='ANO_ATUAL')inicio=new Date(fim.getFullYear(),0,1);
+    else if(tipo==='PERSONALIZADO'){
+      const i=document.getElementById('dashboard-data-inicial')?.value,f=document.getElementById('dashboard-data-final')?.value;
+      if(i)inicio=new Date(i+'T00:00:00');if(f){const x=new Date(f+'T23:59:59.999');fim.setTime(x.getTime());}
+    }
+    return {tipo,inicio,fim};
+  }
+  function dentro(d,p){if(!d)return false;if(p.tipo==='ACUMULADO')return true;return (!p.inicio||d>=p.inicio)&&(!p.fim||d<=p.fim);}
+  function diasPeriodo(p,dates){
+    if(p.tipo!=='ACUMULADO'&&p.inicio&&p.fim)return Math.max(1,Math.floor((p.fim-p.inicio)/86400000)+1);
+    const validas=dates.filter(Boolean).sort((a,b)=>a-b);if(!validas.length)return 1;
+    const fim=new Date();fim.setHours(23,59,59,999);return Math.max(1,Math.floor((fim-validas[0])/86400000)+1);
+  }
+  function set(id,v){const e=document.getElementById(id);if(e)e.textContent=v;}
+  async function buscarHistorico(){
+    const c=cliente();if(!c)return [];
+    try{
+      const {data:rows,error}=await c.from('historico_processos').select('processo_id,nte,acao,etapa,observacao,dados,created_at').or('acao.ilike.%Documento Recebido%,etapa.ilike.%Documento Recebido%,observacao.ilike.%Documento recebido%').order('created_at',{ascending:true});
+      if(error)throw error;return rows||[];
+    }catch(e){console.warn('[SIGEE 3.2.13] Histórico de Documento Recebido indisponível.',e);return [];}
+  }
+  async function buscarLogsLegados(){
+    const c=cliente();if(!c)return [];
+    try{
+      const {data:rows,error}=await c.from('logs_sigee').select('nte,acao,detalhes,created_at').ilike('acao','%Documento recebido%').order('created_at',{ascending:true});
+      if(error)throw error;return (rows||[]).map((r,i)=>({processo_id:null,nte:r.nte,acao:r.acao,observacao:r.detalhes,created_at:r.created_at,_legado:true,_id:i}));
+    }catch(e){return [];}
+  }
+  async function atualizar(){
+    const processos=Array.isArray(window.processosDB)?window.processosDB:[];
+    const alvo=filtroNte(),p=periodo();
+    const procFiltrados=processos.filter(x=>!alvo||nteId(x.nte_id||x.nte||x.nte_nome||x.grupo)===alvo);
+    const aberturas=procFiltrados.map(x=>data(x.data_solicitacao||x.data_abertura||x.created_at||x.criado_em)).filter(d=>dentro(d,p));
+    const historico=await buscarHistorico();
+    const eventosNovos=historico.filter(h=>(!alvo||nteId(h.nte)===alvo)&&dentro(data(h.created_at),p));
+    let eventos=eventosNovos;
+    if(!eventos.length){const legados=await buscarLogsLegados();eventos=legados.filter(h=>(!alvo||nteId(h.nte)===alvo)&&dentro(data(h.created_at),p));}
+    const datasBase=[...aberturas,...eventos.map(e=>data(e.created_at))];
+    const divisor=diasPeriodo(p,datasBase);
+    const pedidosDia=aberturas.length/divisor;
+    const arquivosDia=eventos.length/divisor;
+
+    const mapaProc=new Map(procFiltrados.map(x=>[String(x.id),x]));
+    const primeiro=new Map();
+    historico.forEach(h=>{if(h.processo_id==null)return;const k=String(h.processo_id),d=data(h.created_at);if(!d)return;if(!primeiro.has(k)||d<primeiro.get(k))primeiro.set(k,d);});
+    const tempos=[];
+    primeiro.forEach((recebido,id)=>{const pr=mapaProc.get(id);if(!pr)return;if(alvo&&nteId(pr.nte_id||pr.nte||pr.nte_nome||pr.grupo)!==alvo)return;if(!dentro(recebido,p))return;const aberto=data(pr.data_solicitacao||pr.data_abertura||pr.created_at||pr.criado_em);if(aberto&&recebido>=aberto)tempos.push((recebido-aberto)/86400000);});
+    const media=tempos.length?tempos.reduce((a,b)=>a+b,0)/tempos.length:0;
+
+    set('dash-tec-media-pedidos-dia',pedidosDia.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1}));
+    set('dash-tec-media-pasta-dia',arquivosDia.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1}));
+    set('dash-tec-media-arquivo-recebido',`${media.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})} dias`);
+    const card=document.getElementById('dash-tec-media-pasta-dia')?.closest('div');
+    const label=card?.querySelector('p:first-child');if(label)label.textContent='Arquivos Recebidos/Dia';
+  }
+  function agendar(){clearTimeout(agendar.t);agendar.t=setTimeout(atualizar,350);}
+  window.addEventListener('load',()=>{agendar();setTimeout(agendar,2500);});
+  document.addEventListener('change',e=>{if(['filtro-dashboard-nte','filtro-dashboard-periodo','dashboard-data-inicial','dashboard-data-final'].includes(e.target?.id))agendar();});
+  const original=window.carregarDadosDashboardReal;
+  if(typeof original==='function'&&!original.__indicadores3213){
+    const wrap=async function(){const r=await original.apply(this,arguments);agendar();return r;};wrap.__indicadores3213=true;window.carregarDadosDashboardReal=wrap;
+  }
+})();

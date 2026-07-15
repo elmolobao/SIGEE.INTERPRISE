@@ -29,6 +29,26 @@
         return CICLO_DESARQUIVAMENTO.includes(e);
     }
 
+    function deslocamentoEstadoCiclo(p) {
+        const codigo = normalizar(p && p.etapa_codigo);
+        const etapa = normalizar(processoEtapa(p));
+        if (codigo === 'RET' || etapa === 'REITERACAO') return 30;
+        if (codigo === 'REU' || etapa.includes('REITERACAO URG')) return 37;
+        if (codigo === 'CFD' || etapa.includes('CONFIRMACAO') || etapa.includes('CONFIRMAR DADOS')) return 44;
+        return 0;
+    }
+
+    function inferirInicioCicloLegado(p) {
+        if (!p) return null;
+        const referencia = p.data_etapa_atual || p.data_etapa || p.etapa_iniciada_em || p.updated_at;
+        const deslocamento = deslocamentoEstadoCiclo(p);
+        if (!referencia || !deslocamento) return null;
+        const data = new Date(referencia);
+        if (Number.isNaN(data.getTime())) return null;
+        data.setDate(data.getDate() - deslocamento);
+        return data.toISOString();
+    }
+
     function dataInicioCiclo(p) {
         if (!p) return null;
         return p.data_inicio_desarquivamento ||
@@ -36,6 +56,8 @@
                p.inicio_ciclo ||
                p.data_desarquivamento ||
                p.data_etapa_inicial ||
+               p.prazo_inicio_ciclo ||
+               inferirInicioCicloLegado(p) ||
                p.created_at ||
                p.criado_em ||
                p.prazo_inicio ||
@@ -55,7 +77,9 @@
             p.data_inicio_ciclo ||
             p.inicio_ciclo ||
             p.data_desarquivamento ||
-            p.data_etapa_inicial;
+            p.data_etapa_inicial ||
+            p.prazo_inicio_ciclo ||
+            inferirInicioCicloLegado(p);
 
         if (!existente) {
             const origem =
@@ -136,29 +160,49 @@
         if (!p) return 'Não atribuído';
         const etapa = normalizar(processoEtapa(p));
         const porEtapa = etapa.includes('ANAL')
-            ? (p.analista_nome || p.analista || p.tecnico_analista)
+            ? (p.analista_nome || p.analista || p.tecnico_analista || p.analista_selecionado_nome || p.analista_selecionado)
             : etapa.includes('DIGIT')
-                ? (p.digitador_nome || p.digitador)
+                ? (p.digitador_nome || p.digitador || p.digitador_selecionado_nome || p.digitador_selecionado)
                 : etapa.includes('CONFER')
-                    ? (p.conferente_nome || p.conferente)
+                    ? (p.conferente_nome || p.conferente || p.conferente_selecionado_nome || p.conferente_selecionado)
                     : etapa.includes('ASSIN')
                         ? (p.responsavel_assinatura_nome || p.responsavel_assinatura || p.enviado_assinatura_por)
                         : null;
         return texto(
             porEtapa ||
-            p.tecnico_responsavel_nome ||
-            p.tecnico_responsavel ||
-            p.responsavel_nome ||
-            p.responsavel ||
-            p.usuario_responsavel_nome ||
-            p.usuario_responsavel ||
+            p.tecnico_responsavel_nome || p.tecnico_responsavel ||
+            p.responsavel_nome || p.responsavel ||
+            p.usuario_responsavel_nome || p.usuario_responsavel ||
             p.tecnico_nome ||
-            p.analista_nome || p.analista ||
+            p.analista_nome || p.analista || p.analista_selecionado_nome || p.analista_selecionado ||
             p.digitador_nome || p.digitador ||
             p.conferente_nome || p.conferente ||
             p.atribuido_para_nome || p.atribuido_para ||
+            p.responsavel_etapa_nome || p.responsavel_etapa ||
             p.criado_por_nome || p.criado_por
         ) || 'Não atribuído';
+    }
+
+    function consolidarResponsavelProcesso(p) {
+        if (!p) return p;
+        const responsavel = processoResponsavel(p);
+        if (!responsavel || responsavel === 'Não atribuído') return p;
+        const etapa = normalizar(processoEtapa(p));
+        p.tecnico_responsavel = responsavel;
+        p.tecnico_responsavel_nome = p.tecnico_responsavel_nome || responsavel;
+        p.responsavel = p.responsavel || responsavel;
+        p.responsavel_nome = p.responsavel_nome || responsavel;
+        if (etapa.includes('ANAL')) {
+            p.analista = p.analista || responsavel;
+            p.analista_nome = p.analista_nome || responsavel;
+        } else if (etapa.includes('DIGIT')) {
+            p.digitador = p.digitador || responsavel;
+            p.digitador_nome = p.digitador_nome || responsavel;
+        } else if (etapa.includes('CONFER')) {
+            p.conferente = p.conferente || responsavel;
+            p.conferente_nome = p.conferente_nome || responsavel;
+        }
+        return p;
     }
     function anoProcesso(p) {
         const bruto = texto(p && (p.data_solicitacao || p.created_at || p.criado_em || p.data_abertura));
@@ -305,21 +349,19 @@
 
     function processoPayload(p) {
         garantirInicioCiclo(p);
+        consolidarResponsavelProcesso(p);
         try {
             if (typeof processoParaSupabaseSIGEE === 'function') {
                 const payload = processoParaSupabaseSIGEE(p) || {};
                 payload.workflow_instance_id = p.workflow_instance_id || payload.workflow_instance_id || gerarWorkflowInstanceIdSIGEE();
                 p.workflow_instance_id = payload.workflow_instance_id;
-
-                /*
-                 * Garante a persistência do profissional selecionado mesmo
-                 * quando o conversor legado não inclui esse campo.
-                 */
                 const responsavelAtual = processoResponsavel(p);
                 if (responsavelAtual && responsavelAtual !== 'Não atribuído') {
                     payload.tecnico_responsavel = responsavelAtual;
                 }
-
+                payload.data_inicio_desarquivamento = dataInicioCiclo(p) || payload.data_inicio_desarquivamento || null;
+                payload.data_inicio_ciclo = dataInicioCiclo(p) || payload.data_inicio_ciclo || null;
+                payload.prazo_inicio_ciclo = dataInicioCiclo(p) || payload.prazo_inicio_ciclo || null;
                 return protegerDatasPayloadSIGEE(payload);
             }
         } catch (e) {}
@@ -347,6 +389,9 @@
             finalizado_em: p.finalizado_em || null,
             etapa_codigo: p.etapa_codigo || null,
             data_etapa_atual: p.data_etapa_atual || null,
+            data_inicio_desarquivamento: dataInicioCiclo(p) || null,
+            data_inicio_ciclo: dataInicioCiclo(p) || null,
+            prazo_inicio_ciclo: dataInicioCiclo(p) || null,
             prazo_etapa: p.prazo_etapa == null ? null : Number(p.prazo_etapa),
             prazo_inicio: p.prazo_inicio || null,
             prazo_fim: p.prazo_fim || null,
@@ -482,10 +527,10 @@
         if (e.includes('ANAL')) return `<button onclick="abrirAnaliseSIGEE(${p.id})" class="bg-orange-600 hover:bg-orange-500 text-white font-bold px-2 py-1 rounded text-[10px]">Abrir Análise</button>`;
         if (e.includes('PEND')) return `<button onclick="abrirPendenciaSIGEE(${p.id})" class="bg-purple-700 hover:bg-purple-600 text-white font-bold px-2 py-1 rounded text-[10px]">Tratar Pendência</button>`;
         if (e.includes('INDEFER')) return '<span class="text-red-300 font-bold">Finalizado</span>';
-        if (e.includes('DIGIT')) return `<button onclick="abrirModalFluxoDigitacao(${p.id})" class="sigee-workflow-action sigee-workflow-action--digitacao">✍️ Documento Digitado</button>`;
-        if (e.includes('CONFER')) return `<button onclick="abrirModalFluxoConferencia(${p.id})" class="sigee-workflow-action sigee-workflow-action--conferencia">✔️ Documento Conferido</button>`;
-        if (e.includes('ASSIN')) return `<button onclick="abrirModalFluxoAssinatura(${p.id})" class="sigee-workflow-action sigee-workflow-action--deferido">✅ Registrar Deferimento</button>`;
-        if (e.includes('AGUARD')) return `<button onclick="abrirModalFluxoAguardando(${p.id})" class="sigee-workflow-action sigee-workflow-action--retirada">📤 Registrar Retirada</button>`;
+        if (e.includes('DIGIT')) return `<button onclick="abrirModalFluxoDigitacao(${p.id})" class="bg-orange-600 text-white font-bold px-2 py-1 rounded text-[10px]">Documento Digitado</button>`;
+        if (e.includes('CONFER')) return `<button onclick="abrirModalFluxoConferencia(${p.id})" class="bg-green-700 text-white font-bold px-2 py-1 rounded text-[10px]">Documento Conferido</button>`;
+        if (e.includes('ASSIN')) return `<button onclick="abrirModalFluxoAssinatura(${p.id})" class="bg-blue-700 text-white font-bold px-2 py-1 rounded text-[10px]">Deferido</button>`;
+        if (e.includes('AGUARD')) return `<button onclick="abrirModalFluxoAguardando(${p.id})" class="bg-gray-700 text-white font-bold px-2 py-1 rounded text-[10px]">Retirado</button>`;
         if (e.includes('RETIR')) return '<span class="text-gray-300 font-bold">Finalizado</span>';
 
         const codigoEtapa = normalizar(p.etapa_codigo);
@@ -510,7 +555,7 @@
             ? '<span class="text-gray-400 font-bold">Atas solicitadas</span>'
             : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'PEDIDO_ATAS_SEM_PASTA')" class="bg-red-800 text-white font-bold px-2 py-1 rounded text-[10px]">Solicitar Atas sem Pasta</button>`;
 
-        return `<button onclick="abrirDocumentoRecebidoDiretoSIGEE(${p.id})" class="bg-sky-700 text-white font-bold px-2 py-1 rounded text-[10px]">Documento Recebido</button>`;
+        return `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'DESARQUIVAMENTO')" class="bg-sky-700 text-white font-bold px-2 py-1 rounded text-[10px]">Documento Recebido</button>`;
     }
 
     function renderizarProcessos() {
@@ -601,22 +646,38 @@
         const p = listaProcessos().find(x => String(x.id) === String(id));
         if (!p) return;
 
-        if (isAdmin(u) && !mesmoNte(nteUsuario(u), processoNte(p))) {
-            return alert('Administrador só pode corrigir processos do próprio NTE.');
+        if (isAdmin(u)) {
+            if (!mesmoNte(nteUsuario(u), processoNte(p))) {
+                return alert('Administrador só pode corrigir processos do próprio NTE.');
+            }
+            const aluno = prompt('Nome do requerente/aluno:', processoAluno(p));
+            if (aluno === null) return;
+            const escola = prompt('Escola:', processoEscola(p));
+            if (escola === null) return;
+
+            p.aluno = p.aluno_nome = texto(aluno).toUpperCase();
+            p.escola = p.escola_nome = texto(escola).toUpperCase();
+            registrar(`[ADMINISTRADOR] Corrigiu nome/escola do processo ID ${p.id}.`);
+            await salvarProcesso(p);
+            atualizarTelas();
+            return;
         }
 
-        if (!isMaster(u) && !isAdmin(u)) {
+        if (!isMaster(u)) {
             return alert('Correção cadastral permitida apenas para Master e Administrador.');
         }
 
-        if (typeof window.abrirFormularioProcessoSIGEE !== 'function') {
-            return alert('O Formulário Inteligente do Processo ainda não foi carregado. Atualize a página e tente novamente.');
-        }
-
-        return window.abrirFormularioProcessoSIGEE({
-            modo: 'editar',
-            processoId: p.id
-        });
+        const aluno = prompt('Aluno:', processoAluno(p)); if (aluno === null) return;
+        const escola = prompt('Instituição:', processoEscola(p)); if (escola === null) return;
+        const doc = prompt('Documento:', processoDocumento(p) || 'HISTÓRICO'); if (doc === null) return;
+        const nte = prompt('NTE:', processoNte(p)); if (nte === null) return;
+        p.aluno = p.aluno_nome = texto(aluno).toUpperCase();
+        p.escola = p.escola_nome = texto(escola).toUpperCase();
+        p.documento = p.documento_tipo = texto(doc).toUpperCase();
+        p.nte = texto(nte) || p.nte;
+        registrar(`[MASTER] Editou processo ID ${p.id}.`);
+        await salvarProcesso(p);
+        atualizarTelas();
     }
     async function moverMaster(id, direcao) {
         if (!isMaster(usuario())) return alert('Avanço ou regressão manual permitido apenas para o perfil Master.');
@@ -643,22 +704,6 @@
         atualizarTelas();
     }
 
-    function abrirDocumentoRecebidoDiretoSIGEE(id) {
-        if (typeof window.abrirDocumentoRecebidoSIGEE === 'function') {
-            return window.abrirDocumentoRecebidoSIGEE(id);
-        }
-        /*
-         * Fallback para ambientes em que workflow-externo.js ainda não terminou
-         * de carregar. Usa a referência homologada preservada pelo módulo externo,
-         * quando disponível.
-         */
-        if (window.SIGEE_WORKFLOW_EXTERNO &&
-            typeof window.SIGEE_WORKFLOW_EXTERNO.openDocumentReceived === 'function') {
-            return window.SIGEE_WORKFLOW_EXTERNO.openDocumentReceived(id);
-        }
-        alert('O formulário de Documento Recebido ainda não foi carregado. Atualize a página e tente novamente.');
-    }
-
     function aplicarModuloProcessos() {
         window.carregarEContarProcessosHorizontais = atualizarContadoresProcessos;
         window.renderizarProcessosFlutuantes = renderizarProcessos;
@@ -672,7 +717,6 @@
         window.excluirProcessoMasterSIGEE = excluirProcessoMaster;
         window.excluirProcessoMasterV45 = excluirProcessoMaster;
         window.copiarCodigoSIGEE = copiarCodigoSIGEE;
-        window.abrirDocumentoRecebidoDiretoSIGEE = abrirDocumentoRecebidoDiretoSIGEE;
     }
 
     window.SIGEE_Processos = {
@@ -775,34 +819,7 @@
   function mapear(r){
     if(!r) return null;
     if(typeof window.processoDoSupabaseParaLocalSIGEE==='function') {
-      try {
-        const convertido=window.processoDoSupabaseParaLocalSIGEE(r)||{};
-        const responsavelConvertido=
-          convertido.tecnico_responsavel_nome || convertido.tecnico_responsavel ||
-          convertido.responsavel_nome || convertido.responsavel ||
-          convertido.usuario_responsavel_nome || convertido.usuario_responsavel ||
-          convertido.tecnico_nome || convertido.analista_nome || convertido.analista ||
-          convertido.digitador_nome || convertido.digitador ||
-          convertido.conferente_nome || convertido.conferente ||
-          convertido.atribuido_para_nome || convertido.atribuido_para ||
-          r.tecnico_responsavel_nome || r.tecnico_responsavel ||
-          r.responsavel_nome || r.responsavel ||
-          r.usuario_responsavel_nome || r.usuario_responsavel ||
-          r.tecnico_nome || r.analista_nome || r.analista ||
-          r.digitador_nome || r.digitador ||
-          r.conferente_nome || r.conferente ||
-          r.atribuido_para_nome || r.atribuido_para || '';
-
-        /* Preserva os campos brutos que o conversor legado possa descartar. */
-        return {
-          ...r,
-          ...convertido,
-          tecnico_responsavel: responsavelConvertido,
-          analista_nome: convertido.analista_nome || convertido.analista || r.analista_nome || r.analista || '',
-          digitador_nome: convertido.digitador_nome || convertido.digitador || r.digitador_nome || r.digitador || '',
-          conferente_nome: convertido.conferente_nome || convertido.conferente || r.conferente_nome || r.conferente || ''
-        };
-      } catch(e){ console.warn('[SIGEE] Falha no conversor de processos; usando mapeamento interno.',e); }
+      try { return window.processoDoSupabaseParaLocalSIGEE(r); } catch(e){}
     }
     return {
       ...r,
@@ -818,10 +835,19 @@
       nte: r.nte || r.nte_nome || r.grupo || '',
       modalidade: r.modalidade || r.oferta_modalidade || r.nivel_oferta || '',
       prioridade: r.prioridade || 'Normal',
-      tecnico_responsavel: r.tecnico_responsavel_nome || r.tecnico_responsavel || r.responsavel_nome || r.responsavel || r.usuario_responsavel_nome || r.usuario_responsavel || r.tecnico_nome || r.analista_nome || r.analista || r.digitador_nome || r.digitador || r.conferente_nome || r.conferente || r.atribuido_para_nome || r.atribuido_para || '',
-      analista_nome: r.analista_nome || r.analista || '',
+      tecnico_responsavel: r.tecnico_responsavel_nome || r.tecnico_responsavel || r.responsavel_nome || r.responsavel || r.usuario_responsavel_nome || r.usuario_responsavel || r.tecnico_nome || r.analista_nome || r.analista || r.analista_selecionado_nome || r.analista_selecionado || r.digitador_nome || r.digitador || r.conferente_nome || r.conferente || r.atribuido_para_nome || r.atribuido_para || '',
+      tecnico_responsavel_nome: r.tecnico_responsavel_nome || r.tecnico_responsavel || '',
+      responsavel: r.responsavel || r.tecnico_responsavel || '',
+      responsavel_nome: r.responsavel_nome || r.tecnico_responsavel_nome || r.tecnico_responsavel || '',
+      analista: r.analista || r.analista_nome || r.analista_selecionado || '',
+      analista_nome: r.analista_nome || r.analista || r.analista_selecionado_nome || r.analista_selecionado || '',
+      digitador: r.digitador || r.digitador_nome || '',
       digitador_nome: r.digitador_nome || r.digitador || '',
+      conferente: r.conferente || r.conferente_nome || '',
       conferente_nome: r.conferente_nome || r.conferente || '',
+      data_inicio_desarquivamento: r.data_inicio_desarquivamento || r.data_inicio_ciclo || r.prazo_inicio_ciclo || null,
+      data_inicio_ciclo: r.data_inicio_ciclo || r.data_inicio_desarquivamento || r.prazo_inicio_ciclo || null,
+      prazo_inicio_ciclo: r.prazo_inicio_ciclo || r.data_inicio_desarquivamento || r.data_inicio_ciclo || null,
       codigo_sigee: r.codigo_sigee || '',
       pendencia_aluno_itens: r.pendencia_aluno_itens || [],
       pendencia_instituicao_itens: r.pendencia_instituicao_itens || [],
@@ -1266,10 +1292,53 @@
     btn.addEventListener('click',async()=>{
       if(!sel.value||!chk.checked) return;
       btn.disabled=true;
-      p.etapa=p.etapa_atual='Digitação'; p.data_etapa_atual=agora(); p.tecnico_responsavel=sel.value; p.digitador=sel.value; p.pendencia_aberta=false;
-      await salvar(p);
-      await historico(p,'Digitação','Encaminhado para Digitação',`${origem}. Digitador: ${sel.value}. Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}.`,{digitador:sel.value,mensagem:msg,tarefa_confirmada:true});
-      fechar(); if(window.filtrarProcessosPorEtapa) window.filtrarProcessosPorEtapa('Digitação'); toast('Processo encaminhado para Digitação.');
+      const digitador=sel.value;
+      const instante=agora();
+      try{
+        /* Correção emergencial — Pendência resolvida -> Digitação.
+           Mantém os dois campos de etapa sincronizados e limpa integralmente
+           o estado da pendência antes da persistência no Supabase. */
+        p.etapa='Digitação';
+        p.etapa_atual='Digitação';
+        p.etapa_codigo=null;
+        p.data_etapa_atual=instante;
+        p.prazo_inicio=instante;
+        p.prazo_fim=null;
+        p.prazo_etapa=15;
+        p.updated_at=instante;
+        p.tecnico_responsavel=digitador;
+        p.tecnico_responsavel_nome=digitador;
+        p.responsavel=digitador;
+        p.responsavel_nome=digitador;
+        p.digitador=digitador;
+        p.digitador_nome=digitador;
+        p.pendencia_aberta=false;
+        p.pendencia_aluno_itens=[];
+        p.pendencia_instituicao_itens=[];
+        p.pendencia_aluno_complemento=null;
+        p.pendencia_instituicao_complemento=null;
+        p.pendencia_restante=null;
+        p.ultima_mensagem_workflow=msg.codigo;
+        p.ultimo_evento_workflow='PENDENCIA_SANADA_PARA_DIGITACAO';
+
+        await salvar(p);
+        await historico(
+          p,
+          'Digitação',
+          'Pendência sanada — encaminhado para Digitação',
+          `${origem}. Digitador: ${digitador}. Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}.`,
+          {digitador:digitador,mensagem:msg,tarefa_confirmada:true,pendencia_sanada:true}
+        );
+
+        fechar();
+        if(window.filtrarProcessosPorEtapa) window.filtrarProcessosPorEtapa('Digitação');
+        if(window.SIGEE_Processos?.contar) window.SIGEE_Processos.contar();
+        toast('Pendência sanada. Processo encaminhado para Digitação.');
+      }catch(e){
+        console.error('[SIGEE] Falha ao avançar Pendência para Digitação.',e);
+        btn.disabled=false;
+        alert('Não foi possível encaminhar o processo para Digitação: '+(e?.message||e));
+      }
     });
   }
 
@@ -1280,7 +1349,7 @@
     const sel=el.querySelector('#wf-conferente093'),chk=el.querySelector('#wf-email093'),btn=el.querySelector('[data-confirmar093]');
     await preencherSelectTecnicoWorkflow(sel,p);
     const semUsuarios=el.querySelector('.sigee-selecao-semusuarios093'); if(semUsuarios) semUsuarios.remove();
-    const validar=()=>{atualizarDestaqueTecnico(el,sel);btn.disabled=!(sel.value&&chk.checked);}; sel.addEventListener('change',validar); chk.addEventListener('change',validar); validar();
+    const validar=()=>{atualizarDestaqueTecnico(el,sel);btn.disabled=!(sel.value&&chk.checked);}; sel.addEventListener('change',validar); chk.addEventListener('change',validar);
     el.querySelector('[data-cancelar093]').addEventListener('click',fechar);
     btn.addEventListener('click',async()=>{btn.disabled=true;p.etapa=p.etapa_atual='Conferência';p.data_etapa_atual=agora();p.tecnico_responsavel=sel.value;p.conferente=sel.value;await salvar(p);await historico(p,'Conferência','Encaminhado para Conferência',`Digitação concluída. Conferente: ${sel.value}. Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}.`,{conferente:sel.value,mensagem:msg,tarefa_confirmada:true});fechar();if(window.filtrarProcessosPorEtapa)window.filtrarProcessosPorEtapa('Conferência');toast('Processo encaminhado para Conferência.');});
   }
@@ -1289,7 +1358,7 @@
     const p=processo(id); if(!p || bloquearLeitura()) return;
     const msg=MENSAGENS.assinatura;
     const el=modal(`✔️ Conferência Concluída — ${esc(p.codigo_sigee||p.id)}`,`${cabecalho(p)}${tarefa(msg)}<div class="sigee-acoes33"><button class="btn33 btn33-cinza" data-cancelar093>Cancelar</button><button class="btn33 btn33-verde" data-confirmar093 disabled>Enviar para Assinatura</button></div>`);
-    const chk=el.querySelector('#wf-email093'),btn=el.querySelector('[data-confirmar093]'); const validar=()=>{btn.disabled=!chk.checked;}; chk.addEventListener('change',validar); validar();
+    const chk=el.querySelector('#wf-email093'),btn=el.querySelector('[data-confirmar093]'); chk.addEventListener('change',()=>btn.disabled=!chk.checked);
     el.querySelector('[data-cancelar093]').addEventListener('click',fechar);
     btn.addEventListener('click',async()=>{btn.disabled=true;p.etapa=p.etapa_atual='Assinatura';p.data_etapa_atual=agora();p.tecnico_responsavel=nomeUsuario();p.enviado_assinatura_por=nomeUsuario();await salvar(p);await historico(p,'Assinatura','Encaminhado para Assinatura',`Conferência concluída. Enviado para assinatura por ${nomeUsuario()}. Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}.`,{enviado_por:nomeUsuario(),mensagem:msg,tarefa_confirmada:true});fechar();if(window.filtrarProcessosPorEtapa)window.filtrarProcessosPorEtapa('Assinatura');toast('Processo encaminhado para Assinatura.');});
   }
@@ -1298,33 +1367,9 @@
     const p=processo(id); if(!p || bloquearLeitura()) return;
     const msg=MENSAGENS.deferido;
     const el=modal(`🖋️ Documento Assinado — ${esc(p.codigo_sigee||p.id)}`,`${cabecalho(p)}<p class="sigee-aviso33">Confirme somente após o retorno do documento assinado pelo Diretor do NTE.</p>${tarefa(msg)}<div class="sigee-acoes33"><button class="btn33 btn33-cinza" data-cancelar093>Cancelar</button><button class="btn33 btn33-verde" data-confirmar093 disabled>Deferido</button></div>`);
-    const chk=el.querySelector('#wf-email093'),btn=el.querySelector('[data-confirmar093]'); const validar=()=>{btn.disabled=!chk.checked;}; chk.addEventListener('change',validar); validar();
+    const chk=el.querySelector('#wf-email093'),btn=el.querySelector('[data-confirmar093]'); chk.addEventListener('change',()=>btn.disabled=!chk.checked);
     el.querySelector('[data-cancelar093]').addEventListener('click',fechar);
-    btn.addEventListener('click',async()=>{
-      if(btn.dataset.executando==='1' || !chk.checked) return;
-      btn.dataset.executando='1'; btn.disabled=true;
-      const rotuloOriginal=btn.textContent; btn.textContent='Registrando deferimento...';
-      try{
-        const instante=agora();
-        p.etapa=p.etapa_atual='Aguardando Retirada';
-        p.data_etapa_atual=instante;
-        p.tecnico_responsavel=nomeUsuario();
-        p.deferido_em=instante;
-        p.finalizado_em=null;
-        p.ultimo_evento_workflow='PROCESSO_DEFERIDO';
-        p.ultima_mensagem_workflow=msg.codigo;
-        await salvar(p);
-        await historico(p,'Aguardando Retirada','Processo deferido',`Documento retornou assinado e está disponível para retirada. Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}.`,{mensagem:msg,tarefa_confirmada:true,deferido_em:instante});
-        fechar();
-        if(window.filtrarProcessosPorEtapa) window.filtrarProcessosPorEtapa('Aguardando Retirada');
-        if(window.carregarEContarProcessosHorizontais) window.carregarEContarProcessosHorizontais();
-        toast('Processo deferido e disponível para retirada.');
-      }catch(e){
-        console.error('[SIGEE] Falha ao registrar deferimento.',e);
-        btn.dataset.executando='0'; btn.disabled=!chk.checked; btn.textContent=rotuloOriginal;
-        alert('Não foi possível registrar o deferimento: '+(e.message||e));
-      }
-    });
+    btn.addEventListener('click',async()=>{btn.disabled=true;p.etapa=p.etapa_atual='Aguardando Retirada';p.data_etapa_atual=agora();p.tecnico_responsavel=nomeUsuario();p.deferido_em=agora();await salvar(p);await historico(p,'Aguardando Retirada','Processo deferido',`Documento retornou assinado e está disponível para retirada. Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}.`,{mensagem:msg,tarefa_confirmada:true});fechar();if(window.filtrarProcessosPorEtapa)window.filtrarProcessosPorEtapa('Aguardando Retirada');toast('Processo deferido e disponível para retirada.');});
   }
 
   function abrirRetirada(id){
@@ -1441,10 +1486,7 @@
   setInterval(()=>{
     if(window.abrirEncaminharDigitacaoSIGEE!==abrirEncaminharDigitacao ||
        window.abrirModalFluxoDigitacao!==abrirDigitacao ||
-       window.abrirModalFluxoConferencia!==abrirConferencia ||
-       window.abrirModalFluxoAssinatura!==abrirAssinatura ||
-       window.abrirModalFluxoAguardando!==abrirRetirada ||
-       window.abrirAnaliseSIGEE!==abrirAnaliseWorkflow093){
+       window.abrirModalFluxoConferencia!==abrirConferencia){
       instalarWorkflow093();
     }
   },1500);
@@ -1539,3 +1581,93 @@
     setTimeout(aplicar,1500);
   });
 })(window);
+
+/* =====================================================================
+   SIGEE 3.2.13 — Registro autoritativo de Documento Recebido
+   Grava cada execução no historico_processos para uso dos indicadores.
+   ===================================================================== */
+(function(){
+  'use strict';
+  if(window.__SIGEE_DOC_RECEBIDO_HIST_3213__) return;
+  window.__SIGEE_DOC_RECEBIDO_HIST_3213__ = true;
+
+  const txt=v=>v==null?'':String(v).trim();
+  function cliente(){
+    try{return window.obterSupabaseSIGEE?.()||window.criarClienteSupabaseSIGEE?.()||window.SIGEE_SUPABASE?.criarCliente?.()||null;}catch(e){return null;}
+  }
+  function processoPorId(id){
+    const lista=Array.isArray(window.processosDB)?window.processosDB:[];
+    return lista.find(p=>String(p.id)===String(id))||null;
+  }
+  async function gravarEvento(dados){
+    const c=cliente();
+    if(!c||!dados?.processo_id) return;
+    const u=window.usuarioLogado||{};
+    const registro={
+      processo_id:dados.processo_id,
+      codigo_sigee:dados.codigo_sigee||'',
+      etapa:'Documento Recebido',
+      acao:'Documento Recebido',
+      observacao:`Arquivo recebido: ${dados.tipo_arquivo||'Não informado'} | Local: ${dados.local_arquivo||'Não informado'}`,
+      usuario_nome:txt(u.nome||u.name||u.email||'Usuário SIGEE'),
+      usuario_email:txt(u.email)||null,
+      usuario_perfil:txt(u.perfil)||null,
+      nte:txt(dados.nte||u.nte||u.nte_nome||u.grupo)||null,
+      dados:{
+        evento:'DOCUMENTO_RECEBIDO',
+        tipo_arquivo:dados.tipo_arquivo||null,
+        local_arquivo:dados.local_arquivo||null,
+        prioridade:dados.prioridade||null,
+        analista:dados.analista||null,
+        data_solicitacao:dados.data_solicitacao||null
+      },
+      created_at:new Date().toISOString()
+    };
+    try{
+      const {error}=await c.from('historico_processos').insert(registro);
+      if(error) throw error;
+    }catch(e){
+      console.warn('[SIGEE 3.2.13] Não foi possível registrar Documento Recebido no histórico.',e);
+    }
+  }
+
+  function instalar(){
+    const original=window.executarTransicaoDesarquivamento;
+    if(typeof original!=='function'||original.__sigee3213) return false;
+    const envolvida=function(event){
+      const id=document.getElementById('f00-id')?.value;
+      const p=processoPorId(id);
+      const snapshot=p?{
+        processo_id:p.id,
+        codigo_sigee:p.codigo_sigee||'',
+        nte:p.nte||p.nte_nome||p.grupo||'',
+        data_solicitacao:p.data_solicitacao||p.data_abertura||p.created_at||p.criado_em||null,
+        tipo_arquivo:document.getElementById('f00-tipo')?.value||'',
+        local_arquivo:document.getElementById('f00-local')?.value||'',
+        prioridade:document.getElementById('f00-prioridade')?.value||'',
+        analista:document.getElementById('f00-analista')?.value||''
+      }:null;
+      const valido=!!(snapshot?.tipo_arquivo&&snapshot?.local_arquivo&&snapshot?.prioridade&&snapshot?.analista&&document.getElementById('f00-chk-email')?.checked);
+      const retorno=original.apply(this,arguments);
+      if(valido&&snapshot){
+        const agora=new Date().toISOString();
+        p.documento_recebido_em=agora;
+        p.data_documento_recebido=agora;
+        p.tipo_arquivo_recebido=snapshot.tipo_arquivo;
+        p.local_arquivo_recebido=snapshot.local_arquivo;
+        Promise.resolve().then(()=>gravarEvento(snapshot));
+      }
+      return retorno;
+    };
+    envolvida.__sigee3213=true;
+    envolvida.__original=original;
+    window.executarTransicaoDesarquivamento=envolvida;
+    return true;
+  }
+
+  if(!instalar()){
+    let tentativas=0;
+    const timer=setInterval(()=>{tentativas++;if(instalar()||tentativas>30)clearInterval(timer);},500);
+  }
+  window.addEventListener('load',instalar);
+})();
