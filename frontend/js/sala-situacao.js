@@ -2,7 +2,7 @@
 (function () {
   'use strict';
 
-  var VERSION = '3.2.8';
+  var VERSION = '3.2.9';
   var REFRESH_MS = 60000;
   var filtroNte = 'GLOBAL';
   var timer = null;
@@ -94,6 +94,63 @@
   function classe(v){ return v>=90?'excelente':v>=75?'bom':v>=60?'atencao':v>=40?'critico':'intervencao'; }
   function label(v){ return v>=90?'Excelente':v>=75?'Muito bom':v>=60?'Atenção':v>=40?'Crítico':'Intervenção'; }
 
+  function statusOperacional(m) {
+    if (!m.total) return 'Sem demanda';
+    if (m.vencidos > 0 && m.sla < 60) return 'Intervenção prioritária';
+    if (m.vencidos > 0 || m.sla < 75) return 'Atenção operacional';
+    return 'Operação regular';
+  }
+
+  function renderVisaoTerritorial(metricas) {
+    var box = document.getElementById('sala-ntes');
+    if (!box) return;
+    box.innerHTML = metricas.map(function (m) {
+      return '<button type="button" class="sala-territorio-card '+classe(m.igd)+(filtroNte===m.codigo?' ativo':'')+'" data-territorio="'+m.codigo+'">'
+        + '<div class="sala-territorio-topo"><strong>'+m.codigo+'</strong><em>'+m.igd+'</em></div>'
+        + '<span class="sala-territorio-status">'+esc(statusOperacional(m))+'</span>'
+        + '<dl>'
+        + '<div><dt>SLA</dt><dd>'+m.sla+'%</dd></div>'
+        + '<div><dt>Ativos</dt><dd>'+m.ativos+'</dd></div>'
+        + '<div><dt>Vencidos</dt><dd>'+m.vencidos+'</dd></div>'
+        + '<div><dt>Tempo médio</dt><dd>'+m.media+'d</dd></div>'
+        + '</dl></button>';
+    }).join('');
+    Array.prototype.forEach.call(box.querySelectorAll('[data-territorio]'), function (btn) {
+      btn.addEventListener('click', function () {
+        filtroNte = btn.dataset.territorio;
+        var sel = document.getElementById('sala-v2-filtro-nte');
+        if (sel) sel.value = filtroNte;
+        render();
+      });
+    });
+  }
+
+  function renderRankingsTerritoriais(metricas) {
+    var ranking=document.getElementById('sala-v2-ranking');
+    if (!ranking) return;
+    var desempenho=metricas.slice().sort(function(a,b){return b.igd-a.igd;}).slice(0,10);
+    var demanda=metricas.slice().sort(function(a,b){return b.total-a.total;}).slice(0,10);
+    var tempo=metricas.filter(function(m){return m.total>0;}).sort(function(a,b){return b.media-a.media;}).slice(0,10);
+    function linhas(lista, tipo) {
+      return lista.map(function(m,i){
+        var detalhe = tipo==='demanda' ? m.total+' processos' : tipo==='tempo' ? m.media+' dias médios' : 'SLA '+m.sla+'% · '+m.concluidos+' concluídos';
+        var valor = tipo==='demanda' ? m.total : tipo==='tempo' ? m.media+'d' : m.igd;
+        return '<div><b>'+(i+1)+'</b><span><strong>'+m.codigo+'</strong><small>'+detalhe+'</small></span><em class="'+classe(m.igd)+'">'+valor+'</em></div>';
+      }).join('');
+    }
+    ranking.innerHTML='<div class="sala-ranking-tabs" role="tablist">'
+      +'<button type="button" class="ativo" data-ranking="desempenho">Melhor IGD</button>'
+      +'<button type="button" data-ranking="demanda">Maior demanda</button>'
+      +'<button type="button" data-ranking="tempo">Maior tempo</button></div>'
+      +'<div class="sala-ranking-lista" data-ranking-lista="desempenho">'+linhas(desempenho,'desempenho')+'</div>'
+      +'<div class="sala-ranking-lista hidden" data-ranking-lista="demanda">'+linhas(demanda,'demanda')+'</div>'
+      +'<div class="sala-ranking-lista hidden" data-ranking-lista="tempo">'+(tempo.length?linhas(tempo,'tempo'):'<div class="sala-vazio">Sem dados suficientes.</div>')+'</div>';
+    Array.prototype.forEach.call(ranking.querySelectorAll('[data-ranking]'),function(btn){btn.addEventListener('click',function(){
+      Array.prototype.forEach.call(ranking.querySelectorAll('[data-ranking]'),function(x){x.classList.toggle('ativo',x===btn);});
+      Array.prototype.forEach.call(ranking.querySelectorAll('[data-ranking-lista]'),function(x){x.classList.toggle('hidden',x.dataset.rankingLista!==btn.dataset.ranking);});
+    });});
+  }
+
   function renderFluxo(base) {
     var ordem=['Desarquivamento','Análise','Pendência','Digitação','Conferência','Assinatura','Aguardando Retirada','Retirado','Indeferido'];
     var box=document.getElementById('sala-fluxo-etapas'); if(!box) return;
@@ -178,11 +235,11 @@
 
     var metricas=metricasNte(todos);
     renderGraficoFluxo(base); renderGraficoStatus(base); renderGraficoEvolucao(base); renderGraficoTerritorial(metricas);
+    renderVisaoTerritorial(metricas);
     var cards=document.getElementById('sala-v2-ntes');
-    if(cards) cards.innerHTML=metricas.map(function(m){return '<button class="sala-v2-nte '+classe(m.igd)+(filtroNte===m.codigo?' ativo':'')+'" data-nte="'+m.codigo+'"><span>'+m.codigo+'</span><strong>'+m.igd+'</strong><small>'+label(m.igd)+' · '+m.ativos+' ativos</small></button>';}).join('');
-    if(cards) Array.prototype.forEach.call(cards.querySelectorAll('[data-nte]'),function(b){b.addEventListener('click',function(){filtroNte=b.dataset.nte;document.getElementById('sala-v2-filtro-nte').value=filtroNte;render();});});
-    var ranking=document.getElementById('sala-v2-ranking');
-    if(ranking) ranking.innerHTML=metricas.slice(0,10).map(function(m,i){return '<div><b>'+(i+1)+'</b><span><strong>'+m.codigo+'</strong><small>SLA '+m.sla+'% · '+m.concluidos+' concluídos</small></span><em class="'+classe(m.igd)+'">'+m.igd+'</em></div>';}).join('');
+    if(cards) cards.innerHTML=metricas.map(function(m){return '<button class="sala-v2-nte '+classe(m.igd)+(filtroNte===m.codigo?' ativo':'')+'" data-nte="'+m.codigo+'"><span>'+m.codigo+'</span><strong>'+m.igd+'</strong><small>'+label(m.igd)+' · SLA '+m.sla+'% · '+m.ativos+' ativos</small><em>'+esc(statusOperacional(m))+'</em></button>';}).join('');
+    if(cards) Array.prototype.forEach.call(cards.querySelectorAll('[data-nte]'),function(b){b.addEventListener('click',function(){filtroNte=b.dataset.nte;var sel=document.getElementById('sala-v2-filtro-nte');if(sel)sel.value=filtroNte;render();});});
+    renderRankingsTerritoriais(metricas);
     var alvo=filtroNte==='GLOBAL'?metricas:metricas.filter(function(m){return m.codigo===filtroNte;}), alerts=[];
     alvo.filter(function(m){return m.vencidos>0;}).sort(function(a,b){return b.vencidos-a.vencidos;}).slice(0,8).forEach(function(m){alerts.push({c:'critico',t:m.codigo+' possui '+m.vencidos+' processo(s) vencido(s).',a:'Priorizar regularização da fila.'});});
     alvo.filter(function(m){return m.sla<75;}).slice(0,6).forEach(function(m){alerts.push({c:'atencao',t:m.codigo+' está com SLA de '+m.sla+'%.',a:'Revisar gargalos por etapa.'});});
@@ -230,6 +287,6 @@
 
   window.SIGEE_SALA_SITUACAO = {
     render: render,
-    version: '3.2.8'
+    version: '3.2.9'
   };
 })();
