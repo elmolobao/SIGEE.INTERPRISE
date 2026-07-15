@@ -1,5 +1,5 @@
 /* =====================================================================
-   SIGEE Enterprise — Sprint 2.4.7G — Módulo Oficial de Escolas
+   SIGEE Enterprise — Sprint 2.4.7H — Módulo Oficial de Escolas
    Módulo: Escolas
    Produção: catálogo paginado, filtro por NTE e autocomplete da Nova Solicitação.
    Substitui a lógica dependente de listas locais grandes e evita limite de 1000 registros.
@@ -164,7 +164,9 @@
       if (ajuda) {
         ajuda.textContent = municipios.length
           ? `${municipios.length} município(s) disponível(is) para o NTE selecionado.`
-          : 'Nenhum município cadastrado para este NTE.';
+          : (Number(nteId || 0)
+              ? 'Nenhum município cadastrado para este NTE.'
+              : 'Selecione primeiro o NTE.');
       }
 
       return municipios;
@@ -183,8 +185,20 @@
     if (!nte || nte.dataset.municipioVinculado === '1') return;
     nte.dataset.municipioVinculado = '1';
     nte.addEventListener('change', () => {
-      preencherSelectMunicipio(Number(nte.value || 0), '').then(() => {
-        const municipioEl = document.getElementById('escola-form-municipio');
+      const nteSelecionado = Number(nte.value || 0);
+      const municipioEl = document.getElementById('escola-form-municipio');
+      const ajuda = document.getElementById('escola-form-municipio-ajuda');
+
+      if (!nteSelecionado) {
+        if (municipioEl) {
+          municipioEl.innerHTML = '<option value="">SELECIONE PRIMEIRO O NTE</option>';
+          municipioEl.disabled = true;
+        }
+        if (ajuda) ajuda.textContent = 'Escolha um NTE para carregar os municípios.';
+        return;
+      }
+
+      preencherSelectMunicipio(nteSelecionado, '').then(() => {
         if (municipioEl) municipioEl.disabled = false;
       });
     });
@@ -493,20 +507,26 @@
     ['id','mec','nome','municipio','nte','dep','local'].forEach(k => { const el = document.getElementById(`escola-form-${k}`); if (el) el.value = ''; });
     preencherSelectNteEscola(nteIdUsuario());
     instalarVinculoNteMunicipio();
-    preencherSelectMunicipio(
-      perfilAtual() === 'MASTER'
-        ? Number(document.getElementById('escola-form-nte').value || 0)
-        : nteIdUsuario(),
-      ''
-    ).then(() => {
-      const municipioEl = document.getElementById('escola-form-municipio');
-      if (municipioEl) municipioEl.disabled = false;
-    });
-
-    setDisabled(['escola-form-mec','escola-form-nome','escola-form-dep'], false);
 
     const municipioElNovo = document.getElementById('escola-form-municipio');
-    if (municipioElNovo) municipioElNovo.disabled = false;
+    const municipioAjudaNovo = document.getElementById('escola-form-municipio-ajuda');
+
+    if (perfilAtual() === 'MASTER') {
+      if (municipioElNovo) {
+        municipioElNovo.innerHTML = '<option value="">SELECIONE PRIMEIRO O NTE</option>';
+        municipioElNovo.disabled = true;
+      }
+      if (municipioAjudaNovo) {
+        municipioAjudaNovo.textContent = 'Vínculo SEC: escolha um NTE para carregar os municípios.';
+      }
+    } else {
+      preencherSelectMunicipio(nteIdUsuario(), '').then(() => {
+        const municipioEl = document.getElementById('escola-form-municipio');
+        if (municipioEl) municipioEl.disabled = false;
+      });
+    }
+
+    setDisabled(['escola-form-mec','escola-form-nome','escola-form-dep'], false);
     const nteEl = document.getElementById('escola-form-nte');
     if (nteEl) nteEl.disabled = perfilAtual() !== 'MASTER';
     document.getElementById('modal-cadastro-escola').classList.remove('hidden');
