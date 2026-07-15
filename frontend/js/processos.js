@@ -482,10 +482,10 @@
         if (e.includes('ANAL')) return `<button onclick="abrirAnaliseSIGEE(${p.id})" class="bg-orange-600 hover:bg-orange-500 text-white font-bold px-2 py-1 rounded text-[10px]">Abrir Análise</button>`;
         if (e.includes('PEND')) return `<button onclick="abrirPendenciaSIGEE(${p.id})" class="bg-purple-700 hover:bg-purple-600 text-white font-bold px-2 py-1 rounded text-[10px]">Tratar Pendência</button>`;
         if (e.includes('INDEFER')) return '<span class="text-red-300 font-bold">Finalizado</span>';
-        if (e.includes('DIGIT')) return `<button onclick="abrirModalFluxoDigitacao(${p.id})" class="bg-orange-600 text-white font-bold px-2 py-1 rounded text-[10px]">Documento Digitado</button>`;
-        if (e.includes('CONFER')) return `<button onclick="abrirModalFluxoConferencia(${p.id})" class="bg-green-700 text-white font-bold px-2 py-1 rounded text-[10px]">Documento Conferido</button>`;
-        if (e.includes('ASSIN')) return `<button onclick="abrirModalFluxoAssinatura(${p.id})" class="bg-blue-700 text-white font-bold px-2 py-1 rounded text-[10px]">Deferido</button>`;
-        if (e.includes('AGUARD')) return `<button onclick="abrirModalFluxoAguardando(${p.id})" class="bg-gray-700 text-white font-bold px-2 py-1 rounded text-[10px]">Retirado</button>`;
+        if (e.includes('DIGIT')) return `<button onclick="abrirModalFluxoDigitacao(${p.id})" class="sigee-workflow-action sigee-workflow-action--digitacao">✍️ Documento Digitado</button>`;
+        if (e.includes('CONFER')) return `<button onclick="abrirModalFluxoConferencia(${p.id})" class="sigee-workflow-action sigee-workflow-action--conferencia">✔️ Documento Conferido</button>`;
+        if (e.includes('ASSIN')) return `<button onclick="abrirModalFluxoAssinatura(${p.id})" class="sigee-workflow-action sigee-workflow-action--deferido">✅ Registrar Deferimento</button>`;
+        if (e.includes('AGUARD')) return `<button onclick="abrirModalFluxoAguardando(${p.id})" class="sigee-workflow-action sigee-workflow-action--retirada">📤 Registrar Retirada</button>`;
         if (e.includes('RETIR')) return '<span class="text-gray-300 font-bold">Finalizado</span>';
 
         const codigoEtapa = normalizar(p.etapa_codigo);
@@ -1280,7 +1280,7 @@
     const sel=el.querySelector('#wf-conferente093'),chk=el.querySelector('#wf-email093'),btn=el.querySelector('[data-confirmar093]');
     await preencherSelectTecnicoWorkflow(sel,p);
     const semUsuarios=el.querySelector('.sigee-selecao-semusuarios093'); if(semUsuarios) semUsuarios.remove();
-    const validar=()=>{atualizarDestaqueTecnico(el,sel);btn.disabled=!(sel.value&&chk.checked);}; sel.addEventListener('change',validar); chk.addEventListener('change',validar);
+    const validar=()=>{atualizarDestaqueTecnico(el,sel);btn.disabled=!(sel.value&&chk.checked);}; sel.addEventListener('change',validar); chk.addEventListener('change',validar); validar();
     el.querySelector('[data-cancelar093]').addEventListener('click',fechar);
     btn.addEventListener('click',async()=>{btn.disabled=true;p.etapa=p.etapa_atual='Conferência';p.data_etapa_atual=agora();p.tecnico_responsavel=sel.value;p.conferente=sel.value;await salvar(p);await historico(p,'Conferência','Encaminhado para Conferência',`Digitação concluída. Conferente: ${sel.value}. Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}.`,{conferente:sel.value,mensagem:msg,tarefa_confirmada:true});fechar();if(window.filtrarProcessosPorEtapa)window.filtrarProcessosPorEtapa('Conferência');toast('Processo encaminhado para Conferência.');});
   }
@@ -1289,7 +1289,7 @@
     const p=processo(id); if(!p || bloquearLeitura()) return;
     const msg=MENSAGENS.assinatura;
     const el=modal(`✔️ Conferência Concluída — ${esc(p.codigo_sigee||p.id)}`,`${cabecalho(p)}${tarefa(msg)}<div class="sigee-acoes33"><button class="btn33 btn33-cinza" data-cancelar093>Cancelar</button><button class="btn33 btn33-verde" data-confirmar093 disabled>Enviar para Assinatura</button></div>`);
-    const chk=el.querySelector('#wf-email093'),btn=el.querySelector('[data-confirmar093]'); chk.addEventListener('change',()=>btn.disabled=!chk.checked);
+    const chk=el.querySelector('#wf-email093'),btn=el.querySelector('[data-confirmar093]'); const validar=()=>{btn.disabled=!chk.checked;}; chk.addEventListener('change',validar); validar();
     el.querySelector('[data-cancelar093]').addEventListener('click',fechar);
     btn.addEventListener('click',async()=>{btn.disabled=true;p.etapa=p.etapa_atual='Assinatura';p.data_etapa_atual=agora();p.tecnico_responsavel=nomeUsuario();p.enviado_assinatura_por=nomeUsuario();await salvar(p);await historico(p,'Assinatura','Encaminhado para Assinatura',`Conferência concluída. Enviado para assinatura por ${nomeUsuario()}. Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}.`,{enviado_por:nomeUsuario(),mensagem:msg,tarefa_confirmada:true});fechar();if(window.filtrarProcessosPorEtapa)window.filtrarProcessosPorEtapa('Assinatura');toast('Processo encaminhado para Assinatura.');});
   }
@@ -1298,9 +1298,33 @@
     const p=processo(id); if(!p || bloquearLeitura()) return;
     const msg=MENSAGENS.deferido;
     const el=modal(`🖋️ Documento Assinado — ${esc(p.codigo_sigee||p.id)}`,`${cabecalho(p)}<p class="sigee-aviso33">Confirme somente após o retorno do documento assinado pelo Diretor do NTE.</p>${tarefa(msg)}<div class="sigee-acoes33"><button class="btn33 btn33-cinza" data-cancelar093>Cancelar</button><button class="btn33 btn33-verde" data-confirmar093 disabled>Deferido</button></div>`);
-    const chk=el.querySelector('#wf-email093'),btn=el.querySelector('[data-confirmar093]'); chk.addEventListener('change',()=>btn.disabled=!chk.checked);
+    const chk=el.querySelector('#wf-email093'),btn=el.querySelector('[data-confirmar093]'); const validar=()=>{btn.disabled=!chk.checked;}; chk.addEventListener('change',validar); validar();
     el.querySelector('[data-cancelar093]').addEventListener('click',fechar);
-    btn.addEventListener('click',async()=>{btn.disabled=true;p.etapa=p.etapa_atual='Aguardando Retirada';p.data_etapa_atual=agora();p.tecnico_responsavel=nomeUsuario();p.deferido_em=agora();await salvar(p);await historico(p,'Aguardando Retirada','Processo deferido',`Documento retornou assinado e está disponível para retirada. Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}.`,{mensagem:msg,tarefa_confirmada:true});fechar();if(window.filtrarProcessosPorEtapa)window.filtrarProcessosPorEtapa('Aguardando Retirada');toast('Processo deferido e disponível para retirada.');});
+    btn.addEventListener('click',async()=>{
+      if(btn.dataset.executando==='1' || !chk.checked) return;
+      btn.dataset.executando='1'; btn.disabled=true;
+      const rotuloOriginal=btn.textContent; btn.textContent='Registrando deferimento...';
+      try{
+        const instante=agora();
+        p.etapa=p.etapa_atual='Aguardando Retirada';
+        p.data_etapa_atual=instante;
+        p.tecnico_responsavel=nomeUsuario();
+        p.deferido_em=instante;
+        p.finalizado_em=null;
+        p.ultimo_evento_workflow='PROCESSO_DEFERIDO';
+        p.ultima_mensagem_workflow=msg.codigo;
+        await salvar(p);
+        await historico(p,'Aguardando Retirada','Processo deferido',`Documento retornou assinado e está disponível para retirada. Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}.`,{mensagem:msg,tarefa_confirmada:true,deferido_em:instante});
+        fechar();
+        if(window.filtrarProcessosPorEtapa) window.filtrarProcessosPorEtapa('Aguardando Retirada');
+        if(window.carregarEContarProcessosHorizontais) window.carregarEContarProcessosHorizontais();
+        toast('Processo deferido e disponível para retirada.');
+      }catch(e){
+        console.error('[SIGEE] Falha ao registrar deferimento.',e);
+        btn.dataset.executando='0'; btn.disabled=!chk.checked; btn.textContent=rotuloOriginal;
+        alert('Não foi possível registrar o deferimento: '+(e.message||e));
+      }
+    });
   }
 
   function abrirRetirada(id){
@@ -1417,7 +1441,10 @@
   setInterval(()=>{
     if(window.abrirEncaminharDigitacaoSIGEE!==abrirEncaminharDigitacao ||
        window.abrirModalFluxoDigitacao!==abrirDigitacao ||
-       window.abrirModalFluxoConferencia!==abrirConferencia){
+       window.abrirModalFluxoConferencia!==abrirConferencia ||
+       window.abrirModalFluxoAssinatura!==abrirAssinatura ||
+       window.abrirModalFluxoAguardando!==abrirRetirada ||
+       window.abrirAnaliseSIGEE!==abrirAnaliseWorkflow093){
       instalarWorkflow093();
     }
   },1500);
