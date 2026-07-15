@@ -1,7 +1,7 @@
 (function(){
   'use strict';
-  if(window.__SIGEE_DIAGNOSTICO_244A__) return;
-  window.__SIGEE_DIAGNOSTICO_244A__=true;
+  if(window.__SIGEE_DIAGNOSTICO_244B__) return;
+  window.__SIGEE_DIAGNOSTICO_244B__=true;
 
   const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v};
 
@@ -18,12 +18,46 @@
     try{resultado=window.SIGEE_Analytics?.calcularDashboard?.()||null}catch(_){}
     const tempo=performance.now()-inicio;
 
+    const scriptCarregado=trecho=>Array.from(document.scripts||[])
+      .some(s=>String(s.src||'').toLowerCase().includes(String(trecho).toLowerCase()));
+
+    const prontuarioAtivo=
+      !!window.__SIGEE_PRONTUARIO_231__ ||
+      !!window.__SIGEE_PRONTUARIO_231A__ ||
+      typeof window.abrirProntuarioSIGEE==='function' ||
+      typeof window.abrirHistoricoSIGEE==='function' ||
+      typeof window.abrirHistoricoProcessoSIGEE==='function' ||
+      scriptCarregado('prontuario-processo.js');
+
+    const workflowScripts=[
+      'core/workflow-engine.js',
+      'core/transition-manager.js',
+      'workflow/workflow-externo.js'
+    ];
+    const workflowScriptsAtivos=workflowScripts.filter(scriptCarregado);
+    const workflowFuncoesAtivas=[
+      'executarTransicaoDesarquivamento',
+      'executarTransicaoAnalise',
+      'executarTransicaoPendencia',
+      'executarTransicaoDigitacao',
+      'executarTransicaoConferencia',
+      'executarTransicaoAssinatura'
+    ].filter(nome=>typeof window[nome]==='function');
+
+    const workflowAtivo=
+      !!window.SIGEE_WorkflowEngine ||
+      !!window.WorkflowEngine ||
+      !!window.TransitionManager ||
+      typeof window.abrirWorkflowExterno==='function' ||
+      workflowScriptsAtivos.length>=2 ||
+      workflowFuncoesAtivas.length>=3;
+
     const componentes=[
       ['Motor Analítico',!!window.SIGEE_Analytics,resultado?`${resultado.total} processos no recorte`:'Módulo não detectado'],
-      ['Dashboard',typeof window.carregarDadosDashboardReal==='function','Integração executiva'],
-      ['Sala de Situação',typeof window.atualizarSalaSituacaoSIGEE==='function','Monitoramento operacional'],
-      ['Prontuário',typeof window.abrirProntuarioProcessoSIGEE==='function'||!!window.__SIGEE_PRONTUARIO_231A__,'Linha do tempo'],
-      ['Workflow',!!window.SIGEE_WorkflowEngine||typeof window.abrirWorkflowExterno==='function','Transições'],
+      ['Dashboard',typeof window.carregarDadosDashboardReal==='function'||typeof window.atualizarDashboardPeloMotorSIGEE==='function','Integração executiva'],
+      ['Sala de Situação',typeof window.atualizarSalaSituacaoSIGEE==='function'||!!document.getElementById('aba-sala-situacao'),'Monitoramento operacional'],
+      ['Prontuário',prontuarioAtivo,prontuarioAtivo?'Linha do tempo carregada':'Módulo não detectado'],
+      ['Workflow',workflowAtivo,workflowAtivo?`${workflowScriptsAtivos.length} módulos e ${workflowFuncoesAtivas.length} transições detectadas`:'Módulo não detectado'],
       ['Conectividade',navigator.onLine,navigator.onLine?'Navegador online':'Navegador offline']
     ];
 
