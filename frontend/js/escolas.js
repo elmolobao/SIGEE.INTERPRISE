@@ -1,5 +1,5 @@
 /* =====================================================================
-   SIGEE Enterprise — Sprint 2.4.7I — Módulo Oficial de Escolas
+   SIGEE Enterprise — Sprint 2.4.7J — Módulo Oficial de Escolas
    Módulo: Escolas
    Produção: catálogo paginado, filtro por NTE e autocomplete da Nova Solicitação.
    Substitui a lógica dependente de listas locais grandes e evita limite de 1000 registros.
@@ -72,7 +72,7 @@
     const vinculado = nteIdUsuario();
     select.innerHTML = '<option value="">SELECIONE O NTE</option>';
 
-    if (perfilAtual() === 'MASTER') {
+    if (isGlobal()) {
       for (let n = 1; n <= 27; n++) {
         const op = document.createElement('option');
         op.value = String(n);
@@ -501,26 +501,69 @@
     if (e) upsertCacheLocal(e);
     return e;
   }
+  function reconstruirSelectNteGlobal() {
+    const atual = document.getElementById('escola-form-nte');
+    if (!atual) return null;
+
+    const novo = atual.cloneNode(false);
+    novo.id = 'escola-form-nte';
+    novo.className = atual.className;
+    novo.innerHTML = '<option value="">SELECIONE O NTE</option>';
+
+    for (let n = 1; n <= 27; n++) {
+      const op = document.createElement('option');
+      op.value = String(n);
+      op.textContent = rotuloNteEscola(n);
+      novo.appendChild(op);
+    }
+
+    novo.disabled = false;
+    novo.removeAttribute('disabled');
+    novo.removeAttribute('readonly');
+    novo.style.pointerEvents = 'auto';
+    novo.style.opacity = '1';
+    novo.style.cursor = 'pointer';
+    novo.tabIndex = 0;
+
+    atual.replaceWith(novo);
+
+    novo.addEventListener('change', () => {
+      const nteSelecionado = Number(novo.value || 0);
+      const municipio = document.getElementById('escola-form-municipio');
+      const ajuda = document.getElementById('escola-form-municipio-ajuda');
+
+      if (!nteSelecionado) {
+        if (municipio) {
+          municipio.innerHTML = '<option value="">SELECIONE PRIMEIRO O NTE</option>';
+          municipio.disabled = true;
+        }
+        if (ajuda) ajuda.textContent = 'Escolha um NTE para carregar os municípios.';
+        return;
+      }
+
+      preencherSelectMunicipio(nteSelecionado, '').then(() => {
+        if (municipio) municipio.disabled = false;
+      });
+    });
+
+    return novo;
+  }
+
   function abrirNovaEscola() {
     if (!podeCadastrar()) return alert('Somente Master e Administrador podem cadastrar escola.');
     garantirModalEscola();
     ['id','mec','nome','municipio','nte','dep','local'].forEach(k => { const el = document.getElementById(`escola-form-${k}`); if (el) el.value = ''; });
-    preencherSelectNteEscola(nteIdUsuario());
-    instalarVinculoNteMunicipio();
+    if (isGlobal()) {
+      reconstruirSelectNteGlobal();
+    } else {
+      preencherSelectNteEscola(nteIdUsuario());
+      instalarVinculoNteMunicipio();
+    }
 
     const municipioElNovo = document.getElementById('escola-form-municipio');
     const municipioAjudaNovo = document.getElementById('escola-form-municipio-ajuda');
 
-    if (perfilAtual() === 'MASTER') {
-      const nteGlobal = document.getElementById('escola-form-nte');
-      if (nteGlobal) {
-        nteGlobal.disabled = false;
-        nteGlobal.removeAttribute('disabled');
-        nteGlobal.style.pointerEvents = 'auto';
-        nteGlobal.style.opacity = '1';
-        nteGlobal.style.cursor = 'pointer';
-      }
-
+    if (isGlobal()) {
       if (municipioElNovo) {
         municipioElNovo.innerHTML = '<option value="">SELECIONE PRIMEIRO O NTE</option>';
         municipioElNovo.disabled = true;
@@ -537,18 +580,16 @@
 
     setDisabled(['escola-form-mec','escola-form-nome','escola-form-dep'], false);
 
-    if (perfilAtual() === 'MASTER') {
-      const nteGlobal = document.getElementById('escola-form-nte');
-      if (nteGlobal) nteGlobal.disabled = false;
-    }
     const nteEl = document.getElementById('escola-form-nte');
     if (nteEl) {
-      nteEl.disabled = perfilAtual() !== 'MASTER';
-      if (perfilAtual() === 'MASTER') {
+      if (isGlobal()) {
+        nteEl.disabled = false;
         nteEl.removeAttribute('disabled');
         nteEl.style.pointerEvents = 'auto';
         nteEl.style.opacity = '1';
         nteEl.style.cursor = 'pointer';
+      } else {
+        nteEl.disabled = true;
       }
     }
     document.getElementById('modal-cadastro-escola').classList.remove('hidden');
