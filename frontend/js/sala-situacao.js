@@ -164,11 +164,29 @@
     return false;
   };
 
+  function fecharSala() {
+    var sec = document.getElementById('aba-sala-situacao');
+    document.body.classList.remove('sigee-sala-aberta');
+    if (!sec) return;
+    sec.classList.remove('sigee-sala-ativa');
+    sec.style.removeProperty('display');
+    sec.style.removeProperty('visibility');
+    sec.style.removeProperty('opacity');
+  }
+
   function ligarNavegacao() {
     var antiga=window.navegar;
-    if(typeof antiga==='function'&&!antiga.__sala321){
-      var nova=function(destino){if(destino!=='sala-situacao') document.body.classList.remove('sigee-sala-aberta'); var r=antiga.apply(this,arguments);if(destino==='sala-situacao'){setTimeout(mostrarSala,20);setTimeout(mostrarSala,250);}return r;};
-      nova.__sala321=true; window.navegar=nova;
+    if(typeof antiga==='function'&&!antiga.__sala323){
+      var nova=function(destino){
+        if(destino!=='sala-situacao') fecharSala();
+        var r=antiga.apply(this,arguments);
+        if(destino==='sala-situacao'){
+          setTimeout(mostrarSala,20);
+          setTimeout(mostrarSala,250);
+        }
+        return r;
+      };
+      nova.__sala323=true; window.navegar=nova;
       try { navegar=nova; } catch(e) {}
     }
   }
@@ -179,13 +197,6 @@
     if (menu && !menu.dataset.sala322) {
       menu.dataset.sala322 = '1';
       menu.addEventListener('click', function(ev){ window.abrirSalaSituacaoSIGEE(ev); }, true);
-    }
-    var sec = document.getElementById('aba-sala-situacao');
-    if (sec && !sec.__salaObserver) {
-      sec.__salaObserver = new MutationObserver(function(){
-        if (document.body.classList.contains('sigee-sala-aberta') && sec.classList.contains('hidden')) mostrarSala();
-      });
-      sec.__salaObserver.observe(sec, {attributes:true, attributeFilter:['class','style']});
     }
     render();
     clearInterval(timer); timer=setInterval(function(){var s=document.getElementById('aba-sala-situacao');if(s&&!s.classList.contains('hidden'))render();},REFRESH_MS);
