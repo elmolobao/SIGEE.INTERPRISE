@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  const VERSION = 'M3.0.0';
+  const VERSION = 'M4.0.0';
   const LIMITE_FUTURO_DIAS = 1;
   const DATA_PADRAO_ANO = 2000;
 
@@ -143,6 +143,7 @@
         <div class="mig-acoes">
           <button id="mig-analisar" type="button">🔎 Ler e validar</button>
           <button id="mig-simular" type="button" disabled>🧪 Simular migração</button>
+          <button id="mig-validar-final" type="button" disabled>✅ Validação final</button>
           <button id="mig-exportar" type="button" disabled>📤 Exportar lote JSON</button>
         </div>
       </div>
@@ -172,6 +173,20 @@
           </article>
         </div>
 
+        <article id="mig-qualidade-box" class="mig-painel hidden">
+          <header class="mig-painel-cab">
+            <h2>Qualidade da migração</h2>
+            <span id="mig-qualidade-status">Aguardando validação</span>
+          </header>
+          <div class="mig-qualidade">
+            <div class="mig-qualidade-medidor">
+              <div class="mig-qualidade-valor" id="mig-qualidade-valor">0%</div>
+              <div class="mig-qualidade-barra"><i id="mig-qualidade-barra"></i></div>
+            </div>
+            <div class="mig-qualidade-itens" id="mig-qualidade-itens"></div>
+          </div>
+        </article>
+
         <article class="mig-painel">
           <header class="mig-painel-cab">
             <h2>Prévia dos processos</h2>
@@ -183,6 +198,14 @@
               <tbody id="mig-processos"></tbody>
             </table>
           </div>
+        </article>
+
+        <article id="mig-auditoria-processo-box" class="mig-painel hidden">
+          <header class="mig-painel-cab">
+            <h2>Auditoria individual do processo</h2>
+            <button id="mig-fechar-auditoria" type="button" class="mig-btn-secundario">Fechar</button>
+          </header>
+          <div id="mig-auditoria-processo"></div>
         </article>
 
         <article id="mig-simulacao-box" class="mig-painel hidden">
@@ -208,7 +231,11 @@
       analisarArquivo(input.files[0]);
     });
     sec.querySelector('#mig-simular').addEventListener('click', simularMigracao);
+    sec.querySelector('#mig-validar-final').addEventListener('click', validarFinal);
     sec.querySelector('#mig-exportar').addEventListener('click', exportarResultado);
+    sec.querySelector('#mig-fechar-auditoria').addEventListener('click', () => {
+      document.getElementById('mig-auditoria-processo-box')?.classList.add('hidden');
+    });
   }
 
   function garantirMenu() {
@@ -247,6 +274,7 @@
       renderizar(resultadoAtual);
       atualizarStatus(`Validação M2 concluída: ${resultadoAtual.processos.length} processos, ${resultadoAtual.inconsistencias.length} ocorrências para revisão.`, 'ok');
       document.getElementById('mig-simular').disabled = false;
+      document.getElementById('mig-validar-final').disabled = false;
       document.getElementById('mig-exportar').disabled = false;
     } catch (e) {
       console.error('[SIGEE Migração M2]', e);
@@ -495,8 +523,8 @@
       .map(([k,v]) => `<div class="mig-linha"><span>${html(k)}</span><strong>${v}</strong></div>`).join('');
 
     document.getElementById('mig-processos').innerHTML = r.processos.slice(0,500).map(p =>
-      `<tr>
-        <td>${html(p.aluno_nome)}</td>
+      `<tr class="mig-processo-row" data-migration-key="${html(p.migration_key)}">
+        <td><button type="button" class="mig-link-processo" data-migration-key="${html(p.migration_key)}">${html(p.aluno_nome)}</button></td>
         <td>${html(p.escola_nome_original)}</td>
         <td>${html(p.data_solicitacao)}</td>
         <td>${html(p.etapa_atual)}</td>
@@ -510,6 +538,10 @@
         </td>
       </tr>`).join('');
 
+    document.querySelectorAll('.mig-link-processo').forEach(btn => {
+      btn.addEventListener('click', () => abrirAuditoriaProcesso(btn.dataset.migrationKey));
+    });
+
     document.getElementById('mig-inconsistencias').innerHTML = r.inconsistencias.length
       ? r.inconsistencias.slice(0,800).map(x =>
         `<tr><td>${html(x.aluno)}</td><td>${html(x.tipo)}</td><td><span class="mig-gravidade ${normalizar(x.gravidade)==='ALTA'?'alta':'media'}">${html(x.gravidade)}</span></td><td>${html(x.descricao)}</td><td>${html(x.origem)}</td></tr>`
@@ -517,6 +549,145 @@
       : '<tr><td colspan="5">Nenhuma inconsistência identificada.</td></tr>';
 
     document.getElementById('mig-simulacao-box').classList.add('hidden');
+    document.getElementById('mig-qualidade-box')?.classList.add('hidden');
+    document.getElementById('mig-auditoria-processo-box')?.classList.add('hidden');
+  }
+
+
+  function abrirAuditoriaProcesso(migrationKey) {
+    if (!resultadoAtual) return;
+    const p = resultadoAtual.processos.find(x => x.migration_key === migrationKey);
+    if (!p) return;
+
+    const eventosHtml = (p.eventos || []).map(e => `
+      <tr>
+        <td>${html(e.evento)}</td>
+        <td>${html(e.etapa)}</td>
+        <td>${html(e.data)}</td>
+        <td><span class="mig-badge ${e.tipo_data === 'FICTICIA' ? 'ficticia' : 'ok'}">${html(e.tipo_data)}</span></td>
+        <td>${html(e.responsavel)}</td>
+        <td>${html(e.aba)}</td>
+      </tr>`).join('');
+
+    const fidelidadeItens = [
+      ['Aluno', !!p.aluno_nome],
+      ['Escola', !!p.escola_nome],
+      ['Código MEC', !!p.codigo_mec],
+      ['Data de abertura', !!p.data_solicitacao],
+      ['Etapa atual', !!p.etapa_atual],
+      ['Escola localizada', !!p.escola_localizada],
+      ['Técnico localizado', !!p.tecnico_localizado]
+    ];
+    const ok = fidelidadeItens.filter(x => x[1]).length;
+    const indice = Math.round((ok / fidelidadeItens.length) * 100);
+
+    document.getElementById('mig-auditoria-processo').innerHTML = `
+      <div class="mig-auditoria-resumo">
+        <div><span>Índice de fidelidade</span><strong>${indice}%</strong></div>
+        <div><span>Origem</span><strong>PROCESSO MIGRADO</strong></div>
+        <div><span>Etapa reconstruída</span><strong>${html(p.etapa_atual)}</strong></div>
+        <div><span>Status</span><strong>${html(p.status_validacao)}</strong></div>
+      </div>
+      <div class="mig-comparacao-grid">
+        <article><h3>Planilha</h3>
+          <dl>
+            <div><dt>Aluno</dt><dd>${html(p.aluno_nome)}</dd></div>
+            <div><dt>Escola</dt><dd>${html(p.escola_nome_original)}</dd></div>
+            <div><dt>Código MEC</dt><dd>${html(p.codigo_mec)}</dd></div>
+            <div><dt>Responsável histórico</dt><dd>${html(p.tecnico_responsavel_historico)}</dd></div>
+            <div><dt>Prioridade</dt><dd>${html(p.prioridade)}</dd></div>
+          </dl>
+        </article>
+        <article><h3>SIGEE</h3>
+          <dl>
+            <div><dt>Aluno</dt><dd>${html(p.aluno_nome)}</dd></div>
+            <div><dt>Escola vinculada</dt><dd>${html(p.escola_nome)}</dd></div>
+            <div><dt>Escola localizada</dt><dd>${p.escola_localizada ? 'SIM' : 'NÃO'}</dd></div>
+            <div><dt>Técnico localizado</dt><dd>${p.tecnico_localizado ? 'SIM' : 'NÃO'}</dd></div>
+            <div><dt>Etapa final</dt><dd>${html(p.etapa_atual)}</dd></div>
+          </dl>
+        </article>
+      </div>
+      <h3 class="mig-subtitulo">Histórico reconstruído</h3>
+      <div class="mig-tabela-wrap">
+        <table>
+          <thead><tr><th>Evento</th><th>Etapa</th><th>Data</th><th>Tipo</th><th>Responsável</th><th>Origem</th></tr></thead>
+          <tbody>${eventosHtml || '<tr><td colspan="6">Sem eventos</td></tr>'}</tbody>
+        </table>
+      </div>`;
+
+    document.getElementById('mig-auditoria-processo-box')?.classList.remove('hidden');
+    document.getElementById('mig-auditoria-processo-box')?.scrollIntoView({behavior:'smooth', block:'start'});
+  }
+
+  function validarFinal() {
+    if (!resultadoAtual) return;
+
+    const processos = resultadoAtual.processos;
+    const total = processos.length || 1;
+    const criterios = {
+      processos: processos.length > 0,
+      etapas: processos.every(p => !!p.etapa_atual),
+      datas: processos.every(p => !!p.data_solicitacao),
+      escolas: processos.every(p => p.escola_localizada),
+      tecnicos: processos.every(p => p.tecnico_localizado),
+      workflow: processos.every(p => Array.isArray(p.eventos) && p.eventos.length > 0),
+      cronologia: !resultadoAtual.inconsistencias.some(i => ['DATA_FUTURA','REGRESSAO_CRONOLOGICA','ORDEM_DATAS'].includes(i.tipo))
+    };
+
+    const detalhes = [
+      ['Processos identificados', criterios.processos, processos.length],
+      ['Etapas reconstruídas', criterios.etapas, processos.filter(p=>p.etapa_atual).length + '/' + total],
+      ['Datas de abertura', criterios.datas, processos.filter(p=>p.data_solicitacao).length + '/' + total],
+      ['Escolas localizadas', criterios.escolas, processos.filter(p=>p.escola_localizada).length + '/' + total],
+      ['Técnicos localizados', criterios.tecnicos, processos.filter(p=>p.tecnico_localizado).length + '/' + total],
+      ['Histórico reconstruído', criterios.workflow, resultadoAtual.eventos.length],
+      ['Cronologia válida', criterios.cronologia, criterios.cronologia ? 'OK' : 'REVISAR']
+    ];
+
+    const pesos = {processos:10, etapas:20, datas:15, escolas:20, tecnicos:15, workflow:10, cronologia:10};
+    let qualidade = 0;
+    Object.entries(criterios).forEach(([k,v]) => { if (v) qualidade += pesos[k] || 0; });
+
+    const certificado = qualidade === 100;
+    resultadoAtual.validacao_final = {
+      executada: true,
+      qualidade_percentual: qualidade,
+      criterios,
+      certificado_emitido: certificado,
+      status: certificado ? 'PRONTO_PARA_IMPORTACAO' : 'PENDENTE_DE_AJUSTES',
+      validado_em: new Date().toISOString()
+    };
+
+    const box = document.getElementById('mig-qualidade-box');
+    box?.classList.remove('hidden');
+    document.getElementById('mig-qualidade-valor').textContent = qualidade + '%';
+    document.getElementById('mig-qualidade-barra').style.width = qualidade + '%';
+    document.getElementById('mig-qualidade-status').textContent = certificado ? 'CERTIFICADO — PRONTO PARA IMPORTAÇÃO' : 'PENDENTE DE AJUSTES';
+    document.getElementById('mig-qualidade-status').className = certificado ? 'mig-certificado-ok' : 'mig-certificado-pendente';
+    document.getElementById('mig-qualidade-itens').innerHTML = detalhes.map(([nome,ok,valor]) => `
+      <div class="mig-qualidade-item ${ok?'ok':'erro'}">
+        <span>${ok?'✔':'✖'} ${html(nome)}</span>
+        <strong>${html(valor)}</strong>
+      </div>`).join('');
+
+    if (certificado) {
+      document.getElementById('mig-qualidade-itens').insertAdjacentHTML('beforeend', `
+        <div class="mig-certificado">
+          <strong>CERTIFICADO DE HOMOLOGAÇÃO</strong>
+          <span>${html(resultadoAtual.arquivo)}</span>
+          <b>${processos.length} processos • ${resultadoAtual.eventos.length} eventos • 100% de qualidade</b>
+          <small>Pronto para a fase de importação controlada.</small>
+        </div>`);
+    }
+
+    atualizarStatus(
+      certificado
+        ? 'Validação final concluída: migração homologada com 100% de qualidade.'
+        : `Validação final concluída: qualidade ${qualidade}%. Existem itens pendentes.`,
+      certificado ? 'ok' : 'erro'
+    );
+    box?.scrollIntoView({behavior:'smooth', block:'start'});
   }
 
   function simularMigracao() {
@@ -578,6 +749,8 @@
     abrir: abrirMigracao,
     versao: VERSION,
     simular: simularMigracao,
+    validarFinal: validarFinal,
+    auditarProcesso: abrirAuditoriaProcesso,
     resultado: () => resultadoAtual
   };
 
