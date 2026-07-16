@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  const VERSION = 'M4.1.0';
+  const VERSION = 'M4.1.1';
   const LIMITE_FUTURO_DIAS = 1;
   const DATA_PADRAO_ANO = 2000;
 
@@ -33,6 +33,10 @@
   };
 
   let resultadoAtual = null;
+  let escolasMestres = [];
+  let usuariosMestres = [];
+  let ntesMestres = [];
+  let dadosMestresCarregados = false;
 
   function texto(v) { return v == null ? '' : String(v).trim(); }
   function normalizar(v) {
@@ -84,88 +88,98 @@
     return !!d && !isNaN(d) && d.getFullYear() !== DATA_PADRAO_ANO && !dataFutura(d);
   }
   function listaEscolas() {
-    return window.escolas || window.escolasSIGEE || window.listaEscolas || [];
+    if (escolasMestres.length) return escolasMestres;
+    const candidatos = [window.escolas, window.escolasSIGEE, window.listaEscolas, window.catalogoEscolas, window.dadosEscolas];
+    return candidatos.find(Array.isArray) || [];
   }
   function listaUsuarios() {
-    return window.usuarios || window.usuariosSIGEE || window.listaUsuarios || [];
+    if (usuariosMestres.length) return usuariosMestres;
+    const candidatos = [window.usuarios, window.usuariosSIGEE, window.listaUsuarios, window.usuariosSistema, window.dadosUsuarios];
+    return candidatos.find(Array.isArray) || [];
+  }
+  function clienteSupabase() {
+    const candidatos = [window.supabaseClient, window.supaClient, window.sb, window.SUPABASE_CLIENT];
+    return candidatos.find(c => c && typeof c.from === 'function') || null;
+  }
+  async function buscarTabelaPaginada(tabela, campos) {
+    const client = clienteSupabase();
+    if (!client) throw new Error('Cliente Supabase do SIGEE não foi localizado.');
+    const lote = 1000;
+    const dados = [];
+    for (let inicio = 0; ; inicio += lote) {
+      const fim = inicio + lote - 1;
+      const { data, error } = await client.from(tabela).select(campos || '*').range(inicio, fim);
+      if (error) throw error;
+      const parte = Array.isArray(data) ? data : [];
+      dados.push(...parte);
+      if (parte.length < lote) break;
+    }
+    return dados;
+  }
+  function numeroNte(v) {
+    const m = texto(v).match(/(?:NTE\s*[-–]?\s*)?(\d{1,2})/i);
+    return m ? String(Number(m[1])).padStart(2, '0') : '';
+  }
+  function nteSelecionado() {
+    return numeroNte(document.getElementById('mig-nte')?.value || '');
+  }
+  function atualizarDadosMestresUI(tipo, mensagem) {
+    const el = document.getElementById('mig-dados-mestres');
+    if (!el) return;
+    el.className = 'mig-dados-mestres ' + (tipo || '');
+    el.textContent = mensagem;
+  }
+  async function carregarDadosMestres(forcar) {
+    if (dadosMestresCarregados && !forcar) return;
+    atualizarDadosMestresUI('carregando', '⏳ Carregando catálogo de escolas, NTEs e usuários atuais...');
+    const client = clienteSupabase();
+    if (!client) {
+      escolasMestres = listaEscolas();
+      usuariosMestres = listaUsuarios();
+      if (!escolasMestres.length) throw new Error('O catálogo não está disponível na memória e o cliente Supabase não foi localizado.');
+      dadosMestresCarregados = true;
+      atualizarDadosMestresUI('ok', `✔ Dados atuais disponíveis: ${escolasMestres.length} escolas e ${usuariosMestres.length} usuários.`);
+      return;
+    }
+    const [ntes, escolas, usuarios] = await Promise.all([
+      buscarTabelaPaginada('ntes_sigee', '*'),
+      buscarTabelaPaginada('escolas_sigee', 'id,cod_mec,nome_escola,nte_id,municipio,ativo'),
+      buscarTabelaPaginada('usuarios_sigee', '*')
+    ]);
+    ntesMestres = ntes;
+    const mapaNte = new Map();
+    ntes.forEach(n => {
+      const id = texto(campo(n, ['id']));
+      const numero = numeroNte(campo(n, ['numero','nte','nome','codigo','sigla']));
+      if (id && numero) mapaNte.set(id, numero);
+    });
+    escolasMestres = escolas.map(e => ({ ...e, _nte_numero: mapaNte.get(texto(e.nte_id)) || numeroNte(campo(e,['nte','nte_nome'])) }));
+    usuariosMestres = usuarios.map(u => ({ ...u, _nte_numero: mapaNte.get(texto(campo(u,['nte_id']))) || numeroNte(campo(u,['nte','nte_nome'])) }));
+    dadosMestresCarregados = true;
+    atualizarDadosMestresUI('ok', `✔ Base atual carregada: ${escolasMestres.length} escolas, ${usuariosMestres.length} usuários e ${ntesMestres.length} NTEs.`);
   }
   function campo(obj, nomes) {
     for (const n of nomes) if (obj && obj[n] != null && texto(obj[n])) return obj[n];
     return '';
   }
-  function numeroNte(v) {
-    const bruto = texto(v);
-    if (!bruto) return '';
-    const explicito = bruto.match(/(?:NTE|TERRITORIO|TERRITÓRIO|NUCLEO|NÚCLEO)[^0-9]{0,8}(\d{1,2})/i);
-    if (explicito) return String(Number(explicito[1])).padStart(2, '0');
-    if (/^\d{1,2}$/.test(bruto)) return String(Number(bruto)).padStart(2, '0');
-    return '';
-  }
-  function nteDaEscola(escola) {
-    const direto = campo(escola, ['nte_numero','numero_nte','codigo_nte','nte_codigo','nte','nte_nome','territorio','território']);
-    const porDireto = numeroNte(direto);
-    if (porDireto) return porDireto;
-    const relacao = escola && (escola.ntes_sigee || escola.nte_obj || escola.nte_dados);
-    return numeroNte(campo(relacao, ['numero','codigo','nome','sigla','nte']));
-  }
-  function extrairNteRegistro(registro, arquivo) {
-    const candidatos = [
-      registro && registro.NTE,
-      registro && registro['NTE'],
-      registro && registro['NÚCLEO TERRITORIAL'],
-      registro && registro['NUCLEO TERRITORIAL'],
-      registro && registro['TERRITÓRIO'],
-      registro && registro['TERRITORIO'],
-      registro && registro['LOCAL ARQUIVO'],
-      arquivo
-    ];
-    for (const candidato of candidatos) {
-      const nte = numeroNte(candidato);
-      if (nte) return nte;
-    }
-    return '';
+  function nteDoRegistro(obj) {
+    return numeroNte(campo(obj, ['_nte_numero','nte','nte_nome','numero_nte','codigo_nte','nte_id']));
   }
   function localizarEscola(codigoMec, nome, nte) {
-    const escolas = listaEscolas();
+    const nteAlvo = numeroNte(nte) || nteSelecionado();
+    const escolas = listaEscolas().filter(e => !nteAlvo || nteDoRegistro(e) === nteAlvo);
     const mec = normalizar(codigoMec).replace(/\D/g, '');
-    const nomeNormalizado = normalizar(nome);
-    const nteNumero = numeroNte(nte);
-    const noNte = nteNumero ? escolas.filter(e => nteDaEscola(e) === nteNumero) : [];
-    const universo = nteNumero ? noNte : escolas;
-
-    let achou = null;
-    let metodo = '';
-    if (mec) {
-      achou = universo.find(e => normalizar(campo(e,['cod_mec','codigo_mec','mec'])).replace(/\D/g,'') === mec) || null;
-      if (achou) metodo = 'CODIGO_MEC_NO_NTE';
-    }
-    if (!achou && nomeNormalizado) {
-      achou = universo.find(e => normalizar(campo(e,['nome_escola','nome','escola_nome'])) === nomeNormalizado) || null;
-      if (achou) metodo = nteNumero ? 'NOME_NORMALIZADO_NO_NTE' : 'NOME_NORMALIZADO_SEM_NTE';
-    }
-
-    const mesmoNomeOutrosNtes = nomeNormalizado
-      ? escolas.filter(e => normalizar(campo(e,['nome_escola','nome','escola_nome'])) === nomeNormalizado && (!nteNumero || nteDaEscola(e) !== nteNumero))
-      : [];
-
-    return {
-      escola: achou,
-      metodo,
-      nte_planilha: nteNumero,
-      nte_catalogo: achou ? nteDaEscola(achou) : '',
-      catalogo_no_nte: noNte.length,
-      mesmo_nome_outros_ntes: mesmoNomeOutrosNtes.map(e => ({
-        id: campo(e,['id']),
-        nome: campo(e,['nome_escola','nome','escola_nome']),
-        nte: nteDaEscola(e)
-      }))
-    };
+    const nomeAlvo = normalizar(nome);
+    let achou = escolas.find(e => mec && normalizar(campo(e,['cod_mec','codigo_mec','mec'])).replace(/\D/g,'') === mec);
+    if (!achou) achou = escolas.find(e => normalizar(campo(e,['nome_escola','nome','escola_nome'])) === nomeAlvo);
+    return achou || null;
   }
   function localizarUsuario(nome, nte) {
     if (!texto(nome)) return null;
+    const nteAlvo = numeroNte(nte) || nteSelecionado();
     return listaUsuarios().find(u =>
       normalizar(campo(u,['nome','nome_completo','display_name'])) === normalizar(nome) &&
-      (!nte || normalizar(campo(u,['nte','nte_nome','nte_id'])) === normalizar(nte))
+      (!nteAlvo || nteDoRegistro(u) === nteAlvo)
     ) || null;
   }
 
@@ -196,6 +210,14 @@
           <span>Formato .xlsx ou .xls</span>
           <input id="mig-arquivo" type="file" accept=".xlsx,.xls">
         </label>
+        <label class="mig-nte-seletor">
+          <strong>NTE da planilha</strong>
+          <span>Direciona a validação para o catálogo territorial correto.</span>
+          <select id="mig-nte" required>
+            <option value="">Selecione o NTE</option>
+            ${Array.from({length:27},(_,i)=>String(i+1).padStart(2,'0')).map(n=>`<option value="${n}">NTE-${n}</option>`).join('')}
+          </select>
+        </label>
         <div class="mig-acoes">
           <button id="mig-analisar" type="button">🔎 Ler e validar</button>
           <button id="mig-simular" type="button" disabled>🧪 Simular migração</button>
@@ -204,6 +226,7 @@
         </div>
       </div>
 
+      <div id="mig-dados-mestres" class="mig-dados-mestres">Base cadastral ainda não carregada.</div>
       <div id="mig-status" class="mig-status">Aguardando seleção do arquivo.</div>
 
       <div id="mig-kpis" class="mig-kpis mig-kpis-6 hidden">
@@ -212,7 +235,7 @@
         <article><span>Pendentes</span><strong id="mig-kpi-pendentes">0</strong></article>
         <article><span>Eventos válidos</span><strong id="mig-kpi-eventos">0</strong></article>
         <article><span>Escolas localizadas</span><strong id="mig-kpi-escolas">0</strong></article>
-        <article><span>Técnicos localizados</span><strong id="mig-kpi-tecnicos">0</strong></article>
+        <article><span>Técnicos atuais vinculados</span><strong id="mig-kpi-tecnicos">0</strong></article>
         <article><span>Datas reais</span><strong id="mig-kpi-datas-reais">0</strong></article>
         <article><span>Datas fictícias</span><strong id="mig-kpi-datas-ficticias">0</strong></article>
       </div>
@@ -282,9 +305,22 @@
 
     main.appendChild(sec);
     const input = sec.querySelector('#mig-arquivo');
-    sec.querySelector('#mig-analisar').addEventListener('click', () => {
+    input.addEventListener('change', () => {
+      const nome = input.files?.[0]?.name || '';
+      const inferido = numeroNte(nome);
+      if (inferido) sec.querySelector('#mig-nte').value = inferido;
+    });
+    sec.querySelector('#mig-analisar').addEventListener('click', async () => {
       if (!input.files || !input.files[0]) return atualizarStatus('Selecione uma planilha antes de continuar.', 'erro');
-      analisarArquivo(input.files[0]);
+      if (!nteSelecionado()) return atualizarStatus('Selecione o NTE correspondente à planilha.', 'erro');
+      try {
+        await carregarDadosMestres(false);
+        await analisarArquivo(input.files[0]);
+      } catch (e) {
+        console.error('[SIGEE Migração M4.1.1]', e);
+        atualizarDadosMestresUI('erro', '✖ Falha ao carregar a base atual: ' + (e.message || e));
+        atualizarStatus('A validação foi interrompida para evitar correspondências incorretas.', 'erro');
+      }
     });
     sec.querySelector('#mig-simular').addEventListener('click', simularMigracao);
     sec.querySelector('#mig-validar-final').addEventListener('click', validarFinal);
@@ -310,6 +346,10 @@
     document.getElementById('aba-migracao-historica')?.classList.remove('hidden');
     document.querySelectorAll('.sigee-menu-item').forEach(b => b.classList.remove('bg-blue-800'));
     document.getElementById('menu-migracao-historica')?.classList.add('bg-blue-800');
+    carregarDadosMestres(false).catch(e => {
+      console.warn('[SIGEE Migração M4.1.1] Base atual indisponível na abertura:', e);
+      atualizarDadosMestresUI('erro', '⚠ Base atual ainda não carregada. Ela será carregada novamente ao iniciar a validação.');
+    });
   }
   function atualizarStatus(msg, tipo) {
     const el = document.getElementById('mig-status');
@@ -328,12 +368,12 @@
       const wb = XLSX.read(buffer, { type: 'array', cellDates: true });
       resultadoAtual = processarWorkbook(wb, file.name);
       renderizar(resultadoAtual);
-      atualizarStatus(`Validação ${VERSION} concluída: ${resultadoAtual.processos.length} processos, ${resultadoAtual.inconsistencias.length} ocorrências para revisão.`, 'ok');
+      atualizarStatus(`Validação M2 concluída: ${resultadoAtual.processos.length} processos, ${resultadoAtual.inconsistencias.length} ocorrências para revisão.`, 'ok');
       document.getElementById('mig-simular').disabled = false;
       document.getElementById('mig-validar-final').disabled = false;
       document.getElementById('mig-exportar').disabled = false;
     } catch (e) {
-      console.error('[SIGEE Migração ' + VERSION + ']', e);
+      console.error('[SIGEE Migração M2]', e);
       atualizarStatus('Falha ao analisar a planilha: ' + (e.message || e), 'erro');
     }
   }
@@ -383,8 +423,7 @@
       const escola = texto(r['INSTITUIÇÃO']);
       const abertura = excelData(r['DATA ENVIO']);
       const recebimento = excelData(r['DATA RETORNO']);
-      const nteNumero = extrairNteRegistro(r, arquivo);
-      const nte = nteNumero ? `NTE-${nteNumero}` : '';
+      const nte = numeroNte(texto(r['LOCAL ARQUIVO'])) || nteSelecionado();
       const k2 = [normalizar(nome), normalizar(escola)].join('|');
 
       const get = alvo => {
@@ -482,19 +521,11 @@
       const responsavelHistorico = nomeProprio(
         [...validos].reverse().find(e => texto(e.responsavel))?.responsavel || ''
       );
-      const escolaBusca = localizarEscola(codigoMec, escola, nte);
-      const escolaSIGEE = escolaBusca.escola;
+      const escolaSIGEE = localizarEscola(codigoMec, escola, nte);
       const tecnicoSIGEE = localizarUsuario(responsavelHistorico, nte);
 
-      if (!nteNumero) addIssue('NTE_NAO_IDENTIFICADO', 'Alta', 'NTE da planilha não identificado. A escola não pode ser vinculada com segurança.', origemNome);
-      if (!escolaSIGEE) {
-        const outros = escolaBusca.mesmo_nome_outros_ntes.map(x => `NTE-${x.nte || '?'}`).join(', ');
-        const detalhe = outros
-          ? `Escola localizada com o mesmo nome em outro território (${outros}), mas não no ${nte || 'NTE da planilha'}.`
-          : `Escola não localizada no catálogo do ${nte || 'NTE da planilha'}.`;
-        addIssue('ESCOLA_NAO_LOCALIZADA_NO_NTE', 'Alta', detalhe, origemNome);
-      }
-      if (responsavelHistorico && !tecnicoSIGEE) addIssue('TECNICO_NAO_LOCALIZADO', 'Baixa', `Responsável histórico "${responsavelHistorico}" não está no cadastro atual e será desconsiderado neste processo.`, 'Usuários SIGEE');
+      if (!escolaSIGEE) addIssue('ESCOLA_NAO_LOCALIZADA', 'Alta', 'Escola não localizada no catálogo atual do SIGEE', origemNome);
+      // Técnico histórico ausente no cadastro atual é informativo: o vínculo fica vazio e não bloqueia o processo.
 
       // Regra oficial de equivalência Planilha → SIGEE:
       // Documento Recebido encerra o Desarquivamento e posiciona o processo em Análise.
@@ -520,7 +551,6 @@
         arquivo_origem: arquivo,
         linha_origem: linhaBase + 2,
         nte_origem: nte,
-        nte_numero_origem: nteNumero,
         aluno_nome: nome,
         escola_nome_original: escola,
         escola_id: escolaSIGEE ? campo(escolaSIGEE,['id']) : null,
@@ -536,11 +566,8 @@
         tecnico_responsavel_historico: responsavelHistorico,
         tecnico_responsavel_id: tecnicoSIGEE ? campo(tecnicoSIGEE,['id']) : null,
         escola_localizada: !!escolaSIGEE,
-        escola_metodo_localizacao: escolaBusca.metodo,
-        escola_nte_catalogo: escolaBusca.nte_catalogo,
-        escola_diagnostico: escolaBusca,
         tecnico_localizado: !!tecnicoSIGEE,
-        tecnico_vinculo_desconsiderado: !!responsavelHistorico && !tecnicoSIGEE,
+        tecnico_vinculo_informativo: true,
         quantidade_datas_reais: ev.filter(e => e.tipo_data === 'REAL').length,
         quantidade_datas_ficticias: ev.filter(e => e.tipo_data === 'FICTICIA').length,
         possui_data_ficticia: ev.some(e => e.tipo_data === 'FICTICIA'),
@@ -600,7 +627,7 @@
         <td>${html(p.etapa_atual)}</td>
         <td>${html(p.tecnico_responsavel_historico)}</td>
         <td><span class="mig-badge ${p.escola_localizada?'ok':'erro'}">${p.escola_localizada?'LOCALIZADA':'NÃO LOCALIZADA'}</span></td>
-        <td><span class="mig-badge ${p.tecnico_localizado?'ok':'atencao'}">${p.tecnico_localizado?'LOCALIZADO':'REVISAR'}</span></td>
+        <td><span class="mig-badge ${p.tecnico_localizado?'ok':'atencao'}">${p.tecnico_localizado?'VINCULADO':'SEM VÍNCULO'}</span></td>
         <td>
           <span class="mig-badge ${p.status_validacao==='PRONTO'?'ok':'pendente'}">${p.status_validacao}</span>
           <span class="mig-badge migrado">MIGRADO</span>
@@ -700,6 +727,7 @@
       etapas: processos.every(p => !!p.etapa_atual),
       datas: processos.every(p => !!p.data_solicitacao),
       escolas: processos.every(p => p.escola_localizada),
+      tecnicos: true,
       workflow: processos.every(p => Array.isArray(p.eventos) && p.eventos.length > 0),
       cronologia: !resultadoAtual.inconsistencias.some(i => ['DATA_FUTURA','REGRESSAO_CRONOLOGICA','ORDEM_DATAS'].includes(i.tipo))
     };
@@ -714,7 +742,7 @@
       ['Cronologia válida', criterios.cronologia, criterios.cronologia ? 'OK' : 'REVISAR']
     ];
 
-    const pesos = {processos:15, etapas:20, datas:15, escolas:20, workflow:15, cronologia:15};
+    const pesos = {processos:15, etapas:20, datas:15, escolas:25, tecnicos:0, workflow:15, cronologia:10};
     let qualidade = 0;
     Object.entries(criterios).forEach(([k,v]) => { if (v) qualidade += pesos[k] || 0; });
 
@@ -802,7 +830,7 @@
     const blob = new Blob([JSON.stringify(resultadoAtual, null, 2)], {type:'application/json;charset=utf-8'});
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'sigee_m4_1_lote_' + resultadoAtual.arquivo.replace(/\.[^.]+$/,'') + '.json';
+    a.download = 'sigee_m2_lote_' + resultadoAtual.arquivo.replace(/\.[^.]+$/,'') + '.json';
     a.click();
     URL.revokeObjectURL(a.href);
   }
