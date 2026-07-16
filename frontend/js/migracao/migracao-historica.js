@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  const VERSION = 'M4.0.0';
+  const VERSION = 'M4.1.0';
   const LIMITE_FUTURO_DIAS = 1;
   const DATA_PADRAO_ANO = 2000;
 
@@ -93,17 +93,73 @@
     for (const n of nomes) if (obj && obj[n] != null && texto(obj[n])) return obj[n];
     return '';
   }
+  function numeroNte(v) {
+    const bruto = texto(v);
+    if (!bruto) return '';
+    const explicito = bruto.match(/(?:NTE|TERRITORIO|TERRITÓRIO|NUCLEO|NÚCLEO)[^0-9]{0,8}(\d{1,2})/i);
+    if (explicito) return String(Number(explicito[1])).padStart(2, '0');
+    if (/^\d{1,2}$/.test(bruto)) return String(Number(bruto)).padStart(2, '0');
+    return '';
+  }
+  function nteDaEscola(escola) {
+    const direto = campo(escola, ['nte_numero','numero_nte','codigo_nte','nte_codigo','nte','nte_nome','territorio','território']);
+    const porDireto = numeroNte(direto);
+    if (porDireto) return porDireto;
+    const relacao = escola && (escola.ntes_sigee || escola.nte_obj || escola.nte_dados);
+    return numeroNte(campo(relacao, ['numero','codigo','nome','sigla','nte']));
+  }
+  function extrairNteRegistro(registro, arquivo) {
+    const candidatos = [
+      registro && registro.NTE,
+      registro && registro['NTE'],
+      registro && registro['NÚCLEO TERRITORIAL'],
+      registro && registro['NUCLEO TERRITORIAL'],
+      registro && registro['TERRITÓRIO'],
+      registro && registro['TERRITORIO'],
+      registro && registro['LOCAL ARQUIVO'],
+      arquivo
+    ];
+    for (const candidato of candidatos) {
+      const nte = numeroNte(candidato);
+      if (nte) return nte;
+    }
+    return '';
+  }
   function localizarEscola(codigoMec, nome, nte) {
     const escolas = listaEscolas();
     const mec = normalizar(codigoMec).replace(/\D/g, '');
-    let achou = escolas.find(e => normalizar(campo(e,['cod_mec','codigo_mec','mec'])).replace(/\D/g,'') === mec && mec);
-    if (!achou) {
-      achou = escolas.find(e =>
-        normalizar(campo(e,['nome_escola','nome','escola_nome'])) === normalizar(nome) &&
-        (!nte || normalizar(campo(e,['nte','nte_nome','nte_id'])) === normalizar(nte))
-      );
+    const nomeNormalizado = normalizar(nome);
+    const nteNumero = numeroNte(nte);
+    const noNte = nteNumero ? escolas.filter(e => nteDaEscola(e) === nteNumero) : [];
+    const universo = nteNumero ? noNte : escolas;
+
+    let achou = null;
+    let metodo = '';
+    if (mec) {
+      achou = universo.find(e => normalizar(campo(e,['cod_mec','codigo_mec','mec'])).replace(/\D/g,'') === mec) || null;
+      if (achou) metodo = 'CODIGO_MEC_NO_NTE';
     }
-    return achou || null;
+    if (!achou && nomeNormalizado) {
+      achou = universo.find(e => normalizar(campo(e,['nome_escola','nome','escola_nome'])) === nomeNormalizado) || null;
+      if (achou) metodo = nteNumero ? 'NOME_NORMALIZADO_NO_NTE' : 'NOME_NORMALIZADO_SEM_NTE';
+    }
+
+    const mesmoNomeOutrosNtes = nomeNormalizado
+      ? escolas.filter(e => normalizar(campo(e,['nome_escola','nome','escola_nome'])) === nomeNormalizado && (!nteNumero || nteDaEscola(e) !== nteNumero))
+      : [];
+
+    return {
+      escola: achou,
+      metodo,
+      nte_planilha: nteNumero,
+      nte_catalogo: achou ? nteDaEscola(achou) : '',
+      catalogo_no_nte: noNte.length,
+      mesmo_nome_outros_ntes: mesmoNomeOutrosNtes.map(e => ({
+        id: campo(e,['id']),
+        nome: campo(e,['nome_escola','nome','escola_nome']),
+        nte: nteDaEscola(e)
+      }))
+    };
   }
   function localizarUsuario(nome, nte) {
     if (!texto(nome)) return null;
@@ -272,12 +328,12 @@
       const wb = XLSX.read(buffer, { type: 'array', cellDates: true });
       resultadoAtual = processarWorkbook(wb, file.name);
       renderizar(resultadoAtual);
-      atualizarStatus(`Validação M2 concluída: ${resultadoAtual.processos.length} processos, ${resultadoAtual.inconsistencias.length} ocorrências para revisão.`, 'ok');
+      atualizarStatus(`Validação ${VERSION} concluída: ${resultadoAtual.processos.length} processos, ${resultadoAtual.inconsistencias.length} ocorrências para revisão.`, 'ok');
       document.getElementById('mig-simular').disabled = false;
       document.getElementById('mig-validar-final').disabled = false;
       document.getElementById('mig-exportar').disabled = false;
     } catch (e) {
-      console.error('[SIGEE Migração M2]', e);
+      console.error('[SIGEE Migração ' + VERSION + ']', e);
       atualizarStatus('Falha ao analisar a planilha: ' + (e.message || e), 'erro');
     }
   }
@@ -327,7 +383,8 @@
       const escola = texto(r['INSTITUIÇÃO']);
       const abertura = excelData(r['DATA ENVIO']);
       const recebimento = excelData(r['DATA RETORNO']);
-      const nte = texto(r['LOCAL ARQUIVO']).match(/NTE[-\s]?\d+/i)?.[0] || '';
+      const nteNumero = extrairNteRegistro(r, arquivo);
+      const nte = nteNumero ? `NTE-${nteNumero}` : '';
       const k2 = [normalizar(nome), normalizar(escola)].join('|');
 
       const get = alvo => {
@@ -425,11 +482,19 @@
       const responsavelHistorico = nomeProprio(
         [...validos].reverse().find(e => texto(e.responsavel))?.responsavel || ''
       );
-      const escolaSIGEE = localizarEscola(codigoMec, escola, nte);
+      const escolaBusca = localizarEscola(codigoMec, escola, nte);
+      const escolaSIGEE = escolaBusca.escola;
       const tecnicoSIGEE = localizarUsuario(responsavelHistorico, nte);
 
-      if (!escolaSIGEE) addIssue('ESCOLA_NAO_LOCALIZADA', 'Alta', 'Escola não localizada no catálogo atual do SIGEE', origemNome);
-      if (responsavelHistorico && !tecnicoSIGEE) addIssue('TECNICO_NAO_LOCALIZADO', 'Média', `Responsável histórico "${responsavelHistorico}" não localizado no cadastro`, 'Usuários SIGEE');
+      if (!nteNumero) addIssue('NTE_NAO_IDENTIFICADO', 'Alta', 'NTE da planilha não identificado. A escola não pode ser vinculada com segurança.', origemNome);
+      if (!escolaSIGEE) {
+        const outros = escolaBusca.mesmo_nome_outros_ntes.map(x => `NTE-${x.nte || '?'}`).join(', ');
+        const detalhe = outros
+          ? `Escola localizada com o mesmo nome em outro território (${outros}), mas não no ${nte || 'NTE da planilha'}.`
+          : `Escola não localizada no catálogo do ${nte || 'NTE da planilha'}.`;
+        addIssue('ESCOLA_NAO_LOCALIZADA_NO_NTE', 'Alta', detalhe, origemNome);
+      }
+      if (responsavelHistorico && !tecnicoSIGEE) addIssue('TECNICO_NAO_LOCALIZADO', 'Baixa', `Responsável histórico "${responsavelHistorico}" não está no cadastro atual e será desconsiderado neste processo.`, 'Usuários SIGEE');
 
       // Regra oficial de equivalência Planilha → SIGEE:
       // Documento Recebido encerra o Desarquivamento e posiciona o processo em Análise.
@@ -455,6 +520,7 @@
         arquivo_origem: arquivo,
         linha_origem: linhaBase + 2,
         nte_origem: nte,
+        nte_numero_origem: nteNumero,
         aluno_nome: nome,
         escola_nome_original: escola,
         escola_id: escolaSIGEE ? campo(escolaSIGEE,['id']) : null,
@@ -470,7 +536,11 @@
         tecnico_responsavel_historico: responsavelHistorico,
         tecnico_responsavel_id: tecnicoSIGEE ? campo(tecnicoSIGEE,['id']) : null,
         escola_localizada: !!escolaSIGEE,
-        tecnico_localizado: !responsavelHistorico || !!tecnicoSIGEE,
+        escola_metodo_localizacao: escolaBusca.metodo,
+        escola_nte_catalogo: escolaBusca.nte_catalogo,
+        escola_diagnostico: escolaBusca,
+        tecnico_localizado: !!tecnicoSIGEE,
+        tecnico_vinculo_desconsiderado: !!responsavelHistorico && !tecnicoSIGEE,
         quantidade_datas_reais: ev.filter(e => e.tipo_data === 'REAL').length,
         quantidade_datas_ficticias: ev.filter(e => e.tipo_data === 'FICTICIA').length,
         possui_data_ficticia: ev.some(e => e.tipo_data === 'FICTICIA'),
@@ -630,7 +700,6 @@
       etapas: processos.every(p => !!p.etapa_atual),
       datas: processos.every(p => !!p.data_solicitacao),
       escolas: processos.every(p => p.escola_localizada),
-      tecnicos: processos.every(p => p.tecnico_localizado),
       workflow: processos.every(p => Array.isArray(p.eventos) && p.eventos.length > 0),
       cronologia: !resultadoAtual.inconsistencias.some(i => ['DATA_FUTURA','REGRESSAO_CRONOLOGICA','ORDEM_DATAS'].includes(i.tipo))
     };
@@ -640,12 +709,12 @@
       ['Etapas reconstruídas', criterios.etapas, processos.filter(p=>p.etapa_atual).length + '/' + total],
       ['Datas de abertura', criterios.datas, processos.filter(p=>p.data_solicitacao).length + '/' + total],
       ['Escolas localizadas', criterios.escolas, processos.filter(p=>p.escola_localizada).length + '/' + total],
-      ['Técnicos localizados', criterios.tecnicos, processos.filter(p=>p.tecnico_localizado).length + '/' + total],
+      ['Técnicos atuais vinculados (informativo)', true, processos.filter(p=>p.tecnico_localizado).length + '/' + total],
       ['Histórico reconstruído', criterios.workflow, resultadoAtual.eventos.length],
       ['Cronologia válida', criterios.cronologia, criterios.cronologia ? 'OK' : 'REVISAR']
     ];
 
-    const pesos = {processos:10, etapas:20, datas:15, escolas:20, tecnicos:15, workflow:10, cronologia:10};
+    const pesos = {processos:15, etapas:20, datas:15, escolas:20, workflow:15, cronologia:15};
     let qualidade = 0;
     Object.entries(criterios).forEach(([k,v]) => { if (v) qualidade += pesos[k] || 0; });
 
@@ -733,7 +802,7 @@
     const blob = new Blob([JSON.stringify(resultadoAtual, null, 2)], {type:'application/json;charset=utf-8'});
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'sigee_m2_lote_' + resultadoAtual.arquivo.replace(/\.[^.]+$/,'') + '.json';
+    a.download = 'sigee_m4_1_lote_' + resultadoAtual.arquivo.replace(/\.[^.]+$/,'') + '.json';
     a.click();
     URL.revokeObjectURL(a.href);
   }
