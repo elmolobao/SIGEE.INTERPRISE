@@ -322,10 +322,8 @@
   function iniciar() {
     /*
      * Compatibilidade M5.1/M5.2:
-     * este arquivo continua disponibilizando as rotinas de preflight,
-     * porém não monta o painel visual antigo quando a M5.2 está carregada.
-     * O pequeno atraso permite que migracao-importacao-oficial.js defina
-     * window.__SIGEE_M52_IMPORTACAO_OFICIAL__ antes da decisão.
+     * mantém as rotinas de preflight da M5.1, mas não monta o painel
+     * visual antigo quando a interface M5.2 estiver carregada.
      */
     setTimeout(() => {
       if (window.__SIGEE_M52_IMPORTACAO_OFICIAL__) {
