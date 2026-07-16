@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  const VERSION = 'M4.1.2';
+  const VERSION = 'M4.1.3';
   const LIMITE_FUTURO_DIAS = 1;
   const DATA_PADRAO_ANO = 2000;
 
@@ -610,6 +610,8 @@
         quantidade_datas_ficticias: ev.filter(e => e.tipo_data === 'FICTICIA').length,
         possui_data_ficticia: ev.some(e => e.tipo_data === 'FICTICIA'),
         status_validacao: procIssues.some(x => x.gravidade === 'Alta') ? 'PENDENTE' : 'PRONTO',
+        inconsistencias: procIssues,
+        diagnostico_cronologia: procIssues.filter(x => ['DATA_INVALIDA','DATA_FUTURA','ORDEM_DATAS_CRITICA','VARIACAO_FLUXO_HISTORICO'].includes(x.tipo)),
         eventos: ev,
         eventos_validos: validos
       });
@@ -704,6 +706,23 @@
         <td>${html(e.aba)}</td>
       </tr>`).join('');
 
+    const diagnosticos = p.diagnostico_cronologia || [];
+    const bloqueiosCronologia = diagnosticos.filter(x => ['DATA_INVALIDA','DATA_FUTURA','ORDEM_DATAS_CRITICA'].includes(x.tipo));
+    const observacoesCronologia = diagnosticos.filter(x => x.tipo === 'VARIACAO_FLUXO_HISTORICO');
+    const diagnosticoHtml = diagnosticos.length ? diagnosticos.map(x => `
+      <article class="mig-diagnostico-item ${['DATA_INVALIDA','DATA_FUTURA','ORDEM_DATAS_CRITICA'].includes(x.tipo) ? 'bloqueio' : 'observacao'}">
+        <div class="mig-diagnostico-icone">${['DATA_INVALIDA','DATA_FUTURA','ORDEM_DATAS_CRITICA'].includes(x.tipo) ? '✖' : '⚠'}</div>
+        <div>
+          <strong>${html(x.tipo.replaceAll('_',' '))}</strong>
+          <p>${html(x.descricao)}</p>
+          <small>Origem: ${html(x.origem)} • Gravidade: ${html(x.gravidade)}</small>
+        </div>
+      </article>`).join('') : `
+      <article class="mig-diagnostico-item ok">
+        <div class="mig-diagnostico-icone">✔</div>
+        <div><strong>Cronologia sem bloqueios</strong><p>Nenhuma inversão crítica foi identificada neste processo.</p></div>
+      </article>`;
+
     const fidelidadeItens = [
       ['Aluno', !!p.aluno_nome],
       ['Escola', !!p.escola_nome],
@@ -743,6 +762,19 @@
           </dl>
         </article>
       </div>
+      <section class="mig-diagnostico-cronologia">
+        <header>
+          <div>
+            <h3>Diagnóstico da cronologia</h3>
+            <p>Explicação individual das regras que mantêm o processo pendente ou apenas registram variações históricas.</p>
+          </div>
+          <div class="mig-diagnostico-contadores">
+            <span class="bloqueio">${bloqueiosCronologia.length} bloqueio(s)</span>
+            <span class="observacao">${observacoesCronologia.length} observação(ões)</span>
+          </div>
+        </header>
+        <div class="mig-diagnostico-lista">${diagnosticoHtml}</div>
+      </section>
       <h3 class="mig-subtitulo">Histórico reconstruído</h3>
       <div class="mig-tabela-wrap">
         <table>
@@ -837,7 +869,7 @@
       processos_bloqueados: pendentes.map(p => ({
         migration_key: p.migration_key,
         aluno_nome: p.aluno_nome,
-        motivo: 'Pendência de validação'
+        motivo: (p.inconsistencias || []).filter(x => x.gravidade === 'Alta').map(x => x.descricao).join(' | ') || 'Pendência de validação'
       })),
       historico_eventos_prontos: prontos.flatMap(p => p.eventos_validos.map(e => ({
         migration_key: p.migration_key,
