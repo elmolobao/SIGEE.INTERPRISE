@@ -1232,24 +1232,54 @@
 
     window.__SIGEE_NORMALIZANDO_ACERVO__ = true;
     try {
-      const { data, error } = await c.from(tabelaEscolas())
-        .select('id,status_acervo,acervo')
-        .or('status_acervo.ilike.%acolhido%,acervo.ilike.%acolhido%')
-        .limit(1000);
-      if (error) throw error;
-
-      const registros = (data || []).filter(e => valorLegado(e.status_acervo) || valorLegado(e.acervo));
+      const tamanhoLote = 500;
+      let inicio = 0;
       let atualizados = 0;
+      let examinados = 0;
 
-      for (const escola of registros) {
-        const payload = {};
-        if (valorLegado(escola.status_acervo)) payload.status_acervo = 'NÃO RECOLHIDO';
-        if (valorLegado(escola.acervo)) payload.acervo = 'NÃO RECOLHIDO';
-        if (!Object.keys(payload).length) continue;
+      /*
+       * Percorre toda a tabela em páginas. Não usa filtro textual remoto,
+       * pois registros legados podem conter acentos, espaços ou grafias
+       * diferentes e poderiam ficar fora da consulta.
+       */
+      while (true) {
+        const fim = inicio + tamanhoLote - 1;
+        const { data, error } = await c.from(tabelaEscolas())
+          .select('id,nome_escola,nome,status_acervo,acervo')
+          .order('id', { ascending: true })
+          .range(inicio, fim);
+        if (error) throw error;
 
-        const { error: updateError } = await c.from(tabelaEscolas()).update(payload).eq('id', escola.id);
-        if (!updateError) atualizados++;
-        else console.warn('[SIGEE Escolas] Falha ao normalizar acervo da escola', escola.id, updateError);
+        const pagina = Array.isArray(data) ? data : [];
+        if (!pagina.length) break;
+        examinados += pagina.length;
+
+        const registros = pagina.filter(e => valorLegado(e.status_acervo) || valorLegado(e.acervo));
+
+        /* Atualizações em pequenos grupos para não sobrecarregar a API. */
+        for (let i = 0; i < registros.length; i += 20) {
+          const grupo = registros.slice(i, i + 20);
+          const resultados = await Promise.all(grupo.map(async escola => {
+            const payload = {};
+            if (valorLegado(escola.status_acervo)) payload.status_acervo = 'NÃO RECOLHIDO';
+            if (valorLegado(escola.acervo)) payload.acervo = 'NÃO RECOLHIDO';
+            if (!Object.keys(payload).length) return false;
+
+            const { error: updateError } = await c.from(tabelaEscolas())
+              .update(payload)
+              .eq('id', escola.id);
+
+            if (updateError) {
+              console.warn('[SIGEE Escolas] Falha ao normalizar acervo:', escola.id, escola.nome_escola || escola.nome, updateError);
+              return false;
+            }
+            return true;
+          }));
+          atualizados += resultados.filter(Boolean).length;
+        }
+
+        if (pagina.length < tamanhoLote) break;
+        inicio += tamanhoLote;
       }
 
       if (Array.isArray(window.escolasDB)) {
@@ -1259,11 +1289,11 @@
         });
       }
 
+      console.info(`[SIGEE Escolas] Normalização concluída: ${examinados} escola(s) examinada(s) e ${atualizados} atualizada(s).`);
       if (atualizados) {
-        console.info(`[SIGEE Escolas] ${atualizados} status de acervo normalizado(s) para NÃO RECOLHIDO.`);
         try { if (typeof window.carregarEscolas === 'function') window.carregarEscolas(); } catch (_) {}
       }
-      return { atualizados };
+      return { atualizados, examinados };
     } catch (erro) {
       console.warn('[SIGEE Escolas] Normalização automática do acervo não concluída:', erro);
       return { atualizados: 0, erro };
