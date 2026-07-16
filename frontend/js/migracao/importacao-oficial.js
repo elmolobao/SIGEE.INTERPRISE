@@ -320,9 +320,34 @@
   }
 
   function iniciar() {
-    garantirPainel();
-    setTimeout(garantirPainel, 800);
-    setInterval(garantirPainel, 4000);
+    /*
+     * Compatibilidade M5.1/M5.2:
+     * este arquivo continua disponibilizando as rotinas de preflight,
+     * porém não monta o painel visual antigo quando a M5.2 está carregada.
+     * O pequeno atraso permite que migracao-importacao-oficial.js defina
+     * window.__SIGEE_M52_IMPORTACAO_OFICIAL__ antes da decisão.
+     */
+    setTimeout(() => {
+      if (window.__SIGEE_M52_IMPORTACAO_OFICIAL__) {
+        console.info('[SIGEE M5.1] Painel visual desativado: interface M5.2 ativa.');
+        return;
+      }
+
+      garantirPainel();
+      setTimeout(garantirPainel, 800);
+
+      window.__SIGEE_M51_PAINEL_INTERVAL__ =
+        window.__SIGEE_M51_PAINEL_INTERVAL__ ||
+        setInterval(() => {
+          if (window.__SIGEE_M52_IMPORTACAO_OFICIAL__) {
+            clearInterval(window.__SIGEE_M51_PAINEL_INTERVAL__);
+            window.__SIGEE_M51_PAINEL_INTERVAL__ = null;
+            document.getElementById('m5-painel')?.remove();
+            return;
+          }
+          garantirPainel();
+        }, 4000);
+    }, 250);
   }
 
   window.SIGEE_IMPORTACAO_OFICIAL = {
