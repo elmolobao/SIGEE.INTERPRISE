@@ -72,3 +72,17 @@
 .mig-diagnostico-item p{margin:3px 0;color:#334155;font-size:12px}
 .mig-diagnostico-item small{color:#64748b;font-size:10px}
 @media(max-width:700px){.mig-diagnostico-cronologia>header{flex-direction:column}.mig-diagnostico-contadores{justify-content:flex-start}}
+
+
+/* SIGEE Migração Histórica M4.2 — Auditoria Técnica Completa */
+.mig-painel-descricao{margin:5px 0 0;color:#64748b;font-size:12px}
+.mig-auditoria-tecnica-wrap{max-height:520px}
+.mig-auditoria-tecnica-linha td{vertical-align:top;line-height:1.35}
+.mig-auditoria-tecnica-linha td:first-child{min-width:190px}
+.mig-auditoria-tecnica-linha td:nth-child(2){min-width:220px}
+.mig-auditoria-tecnica-linha td:nth-child(4){min-width:260px}
+.mig-auditoria-tecnica-linha td:nth-child(6){min-width:280px}
+.mig-auditoria-tecnica-linha small{display:block;margin-top:4px;color:#64748b;font-size:10px}
+.mig-regra-chip{display:inline-block;padding:5px 8px;border-radius:999px;background:#fee2e2;color:#991b1b;font-size:9px;font-weight:900;white-space:nowrap}
+.mig-btn-auditar{border:0;border-radius:8px;padding:7px 10px;background:#0b4f8a;color:#fff;font-size:10px;font-weight:900;cursor:pointer}
+.mig-btn-auditar:hover{background:#083b68}
