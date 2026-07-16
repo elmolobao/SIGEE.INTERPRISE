@@ -576,7 +576,7 @@
   }
   function statusNaoRecolhido(valor) {
     const n = normalizar(valor);
-    return n.includes('NAO RECOLHIDO') || n === 'NAO' || n.includes('ACERVO NAO RECOLHIDO');
+    return n.includes('NAO RECOLHIDO') || n.includes('NAO ACOLHIDO') || n === 'NAO' || n.includes('ACERVO NAO RECOLHIDO') || n.includes('ACERVO NAO ACOLHIDO');
   }
   function codigoProcesso(p) {
     return texto(p?.codigo_sigee || p?.codigo || p?.numero_sigee || p?.protocolo || 'Registro SIGEE');
@@ -701,13 +701,22 @@
     return false;
   }
 
-  async function buscarSolicitacoesSemelhantes(nome) {
+  async function buscarSolicitacoesSemelhantes(nome, escolaSelecionada) {
     const termo = texto(nome);
-    if (termo.length < 3) return [];
-    const n = normalizar(termo);
-    const palavras = n.split(' ').filter(p => p.length >= 3);
+    const escolaInformada = texto(escolaSelecionada || el(IDS.escola)?.value);
+    if (termo.length < 3 || escolaInformada.length < 2) return [];
+
+    const nomeNormalizado = normalizar(termo);
+    const escolaNormalizada = normalizar(escolaInformada);
     const c = clienteSupabase();
     let registros = [];
+
+    const correspondeNomeEEscola = p => {
+      const nomeRegistro = normalizar(p?.aluno_nome || p?.aluno || p?.nome_solicitante);
+      const escolaRegistro = normalizar(p?.escola_nome || p?.escola || p?.nome_escola);
+      return !!nomeRegistro && !!escolaRegistro &&
+        nomeRegistro === nomeNormalizado && escolaRegistro === escolaNormalizada;
+    };
 
     if (c) {
       try {
@@ -716,8 +725,8 @@
           .select('id,codigo_sigee,aluno_nome,nome_solicitante,escola_nome,escola,etapa_atual,etapa,created_at,data_abertura,data_solicitacao,nte')
           .or(`aluno_nome.ilike.%${safe}%,nome_solicitante.ilike.%${safe}%`)
           .order('created_at', { ascending: false })
-          .limit(10);
-        if (!error && Array.isArray(data)) registros = data;
+          .limit(30);
+        if (!error && Array.isArray(data)) registros = data.filter(correspondeNomeEEscola);
       } catch (erro) {
         console.warn('[SIGEE Proteções] Consulta de duplicidade no Supabase falhou:', erro);
       }
@@ -725,13 +734,7 @@
 
     if (!registros.length) {
       const local = Array.isArray(window.processosDB) ? window.processosDB : [];
-      registros = local.filter(p => {
-        const alvo = normalizar(p.aluno_nome || p.aluno || p.nome_solicitante);
-        if (!alvo) return false;
-        if (alvo === n || alvo.includes(n) || n.includes(alvo)) return true;
-        const comuns = palavras.filter(x => alvo.includes(x)).length;
-        return palavras.length >= 2 && comuns >= Math.max(2, palavras.length - 1);
-      }).slice(0, 10);
+      registros = local.filter(correspondeNomeEEscola).slice(0, 10);
     }
     return registros;
   }
@@ -777,7 +780,8 @@
 
   async function validarDuplicidade() {
     const nome = texto(el(IDS.aluno)?.value);
-    const encontrados = await buscarSolicitacoesSemelhantes(nome);
+    const escola = texto(el(IDS.escola)?.value);
+    const encontrados = await buscarSolicitacoesSemelhantes(nome, escola);
     if (!encontrados.length) return true;
     const decisao = await confirmarDuplicidade(encontrados);
     return decisao === 'continuar';

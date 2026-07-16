@@ -1189,3 +1189,91 @@
     };
 })();
 })();
+
+
+/* =====================================================================
+   SIGEE — Normalização automática do status do acervo
+   Corrige cadastros legados "NÃO ACOLHIDO" para "NÃO RECOLHIDO".
+   A rotina é idempotente e altera somente registros com a expressão antiga.
+   ===================================================================== */
+(function () {
+  'use strict';
+
+  function texto(v) { return v === null || v === undefined ? '' : String(v).trim(); }
+  function normalizar(v) {
+    return texto(v).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/\s+/g, ' ').trim();
+  }
+  function clienteSupabase() {
+    try {
+      if (window.SIGEE_SUPABASE && typeof window.SIGEE_SUPABASE.criarCliente === 'function') return window.SIGEE_SUPABASE.criarCliente();
+      if (typeof window.criarClienteSupabaseSIGEE === 'function') return window.criarClienteSupabaseSIGEE();
+      if (typeof window.obterSupabaseSIGEE === 'function') return window.obterSupabaseSIGEE();
+      if (window.supabaseClient && typeof window.supabaseClient.from === 'function') return window.supabaseClient;
+    } catch (_) {}
+    return null;
+  }
+  function tabelaEscolas() {
+    return window.SIGEE_CONFIG?.supabase?.tabelas?.escolas || 'escolas_sigee';
+  }
+  function perfilAutorizado() {
+    const u = window.usuarioLogado || {};
+    const p = normalizar(u.perfil || u.role);
+    return p.includes('MASTER') || p.includes('ADMIN');
+  }
+  function valorLegado(v) {
+    const n = normalizar(v);
+    return n.includes('NAO ACOLHIDO') || n.includes('ACERVO NAO ACOLHIDO');
+  }
+
+  async function normalizarStatusAcervoLegado() {
+    if (!perfilAutorizado() || window.__SIGEE_NORMALIZANDO_ACERVO__) return { atualizados: 0 };
+    const c = clienteSupabase();
+    if (!c) return { atualizados: 0 };
+
+    window.__SIGEE_NORMALIZANDO_ACERVO__ = true;
+    try {
+      const { data, error } = await c.from(tabelaEscolas())
+        .select('id,status_acervo,acervo')
+        .or('status_acervo.ilike.%acolhido%,acervo.ilike.%acolhido%')
+        .limit(1000);
+      if (error) throw error;
+
+      const registros = (data || []).filter(e => valorLegado(e.status_acervo) || valorLegado(e.acervo));
+      let atualizados = 0;
+
+      for (const escola of registros) {
+        const payload = {};
+        if (valorLegado(escola.status_acervo)) payload.status_acervo = 'NÃO RECOLHIDO';
+        if (valorLegado(escola.acervo)) payload.acervo = 'NÃO RECOLHIDO';
+        if (!Object.keys(payload).length) continue;
+
+        const { error: updateError } = await c.from(tabelaEscolas()).update(payload).eq('id', escola.id);
+        if (!updateError) atualizados++;
+        else console.warn('[SIGEE Escolas] Falha ao normalizar acervo da escola', escola.id, updateError);
+      }
+
+      if (Array.isArray(window.escolasDB)) {
+        window.escolasDB.forEach(e => {
+          if (valorLegado(e.status_acervo)) e.status_acervo = 'NÃO RECOLHIDO';
+          if (valorLegado(e.acervo)) e.acervo = 'NÃO RECOLHIDO';
+        });
+      }
+
+      if (atualizados) {
+        console.info(`[SIGEE Escolas] ${atualizados} status de acervo normalizado(s) para NÃO RECOLHIDO.`);
+        try { if (typeof window.carregarEscolas === 'function') window.carregarEscolas(); } catch (_) {}
+      }
+      return { atualizados };
+    } catch (erro) {
+      console.warn('[SIGEE Escolas] Normalização automática do acervo não concluída:', erro);
+      return { atualizados: 0, erro };
+    } finally {
+      window.__SIGEE_NORMALIZANDO_ACERVO__ = false;
+    }
+  }
+
+  window.SIGEE_NORMALIZAR_STATUS_ACERVO = normalizarStatusAcervoLegado;
+  function iniciar() { setTimeout(normalizarStatusAcervoLegado, 1200); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar);
+  else iniciar();
+})();
