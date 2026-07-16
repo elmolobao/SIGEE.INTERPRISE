@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  const VERSION = 'M4.1.3';
+  const VERSION = 'M4.2.0';
   const LIMITE_FUTURO_DIAS = 1;
   const DATA_PADRAO_ANO = 2000;
 
@@ -275,6 +275,22 @@
             <table>
               <thead><tr><th>Aluno</th><th>Escola</th><th>Abertura</th><th>Etapa válida</th><th>Responsável</th><th>Escola SIGEE</th><th>Técnico SIGEE</th><th>Validação</th></tr></thead>
               <tbody id="mig-processos"></tbody>
+            </table>
+          </div>
+        </article>
+
+        <article id="mig-auditoria-tecnica-box" class="mig-painel hidden">
+          <header class="mig-painel-cab">
+            <div>
+              <h2>Auditoria técnica dos processos pendentes</h2>
+              <p class="mig-painel-descricao">Diagnóstico consolidado das regras que impedem a homologação, com indicação da origem e da ação recomendada.</p>
+            </div>
+            <span id="mig-auditoria-tecnica-resumo">0 pendentes</span>
+          </header>
+          <div class="mig-tabela-wrap mig-auditoria-tecnica-wrap">
+            <table>
+              <thead><tr><th>Processo / Aluno</th><th>Escola</th><th>Regra</th><th>Motivo do bloqueio</th><th>Origem</th><th>Ação recomendada</th><th>Abrir</th></tr></thead>
+              <tbody id="mig-auditoria-tecnica-corpo"></tbody>
             </table>
           </div>
         </article>
@@ -688,6 +704,7 @@
     document.getElementById('mig-simulacao-box').classList.add('hidden');
     document.getElementById('mig-qualidade-box')?.classList.add('hidden');
     document.getElementById('mig-auditoria-processo-box')?.classList.add('hidden');
+    document.getElementById('mig-auditoria-tecnica-box')?.classList.add('hidden');
   }
 
 
@@ -787,6 +804,67 @@
     document.getElementById('mig-auditoria-processo-box')?.scrollIntoView({behavior:'smooth', block:'start'});
   }
 
+  function regraAuditoria(issue) {
+    const mapa = {
+      DATA_INVALIDA: 'Data inválida',
+      DATA_FUTURA: 'Data futura',
+      ORDEM_DATAS_CRITICA: 'Inversão cronológica',
+      ESCOLA_NAO_LOCALIZADA: 'Vínculo de escola',
+      SEM_COD_MEC: 'Código MEC ausente'
+    };
+    return mapa[issue?.tipo] || texto(issue?.tipo).replaceAll('_',' ');
+  }
+
+  function acaoRecomendada(issue) {
+    const tipo = issue?.tipo;
+    const desc = normalizar(issue?.descricao);
+    if (tipo === 'DATA_INVALIDA') return 'Corrigir a célula de data na aba indicada ou substituir por data fictícia identificada, quando a data real não existir.';
+    if (tipo === 'DATA_FUTURA') return 'Revisar a data informada na planilha; datas futuras não podem compor o histórico.';
+    if (tipo === 'ORDEM_DATAS_CRITICA') {
+      if (desc.includes('RETORNO') || desc.includes('SAIDA')) return 'Conferir as datas de entrada e retorno na aba indicada e corrigir somente se houve inversão de preenchimento.';
+      if (desc.includes('RETIRADA')) return 'Conferir a data de retirada e a data de deferimento/assinatura.';
+      return 'Conferir as datas das etapas citadas. Se a sequência refletir retrabalho real, registrar como variação histórica; se for erro de preenchimento, corrigir a planilha.';
+    }
+    if (tipo === 'ESCOLA_NAO_LOCALIZADA') return 'Selecionar a escola correspondente dentro do NTE da planilha.';
+    return 'Abrir a auditoria individual e conferir o registro de origem.';
+  }
+
+  function renderizarAuditoriaTecnica() {
+    if (!resultadoAtual) return;
+    const box = document.getElementById('mig-auditoria-tecnica-box');
+    const corpo = document.getElementById('mig-auditoria-tecnica-corpo');
+    const resumo = document.getElementById('mig-auditoria-tecnica-resumo');
+    if (!box || !corpo || !resumo) return;
+
+    const pendentes = resultadoAtual.processos.filter(p => p.status_validacao === 'PENDENTE');
+    resumo.textContent = `${pendentes.length} pendente(s) de ${resultadoAtual.processos.length}`;
+    box.classList.toggle('hidden', pendentes.length === 0);
+
+    if (!pendentes.length) {
+      corpo.innerHTML = '<tr><td colspan="7">Nenhum processo pendente.</td></tr>';
+      return;
+    }
+
+    const linhas = [];
+    pendentes.forEach(p => {
+      const bloqueios = (p.inconsistencias || []).filter(x => x.gravidade === 'Alta');
+      (bloqueios.length ? bloqueios : [{tipo:'REVISAO',descricao:'Processo marcado como pendente sem bloqueio detalhado.',origem:'Validação'}]).forEach((issue, indice) => {
+        linhas.push(`
+          <tr class="mig-auditoria-tecnica-linha">
+            <td><button type="button" class="mig-link-processo" data-mig-key="${html(p.migration_key)}">${html(p.aluno_nome)}</button><small>Linha ${html(p.linha_origem)}</small></td>
+            <td>${html(p.escola_nome_original)}</td>
+            <td><span class="mig-regra-chip">${html(regraAuditoria(issue))}</span></td>
+            <td>${html(issue.descricao)}</td>
+            <td>${html(issue.origem)}</td>
+            <td>${html(acaoRecomendada(issue))}</td>
+            <td><button type="button" class="mig-btn-auditar" data-mig-key="${html(p.migration_key)}">Auditar</button></td>
+          </tr>`);
+      });
+    });
+    corpo.innerHTML = linhas.join('');
+    corpo.querySelectorAll('[data-mig-key]').forEach(btn => btn.addEventListener('click', () => abrirAuditoriaProcesso(btn.dataset.migKey)));
+  }
+
   function validarFinal() {
     if (!resultadoAtual) return;
 
@@ -825,6 +903,8 @@
       status: certificado ? 'PRONTO_PARA_IMPORTACAO' : 'PENDENTE_DE_AJUSTES',
       validado_em: new Date().toISOString()
     };
+
+    renderizarAuditoriaTecnica();
 
     const box = document.getElementById('mig-qualidade-box');
     box?.classList.remove('hidden');
