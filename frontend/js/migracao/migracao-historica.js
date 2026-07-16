@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  const VERSION = 'M4.1.1';
+  const VERSION = 'M4.1.2';
   const LIMITE_FUTURO_DIAS = 1;
   const DATA_PADRAO_ANO = 2000;
 
@@ -493,26 +493,64 @@
         if (normalizar(def.STATUS).includes('RETIR')) add('Retirado','Documento Retirado',def['DATA DA RETIRADA'],'',def.STATUS,'07 - DEFERIDO');
       }
 
-      const validos = ev.filter(e => e.valido_cronologia && e.data).sort((a,b) => a.data.localeCompare(b.data));
+      const validos = ev.filter(e => e.valido_cronologia && e.data).sort((a,b) => {
+        const porData = a.data.localeCompare(b.data);
+        if (porData) return porData;
+        return (ORDEM_ETAPAS[a.etapa] || 0) - (ORDEM_ETAPAS[b.etapa] || 0);
+      });
+
+      // Migração histórica adaptativa:
+      // - datas iguais são aceitas;
+      // - etapas ausentes ou puladas não invalidam o processo;
+      // - retornos/retrabalhos entre etapas são preservados como variação histórica;
+      // - somente inversões materialmente impossíveis bloqueiam a homologação.
       let maiorOrdem = 0;
-      let ultimoEvento = validos[0] || null;
       validos.forEach(e => {
         const ordem = ORDEM_ETAPAS[e.etapa] || 0;
         if (ordem + 10 < maiorOrdem) {
-          addIssue('REGRESSAO_CRONOLOGICA', 'Alta', `${e.evento} (${e.data}) aparece após uma etapa mais avançada`, e.aba);
+          addIssue(
+            'VARIACAO_FLUXO_HISTORICO',
+            'Média',
+            `${e.evento} (${e.data}) indica retorno ou preenchimento fora da sequência linear; histórico preservado`,
+            e.aba
+          );
         }
         maiorOrdem = Math.max(maiorOrdem, ordem);
-        if (!ultimoEvento || e.data > ultimoEvento.data || (e.data === ultimoEvento.data && ordem >= (ORDEM_ETAPAS[ultimoEvento.etapa] || 0))) {
-          ultimoEvento = e;
-        }
       });
 
-      if (ass) {
-        const envio = excelData(ass['ENVIO ASSINATURA']);
-        const retorno = excelData(ass['RETORNO ASSINATURA']);
-        if (envio && retorno && retorno < envio) {
-          addIssue('ORDEM_DATAS', 'Alta', `Retorno da assinatura (${iso(retorno)}) anterior ao envio (${iso(envio)})`, '06 - ASSINATURA');
+      const dataReal = v => {
+        const d = excelData(v);
+        return d && tipoData(d) === 'REAL' && !dataFutura(d) ? d : null;
+      };
+      const validarPar = (inicio, fim, descricao, origemPar) => {
+        const di = dataReal(inicio);
+        const df = dataReal(fim);
+        if (di && df && df < di) {
+          addIssue('ORDEM_DATAS_CRITICA', 'Alta', `${descricao}: ${iso(df)} anterior a ${iso(di)}`, origemPar);
         }
+      };
+
+      if (ana) validarPar(ana['ENVIO ANÁLISE'], ana.RETORNO, 'Saída da Análise anterior à entrada', '02 - ANÁLISE');
+      if (dig) validarPar(dig['data de envio'], dig['data de retorno'], 'Saída da Digitação anterior à entrada', '04- DIGITAÇÃO');
+      if (con) validarPar(con['Data envio'], con['Data Retorno'], 'Saída da Conferência anterior à entrada', '05 - CONFERENCIA');
+      if (ass) validarPar(ass['ENVIO ASSINATURA'], ass['RETORNO ASSINATURA'], 'Retorno da Assinatura anterior ao envio', '06 - ASSINATURA');
+      if (def) validarPar(def['DATA ASSINATURA'], def['DATA DA RETIRADA'], 'Retirada anterior ao deferimento', '07 - DEFERIDO');
+
+      const primeiraDataEtapa = etapa => validos.find(e => e.etapa === etapa)?.data || '';
+      const dataAnalise = primeiraDataEtapa('Análise');
+      const dataDigitacao = primeiraDataEtapa('Digitação');
+      const dataConferencia = primeiraDataEtapa('Conferência');
+      const dataAssinatura = primeiraDataEtapa('Assinatura');
+      const dataRetirada = primeiraDataEtapa('Retirado');
+
+      if (dataAnalise && dataAssinatura && dataAssinatura < dataAnalise) {
+        addIssue('ORDEM_DATAS_CRITICA', 'Alta', `Assinatura (${dataAssinatura}) anterior à Análise (${dataAnalise})`, 'Cronologia');
+      }
+      if (dataDigitacao && dataConferencia && dataConferencia < dataDigitacao) {
+        addIssue('ORDEM_DATAS_CRITICA', 'Alta', `Conferência (${dataConferencia}) anterior à Digitação (${dataDigitacao})`, 'Cronologia');
+      }
+      if (dataDigitacao && dataRetirada && dataRetirada < dataDigitacao) {
+        addIssue('ORDEM_DATAS_CRITICA', 'Alta', `Retirada (${dataRetirada}) anterior à Digitação (${dataDigitacao})`, 'Cronologia');
       }
 
       const codigoMec = texto(r['COD. MEC']);
@@ -729,7 +767,7 @@
       escolas: processos.every(p => p.escola_localizada),
       tecnicos: true,
       workflow: processos.every(p => Array.isArray(p.eventos) && p.eventos.length > 0),
-      cronologia: !resultadoAtual.inconsistencias.some(i => ['DATA_FUTURA','REGRESSAO_CRONOLOGICA','ORDEM_DATAS'].includes(i.tipo))
+      cronologia: !resultadoAtual.inconsistencias.some(i => ['DATA_INVALIDA','DATA_FUTURA','ORDEM_DATAS_CRITICA'].includes(i.tipo))
     };
 
     const detalhes = [
