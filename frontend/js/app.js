@@ -1,3 +1,4 @@
+/* SIGEE PATCH 2.5.8 — técnico de lançamento responsável pelo Desarquivamento */
 /* SIGEE PATCH 2.5.7C — responsável persistente no conversor principal e V38 */
 /* SIGEE PATCH 2.5.7B — responsável persistente na Central */
 /* SIGEE PATCH 2.5.6 — autoridade única operacional */
@@ -2553,10 +2554,15 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                     codigo_sigee: proc.codigo_sigee,
                     cod_mec: processoPayload.cod_mec || null,
                     escola_id: processoPayload.escola_id || null,
+                    tecnico_responsavel:
+                        processoPayload.tecnico_responsavel ||
+                        proc.tecnico_responsavel ||
+                        solicitacao?.tecnico_responsavel ||
+                        null,
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', proc.id)
-                .select('id,codigo_sigee,cod_mec,escola_id')
+                .select('id,codigo_sigee,cod_mec,escola_id,tecnico_responsavel')
                 .single();
 
             if (respostaCodigo.error) {
@@ -2579,6 +2585,67 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             }
 
             proc.codigo_sigee = respostaCodigo.data?.codigo_sigee || proc.codigo_sigee;
+            proc.tecnico_responsavel =
+                respostaCodigo.data?.tecnico_responsavel ||
+                processoPayload.tecnico_responsavel ||
+                proc.tecnico_responsavel ||
+                solicitacao?.tecnico_responsavel ||
+                null;
+            proc.tecnico_responsavel_nome =
+                proc.tecnico_responsavel_nome ||
+                proc.tecnico_responsavel ||
+                null;
+            proc.responsavel = proc.responsavel || proc.tecnico_responsavel || null;
+            proc.responsavel_nome = proc.responsavel_nome || proc.tecnico_responsavel || null;
+
+            /*
+             * Registra a origem da responsabilidade desde a criação.
+             * A falha desta auditoria não desfaz o processo já confirmado.
+             */
+            try {
+                const usuarioAtual = usuarioLogado || {};
+                const historicoPayload = {
+                    processo_id: proc.id,
+                    codigo_sigee: proc.codigo_sigee,
+                    etapa: 'Desarquivamento',
+                    acao: 'Solicitação enviada para Desarquivamento',
+                    observacao:
+                        'Solicitação cadastrada por ' +
+                        (proc.tecnico_responsavel || 'usuário autenticado') +
+                        '. Responsabilidade inicial atribuída automaticamente ao técnico de lançamento.',
+                    usuario_nome: proc.tecnico_responsavel || null,
+                    usuario_email: usuarioAtual.email || null,
+                    usuario_perfil: usuarioAtual.perfil || null,
+                    nte: proc.nte || usuarioAtual.nte || null,
+                    dados: {
+                        origem: 'NOVA_SOLICITACAO',
+                        responsavel_inicial: proc.tecnico_responsavel || null,
+                        escola_id: proc.escola_id || null,
+                        cod_mec: proc.cod_mec || null
+                    },
+                    created_at: new Date().toISOString(),
+                    workflow_bloqueio_ativo: false,
+                    workflow_instance_id: proc.workflow_instance_id || null,
+                    workflow_model_version: '2.5.8',
+                    execution_status: 'EXECUTADA'
+                };
+
+                const respostaHistorico = await client
+                    .from('historico_processos')
+                    .insert([historicoPayload]);
+
+                if (respostaHistorico.error) {
+                    console.warn(
+                        '[SIGEE 2.5.8] Processo criado, mas o histórico inicial não foi registrado.',
+                        respostaHistorico.error
+                    );
+                }
+            } catch (erroHistorico) {
+                console.warn(
+                    '[SIGEE 2.5.8] Falha não bloqueante ao registrar histórico inicial.',
+                    erroHistorico
+                );
+            }
 
             const solPayload = solicitacaoParaSupabaseSIGEE(solicitacao || proc);
             delete solPayload.id;
@@ -3191,6 +3258,37 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                         municipio: municipio,
                         cod_mec: mec,
                         escola_id: escola.id == null || escola.id === '' ? null : (Number(escola.id) || escola.id),
+
+                        /*
+                         * SIGEE PATCH 2.5.8:
+                         * O técnico autenticado que lança a solicitação assume
+                         * automaticamente a responsabilidade pelo Desarquivamento.
+                         */
+                        tecnico_responsavel: String(
+                            usuarioLogado?.nome ||
+                            usuarioLogado?.nome_completo ||
+                            usuarioLogado?.email ||
+                            ''
+                        ).trim(),
+                        tecnico_responsavel_nome: String(
+                            usuarioLogado?.nome ||
+                            usuarioLogado?.nome_completo ||
+                            usuarioLogado?.email ||
+                            ''
+                        ).trim(),
+                        responsavel: String(
+                            usuarioLogado?.nome ||
+                            usuarioLogado?.nome_completo ||
+                            usuarioLogado?.email ||
+                            ''
+                        ).trim(),
+                        responsavel_nome: String(
+                            usuarioLogado?.nome ||
+                            usuarioLogado?.nome_completo ||
+                            usuarioLogado?.email ||
+                            ''
+                        ).trim(),
+
                         workflow_instance_id: (window.crypto && typeof window.crypto.randomUUID === 'function') ? window.crypto.randomUUID() : null,
                         workflow_ciclo: 1,
                         ciclo: 1,
