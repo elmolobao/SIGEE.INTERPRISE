@@ -1,7 +1,7 @@
-/* SIGEE Enterprise — M5.2.0 | Motor de Persistência Segura */
+/* SIGEE Enterprise — M5.3.0 | Motor de Persistência Segura */
 (function(){
   'use strict';
-  const VERSION='M5.2.0';
+  const VERSION='M5.3.0';
   const RPC_PREFLIGHT='sigee_migracao_preflight';
   const RPC_IMPORTAR='sigee_migracao_importar';
   const txt=v=>v==null?'':String(v).trim();

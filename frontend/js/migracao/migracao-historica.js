@@ -1004,3 +1004,273 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar);
   else iniciar();
 })();
+
+
+/* =====================================================================
+   SIGEE Enterprise — M5.3 | Centro de Auditoria de Migração
+   Correções em memória: escola, datas, ignorar registro e autorização
+   excepcional. Não altera a planilha original nem o catálogo do SIGEE.
+   ===================================================================== */
+(function () {
+  'use strict';
+  if (window.__SIGEE_M53_AUDITOR__) return;
+  window.__SIGEE_M53_AUDITOR__ = true;
+
+  const VERSAO = 'M5.3.0';
+  const $ = id => document.getElementById(id);
+  const txt = v => v == null ? '' : String(v).trim();
+  const norm = v => txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/\s+/g,' ').trim();
+  const esc = v => txt(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const resultado = () => window.SIGEE_MIGRACAO_HISTORICA?.resultado?.() || null;
+  const master = () => norm(window.usuarioLogado?.perfil).includes('MASTER');
+  const client = () => [window.supabaseClient,window.supaClient,window.sb,window.SUPABASE_CLIENT]
+    .find(c=>c&&typeof c.from==='function') || null;
+  const nteAtual = () => {
+    const m=txt($('mig-nte')?.value).match(/(\d{1,2})/);
+    return m ? String(Number(m[1])).padStart(2,'0') : '';
+  };
+  const agora = () => new Date().toISOString();
+
+  function registrar(p, acao, campo, anterior, novo, motivo) {
+    p.auditoria_m53 = Array.isArray(p.auditoria_m53) ? p.auditoria_m53 : [];
+    p.auditoria_m53.push({
+      versao: VERSAO, acao, campo, valor_anterior: anterior ?? null, valor_novo: novo ?? null,
+      motivo: txt(motivo), usuario: window.usuarioLogado?.nome || 'Master',
+      email: window.usuarioLogado?.email || '', executado_em: agora()
+    });
+  }
+
+  function modal(conteudo) {
+    document.getElementById('mig-m53-modal')?.remove();
+    const bg=document.createElement('div');
+    bg.id='mig-m53-modal'; bg.className='mig-m53-modal-bg';
+    bg.innerHTML=`<section class="mig-m53-modal">${conteudo}</section>`;
+    document.body.appendChild(bg);
+    bg.addEventListener('click',e=>{if(e.target===bg)bg.remove();});
+    return bg;
+  }
+
+  function processoPorChave(chave) {
+    return resultado()?.processos?.find(p=>p.migration_key===chave) || null;
+  }
+
+  function tiposDataInvalidos(p) {
+    const eventos = Array.isArray(p.eventos) ? p.eventos : [];
+    const erros=[];
+    let anterior=null;
+    eventos.forEach((e,i)=>{
+      const s=txt(e.data);
+      const valida=/^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(new Date(s+'T12:00:00').getTime());
+      if(!valida) erros.push({tipo:'DATA_INVALIDA',indice:i,descricao:`Data inválida em ${e.etapa||e.aba||'evento'}.`});
+      if(valida && anterior && s < anterior) erros.push({tipo:'ORDEM_DATAS_CRITICA',indice:i,descricao:`${e.etapa||e.aba||'Evento'} anterior ao evento precedente.`});
+      if(valida) anterior=s;
+    });
+    return erros;
+  }
+
+  function revalidar(p) {
+    const manter=(p.inconsistencias||[]).filter(i=>{
+      const t=norm(i.tipo);
+      if(t.includes('ESCOLA') && p.escola_id) return false;
+      if(['DATA INVALIDA','DATA FUTURA','ORDEM DATAS CRITICA'].includes(t.replaceAll('_',' '))) return false;
+      return true;
+    });
+    const errosDatas=tiposDataInvalidos(p).map(e=>({
+      aluno:p.aluno_nome,tipo:e.tipo,gravidade:'Alta',descricao:e.descricao,origem:'Auditoria M5.3'
+    }));
+    p.inconsistencias=[...manter,...errosDatas];
+    p.eventos_validos=(p.eventos||[]).filter(e=>/^\d{4}-\d{2}-\d{2}$/.test(txt(e.data)));
+    p.quantidade_datas_reais=p.eventos_validos.filter(e=>norm(e.tipo_data)==='REAL').length;
+    p.quantidade_datas_ficticias=p.eventos_validos.filter(e=>norm(e.tipo_data).includes('FICT')).length;
+    p.possui_data_ficticia=p.quantidade_datas_ficticias>0;
+    p.status_validacao = p.ignorar_migracao ? 'IGNORADO' :
+      (p.inconsistencias.some(i=>norm(i.gravidade)==='ALTA') ? 'PENDENTE' : 'PRONTO');
+
+    const r=resultado();
+    if(r){
+      r.inconsistencias=r.processos.flatMap(x=>x.inconsistencias||[]);
+      r.eventos=r.processos.filter(x=>!x.ignorar_migracao).flatMap(x=>x.eventos_validos||[]);
+      r.validacao_final={executada:false,qualidade_percentual:0};
+    }
+    atualizarPainel();
+  }
+
+  async function buscarEscolas(termo) {
+    const c=client(); if(!c) throw new Error('Cliente Supabase não localizado.');
+    const nte=nteAtual();
+    const safe=txt(termo).replace(/[,%_]/g,' ');
+    let q=c.from('escolas_sigee')
+      .select('id,cod_mec,nome_escola,municipio,nte_id,ativo')
+      .order('nome_escola',{ascending:true}).limit(40);
+    if(safe.length>=2) q=q.or(`nome_escola.ilike.%${safe}%,municipio.ilike.%${safe}%,cod_mec.ilike.%${safe}%`);
+    const {data,error}=await q;
+    if(error) throw error;
+    const base=Array.isArray(data)?data:[];
+    if(!nte) return base;
+    // nte_id geralmente é o número ou referência correspondente; a validação final ainda confere o NTE.
+    return base.filter(e=>{
+      const v=txt(e.nte_id);
+      const m=v.match(/(\d{1,2})/);
+      return !m || String(Number(m[1])).padStart(2,'0')===nte;
+    });
+  }
+
+  function abrirEscola(chave) {
+    const p=processoPorChave(chave); if(!p)return;
+    const bg=modal(`
+      <header><h3>Corrigir vínculo da escola</h3><button data-fechar>✕</button></header>
+      <div class="mig-m53-original"><b>Planilha:</b> ${esc(p.escola_nome_original)}<br><b>NTE:</b> ${esc(nteAtual())}</div>
+      <label>Pesquisar no catálogo atual<input id="m53-escola-busca" placeholder="Nome, MEC ou município"></label>
+      <div id="m53-escola-resultados" class="mig-m53-resultados">Digite ao menos 2 caracteres.</div>
+      <label>Motivo da correção<textarea id="m53-escola-motivo" placeholder="Justificativa obrigatória"></textarea></label>`);
+    bg.querySelector('[data-fechar]').onclick=()=>bg.remove();
+    const input=bg.querySelector('#m53-escola-busca'), box=bg.querySelector('#m53-escola-resultados');
+    let timer;
+    input.addEventListener('input',()=>{
+      clearTimeout(timer);
+      timer=setTimeout(async()=>{
+        if(txt(input.value).length<2){box.textContent='Digite ao menos 2 caracteres.';return;}
+        box.textContent='Consultando catálogo atualizado...';
+        try{
+          const escolas=await buscarEscolas(input.value);
+          box.innerHTML=escolas.length?escolas.map(e=>`<button type="button" data-id="${esc(e.id)}" data-nome="${esc(e.nome_escola)}" data-mec="${esc(e.cod_mec)}"><b>${esc(e.nome_escola)}</b><span>${esc(e.municipio)} · MEC ${esc(e.cod_mec||'-')}</span></button>`).join(''):'Nenhuma escola localizada no NTE.';
+          box.querySelectorAll('button').forEach(btn=>btn.onclick=()=>{
+            const motivo=txt(bg.querySelector('#m53-escola-motivo').value);
+            if(!motivo)return alert('Informe o motivo da correção.');
+            const anterior={escola_id:p.escola_id,escola_nome:p.escola_nome,codigo_mec:p.codigo_mec};
+            p.escola_id=btn.dataset.id;p.escola_nome=btn.dataset.nome;p.codigo_mec=btn.dataset.mec;
+            p.escola_localizada=true;
+            registrar(p,'CORRECAO_ESCOLA','escola',anterior,{escola_id:p.escola_id,escola_nome:p.escola_nome,codigo_mec:p.codigo_mec},motivo);
+            bg.remove();revalidar(p);
+          });
+        }catch(e){box.textContent='Falha ao consultar catálogo: '+(e.message||e);}
+      },300);
+    });
+  }
+
+  function abrirDatas(chave) {
+    const p=processoPorChave(chave); if(!p)return;
+    const eventos=Array.isArray(p.eventos)?p.eventos:[];
+    const bg=modal(`
+      <header><h3>Corrigir datas do processo</h3><button data-fechar>✕</button></header>
+      <div class="mig-m53-eventos">${eventos.map((e,i)=>`
+        <div class="mig-m53-evento">
+          <div><b>${esc(e.etapa||e.evento||e.aba||('Evento '+(i+1)))}</b><small>${esc(e.aba||'')}</small></div>
+          <input type="date" data-data="${i}" value="${esc(e.data)}">
+          <select data-tipo="${i}"><option value="REAL" ${norm(e.tipo_data)==='REAL'?'selected':''}>REAL</option><option value="FICTICIA" ${norm(e.tipo_data).includes('FICT')?'selected':''}>FICTÍCIA</option></select>
+        </div>`).join('')}</div>
+      <label>Motivo da correção<textarea id="m53-data-motivo" placeholder="Justificativa obrigatória"></textarea></label>
+      <div class="mig-m53-modal-acoes"><button data-cancelar>Cancelar</button><button data-salvar>Salvar e revalidar</button></div>`);
+    bg.querySelector('[data-fechar]').onclick=bg.querySelector('[data-cancelar]').onclick=()=>bg.remove();
+    bg.querySelector('[data-salvar]').onclick=()=>{
+      const motivo=txt(bg.querySelector('#m53-data-motivo').value);
+      if(!motivo)return alert('Informe o motivo da correção.');
+      const antes=eventos.map(e=>({data:e.data,tipo_data:e.tipo_data}));
+      eventos.forEach((e,i)=>{
+        e.data=bg.querySelector(`[data-data="${i}"]`).value;
+        e.tipo_data=bg.querySelector(`[data-tipo="${i}"]`).value;
+      });
+      p.data_solicitacao=eventos.find(e=>txt(e.data))?.data||p.data_solicitacao;
+      p.data_etapa_atual=[...eventos].reverse().find(e=>txt(e.data))?.data||p.data_etapa_atual;
+      registrar(p,'CORRECAO_DATAS','eventos',antes,eventos.map(e=>({data:e.data,tipo_data:e.tipo_data})),motivo);
+      bg.remove();revalidar(p);
+    };
+  }
+
+  function ignorar(chave) {
+    const p=processoPorChave(chave); if(!p)return;
+    const motivo=prompt('Informe o motivo para ignorar este processo no lote:');
+    if(!txt(motivo))return;
+    p.ignorar_migracao=true;p.decisao_m53='IGNORAR';
+    registrar(p,'IGNORAR_LOTE','status_validacao',p.status_validacao,'IGNORADO',motivo);
+    revalidar(p);
+  }
+
+  function restaurar(chave) {
+    const p=processoPorChave(chave); if(!p)return;
+    p.ignorar_migracao=false;p.decisao_m53='';
+    registrar(p,'RESTAURAR_LOTE','status_validacao','IGNORADO','REVALIDAR','Restauração pelo Master');
+    revalidar(p);
+  }
+
+  function importarMesmoAssim(chave) {
+    const p=processoPorChave(chave); if(!p)return;
+    if(!p.escola_id)return alert('A autorização excepcional não pode substituir o vínculo obrigatório com uma escola do catálogo.');
+    const motivo=prompt('Justificativa obrigatória para importar mesmo assim:');
+    if(!txt(motivo))return;
+    p.decisao_m53='IMPORTAR_EXCEPCIONAL';
+    p.inconsistencias=(p.inconsistencias||[]).map(i=>({...i,gravidade:norm(i.gravidade)==='ALTA'?'Média':i.gravidade,superada_por_master:true}));
+    registrar(p,'IMPORTAR_EXCEPCIONAL','status_validacao',p.status_validacao,'PRONTO',motivo);
+    revalidar(p);
+  }
+
+  function desfazer(chave) {
+    const p=processoPorChave(chave); if(!p||!(p.auditoria_m53||[]).length)return;
+    alert('A trilha de auditoria foi preservada. Para desfazer escola ou datas, abra novamente o editor e selecione/informe o valor correto.');
+  }
+
+  function garantirPainel() {
+    const host=$('aba-migracao-historica');
+    if(!host||$('mig-m53-centro'))return;
+    const box=document.createElement('article');
+    box.id='mig-m53-centro';box.className='mig-painel mig-m53-centro hidden';
+    box.innerHTML=`
+      <header class="mig-painel-cab"><div><h2>Centro de Auditoria M5.3</h2><p class="mig-painel-descricao">Corrija escola ou datas, ignore registros específicos e registre decisões do Master sem alterar a planilha original.</p></div><span id="mig-m53-resumo">Aguardando lote</span></header>
+      <div class="mig-m53-filtros"><button data-filtro="TODOS">Todos</button><button data-filtro="PENDENTE">Pendentes</button><button data-filtro="IGNORADO">Ignorados</button><button data-filtro="PRONTO">Autorizados</button></div>
+      <div class="mig-tabela-wrap"><table><thead><tr><th>Aluno</th><th>Escola / Data</th><th>Problema</th><th>Decisão</th><th>Ações</th></tr></thead><tbody id="mig-m53-corpo"></tbody></table></div>`;
+    const antes=$('mig-simulacao-box')||host.lastElementChild;
+    antes.parentNode.insertBefore(box,antes);
+    box.querySelectorAll('[data-filtro]').forEach(b=>b.onclick=()=>{box.dataset.filtro=b.dataset.filtro;atualizarPainel();});
+  }
+
+  function atualizarPainel() {
+    garantirPainel();
+    const r=resultado(), box=$('mig-m53-centro'); if(!r||!box)return;
+    box.classList.remove('hidden');
+    const filtro=box.dataset.filtro||'TODOS';
+    const todos=r.processos||[];
+    const lista=todos.filter(p=>filtro==='TODOS'||p.status_validacao===filtro);
+    const prontos=todos.filter(p=>p.status_validacao==='PRONTO'&&!p.ignorar_migracao).length;
+    const ignorados=todos.filter(p=>p.ignorar_migracao).length;
+    const pendentes=todos.filter(p=>p.status_validacao==='PENDENTE').length;
+    $('mig-m53-resumo').textContent=`${prontos} autorizados · ${ignorados} ignorados · ${pendentes} pendentes`;
+    $('mig-m53-corpo').innerHTML=lista.map(p=>`
+      <tr class="${p.ignorar_migracao?'mig-m53-ignorado':''}">
+        <td><b>${esc(p.aluno_nome)}</b><small>Linha ${esc(p.linha_origem||'-')}</small></td>
+        <td>${esc(p.escola_nome_original)}<small>${esc(p.data_solicitacao||'Sem data')}</small></td>
+        <td>${(p.inconsistencias||[]).length?(p.inconsistencias||[]).map(i=>`<span class="mig-m53-erro">${esc(i.tipo)}</span>`).join(' '):'<span class="mig-m53-ok">Sem bloqueios</span>'}</td>
+        <td><b>${esc(p.decisao_m53||(p.ignorar_migracao?'IGNORAR':p.status_validacao))}</b><small>${(p.auditoria_m53||[]).length} ação(ões) auditada(s)</small></td>
+        <td class="mig-m53-acoes">
+          <button data-escola="${esc(p.migration_key)}">🏫 Escola</button>
+          <button data-datas="${esc(p.migration_key)}">📅 Datas</button>
+          ${p.ignorar_migracao?`<button data-restaurar="${esc(p.migration_key)}">↩ Restaurar</button>`:`<button data-ignorar="${esc(p.migration_key)}">🚫 Ignorar</button>`}
+          ${p.status_validacao==='PENDENTE'?`<button data-excecao="${esc(p.migration_key)}">✅ Exceção</button>`:''}
+        </td>
+      </tr>`).join('')||'<tr><td colspan="5">Nenhum processo neste filtro.</td></tr>';
+    box.querySelectorAll('[data-escola]').forEach(b=>b.onclick=()=>abrirEscola(b.dataset.escola));
+    box.querySelectorAll('[data-datas]').forEach(b=>b.onclick=()=>abrirDatas(b.dataset.datas));
+    box.querySelectorAll('[data-ignorar]').forEach(b=>b.onclick=()=>ignorar(b.dataset.ignorar));
+    box.querySelectorAll('[data-restaurar]').forEach(b=>b.onclick=()=>restaurar(b.dataset.restaurar));
+    box.querySelectorAll('[data-excecao]').forEach(b=>b.onclick=()=>importarMesmoAssim(b.dataset.excecao));
+
+    // Atualiza indicadores visíveis da M4 sem reprocessar a planilha.
+    if($('mig-kpi-prontos')) $('mig-kpi-prontos').textContent=prontos;
+    if($('mig-kpi-pendentes')) $('mig-kpi-pendentes').textContent=pendentes;
+    if($('mig-resumo-validacao')) $('mig-resumo-validacao').textContent=`${prontos} autorizados · ${ignorados} ignorados de ${todos.length}`;
+  }
+
+  function iniciar() {
+    garantirPainel();
+    setInterval(()=>{
+      garantirPainel();
+      if(resultado()) atualizarPainel();
+    },1500);
+  }
+
+  window.SIGEE_MIGRACAO_AUDITOR_M53={
+    versao:VERSAO,atualizar:atualizarPainel,revalidar,
+    auditoria:()=>resultado()?.processos?.flatMap(p=>(p.auditoria_m53||[]).map(a=>({...a,migration_key:p.migration_key,aluno:p.aluno_nome})))||[]
+  };
+
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',iniciar);else iniciar();
+})();

@@ -1,10 +1,10 @@
-/* SIGEE Enterprise — M5.1.0 | Pré-importação + Preflight Transacional
+/* SIGEE Enterprise — M5.3.0 | Centro de Auditoria + Preflight Transacional
    Uso exclusivo Master. Consulta a base e valida a infraestrutura SQL.
    NÃO insere, atualiza, sobrescreve ou exclui processos. */
 (function () {
   'use strict';
 
-  const VERSION = 'M5.1.0';
+  const VERSION = 'M5.3.0';
   let hashArquivo = '';
   let ultimoArquivo = null;
   let ultimoDiagnostico = null;
@@ -53,17 +53,17 @@
       <header class="m5-topo">
         <div>
           <span>SIGEE IMPORT ENGINE ${VERSION}</span>
-          <h2>Persistência Segura — Preparação</h2>
+          <h2>Centro de Auditoria e Preparação</h2>
           <p>Diagnóstico do lote e preflight transacional no Supabase, sem gravação operacional.</p>
         </div>
-        <strong>🛡️ M5.1</strong>
+        <strong>🧭 M5.3</strong>
       </header>
-      <div class="m5-alerta">A M5.1 instala a infraestrutura de proteção e executa um preflight no banco. Nenhum processo será inserido nesta versão. A importação definitiva será liberada apenas na M5.2.</div>
+      <div class="m5-alerta">A M5.3 consolida auditoria, decisões do Master, preflight e preparação da importação. As correções afetam somente o lote em memória e preservam a planilha original.</div>
       <div class="m5-acoes">
         <button id="m5-preverificar" type="button">🛡️ Pré-verificação local</button>
-        <button id="m5-preflight-banco" type="button" disabled>🧪 Validar infraestrutura M5.1</button>
+        <button id="m5-preflight-banco" type="button" disabled>🧪 Validar infraestrutura e lote</button>
         <button id="m5-exportar" type="button" disabled>📄 Exportar diagnóstico</button>
-        <button id="m5-importar" type="button" disabled title="Será liberado somente na M5.2 após preflight aprovado">🔒 Importar definitivamente</button>
+        <button id="m5-importar" type="button" disabled title="A importação definitiva é executada no painel controlado abaixo">🔒 Importar definitivamente</button>
       </div>
       <div id="m5-status" class="m5-status">Aguardando homologação M4 com qualidade de 100%.</div>
       <div id="m5-resumo" class="m5-resumo hidden"></div>
@@ -72,7 +72,7 @@
         <div id="m5-checks" class="m5-checks"></div>
       </article>
       <article id="m5-preflight-box" class="m5-preflight-box hidden">
-        <header><h3>Preflight transacional do Supabase</h3><span id="m5-preflight-status">NÃO EXECUTADO</span></header>
+        <header><h3>Preflight transacional do Supabase — M5.3</h3><span id="m5-preflight-status">NÃO EXECUTADO</span></header>
         <div id="m5-preflight-conteudo" class="m5-preflight-conteudo"></div>
       </article>
       <article id="m5-conflitos-box" class="m5-conflitos-box hidden">
@@ -150,7 +150,7 @@
         email: window.usuarioLogado?.email || '',
         perfil: window.usuarioLogado?.perfil || ''
       },
-      processos: (r.processos || []).map(p => ({
+      processos: (r.processos || []).filter(p => p.status_validacao === 'PRONTO' && !p.ignorar_migracao).map(p => ({
         migration_key: p.migration_key,
         aluno_nome: p.aluno_nome,
         escola_nome: p.escola_nome_original || p.escola_nome,
@@ -159,6 +159,8 @@
         data_solicitacao: p.data_solicitacao,
         etapa_atual: p.etapa_atual,
         workflow_instance_id: p.workflow_instance_id || uuid(),
+        auditoria_migracao: p.auditoria_m53 || [],
+        decisao_master: p.decisao_m53 || 'IMPORTAR',
         eventos: (p.eventos_validos || []).map(e => ({
           etapa: e.etapa || '',
           evento: e.evento || '',
@@ -254,7 +256,7 @@
     const r = resultadoM4();
     const nte = numeroNte(ultimoDiagnostico.nte);
     const motor = window.SIGEE_MOTOR_PERSISTENCIA;
-    if (!motor?.preflight) return status('Motor de Persistência M5.1 não carregado.', 'erro');
+    if (!motor?.preflight) return status('Motor de Persistência M5.3 não carregado.', 'erro');
 
     status('Executando preflight transacional no Supabase...', 'carregando');
     try {
@@ -264,11 +266,11 @@
       renderizarPreflight(ultimoPreflightBanco);
       document.getElementById('m5-exportar').disabled = false;
       const ok = ultimoPreflightBanco.autorizado === true;
-      status(ok ? 'Infraestrutura M5.1 validada. Banco preparado para a futura importação M5.2.' : 'Preflight do banco encontrou bloqueios. Nenhuma gravação foi executada.', ok ? 'ok' : 'atencao');
+      status(ok ? 'Infraestrutura e lote validados. A importação controlada pode ser preparada.' : 'Preflight do banco encontrou bloqueios. Nenhuma gravação foi executada.', ok ? 'ok' : 'atencao');
     } catch (e) {
       console.error('[SIGEE M5.1 Preflight banco]', e);
       renderizarPreflight({ autorizado:false, erro:e.message || String(e) });
-      status('Falha no preflight M5.1: ' + (e.message || e), 'erro');
+      status('Falha no preflight M5.3: ' + (e.message || e), 'erro');
     }
   }
 
@@ -315,7 +317,7 @@
     ];
     document.getElementById('m5-preflight-conteudo').innerHTML = `
       <div class="m5-preflight-grade">${itens.map(([nome,valido,detalhe]) => `<div class="m5-check ${valido?'ok':'pendente'}"><i>${valido?'✓':'!'}</i><div><strong>${html(nome)}</strong><span>${html(detalhe)}</span></div></div>`).join('')}</div>
-      <div class="m5-preflight-nota ${ok?'ok':'pendente'}">${ok ? 'A M5.1 confirmou que a base está preparada. Nenhum processo foi gravado.' : html(d?.mensagem || d?.erro || 'A importação permanece bloqueada.')}</div>`;
+      <div class="m5-preflight-nota ${ok?'ok':'pendente'}">${ok ? 'A M5.3 confirmou que a base e o lote estão preparados. Nenhum processo foi gravado nesta etapa.' : html(d?.mensagem || d?.erro || 'A importação permanece bloqueada.')}</div>`;
   }
 
   function exportarDiagnostico() {
@@ -323,7 +325,7 @@
     const blob = new Blob([JSON.stringify(ultimoDiagnostico, null, 2)], {type:'application/json;charset=utf-8'});
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `sigee_m5_1_preflight_${ultimoDiagnostico.nte.replace('-','_')}.json`;
+    a.download = `sigee_m5_3_auditoria_preflight_${ultimoDiagnostico.nte.replace('-','_')}.json`;
     a.click();
     URL.revokeObjectURL(a.href);
   }

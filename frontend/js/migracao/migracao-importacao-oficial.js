@@ -1,4 +1,4 @@
-/* SIGEE Enterprise — M5.2.0 | Importação Histórica Definitiva Controlada
+/* SIGEE Enterprise — M5.3.0 | Importação Histórica Definitiva Auditada
    Exclusivo Master. Reexecuta o preflight imediatamente antes da gravação.
    A persistência ocorre por uma única RPC transacional no Supabase. */
 (function(){
@@ -6,7 +6,7 @@
   if(window.__SIGEE_M52_IMPORTACAO_OFICIAL__) return;
   window.__SIGEE_M52_IMPORTACAO_OFICIAL__=true;
 
-  const VERSION='M5.2.0';
+  const VERSION='M5.3.0';
   let payloadPreparado=null;
   let preflightConfirmado=null;
   let resultadoImportacao=null;
@@ -48,8 +48,10 @@
     if(!file) throw new Error('Selecione novamente a planilha homologada.');
     const nte=numeroNte(document.getElementById('mig-nte')?.value||r.nte_selecionado||r.processos?.[0]?.nte_origem);
     if(!nte) throw new Error('NTE do lote não identificado.');
-    const processos=(r.processos||[]).filter(p=>p.status_validacao==='PRONTO');
-    if(!processos.length) throw new Error('Nenhum processo apto no lote.');
+    const processos=(r.processos||[]).filter(p=>p.status_validacao==='PRONTO'&&!p.ignorar_migracao);
+    const pendentes=(r.processos||[]).filter(p=>p.status_validacao==='PENDENTE'&&!p.ignorar_migracao);
+    if(pendentes.length) throw new Error(`${pendentes.length} processo(s) ainda estão pendentes de decisão ou correção.`);
+    if(!processos.length) throw new Error('Nenhum processo autorizado no lote.');
     const hash=await sha256(file);
     return {
       versao:VERSION,nte:`NTE-${nte}`,arquivo:file.name,hash_sha256:hash,qualidade_m4:100,
@@ -61,7 +63,7 @@
         etapa_atual:p.etapa_atual||'Desarquivamento',data_solicitacao:p.data_solicitacao,
         data_etapa_atual:p.data_etapa_atual||p.data_solicitacao,workflow_instance_id:p.workflow_instance_id||uuid(),
         tecnico_responsavel:nomeTecnicoAtual(p),etapa_codigo:p.etapa_codigo||'',contexto_analise:p.contexto_analise||'',
-        eventos:prepararEventos(p)
+        auditoria_migracao:p.auditoria_m53||[],decisao_master:p.decisao_m53||'IMPORTAR',eventos:prepararEventos(p)
       }))
     };
   }
@@ -72,10 +74,10 @@
     const sec=document.createElement('section');
     sec.id='m52-painel';sec.className='m52-painel';
     sec.innerHTML=`
-      <header class="m52-topo"><div><span>SIGEE IMPORT ENGINE ${VERSION}</span><h3>Importação Definitiva Controlada</h3><p>Gravação atômica do lote homologado, sem sobrescrever registros existentes.</p></div><strong>🔐 MASTER</strong></header>
+      <header class="m52-topo"><div><span>SIGEE IMPORT ENGINE ${VERSION}</span><h3>Importação Definitiva Auditada</h3><p>Gravação atômica do lote homologado, sem sobrescrever registros existentes.</p></div><strong>🔐 MASTER</strong></header>
       <div class="m52-alerta"><b>Atenção:</b> esta etapa grava definitivamente no Supabase. Em caso de falha, todo o lote é revertido automaticamente.</div>
       <div class="m52-acoes"><button id="m52-preparar" type="button">🔍 Preparar autorização final</button><button id="m52-importar" type="button" disabled>🔒 Importar definitivamente</button><button id="m52-certificado" type="button" disabled>📄 Exportar certificado</button></div>
-      <div id="m52-status" class="m52-status">Aguardando preparação da M5.2.</div>
+      <div id="m52-status" class="m52-status">Aguardando conclusão da auditoria M5.3.</div>
       <div id="m52-resumo" class="m52-resumo hidden"></div>
       <div id="m52-progresso" class="m52-progresso hidden"><div><span>Importação transacional</span><strong id="m52-progresso-texto">Aguardando</strong></div><div class="m52-barra"><i id="m52-barra-i"></i></div></div>`;
     host.appendChild(sec);
@@ -97,7 +99,7 @@
     try{
       payloadPreparado=await montarPayload();
       const motor=window.SIGEE_MOTOR_PERSISTENCIA;
-      if(!motor?.preflight||!motor?.importar) throw new Error('Motor M5.2 não carregado.');
+      if(!motor?.preflight||!motor?.importar) throw new Error('Motor M5.3 não carregado.');
       preflightConfirmado=await motor.preflight(payloadPreparado);
       resumo(payloadPreparado,preflightConfirmado);
       if(!preflightConfirmado.autorizado) throw new Error(preflightConfirmado.mensagem||'Preflight bloqueado.');
@@ -106,7 +108,7 @@
     }catch(e){
       payloadPreparado=null;preflightConfirmado=null;
       document.getElementById('m52-importar').disabled=true;
-      status('M5.2 bloqueada: '+(e.message||e),'erro');
+      status('M5.3 bloqueada: '+(e.message||e),'erro');
     }
   }
 
