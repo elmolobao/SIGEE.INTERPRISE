@@ -1,3 +1,4 @@
+/* SIGEE WORKFLOW EXTERNO PATCH 1.1.1 — preservação do responsável */
 /* =====================================================================
  * SIGEE — Workflow Externo do Desarquivamento
  * Sprint 1.1 — WFE-001 / versão 0.9.5.0
@@ -336,13 +337,52 @@
             ? crypto.randomUUID()
             : ('WF-' + Date.now() + '-' + Math.random().toString(36).slice(2));
         }
+
         const list = processList();
-        const index = list.findIndex(function (item) { return String(item.id) === String(updated.id); });
-        if (index >= 0) list[index] = Object.assign({}, list[index], updated);
-        if (window.SIGEE_Processos && typeof window.SIGEE_Processos.salvar === 'function') {
-          await window.SIGEE_Processos.salvar(updated);
+        const index = list.findIndex(function (item) {
+          return String(item.id) === String(updated.id);
+        });
+
+        /*
+         * PATCH 1.1.1:
+         * O TransitionManager devolve apenas os campos alterados pela
+         * transição. Salvar diretamente "updated" descartava dados que já
+         * existiam no objeto local, inclusive tecnico_responsavel.
+         */
+        const existente = index >= 0 ? list[index] : {};
+        const consolidado = Object.assign({}, existente, updated);
+
+        const responsavel =
+          consolidado.tecnico_responsavel ||
+          consolidado.tecnico_responsavel_nome ||
+          consolidado.responsavel ||
+          consolidado.responsavel_nome ||
+          consolidado.analista ||
+          consolidado.analista_nome ||
+          consolidado.digitador ||
+          consolidado.digitador_nome ||
+          consolidado.conferente ||
+          consolidado.conferente_nome ||
+          '';
+
+        if (responsavel) {
+          consolidado.tecnico_responsavel = responsavel;
+          consolidado.tecnico_responsavel_nome =
+            consolidado.tecnico_responsavel_nome || responsavel;
+          consolidado.responsavel =
+            consolidado.responsavel || responsavel;
+          consolidado.responsavel_nome =
+            consolidado.responsavel_nome || responsavel;
         }
-        return updated;
+
+        if (index >= 0) list[index] = consolidado;
+        else list.push(consolidado);
+
+        if (window.SIGEE_Processos && typeof window.SIGEE_Processos.salvar === 'function') {
+          await window.SIGEE_Processos.salvar(consolidado);
+        }
+
+        return consolidado;
       },
       addHistory: async function (record) {
         try {
