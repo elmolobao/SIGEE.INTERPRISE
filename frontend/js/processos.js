@@ -1,3 +1,4 @@
+/* SIGEE PROCESSOS PATCH 2.5.4 — edição por perfil, escola e responsável persistentes */
 /* SIGEE PROCESSOS PATCH 2.5.1A — responsável persistente */
 /* SIGEE PATCH 2.5.3 — compatibilidade do payload processos */
 /* SIGEE PATCH 2.5.2 — payload compatível com public.processos */
@@ -703,6 +704,25 @@
         return texto(item && (item.nte || item.nte_nome || item.grupo || item.territorio || (item.nte_id ? `NTE-${String(item.nte_id).padStart(2,'0')}` : '')));
     }
 
+    function listaDocumentosEdicaoSIGEE() {
+        const padrao = [
+            'Histórico Escolar',
+            'Declaração',
+            'Certificado',
+            'Atestado',
+            'Veracidade de Documento',
+            'Segunda Via'
+        ];
+        const existentes = listaProcessos().map(processoDocumento).filter(Boolean);
+        return Array.from(new Set([...padrao, ...existentes]))
+            .sort((a, b) => texto(a).localeCompare(texto(b), 'pt-BR'));
+    }
+
+    function listaAlunosEdicaoSIGEE() {
+        return Array.from(new Set(listaProcessos().map(processoAluno).filter(Boolean)))
+            .sort((a, b) => texto(a).localeCompare(texto(b), 'pt-BR'));
+    }
+
     async function editarProcessoMaster(id) {
         const u = usuario();
         const p = listaProcessos().find(x => String(x.id) === String(id));
@@ -719,17 +739,33 @@
         modal.id = 'sigee-modal-edicao-processo';
         modal.className = 'sigee-editproc-backdrop';
         const nteAtual = processoNte(p) || nteUsuario(u);
+        const alunoAtual = processoAluno(p);
+        const documentoAtual = processoDocumento(p);
+        const responsavelAtual = processoResponsavel(p) === 'Não atribuído' ? '' : processoResponsavel(p);
         const escHtml = v => texto(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
         const opcoesNte = Array.from({length:27},(_,i)=>{ const v=`NTE-${String(i+1).padStart(2,'0')}`; return `<option value="${v}" ${normalizar(v)===normalizar(nteAtual)?'selected':''}>${v}</option>`; }).join('');
+        const opcoesAlunos = listaAlunosEdicaoSIGEE().map(nome => `<option value="${escHtml(nome)}"></option>`).join('');
+        const documentos = listaDocumentosEdicaoSIGEE();
+        if (documentoAtual && !documentos.some(x => normalizar(x) === normalizar(documentoAtual))) documentos.unshift(documentoAtual);
+        const opcoesDocumento = documentos.map(doc => `<option value="${escHtml(doc)}" ${normalizar(doc)===normalizar(documentoAtual)?'selected':''}>${escHtml(doc)}</option>`).join('');
+
         modal.innerHTML = `
           <section class="sigee-editproc-panel" role="dialog" aria-modal="true" aria-labelledby="sigee-editproc-title">
             <header class="sigee-editproc-head"><h2 id="sigee-editproc-title">✏️ ${admin?'Corrigir Cadastro':'Editar Processo'}</h2><button type="button" class="sigee-editproc-close" aria-label="Fechar">×</button></header>
             <form class="sigee-editproc-body">
               <div class="sigee-editproc-meta">Processo <strong>${escHtml(codigoSIGEE(p))}</strong> · Etapa atual: <strong>${escHtml(processoEtapa(p))}</strong></div>
-              <label class="full">Nome do requerente/aluno<input id="sigee-editproc-aluno" required value="${escHtml(processoAluno(p))}"></label>
-              ${master?`<label>NTE<select id="sigee-editproc-nte">${opcoesNte}</select></label>`:`<input type="hidden" id="sigee-editproc-nte" value="${escHtml(nteAtual)}">`}
-              <label class="${master?'':'full'}">Escola/Instituição<select id="sigee-editproc-escola" required><option value="">Carregando catálogo...</option></select></label>
-              ${master?`<label>Documento solicitado<input id="sigee-editproc-documento" value="${escHtml(processoDocumento(p))}"></label><label>Responsável pela tarefa<select id="sigee-editproc-responsavel"><option value="">Não atribuído</option></select></label>`:''}
+              <label class="full">Nome do requerente/aluno
+                <input id="sigee-editproc-aluno" list="sigee-editproc-alunos-lista" required value="${escHtml(alunoAtual)}" autocomplete="off">
+                <datalist id="sigee-editproc-alunos-lista">${opcoesAlunos}</datalist>
+              </label>
+              ${master
+                ? `<label>NTE<select id="sigee-editproc-nte">${opcoesNte}</select></label>`
+                : `<label>NTE<input id="sigee-editproc-nte-view" value="${escHtml(nteAtual)}" readonly aria-readonly="true"></label><input type="hidden" id="sigee-editproc-nte" value="${escHtml(nteAtual)}">`}
+              <label>Escola/Instituição<select id="sigee-editproc-escola" required><option value="">Carregando catálogo...</option></select></label>
+              <label>Documento solicitado
+                <select id="sigee-editproc-documento" ${admin?'disabled aria-disabled="true"':''}>${opcoesDocumento}</select>
+              </label>
+              <label>Responsável pela tarefa<select id="sigee-editproc-responsavel"><option value="">Carregando responsáveis...</option></select></label>
               <div class="sigee-editproc-actions"><button type="button" class="sigee-editproc-cancel">Cancelar</button><button type="submit" class="sigee-editproc-save">Salvar alterações</button></div>
             </form>
           </section>`;
@@ -738,24 +774,53 @@
         const selNte = modal.querySelector('#sigee-editproc-nte');
         const selEscola = modal.querySelector('#sigee-editproc-escola');
         const selResponsavel = modal.querySelector('#sigee-editproc-responsavel');
+        const selDocumento = modal.querySelector('#sigee-editproc-documento');
+
         function preencherEscolas() {
             const alvo = texto(selNte.value || nteAtual);
-            const lista = catalogo.escolas.filter(e => !alvo || mesmoNte(alvo, nteRegistroEdicao(e))).sort((a,b)=>texto(a.nome_escola||a.nome||a.escola).localeCompare(texto(b.nome_escola||b.nome||b.escola),'pt-BR'));
-            selEscola.innerHTML = '<option value="">-- Selecione a escola cadastrada --</option>' + lista.map(e=>{
+            const lista = catalogo.escolas
+                .filter(e => !alvo || mesmoNte(alvo, nteRegistroEdicao(e)))
+                .sort((a,b)=>texto(a.nome_escola||a.nome||a.escola).localeCompare(texto(b.nome_escola||b.nome||b.escola),'pt-BR'));
+            const atualId = texto(p.escola_id);
+            const atualNome = processoEscola(p);
+            let encontrouAtual = false;
+            const opcoes = lista.map(e=>{
                 const idEsc = texto(e.id);
                 const nome = texto(e.nome_escola||e.nome||e.escola);
                 const mec = texto(e.cod_mec||e.codigo_mec||e.mec);
-                const selected = (p.escola_id && String(p.escola_id)===idEsc) || (!p.escola_id && normalizar(nome)===normalizar(processoEscola(p)));
+                const selected = (atualId && atualId===idEsc) || normalizar(nome)===normalizar(atualNome);
+                if (selected) encontrouAtual = true;
                 return `<option value="${escHtml(idEsc)}" data-nome="${escHtml(nome)}" data-mec="${escHtml(mec)}" ${selected?'selected':''}>${escHtml(nome)}${mec?' · MEC '+escHtml(mec):''}</option>`;
             }).join('');
+            const opcaoLegada = !encontrouAtual && atualNome
+                ? `<option value="${escHtml(atualId || '__ATUAL__')}" data-nome="${escHtml(atualNome)}" data-mec="${escHtml(p.cod_mec||p.codigo_mec||'')}" selected>${escHtml(atualNome)} · Escola atual</option>`
+                : '';
+            selEscola.innerHTML = '<option value="">-- Selecione a escola cadastrada --</option>' + opcaoLegada + opcoes;
+            if (!selEscola.value && atualNome) {
+                const correspondente = Array.from(selEscola.options).find(o => normalizar(o.dataset.nome) === normalizar(atualNome));
+                if (correspondente) selEscola.value = correspondente.value;
+            }
         }
+
         function preencherResponsaveis() {
-            if (!selResponsavel) return;
             const alvo = texto(selNte.value || nteAtual);
-            const atual = processoResponsavel(p);
-            const lista = catalogo.usuarios.filter(x=>x.ativo!==false && mesmoNte(alvo, nteRegistroEdicao(x)) && ['TECNICO','ADMINISTRADOR','MASTER'].some(k=>normalizar(x.perfil).includes(k))).sort((a,b)=>texto(a.nome||a.nome_completo||a.email).localeCompare(texto(b.nome||b.nome_completo||b.email),'pt-BR'));
-            selResponsavel.innerHTML = '<option value="">Não atribuído</option>' + lista.map(x=>{ const nome=texto(x.nome||x.nome_completo||x.email); return `<option value="${escHtml(nome)}" ${normalizar(nome)===normalizar(atual)?'selected':''}>${escHtml(nome)} · ${escHtml(x.perfil||'Técnico')}</option>`; }).join('');
+            const lista = catalogo.usuarios
+                .filter(x => x.ativo !== false && mesmoNte(alvo, nteRegistroEdicao(x)) && ['TECNICO','ADMINISTRADOR','MASTER'].some(k=>normalizar(x.perfil).includes(k)))
+                .sort((a,b)=>texto(a.nome||a.nome_completo||a.email).localeCompare(texto(b.nome||b.nome_completo||b.email),'pt-BR'));
+            let encontrouAtual = false;
+            const opcoes = lista.map(x=>{
+                const nome=texto(x.nome||x.nome_completo||x.email);
+                const selected = normalizar(nome)===normalizar(responsavelAtual);
+                if (selected) encontrouAtual = true;
+                return `<option value="${escHtml(nome)}" ${selected?'selected':''}>${escHtml(nome)} · ${escHtml(x.perfil||'Técnico')}</option>`;
+            }).join('');
+            const opcaoAtual = responsavelAtual && !encontrouAtual
+                ? `<option value="${escHtml(responsavelAtual)}" selected>${escHtml(responsavelAtual)} · Responsável atual</option>`
+                : '';
+            selResponsavel.innerHTML = '<option value="">Não atribuído</option>' + opcaoAtual + opcoes;
+            if (responsavelAtual && !selResponsavel.value) selResponsavel.value = responsavelAtual;
         }
+
         preencherEscolas();
         preencherResponsaveis();
         if (master) selNte.addEventListener('change',()=>{ preencherEscolas(); preencherResponsaveis(); });
@@ -769,25 +834,40 @@
             const btn = modal.querySelector('.sigee-editproc-save');
             const optEscola = selEscola.selectedOptions[0];
             if (!optEscola || !optEscola.value) return alert('Selecione uma escola cadastrada no catálogo.');
+            const novoAluno = texto(modal.querySelector('#sigee-editproc-aluno').value).toUpperCase();
+            if (!novoAluno) return alert('Informe o nome do requerente/aluno.');
+
+            const antes = {
+                aluno: processoAluno(p), nte: processoNte(p), escola: processoEscola(p),
+                documento: processoDocumento(p), responsavel: processoResponsavel(p)
+            };
             btn.disabled = true; btn.textContent = 'Salvando...';
             try {
-                p.aluno = p.aluno_nome = texto(modal.querySelector('#sigee-editproc-aluno').value).toUpperCase();
-                p.escola_id = optEscola.value;
+                p.aluno = p.aluno_nome = novoAluno;
+                if (optEscola.value !== '__ATUAL__') p.escola_id = optEscola.value;
                 p.escola = p.escola_nome = texto(optEscola.dataset.nome).toUpperCase();
                 if (optEscola.dataset.mec) p.cod_mec = p.codigo_mec = optEscola.dataset.mec;
                 if (master) {
-                    p.documento = p.documento_tipo = texto(modal.querySelector('#sigee-editproc-documento').value).toUpperCase();
+                    p.documento = p.documento_tipo = texto(selDocumento.value).toUpperCase();
                     p.nte = texto(selNte.value) || p.nte;
-                    const resp = texto(selResponsavel.value);
-                    p.tecnico_responsavel = p.tecnico_responsavel_nome = resp || null;
-                    p.responsavel = p.responsavel_nome = resp || null;
-                    const et = normalizar(processoEtapa(p));
-                    if (et.includes('ANAL')) p.analista = p.analista_nome = resp || null;
-                    else if (et.includes('DIGIT')) p.digitador = p.digitador_nome = resp || null;
-                    else if (et.includes('CONFER')) p.conferente = p.conferente_nome = resp || null;
-                    else if (et.includes('ASSIN')) p.responsavel_assinatura = p.responsavel_assinatura_nome = resp || null;
                 }
-                registrar(`[${admin?'ADMINISTRADOR':'MASTER'}] Editou cadastro do processo ID ${p.id}${master?' e responsável da tarefa':''}.`);
+                const resp = texto(selResponsavel.value);
+                p.tecnico_responsavel = p.tecnico_responsavel_nome = resp || null;
+                p.responsavel = p.responsavel_nome = resp || null;
+                const et = normalizar(processoEtapa(p));
+                if (et.includes('ANAL')) p.analista = p.analista_nome = resp || null;
+                else if (et.includes('DIGIT')) p.digitador = p.digitador_nome = resp || null;
+                else if (et.includes('CONFER')) p.conferente = p.conferente_nome = resp || null;
+                else if (et.includes('ASSIN')) p.responsavel_assinatura = p.responsavel_assinatura_nome = resp || null;
+
+                const alteracoes = [];
+                if (normalizar(antes.aluno) !== normalizar(processoAluno(p))) alteracoes.push(`nome: ${antes.aluno} → ${processoAluno(p)}`);
+                if (normalizar(antes.escola) !== normalizar(processoEscola(p))) alteracoes.push(`escola: ${antes.escola} → ${processoEscola(p)}`);
+                if (master && normalizar(antes.nte) !== normalizar(processoNte(p))) alteracoes.push(`NTE: ${antes.nte} → ${processoNte(p)}`);
+                if (master && normalizar(antes.documento) !== normalizar(processoDocumento(p))) alteracoes.push(`documento: ${antes.documento} → ${processoDocumento(p)}`);
+                if (normalizar(antes.responsavel) !== normalizar(processoResponsavel(p))) alteracoes.push(`responsável: ${antes.responsavel} → ${processoResponsavel(p)}`);
+
+                registrar(`[${admin?'ADMINISTRADOR':'MASTER'}] Editou processo ID ${p.id}${alteracoes.length ? ' — ' + alteracoes.join('; ') : ' — sem alteração de valores'}.`);
                 await salvarProcesso(p);
                 atualizarTelas();
                 fechar();
