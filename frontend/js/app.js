@@ -1,3 +1,4 @@
+/* SIGEE PATCH 2.5.3 — autoridade segura da Nova Solicitação */
 /* SIGEE PATCH 2.5.2 — integridade da Nova Solicitação e Código SIGEE único */
 /*
 SIGEE Enterprise 2.0 - app.js
@@ -3084,6 +3085,15 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 }
                 return false;
             };
+
+            /*
+             * PATCH 2.5.3:
+             * Guarda uma referência imutável da rotina segura antes que
+             * módulos carregados depois do app.js possam substituir a função
+             * pública salvarNovaSolicitacao.
+             */
+            window.SIGEE_SALVAR_NOVA_SOLICITACAO_SEGURO =
+                window.salvarNovaSolicitacao;
         })();
 
 

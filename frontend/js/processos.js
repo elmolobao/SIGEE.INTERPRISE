@@ -1,3 +1,4 @@
+/* SIGEE PATCH 2.5.3 — compatibilidade do payload processos */
 /* SIGEE PATCH 2.5.2 — payload compatível com public.processos */
 /* =====================================================================
    SIGEE Enterprise 2.0 - Parte 4
