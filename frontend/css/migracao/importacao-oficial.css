@@ -9,3 +9,8 @@
 .m5-preflight-nota.ok{background:#ecfdf5;color:#166534}.m5-preflight-nota.pendente{background:#fff1f2;color:#991b1b}
 .m5-badge.duplicado{background:#fee2e2;color:#991b1b}
 @media(max-width:760px){.m5-preflight-grade{grid-template-columns:1fr}}
+
+
+/* M5.3 — identificação consolidada */
+.m5-topo{background:linear-gradient(135deg,#312e81,#7c3aed)}
+.m5-topo span{color:#ddd6fe}
