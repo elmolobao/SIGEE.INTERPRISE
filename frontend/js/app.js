@@ -1,4 +1,4 @@
-/* SIGEE PATCH 2.5.7A — restauração do responsável pela etapa */
+/* SIGEE PATCH 2.5.7B — responsável persistente na Central */
 /* SIGEE PATCH 2.5.6 — autoridade única operacional */
 /* SIGEE PATCH 2.5.5 — restauração de gerarProximoIdSIGEE */
 /* SIGEE PATCH 2.5.4 — confirmação robusta da escola selecionada */
@@ -544,70 +544,6 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 data_etapa_atual: normalizarTextoSIGEE(p.data_etapa_atual || p.created_at || obterDataAtualFormatada()),
                 nte: normalizarTextoSIGEE(p.nte || p.nte_vinculado || 'NTE-26 Salvador'),
                 municipio: normalizarMaiusculoSIGEE(p.municipio || p.cidade || ''),
-
-                /*
-                 * SIGEE PATCH 2.5.7A:
-                 * Preserva o responsável retornado pelo Supabase ao converter
-                 * o processo para o modelo local utilizado pela interface.
-                 */
-                tecnico_responsavel: normalizarTextoSIGEE(
-                    p.tecnico_responsavel ||
-                    p.tecnico_responsavel_nome ||
-                    p.responsavel ||
-                    p.responsavel_nome ||
-                    p.usuario_responsavel ||
-                    p.usuario_responsavel_nome ||
-                    p.tecnico ||
-                    p.tecnico_nome ||
-                    p.analista ||
-                    p.analista_nome ||
-                    p.digitador ||
-                    p.digitador_nome ||
-                    p.conferente ||
-                    p.conferente_nome ||
-                    ''
-                ),
-                tecnico_responsavel_nome: normalizarTextoSIGEE(
-                    p.tecnico_responsavel_nome ||
-                    p.tecnico_responsavel ||
-                    p.responsavel_nome ||
-                    p.responsavel ||
-                    ''
-                ),
-                responsavel: normalizarTextoSIGEE(
-                    p.responsavel ||
-                    p.responsavel_nome ||
-                    p.tecnico_responsavel ||
-                    p.tecnico_responsavel_nome ||
-                    ''
-                ),
-                responsavel_nome: normalizarTextoSIGEE(
-                    p.responsavel_nome ||
-                    p.responsavel ||
-                    p.tecnico_responsavel_nome ||
-                    p.tecnico_responsavel ||
-                    ''
-                ),
-                analista: normalizarTextoSIGEE(p.analista || p.analista_nome || ''),
-                analista_nome: normalizarTextoSIGEE(p.analista_nome || p.analista || ''),
-                digitador: normalizarTextoSIGEE(p.digitador || p.digitador_nome || ''),
-                digitador_nome: normalizarTextoSIGEE(p.digitador_nome || p.digitador || ''),
-                conferente: normalizarTextoSIGEE(p.conferente || p.conferente_nome || ''),
-                conferente_nome: normalizarTextoSIGEE(p.conferente_nome || p.conferente || ''),
-                responsavel_etapa: normalizarTextoSIGEE(
-                    p.responsavel_etapa ||
-                    p.responsavel_etapa_nome ||
-                    p.tecnico_responsavel ||
-                    ''
-                ),
-                responsavel_etapa_nome: normalizarTextoSIGEE(
-                    p.responsavel_etapa_nome ||
-                    p.responsavel_etapa ||
-                    p.tecnico_responsavel_nome ||
-                    p.tecnico_responsavel ||
-                    ''
-                ),
-
                 workflow_instance_id: p.workflow_instance_id || null,
                 workflow_ciclo: Number(p.workflow_ciclo || p.ciclo || 1),
                 ciclo: Number(p.ciclo || p.workflow_ciclo || 1),
@@ -5825,7 +5761,33 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   function mapProcesso(p,i){
     const escNome=title(p.escola_nome||p.escola||p.instituicao||p.nome_escola||'');
     let esc=null; try{ esc=(escolasDB||[]).find(e=>up(e.nome)===up(escNome)||txt(e.cod_mec)===txt(p.cod_mec)); }catch(e){}
-    return {id:Number(p.id)||101+i,aluno:title(p.aluno_nome||p.aluno||p.nome_solicitante||p.nome_aluno||p.requerente),aluno_nome:title(p.aluno_nome||p.aluno||p.nome_solicitante||p.nome_aluno||p.requerente),escola:escNome || title(esc&&esc.nome) || 'NÃO INFORMADA',escola_nome:escNome || title(esc&&esc.nome) || 'NÃO INFORMADA',documento:txt(p.documento_tipo||p.documento||p.documento_solicitado||'HISTÓRICO'),documento_tipo:txt(p.documento_tipo||p.documento||p.documento_solicitado||'HISTÓRICO'),etapa:txt(p.etapa_atual||p.etapa||p.fase_atual||'Desarquivamento'),etapa_atual:txt(p.etapa_atual||p.etapa||p.fase_atual||'Desarquivamento'),data_etapa_atual:txt(p.data_etapa_atual||p.created_at||p.criado_em||dataBR()),nte:nteNome(p.nte||p.nte_id||(esc&&esc.nte)||'NTE-26 Salvador'),municipio:title(p.municipio||(esc&&esc.municipio)||''),modalidade:txt(p.modalidade||p.oferta_modalidade||''),ensino:txt(p.nivel_oferta||p.oferta_nivel||p.ensino||''),prioridade:txt(p.prioridade||''),tecnico_responsavel:txt(p.tecnico_responsavel||p.tecnico||'')};
+    return {id:Number(p.id)||101+i,aluno:title(p.aluno_nome||p.aluno||p.nome_solicitante||p.nome_aluno||p.requerente),aluno_nome:title(p.aluno_nome||p.aluno||p.nome_solicitante||p.nome_aluno||p.requerente),escola:escNome || title(esc&&esc.nome) || 'NÃO INFORMADA',escola_nome:escNome || title(esc&&esc.nome) || 'NÃO INFORMADA',documento:txt(p.documento_tipo||p.documento||p.documento_solicitado||'HISTÓRICO'),documento_tipo:txt(p.documento_tipo||p.documento||p.documento_solicitado||'HISTÓRICO'),etapa:txt(p.etapa_atual||p.etapa||p.fase_atual||'Desarquivamento'),etapa_atual:txt(p.etapa_atual||p.etapa||p.fase_atual||'Desarquivamento'),data_etapa_atual:txt(p.data_etapa_atual||p.created_at||p.criado_em||dataBR()),nte:nteNome(p.nte||p.nte_id||(esc&&esc.nte)||'NTE-26 Salvador'),municipio:title(p.municipio||(esc&&esc.municipio)||''),modalidade:txt(p.modalidade||p.oferta_modalidade||''),ensino:txt(p.nivel_oferta||p.oferta_nivel||p.ensino||''),prioridade:txt(p.prioridade||''),tecnico_responsavel:txt(
+      p.tecnico_responsavel ||
+      p.tecnico_responsavel_nome ||
+      p.responsavel ||
+      p.responsavel_nome ||
+      p.usuario_responsavel ||
+      p.usuario_responsavel_nome ||
+      p.tecnico ||
+      p.tecnico_nome ||
+      p.analista ||
+      p.analista_nome ||
+      p.digitador ||
+      p.digitador_nome ||
+      p.conferente ||
+      p.conferente_nome ||
+      ''
+    ),
+    tecnico_responsavel_nome:txt(p.tecnico_responsavel_nome||p.tecnico_responsavel||''),
+    responsavel:txt(p.responsavel||p.tecnico_responsavel||''),
+    responsavel_nome:txt(p.responsavel_nome||p.tecnico_responsavel_nome||p.tecnico_responsavel||''),
+    analista:txt(p.analista||p.analista_nome||''),
+    analista_nome:txt(p.analista_nome||p.analista||''),
+    digitador:txt(p.digitador||p.digitador_nome||''),
+    digitador_nome:txt(p.digitador_nome||p.digitador||''),
+    conferente:txt(p.conferente||p.conferente_nome||''),
+    conferente_nome:txt(p.conferente_nome||p.conferente||'')
+  };
   }
   function dadosVisiveis(lista){
     const u=atualUsuario(); if(!Array.isArray(lista)) return [];
@@ -8891,5 +8853,63 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     setTimeout(instalarAutoridadeOperacionalSIGEE256, 500);
     setTimeout(instalarAutoridadeOperacionalSIGEE256, 1500);
   }, { once: true });
+})();
+
+
+/* =====================================================================
+   SIGEE PATCH 2.5.7B — autoridade visual da Central de Processos
+   Impede que o renderizador legado V38 substitua o módulo oficial e
+   faça a coluna "Responsável pela etapa" desaparecer após o carregamento.
+   ===================================================================== */
+(function () {
+  'use strict';
+  if (window.__SIGEE_RESPONSAVEL_VISUAL_257B__) return;
+  window.__SIGEE_RESPONSAVEL_VISUAL_257B__ = true;
+
+  function reinstalarCentralOficial257B() {
+    const modulo = window.SIGEE_Processos;
+    if (!modulo) return false;
+
+    if (typeof modulo.renderizar === 'function') {
+      window.renderizarProcessosFlutuantes = modulo.renderizar;
+      try { renderizarProcessosFlutuantes = modulo.renderizar; } catch (_) {}
+    }
+
+    if (typeof modulo.contar === 'function') {
+      window.carregarEContarProcessosHorizontais = modulo.contar;
+      try { carregarEContarProcessosHorizontais = modulo.contar; } catch (_) {}
+    }
+
+    try {
+      if (typeof modulo.contar === 'function') modulo.contar();
+      else if (typeof modulo.renderizar === 'function') modulo.renderizar();
+    } catch (erro) {
+      console.warn('[SIGEE 2.5.7B] Não foi possível redesenhar a Central.', erro);
+    }
+
+    return true;
+  }
+
+  window.SIGEE_REINSTALAR_CENTRAL_PROCESSOS_257B =
+    reinstalarCentralOficial257B;
+
+  function agendar257B() {
+    reinstalarCentralOficial257B();
+    setTimeout(reinstalarCentralOficial257B, 100);
+    setTimeout(reinstalarCentralOficial257B, 500);
+    setTimeout(reinstalarCentralOficial257B, 1500);
+    setTimeout(reinstalarCentralOficial257B, 3000);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', agendar257B, { once: true });
+  } else {
+    agendar257B();
+  }
+
+  window.addEventListener('load', agendar257B, { once: true });
+  window.addEventListener('focus', function () {
+    setTimeout(reinstalarCentralOficial257B, 150);
+  });
 })();
 
