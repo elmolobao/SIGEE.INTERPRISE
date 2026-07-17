@@ -1007,7 +1007,7 @@
 
 
 /* =====================================================================
-   SIGEE Enterprise — M5.3 | Centro de Auditoria de Migração
+   SIGEE Enterprise — M5.4 | Centro de Auditoria com Rascunho Persistente
    Correções em memória: escola, datas, ignorar registro e autorização
    excepcional. Não altera a planilha original nem o catálogo do SIGEE.
    ===================================================================== */
@@ -1016,7 +1016,7 @@
   if (window.__SIGEE_M53_AUDITOR__) return;
   window.__SIGEE_M53_AUDITOR__ = true;
 
-  const VERSAO = 'M5.3.0';
+  const VERSAO = 'M5.4.0';
   const $ = id => document.getElementById(id);
   const txt = v => v == null ? '' : String(v).trim();
   const norm = v => txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/\s+/g,' ').trim();
@@ -1030,6 +1030,137 @@
     return m ? String(Number(m[1])).padStart(2,'0') : '';
   };
   const agora = () => new Date().toISOString();
+
+  const TABELA_RASCUNHOS = 'migracoes_historicas_rascunhos';
+  let timerSalvarRascunho = null;
+  let hashRascunhoAtual = '';
+
+  async function sha256Arquivo(file){
+    if(!file||!window.crypto?.subtle)return '';
+    const digest=await crypto.subtle.digest('SHA-256',await file.arrayBuffer());
+    return [...new Uint8Array(digest)].map(b=>b.toString(16).padStart(2,'0')).join('');
+  }
+
+  function usuarioExecutor(){
+    return {
+      nome: window.usuarioLogado?.nome || 'Master',
+      email: window.usuarioLogado?.email || '',
+      perfil: window.usuarioLogado?.perfil || ''
+    };
+  }
+
+  function serializarRascunho(){
+    const r=resultado();
+    if(!r)return null;
+    return {
+      versao:VERSAO,
+      nte:`NTE-${nteAtual()}`,
+      arquivo:r.arquivo||document.getElementById('mig-arquivo')?.files?.[0]?.name||'',
+      hash_sha256:hashRascunhoAtual,
+      atualizado_em:agora(),
+      executor:usuarioExecutor(),
+      processos:(r.processos||[]).map(p=>({
+        migration_key:p.migration_key,
+        escola_id:p.escola_id||null,
+        escola_nome:p.escola_nome||'',
+        codigo_mec:p.codigo_mec||p.cod_mec||'',
+        data_solicitacao:p.data_solicitacao||'',
+        data_etapa_atual:p.data_etapa_atual||'',
+        eventos:(p.eventos||[]).map(e=>({
+          etapa:e.etapa||'',evento:e.evento||'',data:e.data||'',
+          tipo_data:e.tipo_data||'REAL',responsavel:e.responsavel||'',
+          status:e.status||'',aba:e.aba||''
+        })),
+        ignorar_migracao:!!p.ignorar_migracao,
+        decisao_m53:p.decisao_m53||'',
+        auditoria_m53:p.auditoria_m53||[]
+      }))
+    };
+  }
+
+  function aplicarRascunho(draft){
+    const r=resultado();
+    if(!r||!draft?.processos)return;
+    const mapa=new Map(draft.processos.map(p=>[p.migration_key,p]));
+    (r.processos||[]).forEach(p=>{
+      const d=mapa.get(p.migration_key);
+      if(!d)return;
+      p.escola_id=d.escola_id;
+      p.escola_nome=d.escola_nome;
+      p.codigo_mec=d.codigo_mec;
+      p.data_solicitacao=d.data_solicitacao;
+      p.data_etapa_atual=d.data_etapa_atual;
+      if(Array.isArray(d.eventos)&&d.eventos.length)p.eventos=d.eventos;
+      p.ignorar_migracao=!!d.ignorar_migracao;
+      p.decisao_m53=d.decisao_m53||'';
+      p.auditoria_m53=Array.isArray(d.auditoria_m53)?d.auditoria_m53:[];
+      revalidar(p);
+    });
+    atualizarPainel();
+  }
+
+  async function salvarRascunhoAgora(){
+    const c=client(), draft=serializarRascunho();
+    if(!c||!draft||!draft.hash_sha256||!draft.nte)return;
+    const payload={
+      hash_sha256:draft.hash_sha256,
+      nte:draft.nte,
+      arquivo_origem:draft.arquivo,
+      usuario_email:draft.executor.email,
+      usuario_nome:draft.executor.nome,
+      status:'EM_AUDITORIA',
+      dados:draft,
+      updated_at:agora()
+    };
+    const {error}=await c.from(TABELA_RASCUNHOS)
+      .upsert(payload,{onConflict:'hash_sha256'});
+    if(error)throw error;
+    const el=document.getElementById('mig-m53-salvamento');
+    if(el){el.textContent='Salvo automaticamente às '+new Date().toLocaleTimeString('pt-BR');el.className='mig-m53-salvamento ok';}
+  }
+
+  function agendarSalvamento(){
+    clearTimeout(timerSalvarRascunho);
+    const el=document.getElementById('mig-m53-salvamento');
+    if(el){el.textContent='Alterações pendentes de salvamento...';el.className='mig-m53-salvamento carregando';}
+    timerSalvarRascunho=setTimeout(()=>salvarRascunhoAgora().catch(e=>{
+      console.error('[SIGEE M5.4] Falha ao salvar rascunho',e);
+      if(el){el.textContent='Falha ao salvar rascunho: '+(e.message||e);el.className='mig-m53-salvamento erro';}
+    }),700);
+  }
+
+  async function localizarRascunho(hash){
+    const c=client();if(!c||!hash)return null;
+    const {data,error}=await c.from(TABELA_RASCUNHOS)
+      .select('hash_sha256,nte,arquivo_origem,usuario_nome,usuario_email,status,dados,updated_at')
+      .eq('hash_sha256',hash).maybeSingle();
+    if(error)throw error;
+    return data||null;
+  }
+
+  async function perguntarRetomadaRascunho(file){
+    hashRascunhoAtual=await sha256Arquivo(file);
+    const draft=await localizarRascunho(hashRascunhoAtual);
+    if(!draft?.dados)return;
+    const quando=draft.updated_at?new Date(draft.updated_at).toLocaleString('pt-BR'):'data não informada';
+    const retomar=confirm(`Rascunho de auditoria localizado.\n\nNTE: ${draft.nte}\nArquivo: ${draft.arquivo_origem}\nÚltima edição: ${quando}\nUsuário: ${draft.usuario_nome||draft.usuario_email}\n\nClique em OK para retomar ou Cancelar para iniciar uma nova auditoria.`);
+    if(retomar){
+      aplicarRascunho(draft.dados);
+      const el=document.getElementById('mig-m53-salvamento');
+      if(el){el.textContent='Rascunho retomado com sucesso.';el.className='mig-m53-salvamento ok';}
+    }
+  }
+
+  async function descartarRascunho(){
+    if(!hashRascunhoAtual)return alert('Nenhum rascunho carregado.');
+    if(!confirm('Descartar definitivamente o rascunho desta planilha?'))return;
+    const c=client();if(!c)return alert('Supabase não localizado.');
+    const {error}=await c.from(TABELA_RASCUNHOS).delete().eq('hash_sha256',hashRascunhoAtual);
+    if(error)return alert('Não foi possível descartar o rascunho: '+(error.message||error));
+    alert('Rascunho descartado.');
+    const el=document.getElementById('mig-m53-salvamento');
+    if(el){el.textContent='Sem rascunho salvo.';el.className='mig-m53-salvamento';}
+  }
 
   function registrar(p, acao, campo, anterior, novo, motivo) {
     p.auditoria_m53 = Array.isArray(p.auditoria_m53) ? p.auditoria_m53 : [];
@@ -1093,6 +1224,7 @@
       r.validacao_final={executada:false,qualidade_percentual:0};
     }
     atualizarPainel();
+    agendarSalvamento();
   }
 
   async function buscarEscolas(termo) {
@@ -1215,12 +1347,15 @@
     const box=document.createElement('article');
     box.id='mig-m53-centro';box.className='mig-painel mig-m53-centro hidden';
     box.innerHTML=`
-      <header class="mig-painel-cab"><div><h2>Centro de Auditoria M5.3</h2><p class="mig-painel-descricao">Corrija escola ou datas, ignore registros específicos e registre decisões do Master sem alterar a planilha original.</p></div><span id="mig-m53-resumo">Aguardando lote</span></header>
+      <header class="mig-painel-cab"><div><h2>Centro de Auditoria M5.4</h2><p class="mig-painel-descricao">Corrija escola ou datas, ignore registros específicos e mantenha o trabalho salvo no Supabase.</p></div><span id="mig-m53-resumo">Aguardando lote</span></header>
+      <div class="mig-m53-rascunho-bar"><span id="mig-m53-salvamento" class="mig-m53-salvamento">Sem alterações salvas.</span><div><button id="mig-m53-salvar-agora" type="button">💾 Salvar agora</button><button id="mig-m53-descartar" type="button">🗑️ Descartar rascunho</button></div></div>
       <div class="mig-m53-filtros"><button data-filtro="TODOS">Todos</button><button data-filtro="PENDENTE">Pendentes</button><button data-filtro="IGNORADO">Ignorados</button><button data-filtro="PRONTO">Autorizados</button></div>
       <div class="mig-tabela-wrap"><table><thead><tr><th>Aluno</th><th>Escola / Data</th><th>Problema</th><th>Decisão</th><th>Ações</th></tr></thead><tbody id="mig-m53-corpo"></tbody></table></div>`;
     const antes=$('mig-simulacao-box')||host.lastElementChild;
     antes.parentNode.insertBefore(box,antes);
     box.querySelectorAll('[data-filtro]').forEach(b=>b.onclick=()=>{box.dataset.filtro=b.dataset.filtro;atualizarPainel();});
+    box.querySelector('#mig-m53-salvar-agora').onclick=()=>salvarRascunhoAgora().catch(e=>alert('Falha ao salvar: '+(e.message||e)));
+    box.querySelector('#mig-m53-descartar').onclick=descartarRascunho;
   }
 
   function atualizarPainel() {
@@ -1261,9 +1396,15 @@
 
   function iniciar() {
     garantirPainel();
+    const inputArquivo=document.getElementById('mig-arquivo');
+    inputArquivo?.addEventListener('change',async()=>{hashRascunhoAtual='';});
     setInterval(()=>{
       garantirPainel();
-      if(resultado()) atualizarPainel();
+      if(resultado()) {
+        atualizarPainel();
+        const file=document.getElementById('mig-arquivo')?.files?.[0];
+        if(file&&!hashRascunhoAtual){perguntarRetomadaRascunho(file).catch(e=>console.warn('[SIGEE M5.4] Rascunho',e));}
+      }
     },1500);
   }
 
