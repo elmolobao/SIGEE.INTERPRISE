@@ -1,3 +1,4 @@
+/* SIGEE PROCESSOS PATCH 2.5.1A — responsável persistente */
 /* SIGEE PATCH 2.5.3 — compatibilidade do payload processos */
 /* SIGEE PATCH 2.5.2 — payload compatível com public.processos */
 /* =====================================================================
@@ -938,8 +939,116 @@
   }
   function mapear(r){
     if(!r) return null;
+
+    /*
+     * SIGEE PATCH 2.5.1A — autoridade do responsável na Central
+     * O conversor global do app.js pode devolver um objeto parcial.
+     * A Central agora reconcilia esse objeto com o registro bruto do
+     * Supabase e nunca descarta tecnico_responsavel.
+     */
     if(typeof window.processoDoSupabaseParaLocalSIGEE==='function') {
-      try { return window.processoDoSupabaseParaLocalSIGEE(r); } catch(e){}
+      try {
+        const convertido = window.processoDoSupabaseParaLocalSIGEE(r) || {};
+        const responsavel =
+          convertido.tecnico_responsavel ||
+          convertido.tecnico_responsavel_nome ||
+          convertido.responsavel ||
+          convertido.responsavel_nome ||
+          convertido.responsavel_etapa ||
+          convertido.responsavel_etapa_nome ||
+          convertido.analista ||
+          convertido.analista_nome ||
+          convertido.digitador ||
+          convertido.digitador_nome ||
+          convertido.conferente ||
+          convertido.conferente_nome ||
+          r.tecnico_responsavel ||
+          r.tecnico_responsavel_nome ||
+          r.responsavel ||
+          r.responsavel_nome ||
+          r.responsavel_etapa ||
+          r.responsavel_etapa_nome ||
+          r.analista ||
+          r.analista_nome ||
+          r.digitador ||
+          r.digitador_nome ||
+          r.conferente ||
+          r.conferente_nome ||
+          '';
+
+        return {
+          ...r,
+          ...convertido,
+          id: Number(convertido.id ?? r.id) || convertido.id || r.id,
+          tecnico_responsavel: responsavel,
+          tecnico_responsavel_nome:
+            convertido.tecnico_responsavel_nome ||
+            r.tecnico_responsavel_nome ||
+            responsavel,
+          responsavel:
+            convertido.responsavel ||
+            r.responsavel ||
+            responsavel,
+          responsavel_nome:
+            convertido.responsavel_nome ||
+            r.responsavel_nome ||
+            responsavel,
+          responsavel_etapa:
+            convertido.responsavel_etapa ||
+            r.responsavel_etapa ||
+            responsavel,
+          responsavel_etapa_nome:
+            convertido.responsavel_etapa_nome ||
+            r.responsavel_etapa_nome ||
+            responsavel,
+          analista:
+            convertido.analista ||
+            r.analista ||
+            (String(convertido.etapa_atual || r.etapa_atual || '').toUpperCase().includes('ANÁLI')
+              ? responsavel : ''),
+          analista_nome:
+            convertido.analista_nome ||
+            r.analista_nome ||
+            convertido.analista ||
+            r.analista ||
+            '',
+          digitador:
+            convertido.digitador ||
+            r.digitador ||
+            (String(convertido.etapa_atual || r.etapa_atual || '').toUpperCase().includes('DIGIT')
+              ? responsavel : ''),
+          digitador_nome:
+            convertido.digitador_nome ||
+            r.digitador_nome ||
+            convertido.digitador ||
+            r.digitador ||
+            '',
+          conferente:
+            convertido.conferente ||
+            r.conferente ||
+            (String(convertido.etapa_atual || r.etapa_atual || '').toUpperCase().includes('CONFER')
+              ? responsavel : ''),
+          conferente_nome:
+            convertido.conferente_nome ||
+            r.conferente_nome ||
+            convertido.conferente ||
+            r.conferente ||
+            '',
+          responsavel_assinatura:
+            convertido.responsavel_assinatura ||
+            r.responsavel_assinatura ||
+            (String(convertido.etapa_atual || r.etapa_atual || '').toUpperCase().includes('ASSIN')
+              ? responsavel : ''),
+          responsavel_assinatura_nome:
+            convertido.responsavel_assinatura_nome ||
+            r.responsavel_assinatura_nome ||
+            convertido.responsavel_assinatura ||
+            r.responsavel_assinatura ||
+            ''
+        };
+      } catch(e) {
+        console.warn('[SIGEE Processos] Conversor global falhou; usando mapeamento próprio.', e);
+      }
     }
     return {
       ...r,
