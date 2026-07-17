@@ -1,3 +1,4 @@
+/* SIGEE PATCH 2.5.2 — payload compatível com public.processos */
 /* =====================================================================
    SIGEE Enterprise 2.0 - Parte 4
    Módulo: Processos
@@ -359,9 +360,17 @@
                 if (responsavelAtual && responsavelAtual !== 'Não atribuído') {
                     payload.tecnico_responsavel = responsavelAtual;
                 }
-                payload.data_inicio_desarquivamento = dataInicioCiclo(p) || payload.data_inicio_desarquivamento || null;
-                payload.data_inicio_ciclo = dataInicioCiclo(p) || payload.data_inicio_ciclo || null;
-                payload.prazo_inicio_ciclo = dataInicioCiclo(p) || payload.prazo_inicio_ciclo || null;
+                /*
+                 * PATCH 2.5.2:
+                 * Estes campos são mantidos somente na memória para cálculo
+                 * visual do ciclo. Eles não existem na tabela public.processos.
+                 */
+                delete payload.data_inicio_desarquivamento;
+                delete payload.data_inicio_ciclo;
+                delete payload.prazo_inicio_ciclo;
+                delete payload.inicio_ciclo;
+                delete payload.data_desarquivamento;
+                delete payload.data_etapa_inicial;
                 return protegerDatasPayloadSIGEE(payload);
             }
         } catch (e) {}
@@ -372,6 +381,8 @@
             documento_tipo: processoDocumento(p),
             etapa_atual: processoEtapa(p),
             nte: processoNte(p),
+            cod_mec: p.cod_mec || p.mec || null,
+            escola_id: p.escola_id == null || p.escola_id === '' ? null : (Number(p.escola_id) || p.escola_id),
             modalidade: p.modalidade || p.oferta_modalidade || null,
             nivel_oferta: p.ensino || p.nivel_oferta || p.oferta_nivel || null,
             dias_decorridos: Number(p.dias_decorridos || 0),
@@ -389,9 +400,6 @@
             finalizado_em: p.finalizado_em || null,
             etapa_codigo: p.etapa_codigo || null,
             data_etapa_atual: p.data_etapa_atual || null,
-            data_inicio_desarquivamento: dataInicioCiclo(p) || null,
-            data_inicio_ciclo: dataInicioCiclo(p) || null,
-            prazo_inicio_ciclo: dataInicioCiclo(p) || null,
             prazo_etapa: p.prazo_etapa == null ? null : Number(p.prazo_etapa),
             prazo_inicio: p.prazo_inicio || null,
             prazo_fim: p.prazo_fim || null,
@@ -414,7 +422,11 @@
             const { error } = await c.from((window.SIGEE_SUPABASE_TABELAS && window.SIGEE_SUPABASE_TABELAS.processos) || 'processos')
                 .upsert(payload, { onConflict: 'id' });
             if (error) throw error;
-        } catch (e) { console.warn('SIGEE Parte 4: processo salvo localmente; Supabase não confirmou.', e); }
+            return payload;
+        } catch (e) {
+            console.error('SIGEE Parte 4: Supabase não confirmou o processo.', e);
+            throw e;
+        }
     }
     async function excluirProcessoSupabase(id) {
         try {

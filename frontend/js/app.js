@@ -1,3 +1,4 @@
+/* SIGEE PATCH 2.5.2 — integridade da Nova Solicitação e Código SIGEE único */
 /*
 SIGEE Enterprise 2.0 - app.js
 Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código foi separado sem alterar regras de negócio.
@@ -488,6 +489,8 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 modalidade: normalizarTextoSIGEE(p.modalidade || null) || null,
                 etapa_atual: normalizarTextoSIGEE(p.etapa || p.etapa_atual || 'Desarquivamento'),
                 nte: normalizarTextoSIGEE(p.nte || 'NTE-26 Salvador'),
+                cod_mec: normalizarTextoSIGEE(p.cod_mec || p.mec || null) || null,
+                escola_id: p.escola_id == null || p.escola_id === '' ? null : (Number(p.escola_id) || p.escola_id),
                 workflow_instance_id: p.workflow_instance_id || null,
                 workflow_ciclo: Number(p.workflow_ciclo || p.ciclo || 1),
                 ciclo: Number(p.ciclo || p.workflow_ciclo || 1),
@@ -2290,6 +2293,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             return {
                 nome_solicitante: normalizarMaiusculoSIGEE(s.aluno || s.nome_solicitante || s.aluno_nome),
                 cod_mec: normalizarTextoSIGEE(s.cod_mec || s.mec || null) || null,
+                escola_id: s.escola_id == null || s.escola_id === '' ? null : (Number(s.escola_id) || s.escola_id),
                 documento_solicitado: normalizarDocumentoSolicitacaoSIGEE(s.documento || s.documento_solicitado || 'Histórico'),
                 oferta_nivel: normalizarNivelOfertaSIGEE(s.ensino || s.oferta_nivel || 'Médio'),
                 oferta_modalidade: normalizarModalidadeSIGEE(s.modalidade || s.oferta_modalidade || 'Não informado'),
@@ -2412,7 +2416,20 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
              */
             const processoPayload = processoParaSupabaseSIGEE(proc);
             delete processoPayload.id;
-            delete processoPayload.codigo_sigee;
+
+            /*
+             * PATCH 2.5.2:
+             * O trigger legado do banco gera apenas quatro dígitos e pode repetir
+             * códigos como SEEX.HIST.2626.4113. Para impedir a colisão 23505,
+             * o INSERT recebe um código temporário único. Depois que o banco
+             * devolver o ID identity real, o código institucional definitivo
+             * é gravado usando o ID completo.
+             */
+            const tokenTemporario =
+                (window.crypto && typeof window.crypto.randomUUID === 'function')
+                    ? window.crypto.randomUUID().replace(/-/g, '').toUpperCase()
+                    : (Date.now().toString(36) + Math.random().toString(36).slice(2)).toUpperCase();
+            processoPayload.codigo_sigee = `TMP.SIGEE.${tokenTemporario}`;
 
             if (!processoPayload.workflow_instance_id) {
                 processoPayload.workflow_instance_id =
@@ -2438,32 +2455,44 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             proc.workflow_instance_id = salvo.workflow_instance_id || processoPayload.workflow_instance_id;
             proc.workflow_ciclo = Number(salvo.workflow_ciclo || proc.workflow_ciclo || 1);
             proc.ciclo = Number(salvo.ciclo || proc.ciclo || proc.workflow_ciclo || 1);
-            proc.codigo_sigee =
-                salvo.codigo_sigee ||
-                gerarCodigoSIGEEAposIdV1002006(proc, proc.id);
+            proc.codigo_sigee = gerarCodigoSIGEEAposIdV1002006(proc, proc.id);
 
             /*
-             * O trigger do banco deve devolver o código no próprio INSERT.
-             * Este UPDATE fica apenas como contingência para ambientes em
-             * que o SQL ainda não tenha sido aplicado.
+             * Substitui sempre o código temporário pelo código definitivo.
+             * O ID completo mantém unicidade mesmo após o processo 9999.
              */
-            if (!salvo.codigo_sigee) {
-                const respostaCodigo = await client
-                    .from(SIGEE_SUPABASE_TABELAS.processos)
-                    .update({
-                        codigo_sigee: proc.codigo_sigee,
-                        updated_at: new Date().toISOString()
-                    })
-                    .eq('id', proc.id);
+            const respostaCodigo = await client
+                .from(SIGEE_SUPABASE_TABELAS.processos)
+                .update({
+                    codigo_sigee: proc.codigo_sigee,
+                    cod_mec: processoPayload.cod_mec || null,
+                    escola_id: processoPayload.escola_id || null,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', proc.id)
+                .select('id,codigo_sigee,cod_mec,escola_id')
+                .single();
 
-                if (respostaCodigo.error) {
-                    throw new Error(
-                        'Processo criado com ID ' + proc.id +
-                        ', mas o código SIGEE não pôde ser gravado: ' +
-                        respostaCodigo.error.message
-                    );
-                }
+            if (respostaCodigo.error) {
+                /*
+                 * Evita deixar no fluxo um processo com código temporário.
+                 * Se a finalização falhar, remove o processo recém-criado e
+                 * informa falha total ao usuário.
+                 */
+                try {
+                    await client
+                        .from(SIGEE_SUPABASE_TABELAS.processos)
+                        .delete()
+                        .eq('id', proc.id);
+                } catch (_) {}
+
+                throw new Error(
+                    'O processo não pôde ser finalizado no Supabase: ' +
+                    respostaCodigo.error.message
+                );
             }
+
+            proc.codigo_sigee = respostaCodigo.data?.codigo_sigee || proc.codigo_sigee;
 
             const solPayload = solicitacaoParaSupabaseSIGEE(solicitacao || proc);
             delete solPayload.id;
@@ -2986,6 +3015,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                         nte: nteVinculo,
                         municipio: municipio,
                         cod_mec: mec,
+                        escola_id: escola.id == null || escola.id === '' ? null : (Number(escola.id) || escola.id),
                         workflow_instance_id: (window.crypto && typeof window.crypto.randomUUID === 'function') ? window.crypto.randomUUID() : null,
                         workflow_ciclo: 1,
                         ciclo: 1,
