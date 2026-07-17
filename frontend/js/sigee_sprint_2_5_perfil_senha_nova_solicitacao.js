@@ -942,3 +942,93 @@
   };
   console.info('[SIGEE] Proteções de duplicidade e acervo não recolhido ativas.');
 })();
+
+/* =====================================================================
+   SIGEE — Patch 2.5.1C
+   Fechamento definitivo das listas de escola após seleção.
+   Compatível com os autocompletes legado, V23, módulo Escolas e Sprint 2.5.
+   ===================================================================== */
+(function () {
+  'use strict';
+
+  const IDS_LISTAS = [
+    'novo-proc-escola-resultados-sprint25',
+    'novo-proc-escola-resultados-sigee',
+    'novo-proc-escola-sugestoes-v23',
+    'novo-proc-escola-lista-v23'
+  ];
+
+  function fecharListasAgora() {
+    IDS_LISTAS.forEach(id => {
+      const lista = document.getElementById(id);
+      if (!lista) return;
+      lista.classList.add('hidden');
+      lista.setAttribute('aria-hidden', 'true');
+      lista.style.setProperty('display', 'none', 'important');
+      lista.innerHTML = '';
+      lista.dataset.indiceAtivo = '-1';
+    });
+  }
+
+  function veioDeResultadoEscola(alvo) {
+    if (!(alvo instanceof Element)) return false;
+    return IDS_LISTAS.some(id => alvo.closest(`#${id} button, #${id} [role="option"]`));
+  }
+
+  function escolaJaSelecionada() {
+    const principal = document.getElementById('novo-proc-escola');
+    const buscaV23 = document.getElementById('novo-proc-escola-busca-v23');
+    const buscaSigee = document.getElementById('novo-proc-escola-busca-sigee');
+    const mec = document.getElementById('novo-autofill-mec');
+    return [principal, buscaV23, buscaSigee].some(campo =>
+      campo && (campo.dataset.escolaSelecionada === '1' || campo.dataset.codMec)
+    ) || !!String(mec?.value || '').trim();
+  }
+
+  function fecharAposSelecao() {
+    fecharListasAgora();
+    requestAnimationFrame(fecharListasAgora);
+    setTimeout(fecharListasAgora, 0);
+    setTimeout(fecharListasAgora, 80);
+    setTimeout(fecharListasAgora, 250);
+  }
+
+  // Executa depois do handler que preenche os dados da escola.
+  document.addEventListener('pointerdown', event => {
+    if (!veioDeResultadoEscola(event.target)) return;
+    setTimeout(fecharAposSelecao, 0);
+  }, true);
+
+  document.addEventListener('click', event => {
+    if (!veioDeResultadoEscola(event.target)) return;
+    fecharAposSelecao();
+  }, true);
+
+  // Impede que rotinas antigas reabram a lista logo após o preenchimento.
+  const observar = () => {
+    const modal = document.getElementById('modal-nova-solicitacao');
+    if (!modal || modal.dataset.fechamentoAutocomplete251c === '1') return;
+    modal.dataset.fechamentoAutocomplete251c = '1';
+
+    const observer = new MutationObserver(() => {
+      if (escolaJaSelecionada()) fecharListasAgora();
+    });
+    observer.observe(modal, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ['class', 'style', 'value', 'data-escola-selecionada', 'data-cod-mec']
+    });
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', observar, { once: true });
+  } else {
+    observar();
+  }
+  setTimeout(observar, 500);
+  setTimeout(observar, 1500);
+
+  window.SIGEE_FECHAR_LISTAS_ESCOLA = fecharAposSelecao;
+  console.info('[SIGEE] Patch 2.5.1C — fechamento definitivo do autocomplete ativo');
+})();
