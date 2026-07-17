@@ -210,6 +210,22 @@
     btn.disabled = !(okEscola && okAluno && okTermo);
   }
 
+  function fecharTodasListasEscola() {
+    [
+      IDS.lista,
+      'novo-proc-escola-resultados-sigee',
+      'novo-proc-escola-sugestoes-v23',
+      'novo-proc-escola-lista-v23'
+    ].forEach(id => {
+      const lista = $(id);
+      if (!lista) return;
+      lista.classList.add('hidden');
+      lista.style.display = 'none';
+      lista.innerHTML = '';
+      lista.dataset.indiceAtivo = '-1';
+    });
+  }
+
   function selecionarEscolaNova(e) {
     const input = $(IDS.escola);
     const box = $(IDS.lista);
@@ -247,10 +263,7 @@
     setValue('novo-autofill-acervo', e.acervo);
     setValue('novo-autofill-local-acervo', e.local_acervo);
 
-    if (box) {
-      box.classList.add('hidden');
-      box.innerHTML = '';
-    }
+    fecharTodasListasEscola();
     habilitarBotaoNova();
   }
 
@@ -264,11 +277,13 @@
     if (termo.length < 2) {
       box.innerHTML = '<div class="p-3 text-gray-600 font-semibold">Digite pelo menos 2 letras da escola.</div>';
       box.classList.remove('hidden');
+      box.style.display = 'block';
       return;
     }
 
     box.innerHTML = '<div class="p-3 text-gray-600 font-semibold">Pesquisando...</div>';
     box.classList.remove('hidden');
+    box.style.display = 'block';
 
     try {
       const lista = await buscarEscolasNovaSolicitacao(termo);
@@ -389,7 +404,10 @@
       clearTimeout(timerNova);
       timerNova = setTimeout(renderizarResultadosNova, 250);
     });
-    input.addEventListener('focus', renderizarResultadosNova);
+    input.addEventListener('focus', () => {
+      if (input.dataset.escolaSelecionada === '1') return;
+      renderizarResultadosNova();
+    });
     input.addEventListener('keydown', (event) => {
       const itens = Array.from(box.querySelectorAll('button[data-indice]'));
       if (event.key === 'Escape') {

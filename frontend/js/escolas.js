@@ -750,8 +750,24 @@
   }
   function fecharModal() { const m = document.getElementById('modal-cadastro-escola'); if (m) m.classList.add('hidden'); }
 
+  function fecharListasAutocompleteNovaSolicitacao() {
+    [
+      'novo-proc-escola-resultados-sprint25',
+      'novo-proc-escola-resultados-sigee',
+      'novo-proc-escola-sugestoes-v23',
+      'novo-proc-escola-lista-v23'
+    ].forEach(id => {
+      const lista = document.getElementById(id);
+      if (!lista) return;
+      lista.classList.add('hidden');
+      lista.style.display = 'none';
+      lista.innerHTML = '';
+    });
+  }
+
   function preencherAutofillNovaSolicitacao(e) {
     if (!e) return;
+    fecharListasAutocompleteNovaSolicitacao();
     upsertCacheLocal(e);
     const set = (id, valor) => { const el = document.getElementById(id); if (el) el.value = valor || ''; };
     set('novo-autofill-mec', e.cod_mec || '');
@@ -826,7 +842,7 @@
               const e = resultados[Number(btn.dataset.i)];
               if (!e) return;
               input.value = escolaNome(e);
-              lista.innerHTML = '';
+              fecharListasAutocompleteNovaSolicitacao();
               preencherAutofillNovaSolicitacao(e);
             };
             btn.addEventListener('pointerdown', selecionar, true);
@@ -1049,6 +1065,7 @@
     }
 
     function preencherEscolaNovaSolicitacao(escola) {
+        fecharListasAutocompleteNovaSolicitacao();
         const select = campo('novo-proc-escola');
         const input = campo('novo-proc-escola-busca-v23');
         const lista = campo('novo-proc-escola-lista-v23');
