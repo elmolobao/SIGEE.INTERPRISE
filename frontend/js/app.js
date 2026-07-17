@@ -1,3 +1,4 @@
+/* SIGEE PATCH 2.5.6 — autoridade única operacional */
 /* SIGEE PATCH 2.5.5 — restauração de gerarProximoIdSIGEE */
 /* SIGEE PATCH 2.5.4 — confirmação robusta da escola selecionada */
 /* SIGEE PATCH 2.5.3 — autoridade segura da Nova Solicitação */
@@ -8755,3 +8756,75 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
   };
   instalar();
 })();
+
+/* =====================================================================
+   SIGEE PATCH 2.5.6 — Autoridade única das tabelas operacionais
+   - Bloqueia sincronização geral em lote de processos e solicitações.
+   - Processos passam a ser gravados somente pelas rotinas específicas.
+   - Nova Solicitação permanece responsável por solicitacoes_sigee.
+   - Evita duplicação e sobrescrita de cod_mec/escola_id por payload local.
+   ===================================================================== */
+(function () {
+  'use strict';
+
+  if (window.__SIGEE_AUTORIDADE_OPERACIONAL_256__) return;
+  window.__SIGEE_AUTORIDADE_OPERACIONAL_256__ = true;
+
+  async function sincronizacaoGeralSeguraSIGEE256(estado, silencioso = true) {
+    /*
+     * Intencionalmente não grava processos nem solicitacoes_sigee.
+     * Esta função mantém compatibilidade com chamadas legadas como
+     * salvarBancoLocalSIGEE(), sem permitir upsert em massa.
+     */
+    try {
+      if (!silencioso) {
+        console.info(
+          '[SIGEE 2.5.6] Sincronização geral concluída sem alterar ' +
+          'processos ou solicitacoes_sigee.'
+        );
+      }
+      return true;
+    } catch (erro) {
+      console.warn('[SIGEE 2.5.6] Falha na sincronização não operacional.', erro);
+      return false;
+    }
+  }
+
+  function instalarAutoridadeOperacionalSIGEE256() {
+    try {
+      window.salvarTodasTabelasSupabaseSIGEE =
+        sincronizacaoGeralSeguraSIGEE256;
+      salvarTodasTabelasSupabaseSIGEE =
+        sincronizacaoGeralSeguraSIGEE256;
+    } catch (_) {}
+
+    /*
+     * Mantém também uma referência explícita para diagnóstico.
+     */
+    window.SIGEE_SINCRONIZACAO_GERAL_SEGURA =
+      sincronizacaoGeralSeguraSIGEE256;
+
+    console.info(
+      '[SIGEE 2.5.6] Autoridade operacional instalada: ' +
+      'processos e solicitações não serão mais sincronizados em lote.'
+    );
+  }
+
+  instalarAutoridadeOperacionalSIGEE256();
+
+  if (document.readyState === 'loading') {
+    document.addEventListener(
+      'DOMContentLoaded',
+      instalarAutoridadeOperacionalSIGEE256,
+      { once: true }
+    );
+  }
+
+  window.addEventListener('load', function () {
+    instalarAutoridadeOperacionalSIGEE256();
+    setTimeout(instalarAutoridadeOperacionalSIGEE256, 100);
+    setTimeout(instalarAutoridadeOperacionalSIGEE256, 500);
+    setTimeout(instalarAutoridadeOperacionalSIGEE256, 1500);
+  }, { once: true });
+})();
+
