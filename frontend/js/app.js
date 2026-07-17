@@ -1,3 +1,4 @@
+/* SIGEE PATCH 2.5.7A — restauração do responsável pela etapa */
 /* SIGEE PATCH 2.5.6 — autoridade única operacional */
 /* SIGEE PATCH 2.5.5 — restauração de gerarProximoIdSIGEE */
 /* SIGEE PATCH 2.5.4 — confirmação robusta da escola selecionada */
@@ -543,6 +544,70 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 data_etapa_atual: normalizarTextoSIGEE(p.data_etapa_atual || p.created_at || obterDataAtualFormatada()),
                 nte: normalizarTextoSIGEE(p.nte || p.nte_vinculado || 'NTE-26 Salvador'),
                 municipio: normalizarMaiusculoSIGEE(p.municipio || p.cidade || ''),
+
+                /*
+                 * SIGEE PATCH 2.5.7A:
+                 * Preserva o responsável retornado pelo Supabase ao converter
+                 * o processo para o modelo local utilizado pela interface.
+                 */
+                tecnico_responsavel: normalizarTextoSIGEE(
+                    p.tecnico_responsavel ||
+                    p.tecnico_responsavel_nome ||
+                    p.responsavel ||
+                    p.responsavel_nome ||
+                    p.usuario_responsavel ||
+                    p.usuario_responsavel_nome ||
+                    p.tecnico ||
+                    p.tecnico_nome ||
+                    p.analista ||
+                    p.analista_nome ||
+                    p.digitador ||
+                    p.digitador_nome ||
+                    p.conferente ||
+                    p.conferente_nome ||
+                    ''
+                ),
+                tecnico_responsavel_nome: normalizarTextoSIGEE(
+                    p.tecnico_responsavel_nome ||
+                    p.tecnico_responsavel ||
+                    p.responsavel_nome ||
+                    p.responsavel ||
+                    ''
+                ),
+                responsavel: normalizarTextoSIGEE(
+                    p.responsavel ||
+                    p.responsavel_nome ||
+                    p.tecnico_responsavel ||
+                    p.tecnico_responsavel_nome ||
+                    ''
+                ),
+                responsavel_nome: normalizarTextoSIGEE(
+                    p.responsavel_nome ||
+                    p.responsavel ||
+                    p.tecnico_responsavel_nome ||
+                    p.tecnico_responsavel ||
+                    ''
+                ),
+                analista: normalizarTextoSIGEE(p.analista || p.analista_nome || ''),
+                analista_nome: normalizarTextoSIGEE(p.analista_nome || p.analista || ''),
+                digitador: normalizarTextoSIGEE(p.digitador || p.digitador_nome || ''),
+                digitador_nome: normalizarTextoSIGEE(p.digitador_nome || p.digitador || ''),
+                conferente: normalizarTextoSIGEE(p.conferente || p.conferente_nome || ''),
+                conferente_nome: normalizarTextoSIGEE(p.conferente_nome || p.conferente || ''),
+                responsavel_etapa: normalizarTextoSIGEE(
+                    p.responsavel_etapa ||
+                    p.responsavel_etapa_nome ||
+                    p.tecnico_responsavel ||
+                    ''
+                ),
+                responsavel_etapa_nome: normalizarTextoSIGEE(
+                    p.responsavel_etapa_nome ||
+                    p.responsavel_etapa ||
+                    p.tecnico_responsavel_nome ||
+                    p.tecnico_responsavel ||
+                    ''
+                ),
+
                 workflow_instance_id: p.workflow_instance_id || null,
                 workflow_ciclo: Number(p.workflow_ciclo || p.ciclo || 1),
                 ciclo: Number(p.ciclo || p.workflow_ciclo || 1),
