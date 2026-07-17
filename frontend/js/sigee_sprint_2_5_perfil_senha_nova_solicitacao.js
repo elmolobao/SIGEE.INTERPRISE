@@ -210,22 +210,6 @@
     btn.disabled = !(okEscola && okAluno && okTermo);
   }
 
-  function fecharTodasListasEscola() {
-    [
-      IDS.lista,
-      'novo-proc-escola-resultados-sigee',
-      'novo-proc-escola-sugestoes-v23',
-      'novo-proc-escola-lista-v23'
-    ].forEach(id => {
-      const lista = $(id);
-      if (!lista) return;
-      lista.classList.add('hidden');
-      lista.style.display = 'none';
-      lista.innerHTML = '';
-      lista.dataset.indiceAtivo = '-1';
-    });
-  }
-
   function selecionarEscolaNova(e) {
     const input = $(IDS.escola);
     const box = $(IDS.lista);
@@ -263,7 +247,10 @@
     setValue('novo-autofill-acervo', e.acervo);
     setValue('novo-autofill-local-acervo', e.local_acervo);
 
-    fecharTodasListasEscola();
+    if (box) {
+      box.classList.add('hidden');
+      box.innerHTML = '';
+    }
     habilitarBotaoNova();
   }
 
@@ -277,13 +264,11 @@
     if (termo.length < 2) {
       box.innerHTML = '<div class="p-3 text-gray-600 font-semibold">Digite pelo menos 2 letras da escola.</div>';
       box.classList.remove('hidden');
-      box.style.display = 'block';
       return;
     }
 
     box.innerHTML = '<div class="p-3 text-gray-600 font-semibold">Pesquisando...</div>';
     box.classList.remove('hidden');
-    box.style.display = 'block';
 
     try {
       const lista = await buscarEscolasNovaSolicitacao(termo);
@@ -293,33 +278,15 @@
       }
 
       box.innerHTML = '';
-      box.dataset.indiceAtivo = '-1';
-      lista.forEach((e, indice) => {
+      lista.forEach(e => {
         const item = document.createElement('button');
         item.type = 'button';
-        item.dataset.indice = String(indice);
         item.className = 'block w-full text-left px-3 py-2 bg-white hover:bg-blue-50 border-b border-gray-100';
         item.innerHTML = `
           <div class="font-black text-blue-900">${e.nome}</div>
           <div class="text-[10px] text-gray-600">${e.municipio || '-'} | MEC ${e.cod_mec || '-'} | ${e.nte || ''}</div>
         `;
-
-        // Seleciona antes que o campo perca o foco ou outra rotina redesenhe a lista.
-        item.addEventListener('pointerdown', (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
-          selecionarEscolaNova(e);
-        }, true);
-
-        // Compatibilidade para navegadores antigos sem Pointer Events.
-        item.addEventListener('mousedown', (event) => {
-          if (window.PointerEvent) return;
-          event.preventDefault();
-          event.stopPropagation();
-          selecionarEscolaNova(e);
-        }, true);
-
+        item.addEventListener('click', () => selecionarEscolaNova(e));
         box.appendChild(item);
       });
     } catch (err) {
@@ -360,18 +327,6 @@
       input = clone;
     }
 
-    // Remove autocomplete legado para existir somente uma lista ativa.
-    [
-      'novo-proc-escola-busca-v23',
-      'novo-proc-escola-busca-sigee',
-      'novo-proc-escola-resultados-sigee',
-      'novo-proc-escola-sugestoes-v23',
-      'novo-proc-escola-lista-v23'
-    ].forEach(id => {
-      const legado = document.getElementById(id);
-      if (legado && legado !== input && legado.id !== IDS.lista) legado.remove();
-    });
-
     let box = $(IDS.lista);
     if (!box) {
       box = document.createElement('div');
@@ -379,21 +334,6 @@
       box.className = 'hidden absolute z-[99999] bg-white border rounded-lg shadow-xl max-h-64 overflow-y-auto w-full text-xs';
       parent.style.position = 'relative';
       parent.appendChild(box);
-    }
-
-    function destacarResultado(indice) {
-      const itens = Array.from(box.querySelectorAll('button[data-indice]'));
-      if (!itens.length) return;
-      const limite = itens.length - 1;
-      const novoIndice = Math.max(0, Math.min(limite, indice));
-      box.dataset.indiceAtivo = String(novoIndice);
-      itens.forEach((item, i) => {
-        item.classList.toggle('bg-blue-100', i === novoIndice);
-        item.classList.toggle('ring-2', i === novoIndice);
-        item.classList.toggle('ring-inset', i === novoIndice);
-        item.classList.toggle('ring-blue-500', i === novoIndice);
-      });
-      itens[novoIndice].scrollIntoView({ block: 'nearest' });
     }
 
     input.addEventListener('input', () => {
@@ -404,32 +344,7 @@
       clearTimeout(timerNova);
       timerNova = setTimeout(renderizarResultadosNova, 250);
     });
-    input.addEventListener('focus', () => {
-      if (input.dataset.escolaSelecionada === '1') return;
-      renderizarResultadosNova();
-    });
-    input.addEventListener('keydown', (event) => {
-      const itens = Array.from(box.querySelectorAll('button[data-indice]'));
-      if (event.key === 'Escape') {
-        box.classList.add('hidden');
-        box.innerHTML = '';
-        return;
-      }
-      if (!itens.length || box.classList.contains('hidden')) return;
-
-      let atual = Number(box.dataset.indiceAtivo || -1);
-      if (event.key === 'ArrowDown') {
-        event.preventDefault();
-        destacarResultado(atual < 0 ? 0 : atual + 1);
-      } else if (event.key === 'ArrowUp') {
-        event.preventDefault();
-        destacarResultado(atual < 0 ? itens.length - 1 : atual - 1);
-      } else if (event.key === 'Enter') {
-        event.preventDefault();
-        const escolhido = itens[atual >= 0 ? atual : 0];
-        escolhido?.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
-      }
-    });
+    input.addEventListener('focus', renderizarResultadosNova);
 
     return true;
   }
@@ -941,94 +856,4 @@
     validarDuplicidade
   };
   console.info('[SIGEE] Proteções de duplicidade e acervo não recolhido ativas.');
-})();
-
-/* =====================================================================
-   SIGEE — Patch 2.5.1C
-   Fechamento definitivo das listas de escola após seleção.
-   Compatível com os autocompletes legado, V23, módulo Escolas e Sprint 2.5.
-   ===================================================================== */
-(function () {
-  'use strict';
-
-  const IDS_LISTAS = [
-    'novo-proc-escola-resultados-sprint25',
-    'novo-proc-escola-resultados-sigee',
-    'novo-proc-escola-sugestoes-v23',
-    'novo-proc-escola-lista-v23'
-  ];
-
-  function fecharListasAgora() {
-    IDS_LISTAS.forEach(id => {
-      const lista = document.getElementById(id);
-      if (!lista) return;
-      lista.classList.add('hidden');
-      lista.setAttribute('aria-hidden', 'true');
-      lista.style.setProperty('display', 'none', 'important');
-      lista.innerHTML = '';
-      lista.dataset.indiceAtivo = '-1';
-    });
-  }
-
-  function veioDeResultadoEscola(alvo) {
-    if (!(alvo instanceof Element)) return false;
-    return IDS_LISTAS.some(id => alvo.closest(`#${id} button, #${id} [role="option"]`));
-  }
-
-  function escolaJaSelecionada() {
-    const principal = document.getElementById('novo-proc-escola');
-    const buscaV23 = document.getElementById('novo-proc-escola-busca-v23');
-    const buscaSigee = document.getElementById('novo-proc-escola-busca-sigee');
-    const mec = document.getElementById('novo-autofill-mec');
-    return [principal, buscaV23, buscaSigee].some(campo =>
-      campo && (campo.dataset.escolaSelecionada === '1' || campo.dataset.codMec)
-    ) || !!String(mec?.value || '').trim();
-  }
-
-  function fecharAposSelecao() {
-    fecharListasAgora();
-    requestAnimationFrame(fecharListasAgora);
-    setTimeout(fecharListasAgora, 0);
-    setTimeout(fecharListasAgora, 80);
-    setTimeout(fecharListasAgora, 250);
-  }
-
-  // Executa depois do handler que preenche os dados da escola.
-  document.addEventListener('pointerdown', event => {
-    if (!veioDeResultadoEscola(event.target)) return;
-    setTimeout(fecharAposSelecao, 0);
-  }, true);
-
-  document.addEventListener('click', event => {
-    if (!veioDeResultadoEscola(event.target)) return;
-    fecharAposSelecao();
-  }, true);
-
-  // Impede que rotinas antigas reabram a lista logo após o preenchimento.
-  const observar = () => {
-    const modal = document.getElementById('modal-nova-solicitacao');
-    if (!modal || modal.dataset.fechamentoAutocomplete251c === '1') return;
-    modal.dataset.fechamentoAutocomplete251c = '1';
-
-    const observer = new MutationObserver(() => {
-      if (escolaJaSelecionada()) fecharListasAgora();
-    });
-    observer.observe(modal, {
-      subtree: true,
-      childList: true,
-      attributes: true,
-      attributeFilter: ['class', 'style', 'value', 'data-escola-selecionada', 'data-cod-mec']
-    });
-  };
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', observar, { once: true });
-  } else {
-    observar();
-  }
-  setTimeout(observar, 500);
-  setTimeout(observar, 1500);
-
-  window.SIGEE_FECHAR_LISTAS_ESCOLA = fecharAposSelecao;
-  console.info('[SIGEE] Patch 2.5.1C — fechamento definitivo do autocomplete ativo');
 })();

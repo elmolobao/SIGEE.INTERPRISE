@@ -750,24 +750,8 @@
   }
   function fecharModal() { const m = document.getElementById('modal-cadastro-escola'); if (m) m.classList.add('hidden'); }
 
-  function fecharListasAutocompleteNovaSolicitacao() {
-    [
-      'novo-proc-escola-resultados-sprint25',
-      'novo-proc-escola-resultados-sigee',
-      'novo-proc-escola-sugestoes-v23',
-      'novo-proc-escola-lista-v23'
-    ].forEach(id => {
-      const lista = document.getElementById(id);
-      if (!lista) return;
-      lista.classList.add('hidden');
-      lista.style.display = 'none';
-      lista.innerHTML = '';
-    });
-  }
-
   function preencherAutofillNovaSolicitacao(e) {
     if (!e) return;
-    fecharListasAutocompleteNovaSolicitacao();
     upsertCacheLocal(e);
     const set = (id, valor) => { const el = document.getElementById(id); if (el) el.value = valor || ''; };
     set('novo-autofill-mec', e.cod_mec || '');
@@ -790,22 +774,6 @@
   function garantirAutocompleteNovaSolicitacao() {
     const select = document.getElementById('novo-proc-escola');
     if (!select) return;
-
-    // A Sprint 2.5 é a implementação oficial da Nova Solicitação.
-    // Quando ela estiver ativa, não criar um segundo autocomplete concorrente.
-    if (select.tagName === 'INPUT' || select.dataset?.sprint25 === '1') {
-      [
-        'novo-proc-escola-busca-v23',
-        'novo-proc-escola-busca-sigee',
-        'novo-proc-escola-resultados-sigee',
-        'novo-proc-escola-sugestoes-v23',
-        'novo-proc-escola-lista-v23'
-      ].forEach(id => {
-        const legado = document.getElementById(id);
-        if (legado && legado !== select) legado.remove();
-      });
-      return;
-    }
     select.style.display = 'none';
     let input = document.getElementById('novo-proc-escola-busca-v23') || document.getElementById('novo-proc-escola-busca-sigee');
     if (!input) {
@@ -835,20 +803,7 @@
           const resultados = resp.lista || [];
           lista.innerHTML = resultados.length ? resultados.map((e, i) => `<button type="button" data-i="${i}" class="block w-full text-left px-3 py-2 hover:bg-cyan-900 border-b border-white/10"><strong>${escapeHtml(escolaNome(e))}</strong><br><span class="text-cyan-200">MEC: ${escapeHtml(e.cod_mec)} | ${escapeHtml(e.municipio)} | ${escapeHtml(escolaNte(e))}</span></button>`).join('') : '<div class="p-2 text-blue-100">Nenhuma escola localizada.</div>';
           Array.from(lista.querySelectorAll('button[data-i]')).forEach(btn => {
-            const selecionar = (event) => {
-              event?.preventDefault();
-              event?.stopPropagation();
-              if (typeof event?.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
-              const e = resultados[Number(btn.dataset.i)];
-              if (!e) return;
-              input.value = escolaNome(e);
-              fecharListasAutocompleteNovaSolicitacao();
-              preencherAutofillNovaSolicitacao(e);
-            };
-            btn.addEventListener('pointerdown', selecionar, true);
-            btn.addEventListener('mousedown', event => {
-              if (!window.PointerEvent) selecionar(event);
-            }, true);
+            btn.onclick = () => { const e = resultados[Number(btn.dataset.i)]; input.value = escolaNome(e); lista.innerHTML = ''; preencherAutofillNovaSolicitacao(e); };
           });
         } catch (e) {
           console.error('[SIGEE Escolas] Falha no autocomplete:', e);
@@ -1065,7 +1020,6 @@
     }
 
     function preencherEscolaNovaSolicitacao(escola) {
-        fecharListasAutocompleteNovaSolicitacao();
         const select = campo('novo-proc-escola');
         const input = campo('novo-proc-escola-busca-v23');
         const lista = campo('novo-proc-escola-lista-v23');
@@ -1147,12 +1101,7 @@
                 </div>
             `;
 
-            btn.addEventListener('pointerdown', event => {
-                event.preventDefault();
-                event.stopPropagation();
-                if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
-                preencherEscolaNovaSolicitacao(escola);
-            }, true);
+            btn.onclick = () => preencherEscolaNovaSolicitacao(escola);
             lista.appendChild(btn);
         });
     }
