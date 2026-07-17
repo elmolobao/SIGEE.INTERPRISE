@@ -120,3 +120,16 @@
 .mig-m53-salvamento{font-size:11px;font-weight:800;color:#64748b}
 .mig-m53-salvamento.ok{color:#166534}.mig-m53-salvamento.erro{color:#991b1b}.mig-m53-salvamento.carregando{color:#1e40af}
 @media(max-width:760px){.mig-m53-rascunho-bar{align-items:flex-start;flex-direction:column}}
+
+
+/* Identidade institucional do Centro de Auditoria de Migração */
+.mig-engine-versao,.m5-engine-versao,.m52-engine-versao{
+  margin-top:14px;
+  padding-top:10px;
+  border-top:1px solid #e2e8f0;
+  color:#64748b;
+  font-size:10px;
+  font-weight:800;
+  text-align:right;
+  letter-spacing:.04em
+}

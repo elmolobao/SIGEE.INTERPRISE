@@ -14,3 +14,16 @@
 /* M5.3 — identificação consolidada */
 .m5-topo{background:linear-gradient(135deg,#312e81,#7c3aed)}
 .m5-topo span{color:#ddd6fe}
+
+
+/* Identidade institucional do Centro de Auditoria de Migração */
+.mig-engine-versao,.m5-engine-versao,.m52-engine-versao{
+  margin-top:14px;
+  padding-top:10px;
+  border-top:1px solid #e2e8f0;
+  color:#64748b;
+  font-size:10px;
+  font-weight:800;
+  text-align:right;
+  letter-spacing:.04em
+}
