@@ -1,3 +1,4 @@
+/* SIGEE PATCH 2.5.4 — confirmação robusta da escola selecionada */
 /* SIGEE PATCH 2.5.3 — autoridade segura da Nova Solicitação */
 /* SIGEE PATCH 2.5.2 — integridade da Nova Solicitação e Código SIGEE único */
 /*
@@ -2969,6 +2970,98 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 }, 80);
             };
 
+            async function resolverEscolaSelecionadaSIGEE_V254() {
+                const campoPrincipal = document.getElementById('novo-proc-escola');
+                const campoBusca =
+                    document.getElementById('novo-proc-escola-busca-v23') ||
+                    document.getElementById('novo-proc-escola-busca-sigee');
+
+                const idSelecionado = String(
+                    campoPrincipal?.dataset?.escolaId ||
+                    campoBusca?.dataset?.escolaId ||
+                    ''
+                ).trim();
+
+                const mecSelecionado = String(
+                    campoPrincipal?.dataset?.codMec ||
+                    campoBusca?.dataset?.codMec ||
+                    document.getElementById('novo-proc-escola-cod-mec')?.value ||
+                    document.getElementById('novo-autofill-mec')?.value ||
+                    ''
+                ).trim();
+
+                const nomeSelecionado = upperV25(
+                    campoPrincipal?.value ||
+                    campoBusca?.value ||
+                    ''
+                );
+
+                let escola =
+                    escolaSelecionadaSIGEE_V25 ||
+                    (Array.isArray(escolasDB) ? escolasDB.find(e =>
+                        (idSelecionado && String(e.id || '') === idSelecionado) ||
+                        (mecSelecionado && String(e.cod_mec || '') === mecSelecionado) ||
+                        upperV25(e.nome || e.nome_escola || e.instituicao || '') === nomeSelecionado
+                    ) : null);
+
+                if (escola) return escola;
+
+                /*
+                 * O autocomplete pode vir de um módulo posterior e preencher
+                 * somente o nome/MEC no DOM, sem atualizar escolasDB nem a
+                 * variável interna escolaSelecionadaSIGEE_V25. Nesse caso,
+                 * confirma a escola diretamente no Supabase.
+                 */
+                try {
+                    const client =
+                        (typeof obterSupabaseSIGEE === 'function' && obterSupabaseSIGEE()) ||
+                        (typeof criarClienteSupabaseSIGEE === 'function' && criarClienteSupabaseSIGEE()) ||
+                        (window.SIGEE_SUPABASE && typeof window.SIGEE_SUPABASE.criarCliente === 'function'
+                            ? window.SIGEE_SUPABASE.criarCliente()
+                            : null);
+
+                    if (client && typeof client.from === 'function') {
+                        let query = client
+                            .from((window.SIGEE_SUPABASE_TABELAS && window.SIGEE_SUPABASE_TABELAS.escolas) || 'escolas_sigee')
+                            .select('id,cod_mec,nome_escola,nome,municipio,nte_id,nte,dependencia_adm,dependencia,situacao_funcional,situacao,status_acervo,acervo,local_acervo')
+                            .limit(1);
+
+                        if (idSelecionado) {
+                            query = query.eq('id', Number(idSelecionado) || idSelecionado);
+                        } else if (mecSelecionado) {
+                            query = query.eq('cod_mec', mecSelecionado);
+                        } else if (nomeSelecionado) {
+                            const nomeSeguro = nomeSelecionado.replace(/[,%]/g, ' ').trim();
+                            query = query.or(`nome_escola.ilike.${nomeSeguro},nome.ilike.${nomeSeguro}`);
+                        } else {
+                            return null;
+                        }
+
+                        const resposta = await query.maybeSingle();
+                        if (!resposta.error && resposta.data) {
+                            escola = resposta.data;
+                            escolaSelecionadaSIGEE_V25 = escola;
+
+                            if (campoPrincipal) {
+                                campoPrincipal.dataset.escolaId = escola.id || '';
+                                campoPrincipal.dataset.codMec = escola.cod_mec || '';
+                            }
+                            if (campoBusca) {
+                                campoBusca.dataset.escolaId = escola.id || '';
+                                campoBusca.dataset.codMec = escola.cod_mec || '';
+                                campoBusca.dataset.escolaSelecionada = '1';
+                            }
+
+                            return escola;
+                        }
+                    }
+                } catch (erro) {
+                    console.warn('[SIGEE 2.5.4] Não foi possível confirmar a escola selecionada.', erro);
+                }
+
+                return null;
+            }
+
             window.salvarNovaSolicitacao = async function(event){
                 if(event && event.preventDefault) event.preventDefault();
                 if(event && event.stopPropagation) event.stopPropagation();
@@ -2984,14 +3077,11 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                     const ensino = obterTextoV25('novo-proc-ensino');
                     const mecCampo = obterTextoV25('novo-autofill-mec');
                     const buscaNome = upperV25(obterTextoV25('novo-proc-escola') || obterTextoV25('novo-proc-escola-busca-v23'));
-                    const escola = escolaSelecionadaSIGEE_V25 || escolasDB.find(e =>
-                        String(e.cod_mec || '') === String(mecCampo || '') ||
-                        upperV25(e.nome || e.nome_escola || e.instituicao || '') === buscaNome
-                    );
+                    const escola = await resolverEscolaSelecionadaSIGEE_V254();
                     const chk = document.getElementById('f01-chk-acolhido');
 
                     if(!aluno){ alert('Informe o nome completo do aluno.'); return; }
-                    if(!escola){ alert('Selecione uma instituição válida na lista.'); return; }
+                    if(!escola){ alert('Não foi possível confirmar a instituição selecionada. Selecione novamente a escola na lista e tente salvar.'); return; }
                     if(!docTipo || !modalidade || !ensino){ alert('Selecione tipo de documento, modalidade e ensino.'); return; }
                     if(chk && !chk.checked){ alert('Confirme o envio do e-mail 01 - Aluno acolhido.'); return; }
 
