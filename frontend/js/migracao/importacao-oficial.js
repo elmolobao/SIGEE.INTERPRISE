@@ -158,7 +158,16 @@
         nte: `NTE ${Number(nte)}`,
         data_solicitacao: p.data_solicitacao,
         etapa_atual: p.etapa_atual,
-        workflow_instance_id: p.workflow_instance_id || uuid()
+        workflow_instance_id: p.workflow_instance_id || uuid(),
+        eventos: (p.eventos_validos || []).map(e => ({
+          etapa: e.etapa || '',
+          evento: e.evento || '',
+          data: e.data || '',
+          tipo_data: e.tipo_data || 'REAL',
+          responsavel: e.responsavel || '',
+          status: e.status || '',
+          aba: e.aba || ''
+        }))
       }))
     };
   }
