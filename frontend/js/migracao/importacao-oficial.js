@@ -52,13 +52,13 @@
     painel.innerHTML = `
       <header class="m5-topo">
         <div>
-          <span>SIGEE IMPORT ENGINE ${VERSION}</span>
-          <h2>Centro de Auditoria e Preparação</h2>
+          <span>SIGEE ENTERPRISE</span>
+          <h2>Auditoria e Preparação da Importação</h2>
           <p>Diagnóstico do lote e preflight transacional no Supabase, sem gravação operacional.</p>
         </div>
-        <strong>🧭 M5.3</strong>
+        <strong>🔐 MASTER</strong>
       </header>
-      <div class="m5-alerta">A M5.3 consolida auditoria, decisões do Master, preflight e preparação da importação. As correções afetam somente o lote em memória e preservam a planilha original.</div>
+      <div class="m5-alerta">O Centro de Auditoria consolida as decisões do Master, a validação e a preparação da importação. As correções afetam somente o lote em memória e preservam a planilha original.</div>
       <div class="m5-acoes">
         <button id="m5-preverificar" type="button">🛡️ Pré-verificação local</button>
         <button id="m5-preflight-banco" type="button" disabled>🧪 Validar infraestrutura e lote</button>
@@ -72,13 +72,14 @@
         <div id="m5-checks" class="m5-checks"></div>
       </article>
       <article id="m5-preflight-box" class="m5-preflight-box hidden">
-        <header><h3>Preflight transacional do Supabase — M5.3</h3><span id="m5-preflight-status">NÃO EXECUTADO</span></header>
+        <header><h3>Validação transacional do Supabase</h3><span id="m5-preflight-status">NÃO EXECUTADO</span></header>
         <div id="m5-preflight-conteudo" class="m5-preflight-conteudo"></div>
       </article>
       <article id="m5-conflitos-box" class="m5-conflitos-box hidden">
         <header><h3>Conferência contra processos atuais</h3><span id="m5-conflitos-resumo"></span></header>
         <div class="m5-tabela-wrap"><table><thead><tr><th>Aluno</th><th>Escola</th><th>Data</th><th>Resultado</th><th>Observação</th></tr></thead><tbody id="m5-conflitos"></tbody></table></div>
-      </article>`;
+      </article>
+      <footer class="m5-engine-versao">Engine de Migração 5.4.0</footer>`;
     host.appendChild(painel);
 
     document.getElementById('m5-preverificar').addEventListener('click', executarPreVerificacao);
@@ -270,7 +271,7 @@
     } catch (e) {
       console.error('[SIGEE M5.1 Preflight banco]', e);
       renderizarPreflight({ autorizado:false, erro:e.message || String(e) });
-      status('Falha no preflight M5.3: ' + (e.message || e), 'erro');
+      status('Falha na validação transacional: ' + (e.message || e), 'erro');
     }
   }
 
@@ -317,7 +318,7 @@
     ];
     document.getElementById('m5-preflight-conteudo').innerHTML = `
       <div class="m5-preflight-grade">${itens.map(([nome,valido,detalhe]) => `<div class="m5-check ${valido?'ok':'pendente'}"><i>${valido?'✓':'!'}</i><div><strong>${html(nome)}</strong><span>${html(detalhe)}</span></div></div>`).join('')}</div>
-      <div class="m5-preflight-nota ${ok?'ok':'pendente'}">${ok ? 'A M5.3 confirmou que a base e o lote estão preparados. Nenhum processo foi gravado nesta etapa.' : html(d?.mensagem || d?.erro || 'A importação permanece bloqueada.')}</div>`;
+      <div class="m5-preflight-nota ${ok?'ok':'pendente'}">${ok ? 'O sistema confirmou que a base e o lote estão preparados. Nenhum processo foi gravado nesta etapa.' : html(d?.mensagem || d?.erro || 'A importação permanece bloqueada.')}</div>`;
   }
 
   function exportarDiagnostico() {

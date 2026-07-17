@@ -74,12 +74,13 @@
     const sec=document.createElement('section');
     sec.id='m52-painel';sec.className='m52-painel';
     sec.innerHTML=`
-      <header class="m52-topo"><div><span>SIGEE IMPORT ENGINE ${VERSION}</span><h3>Importação Definitiva Auditada</h3><p>Gravação atômica do lote homologado, sem sobrescrever registros existentes.</p></div><strong>🔐 MASTER</strong></header>
+      <header class="m52-topo"><div><span>SIGEE ENTERPRISE</span><h3>Importação Definitiva Controlada</h3><p>Gravação atômica do lote homologado, sem sobrescrever registros existentes.</p></div><strong>🔐 MASTER</strong></header>
       <div class="m52-alerta"><b>Atenção:</b> esta etapa grava definitivamente no Supabase. Em caso de falha, todo o lote é revertido automaticamente.</div>
       <div class="m52-acoes"><button id="m52-preparar" type="button">🔍 Preparar autorização final</button><button id="m52-importar" type="button" disabled>🔒 Importar definitivamente</button><button id="m52-certificado" type="button" disabled>📄 Exportar certificado</button></div>
-      <div id="m52-status" class="m52-status">Aguardando conclusão da auditoria M5.3.</div>
+      <div id="m52-status" class="m52-status">Aguardando conclusão da auditoria.</div>
       <div id="m52-resumo" class="m52-resumo hidden"></div>
-      <div id="m52-progresso" class="m52-progresso hidden"><div><span>Importação transacional</span><strong id="m52-progresso-texto">Aguardando</strong></div><div class="m52-barra"><i id="m52-barra-i"></i></div></div>`;
+      <div id="m52-progresso" class="m52-progresso hidden"><div><span>Importação transacional</span><strong id="m52-progresso-texto">Aguardando</strong></div><div class="m52-barra"><i id="m52-barra-i"></i></div></div>
+      <footer class="m52-engine-versao">Engine de Migração 5.4.0</footer>`;
     host.appendChild(sec);
     sec.querySelector('#m52-preparar').addEventListener('click',preparar);
     sec.querySelector('#m52-importar').addEventListener('click',confirmarEImportar);
@@ -99,7 +100,7 @@
     try{
       payloadPreparado=await montarPayload();
       const motor=window.SIGEE_MOTOR_PERSISTENCIA;
-      if(!motor?.preflight||!motor?.importar) throw new Error('Motor M5.3 não carregado.');
+      if(!motor?.preflight||!motor?.importar) throw new Error('Motor de persistência não carregado.');
       preflightConfirmado=await motor.preflight(payloadPreparado);
       resumo(payloadPreparado,preflightConfirmado);
       if(!preflightConfirmado.autorizado) throw new Error(preflightConfirmado.mensagem||'Preflight bloqueado.');
@@ -108,7 +109,7 @@
     }catch(e){
       payloadPreparado=null;preflightConfirmado=null;
       document.getElementById('m52-importar').disabled=true;
-      status('M5.3 bloqueada: '+(e.message||e),'erro');
+      status('Importação bloqueada: '+(e.message||e),'erro');
     }
   }
 

@@ -193,7 +193,7 @@
     sec.innerHTML = `
       <header class="mig-topo">
         <div>
-          <span>SIGEE MIGRATION ENGINE ${VERSION}</span>
+          <span>SIGEE ENTERPRISE</span>
           <h1>Migração Histórica dos NTEs</h1>
           <p>Leitura, validação cronológica, conferência cadastral e simulação segura.</p>
         </div>
@@ -1347,10 +1347,11 @@
     const box=document.createElement('article');
     box.id='mig-m53-centro';box.className='mig-painel mig-m53-centro hidden';
     box.innerHTML=`
-      <header class="mig-painel-cab"><div><h2>Centro de Auditoria M5.4</h2><p class="mig-painel-descricao">Corrija escola ou datas, ignore registros específicos e mantenha o trabalho salvo no Supabase.</p></div><span id="mig-m53-resumo">Aguardando lote</span></header>
+      <header class="mig-painel-cab"><div><h2>Centro de Auditoria de Migração</h2><p class="mig-painel-descricao">Corrija escola ou datas, ignore registros específicos e mantenha o trabalho salvo no Supabase.</p></div><span id="mig-m53-resumo">Aguardando lote</span></header>
       <div class="mig-m53-rascunho-bar"><span id="mig-m53-salvamento" class="mig-m53-salvamento">Sem alterações salvas.</span><div><button id="mig-m53-salvar-agora" type="button">💾 Salvar agora</button><button id="mig-m53-descartar" type="button">🗑️ Descartar rascunho</button></div></div>
       <div class="mig-m53-filtros"><button data-filtro="TODOS">Todos</button><button data-filtro="PENDENTE">Pendentes</button><button data-filtro="IGNORADO">Ignorados</button><button data-filtro="PRONTO">Autorizados</button></div>
-      <div class="mig-tabela-wrap"><table><thead><tr><th>Aluno</th><th>Escola / Data</th><th>Problema</th><th>Decisão</th><th>Ações</th></tr></thead><tbody id="mig-m53-corpo"></tbody></table></div>`;
+      <div class="mig-tabela-wrap"><table><thead><tr><th>Aluno</th><th>Escola / Data</th><th>Problema</th><th>Decisão</th><th>Ações</th></tr></thead><tbody id="mig-m53-corpo"></tbody></table></div>
+      <footer class="mig-engine-versao">Engine de Migração 5.4.0</footer>`;
     const antes=$('mig-simulacao-box')||host.lastElementChild;
     antes.parentNode.insertBefore(box,antes);
     box.querySelectorAll('[data-filtro]').forEach(b=>b.onclick=()=>{box.dataset.filtro=b.dataset.filtro;atualizarPainel();});
