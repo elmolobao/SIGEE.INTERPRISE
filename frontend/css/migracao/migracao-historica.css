@@ -112,3 +112,11 @@
 .mig-m53-eventos{display:grid;gap:8px}.mig-m53-evento{display:grid;grid-template-columns:1fr 160px 130px;gap:9px;align-items:center;border:1px solid #e2e8f0;border-radius:10px;padding:9px}
 .mig-m53-evento small{display:block;color:#64748b}.mig-m53-modal-acoes{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}.mig-m53-modal-acoes button{border:0;border-radius:9px;padding:10px 13px;font-weight:900;cursor:pointer}.mig-m53-modal-acoes [data-salvar]{background:#5b21b6;color:#fff}
 @media(max-width:760px){.mig-m53-evento{grid-template-columns:1fr}.mig-m53-acoes{min-width:0}}
+
+/* SIGEE M5.4 — Rascunho persistente */
+.mig-m53-rascunho-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 12px;border:1px solid #ddd6fe;background:#faf5ff;border-radius:10px;margin:10px 0}
+.mig-m53-rascunho-bar>div{display:flex;gap:8px;flex-wrap:wrap}
+.mig-m53-rascunho-bar button{border:1px solid #c4b5fd;background:#fff;color:#5b21b6;border-radius:8px;padding:8px 10px;font-weight:900;cursor:pointer}
+.mig-m53-salvamento{font-size:11px;font-weight:800;color:#64748b}
+.mig-m53-salvamento.ok{color:#166534}.mig-m53-salvamento.erro{color:#991b1b}.mig-m53-salvamento.carregando{color:#1e40af}
+@media(max-width:760px){.mig-m53-rascunho-bar{align-items:flex-start;flex-direction:column}}
