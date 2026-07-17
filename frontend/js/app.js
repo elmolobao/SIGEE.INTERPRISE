@@ -1,3 +1,4 @@
+/* SIGEE PATCH 2.5.5 — restauração de gerarProximoIdSIGEE */
 /* SIGEE PATCH 2.5.4 — confirmação robusta da escola selecionada */
 /* SIGEE PATCH 2.5.3 — autoridade segura da Nova Solicitação */
 /* SIGEE PATCH 2.5.2 — integridade da Nova Solicitação e Código SIGEE único */
@@ -480,6 +481,22 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             });
             return payload;
         }
+
+        /*
+         * PATCH 2.5.5:
+         * A função existia no app legado, mas deixou de ficar disponível
+         * no escopo consolidado. Diversas rotinas ainda dependem dela.
+         */
+        function gerarProximoIdSIGEE(lista, inicio = 1) {
+            const base = Array.isArray(lista) ? lista : [];
+            const maior = base.reduce((maximo, item) => {
+                const valor = Number(item && item.id);
+                return Number.isFinite(valor) && valor > maximo ? valor : maximo;
+            }, Number(inicio) - 1);
+            return maior + 1;
+        }
+
+        window.gerarProximoIdSIGEE = gerarProximoIdSIGEE;
 
         function processoParaSupabaseSIGEE(p) {
             return {
