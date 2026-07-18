@@ -879,74 +879,49 @@ label:has(> #wf-email093) {
 .sigee-wf-etapa-assinatura .sigee-wfe-btn-primary,
 .sigee-wf-etapa-assinatura .sigee-workflow-acao-principal{background:#22d3ee!important;color:#083344!important;border-color:#06b6d4!important;}
 
-/* =====================================================================
-   SIGEE Sprint 3.9 — Padronização final das janelas operacionais
-   ===================================================================== */
+
+/* SIGEE 4.1 — AUTORIDADE ÚNICA DE JANELAS E CORES */
 :root{
-  --sigee-stage-desarquivamento:#0f766e;
-  --sigee-stage-analise:#facc15;
-  --sigee-stage-pendencia:#ffffff;
-  --sigee-stage-digitacao:#f97316;
-  --sigee-stage-conferencia:#7c3aed;
-  --sigee-stage-assinatura:#22c7df;
-  --sigee-stage-retirada:#64748b;
+ --sigee-etapa-desarquivamento:#115e59;--sigee-etapa-analise:#facc15;--sigee-etapa-pendencia:#ffffff;
+ --sigee-etapa-digitacao:#f97316;--sigee-etapa-conferencia:#7c3aed;--sigee-etapa-assinatura:#22c7dc;
+ --sigee-etapa-deferido:#15803d;--sigee-etapa-retirado:#64748b;--sigee-etapa-indeferido:#c83c46;
+ --sigee-acao-seguir:#15803d;--sigee-acao-alerta:#eab308;--sigee-acao-critica:#c83c46;--sigee-acao-neutra:#64748b;
 }
-.sigee-modal33-backdrop{padding:24px!important;z-index:100050!important}
-.sigee-modal33,.sigee-wfe-panel{
-  width:min(1120px,calc(100vw - 48px))!important;
-  max-width:1120px!important;
-  max-height:calc(100vh - 48px)!important;
-  border-radius:18px!important;
-  overflow:auto!important;
-  background:#fff!important;
-  color:#172033!important;
-}
-.sigee-modal33-header,.sigee-wfe-head{min-height:62px!important;padding:16px 22px!important}
-.sigee-modal33-header h2,.sigee-wfe-head h2{font-size:18px!important;font-weight:900!important;margin:0!important}
-.sigee-modal33-body,.sigee-wfe-body{padding:20px!important;color:#172033!important}
-.sigee-resumo33.sigee-resumo-padrao{display:grid!important;grid-template-columns:repeat(6,minmax(0,1fr))!important;gap:10px!important}
-.sigee-resumo33>div,.sigee-wfe-card{min-width:0!important;min-height:82px!important;background:#f7f9fc!important;color:#172033!important;border:1px solid #d4e0ec!important}
-.sigee-resumo33 span,.sigee-wfe-card span{color:#66758a!important}
-.sigee-resumo33 strong,.sigee-wfe-card strong{color:#172033!important;overflow-wrap:anywhere!important;word-break:normal!important}
-.sigee-modal33 label,.sigee-modal33 legend,.sigee-modal33 p,.sigee-modal33 small,.sigee-modal33 span{color:inherit}
-.sigee-modal33 input,.sigee-modal33 select,.sigee-modal33 textarea{background:#fff!important;color:#172033!important;border-color:#b9c9da!important}
-.sigee-pend-atual33{background:#f8fafc!important;border:2px solid #d5deea!important;color:#172033!important}
-.sigee-pend-atual33 h3,.sigee-pend-item331 strong,.sigee-pend-item331 small{color:#172033!important}
-.sigee-pend-item331{background:#fff!important;border:1px solid #cbd7e5!important;color:#172033!important}
-.sigee-tarefa-status331{background:#eef6ff!important;border:2px solid #176fbd!important;color:#172033!important}
-.sigee-tarefa-status331 strong,.sigee-tarefa-status331 span{color:#172033!important}
-.sigee-tarefa-obrigatoria33{margin-top:18px!important;background:#f7fbff!important;color:#172033!important}
-.sigee-tarefa-conteudo33 span,.sigee-tarefa-conteudo33 strong,.sigee-tarefa-conteudo33 p,.sigee-tarefa-conteudo33 label{color:#172033!important}
-.sigee-acoes33{margin-top:18px!important;padding-top:14px!important;border-top:1px solid #d9e3ed!important;display:flex!important;justify-content:flex-end!important;gap:10px!important;flex-wrap:wrap!important}
-.btn33-verde,.sigee-btn-acao-avancar{background:#15803d!important;color:#fff!important;border-color:#166534!important}
-.btn33-amarelo{background:#facc15!important;color:#172033!important;border-color:#d6a900!important}
-.btn33-vermelho{background:#dc3545!important;color:#fff!important;border-color:#b4232f!important}
-.btn33-cinza{background:#475569!important;color:#fff!important;border-color:#334155!important}
-.sigee-linkhistorico33 button{background:#eef2f7!important;color:#24364b!important;border:1px solid #cbd7e5!important}
-/* cores das etapas, sem usar conteúdo dos botões para classificar */
-.sigee-modal33.analise .sigee-modal33-header,.sigee-wf-etapa-analise .sigee-modal33-header{background:var(--sigee-stage-analise)!important;color:#172033!important}
-.sigee-modal33.pendencia .sigee-modal33-header,.sigee-wf-etapa-pendencia .sigee-modal33-header{background:#fff!important;color:#172033!important;border-bottom:2px solid #172033!important}
-.sigee-wf-etapa-digitacao .sigee-modal33-header{background:var(--sigee-stage-digitacao)!important;color:#fff!important}
-.sigee-wf-etapa-conferencia .sigee-modal33-header{background:var(--sigee-stage-conferencia)!important;color:#fff!important}
-.sigee-wf-etapa-assinatura .sigee-modal33-header{background:var(--sigee-stage-assinatura)!important;color:#062b36!important}
-.sigee-wf-etapa-retirado .sigee-modal33-header{background:var(--sigee-stage-retirada)!important;color:#fff!important}
-/* workflow externo */
-.sigee-wfe-head{background:var(--sigee-stage-desarquivamento)!important;color:#fff!important}
-.sigee-wfe-body{background:#fff!important}
-.sigee-wfe-note{color:#172033!important;background:#fff7df!important}
-.sigee-wfe-action{background:#f4f8fc!important;border:2px solid #20aef3!important;color:#172033!important}
-.sigee-wfe-action strong{color:#0b3768!important}.sigee-wfe-action p{color:#60738a!important}
-.sigee-wfe-documento{border-color:#138a62!important;background:#f0fbf6!important}
-.sigee-wfe-documento .sigee-wfe-btn{background:#15803d!important;color:#fff!important;border-color:#166534!important}
-.sigee-wfe-action-retificacao{border-color:#64748b!important;background:#f5f7f9!important}
-.sigee-wfe-action-retificacao .sigee-wfe-btn{background:#64748b!important;color:#fff!important}
-.sigee-wfe-action-reiteracao{border-color:#eab308!important;background:#fffbea!important}
-.sigee-wfe-action-reiteracao .sigee-wfe-btn:not(:disabled){background:#facc15!important;color:#172033!important;border-color:#d6a900!important}
-.sigee-wfe-action-reiteracao-urgente{border-color:#dc3545!important;background:#fff1f2!important}
-.sigee-wfe-action-reiteracao-urgente .sigee-wfe-btn:not(:disabled){background:#dc3545!important;color:#fff!important}
-.sigee-wfe-action-confirmacao{border-color:#172033!important;background:#fff!important}
-.sigee-wfe-action-confirmacao .sigee-wfe-btn:not(:disabled){background:#fff!important;color:#172033!important;border:2px solid #172033!important}
-.sigee-wfe-action-atas{border-color:#111827!important;background:#f3f4f6!important}
-.sigee-wfe-action-atas .sigee-wfe-btn:not(:disabled){background:#111827!important;color:#fff!important}
-@media(max-width:900px){.sigee-resumo33.sigee-resumo-padrao{grid-template-columns:repeat(3,minmax(0,1fr))!important}}
-@media(max-width:620px){.sigee-modal33,.sigee-wfe-panel{width:calc(100vw - 24px)!important}.sigee-resumo33.sigee-resumo-padrao{grid-template-columns:1fr 1fr!important}}
+.sigee-modal33.workflow093{width:min(1120px,94vw)!important;max-height:90vh!important;background:#fff!important;color:#172033!important;border-radius:18px!important;overflow:auto!important}
+.sigee-modal33.workflow093 .sigee-modal33-header{position:sticky!important;top:0!important;padding:18px 22px!important;min-height:62px!important;border:0!important}
+.sigee-modal33.workflow093 .sigee-modal33-body{padding:20px!important}
+.sigee-modal33.workflow093 .sigee-resumo33{grid-template-columns:repeat(6,minmax(0,1fr))!important;gap:10px!important;margin-bottom:18px!important}
+.sigee-modal33.workflow093 .sigee-resumo33>div{min-height:82px!important;background:#f7fafc!important;border:1px solid #d6e0eb!important;border-radius:13px!important;padding:12px 12px 12px 48px!important}
+.sigee-modal33.workflow093 .sigee-resumo33 span{color:#6a798d!important}.sigee-modal33.workflow093 .sigee-resumo33 strong{color:#172033!important;font-size:12px!important}
+.sigee-wf-etapa-analise .sigee-modal33-header{background:var(--sigee-etapa-analise)!important;color:#172033!important}
+.sigee-wf-etapa-digitacao .sigee-modal33-header{background:var(--sigee-etapa-digitacao)!important;color:#fff!important}
+.sigee-wf-etapa-conferencia .sigee-modal33-header{background:var(--sigee-etapa-conferencia)!important;color:#fff!important}
+.sigee-wf-etapa-assinatura .sigee-modal33-header{background:var(--sigee-etapa-assinatura)!important;color:#073047!important}
+.sigee-responsavel-acao33{display:grid;grid-template-columns:48px 1fr;gap:14px;align-items:center;margin:18px 0;padding:16px 18px;border:2px solid currentColor;border-radius:16px;background:#fff}
+.sigee-responsavel-acao33>div:last-child{display:grid;gap:6px}.sigee-responsavel-acao33 span{font-size:11px;font-weight:900;letter-spacing:.1em;color:#40516a}.sigee-responsavel-acao33 input{width:100%;min-height:42px;background:#eef4f8!important;color:#172033!important;border:1px solid #c5d3e1!important;border-radius:10px;padding:10px 12px;font-weight:900}.sigee-responsavel-acao33 small{color:#64748b;font-weight:700}
+.sigee-area-etapa33{margin:18px 0;padding:18px;border:1px solid #d6e0eb;border-radius:15px;background:#fff}.sigee-area-etapa33 h3{margin:0 0 12px;color:#172033;font-size:16px}
+.sigee-tarefa-obrigatoria33{margin-top:18px!important;background:#f8fbff!important;border:2px solid #79b6ff!important;color:#172033!important}
+.sigee-tarefa-obrigatoria33 *{color:#172033!important}.sigee-tarefa-obrigatoria33 input[type=checkbox]{accent-color:#15803d}
+.sigee-acoes33{display:flex!important;justify-content:flex-end!important;gap:10px!important;margin-top:16px!important}.btn33{min-height:44px!important;border-radius:11px!important;padding:10px 18px!important;font-weight:900!important;color:#fff!important}.btn33-verde{background:var(--sigee-acao-seguir)!important}.btn33-amarelo{background:var(--sigee-acao-alerta)!important;color:#172033!important}.btn33-vermelho,.btn33-cinza{background:var(--sigee-acao-critica)!important}.btn33-roxo{background:var(--sigee-acao-alerta)!important;color:#172033!important}
+.sigee-rodape33{display:flex;justify-content:flex-start;border-top:1px solid #d6e0eb;padding-top:14px;margin-top:16px}.sigee-historico33,.sigee-linkhistorico33 button{background:#e8eef5!important;color:#24364d!important;border:1px solid #c4d0dd!important}
+.etapa-desarquivamento,.sigee-etapa-desarquivamento{background:var(--sigee-etapa-desarquivamento)!important;color:#fff!important;border-color:var(--sigee-etapa-desarquivamento)!important}
+@media(max-width:900px){.sigee-modal33.workflow093 .sigee-resumo33{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+
+/* Consolidação também para modais de Pendência/Indeferimento da camada oficial */
+.sigee-modal33{width:min(1120px,94vw)!important;max-height:90vh!important;background:#fff!important;color:#172033!important;border-radius:18px!important}
+.sigee-modal33 .sigee-modal33-header{min-height:62px!important;padding:18px 22px!important}
+.sigee-modal33 .sigee-modal33-body{padding:20px!important}
+.sigee-modal33 .sigee-resumo33{grid-template-columns:repeat(6,minmax(0,1fr))!important;gap:10px!important}
+.sigee-modal33 .sigee-resumo33>div{min-height:82px!important;background:#f7fafc!important;color:#172033!important;border:1px solid #d6e0eb!important}
+.sigee-modal33.analise .sigee-modal33-header{background:var(--sigee-etapa-analise)!important;color:#172033!important}
+.sigee-modal33.pendencia .sigee-modal33-header{background:var(--sigee-etapa-pendencia)!important;color:#172033!important;border-bottom:1px solid #172033!important}
+.sigee-modal33.indeferimento .sigee-modal33-header{background:var(--sigee-etapa-indeferido)!important;color:#fff!important}
+.sigee-modal33 .sigee-modal33-header h2{color:inherit!important}
+.sigee-wf-etapa-analise .sigee-modal33-header h2{color:#172033!important}
+.sigee-wf-etapa-assinatura .sigee-modal33-header h2{color:#073047!important}
+.sigee-pend-atual33{background:#f7fafc!important;color:#172033!important;border:2px solid #d6e0eb!important}.sigee-pend-atual33 *{color:#172033!important}
+.sigee-modal33 input,.sigee-modal33 select,.sigee-modal33 textarea{color:#172033!important;background:#fff!important}
+@media(max-width:900px){.sigee-modal33 .sigee-resumo33{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+/* Workflow externo: azul-petróleo e sequência institucional */
+.sigee-wfe-panel .sigee-wfe-head{background:#115e59!important}.sigee-wfe-panel .sigee-wfe-head h2{color:#fff!important}
+.sigee-wfe-documento{order:1}.sigee-wfe-actions{order:2}

@@ -156,8 +156,8 @@ tbody tr:hover{background:#eaf4ff!important;box-shadow:inset 3px 0 0 var(--sigee
 /* Central Process tabs */
 .sigee-central-topo,.sigee-central-abas,.sigee-central-pesquisa,.sigee-central-lista{background:#fff!important}
 .etapa-todos{background:#173f69!important;color:#fff!important}
-.etapa-desarquivamento{background:#fff!important;color:#334155!important;border-color:#cbd5e1!important}
-.sigee-etapa-desarquivamento{background:#e9f8ef!important;color:#087a4e!important;border-color:#82d6af!important}
+.etapa-desarquivamento{background:#115e59!important;color:#fff!important;border-color:#115e59!important}
+.sigee-etapa-desarquivamento{background:#115e59!important;color:#fff!important;border-color:#115e59!important}
 .sigee-etapa-analise{background:#facc15!important;color:#422006!important}
 .sigee-etapa-analise-desarquivamento{background:#e97824!important;color:#fff!important;box-shadow:0 0 0 2px rgba(233,120,36,.18)}
 .sigee-etapa-pendencia{background:#fff!important;color:#172033!important;border-color:#94a3b8!important}
