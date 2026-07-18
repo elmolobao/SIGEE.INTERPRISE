@@ -371,11 +371,11 @@ button[id^="btn-fase-"] span:not(.status-ico){
 .sigee-etapa-tab:hover{transform:translateY(-1px);box-shadow:0 4px 10px rgba(15,23,42,.10);}
 .etapa-todos{background:#172554;color:#fff;border-color:#172554;}
 .etapa-desarquivamento{background:#fff;color:#334155;border-color:#cbd5e1;}
-.etapa-analise{background:#f97316;color:#fff;border-color:#ea580c;}
-.etapa-pendencia{background:#7e22ce;color:#fff;border-color:#6b21a8;}
-.etapa-digitacao{background:#facc15;color:#422006;border-color:#eab308;}
-.etapa-conferencia{background:#67e8f9;color:#164e63;border-color:#22d3ee;}
-.etapa-assinatura{background:#92400e;color:#fff;border-color:#78350f;}
+.etapa-analise{background:#facc15;color:#422006;border-color:#eab308;}
+.etapa-pendencia{background:#ffffff;color:#172033;border-color:#94a3b8;}
+.etapa-digitacao{background:#f97316;color:#fff;border-color:#ea580c;}
+.etapa-conferencia{background:#7c3aed;color:#fff;border-color:#6d28d9;}
+.etapa-assinatura{background:#22d3ee;color:#083344;border-color:#06b6d4;}
 .etapa-deferido{background:#16a34a;color:#fff;border-color:#15803d;}
 .etapa-retirado{background:#64748b;color:#fff;border-color:#475569;}
 .etapa-indeferido{background:#dc2626;color:#fff;border-color:#b91c1c;}
@@ -385,11 +385,11 @@ button[id^="btn-fase-"] span:not(.status-ico){
 .sigee-etapa-badge{display:block;border-radius:.45rem;padding:.32rem .45rem;font-size:.58rem;line-height:1;font-weight:900;text-transform:uppercase;border:1px solid rgba(255,255,255,.28)}
 .sigee-etapa-nova{background:#2563eb;color:#fff}
 .sigee-etapa-desarquivamento{background:#fff;color:#0f172a;border-color:#cbd5e1}
-.sigee-etapa-analise{background:#f97316;color:#fff}
-.sigee-etapa-pendencia{background:#7e22ce;color:#fff}
-.sigee-etapa-digitacao{background:#facc15;color:#422006}
-.sigee-etapa-conferencia{background:#22d3ee;color:#083344}
-.sigee-etapa-assinatura{background:#78350f;color:#fff}
+.sigee-etapa-analise{background:#facc15;color:#422006}
+.sigee-etapa-pendencia{background:#ffffff;color:#172033;border-color:#94a3b8}
+.sigee-etapa-digitacao{background:#f97316;color:#fff}
+.sigee-etapa-conferencia{background:#7c3aed;color:#fff}
+.sigee-etapa-assinatura{background:#22d3ee;color:#083344}
 .sigee-etapa-deferido{background:#16a34a;color:#fff}
 .sigee-etapa-retirado{background:#4b5563;color:#fff}
 .sigee-etapa-indeferido{background:#dc2626;color:#fff}
@@ -642,204 +642,4 @@ button[id^="btn-fase-"] span:not(.status-ico){
     #aba-processos .sigee-central-lista{
         overflow-x:auto !important;
     }
-}
-
-
-/* ==========================================================
-   SIGEE Enterprise v0.9.2 - Revisão 03
-   - Sair fixo imediatamente acima da barra/rodapé institucional
-   - Catálogo e Usuários com cabeçalho/pesquisa fixos
-   - Rolagem apenas nas listas/tabelas desses módulos
-   ========================================================== */
-@media (min-width:769px){
-    /* O botão Sair fica ancorado acima da área inferior institucional. */
-    #sistema-dashboard .sigee-sidebar-logout{
-        position:fixed !important;
-        left:0 !important;
-        bottom:var(--sigee-area-inferior) !important;
-        width:16rem !important;
-        margin:0 !important;
-        z-index:9997 !important;
-        box-sizing:border-box !important;
-        background:linear-gradient(180deg, rgba(5,14,30,.99), rgba(9,20,48,.99)) !important;
-        border-top:1px solid rgba(56,189,248,.22) !important;
-        box-shadow:0 -10px 24px rgba(0,0,0,.28) !important;
-    }
-
-    #sistema-dashboard .sigee-sidebar-nav{
-        padding-bottom:76px !important;
-    }
-
-    /* Estrutura fixa compartilhada por Catálogo e Usuários. */
-    #aba-escolas.sigee-modulo-fixo:not(.hidden),
-    #aba-usuarios.sigee-modulo-fixo:not(.hidden){
-        display:grid !important;
-        grid-template-rows:auto auto minmax(0,1fr) !important;
-        gap:1rem !important;
-        flex:1 1 auto !important;
-        min-height:0 !important;
-        height:100% !important;
-        overflow:hidden !important;
-    }
-
-    /* No catálogo, o cartão de progresso só ocupa linha quando visível. */
-    #aba-escolas.sigee-modulo-fixo:not(.hidden):has(#card-progresso-importacao:not(.hidden)){
-        grid-template-rows:auto auto auto minmax(0,1fr) !important;
-    }
-
-    #aba-escolas .sigee-modulo-cabecalho,
-    #aba-escolas .sigee-modulo-pesquisa,
-    #aba-usuarios .sigee-modulo-cabecalho,
-    #aba-usuarios .sigee-modulo-pesquisa,
-    #aba-escolas .sigee-modulo-progresso{
-        min-height:0 !important;
-        position:relative !important;
-        top:auto !important;
-        z-index:25 !important;
-        margin:0 !important;
-    }
-
-    #aba-escolas .sigee-modulo-lista,
-    #aba-usuarios .sigee-modulo-lista{
-        min-height:0 !important;
-        height:100% !important;
-        overflow:hidden !important;
-        display:grid !important;
-        grid-template-rows:minmax(0,1fr) auto !important;
-        position:relative !important;
-        isolation:isolate;
-    }
-
-    #aba-usuarios .sigee-modulo-lista{
-        grid-template-rows:minmax(0,1fr) !important;
-    }
-
-    #aba-escolas .sigee-modulo-tabela-scroll,
-    #aba-usuarios .sigee-modulo-tabela-scroll{
-        min-height:0 !important;
-        height:100% !important;
-        overflow:auto !important;
-        overscroll-behavior:contain;
-        scrollbar-gutter:stable;
-    }
-
-    #aba-escolas .sigee-modulo-tabela-scroll table,
-    #aba-usuarios .sigee-modulo-tabela-scroll table{
-        border-collapse:separate !important;
-        border-spacing:0 !important;
-        min-width:900px;
-    }
-
-    #aba-escolas .sigee-modulo-tabela-scroll thead th,
-    #aba-usuarios .sigee-modulo-tabela-scroll thead th{
-        position:sticky !important;
-        top:0 !important;
-        z-index:30 !important;
-        background:#0b1f3a !important;
-        box-shadow:0 1px 0 rgba(56,189,248,.30), 0 5px 12px rgba(0,0,0,.22);
-    }
-}
-
-@media (max-width:768px){
-    #sistema-dashboard .sigee-sidebar-logout{
-        position:relative !important;
-        left:auto !important;
-        bottom:auto !important;
-        width:auto !important;
-    }
-
-    #aba-escolas.sigee-modulo-fixo:not(.hidden),
-    #aba-usuarios.sigee-modulo-fixo:not(.hidden){
-        display:block !important;
-        height:auto !important;
-        overflow:visible !important;
-    }
-
-    #aba-escolas .sigee-modulo-lista,
-    #aba-usuarios .sigee-modulo-lista,
-    #aba-escolas .sigee-modulo-tabela-scroll,
-    #aba-usuarios .sigee-modulo-tabela-scroll{
-        height:auto !important;
-        overflow-x:auto !important;
-        overflow-y:visible !important;
-    }
-}
-
-
-/* =====================================================================
-   SIGEE Enterprise — Sprint 2.5
-   Homologação visual final do Workflow
-   ===================================================================== */
-.sigee-workflow-action{
-    display:inline-flex !important;
-    align-items:center !important;
-    justify-content:center !important;
-    gap:6px !important;
-    min-height:34px !important;
-    padding:7px 11px !important;
-    border:1px solid rgba(255,255,255,.28) !important;
-    border-radius:10px !important;
-    color:#fff !important;
-    font-size:11px !important;
-    font-weight:900 !important;
-    line-height:1.15 !important;
-    text-align:center !important;
-    cursor:pointer !important;
-    box-shadow:0 8px 20px rgba(0,0,0,.26) !important;
-    opacity:1 !important;
-    visibility:visible !important;
-}
-.sigee-workflow-action:hover{transform:translateY(-1px) !important;filter:brightness(1.12) !important;}
-.sigee-workflow-action:focus-visible{outline:3px solid rgba(255,255,255,.86) !important;outline-offset:2px !important;}
-.sigee-workflow-action:disabled,
-.sigee-acoes33 button:disabled{
-    cursor:not-allowed !important;
-    opacity:.58 !important;
-    filter:grayscale(.25) !important;
-    transform:none !important;
-    box-shadow:none !important;
-}
-.sigee-workflow-action--digitacao{background:linear-gradient(135deg,#c2410c,#f97316) !important;}
-.sigee-workflow-action--conferencia{background:linear-gradient(135deg,#047857,#10b981) !important;}
-.sigee-workflow-action--deferido{background:linear-gradient(135deg,#166534,#16a34a) !important;}
-.sigee-workflow-action--retirada{background:linear-gradient(135deg,#334155,#475569) !important;}
-
-.sigee-acoes33{
-    display:flex !important;
-    flex-wrap:wrap !important;
-    justify-content:flex-end !important;
-    align-items:center !important;
-    gap:10px !important;
-    margin-top:20px !important;
-    padding-top:16px !important;
-    border-top:1px solid rgba(148,163,184,.24) !important;
-}
-.sigee-acoes33 .btn33{
-    display:inline-flex !important;
-    align-items:center !important;
-    justify-content:center !important;
-    min-height:42px !important;
-    padding:10px 16px !important;
-    border:1px solid rgba(255,255,255,.25) !important;
-    border-radius:11px !important;
-    color:#fff !important;
-    font-size:12px !important;
-    font-weight:900 !important;
-    opacity:1 !important;
-    visibility:visible !important;
-}
-.sigee-acoes33 .btn33-verde{background:linear-gradient(135deg,#047857,#16a34a) !important;}
-.sigee-acoes33 .btn33-amarelo{background:linear-gradient(135deg,#b45309,#f59e0b) !important;color:#fff !important;}
-.sigee-acoes33 .btn33-roxo{background:linear-gradient(135deg,#6d28d9,#8b5cf6) !important;}
-.sigee-acoes33 .btn33-vermelho{background:linear-gradient(135deg,#b91c1c,#e11d48) !important;}
-.sigee-acoes33 .btn33-cinza{background:linear-gradient(135deg,#334155,#475569) !important;}
-.sigee-aviso33{
-    margin:14px 0 !important;
-    padding:12px 14px !important;
-    border:1px solid rgba(245,158,11,.48) !important;
-    border-left:4px solid #f59e0b !important;
-    border-radius:10px !important;
-    background:rgba(120,53,15,.30) !important;
-    color:#fef3c7 !important;
-    font-weight:800 !important;
 }

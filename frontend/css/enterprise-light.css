@@ -158,12 +158,12 @@ tbody tr:hover{background:#eaf4ff!important;box-shadow:inset 3px 0 0 var(--sigee
 .etapa-todos{background:#173f69!important;color:#fff!important}
 .etapa-desarquivamento{background:#fff!important;color:#334155!important;border-color:#cbd5e1!important}
 .sigee-etapa-desarquivamento{background:#e9f8ef!important;color:#087a4e!important;border-color:#82d6af!important}
-.sigee-etapa-analise{background:#2578cf!important;color:#fff!important}
+.sigee-etapa-analise{background:#facc15!important;color:#422006!important}
 .sigee-etapa-analise-desarquivamento{background:#e97824!important;color:#fff!important;box-shadow:0 0 0 2px rgba(233,120,36,.18)}
-.sigee-etapa-pendencia{background:#7c4bb1!important;color:#fff!important}
-.sigee-etapa-digitacao{background:#f2c94c!important;color:#493a00!important}
-.sigee-etapa-conferencia{background:#57c5d8!important;color:#083344!important}
-.sigee-etapa-assinatura{background:#9a6238!important;color:#fff!important}
+.sigee-etapa-pendencia{background:#fff!important;color:#172033!important;border-color:#94a3b8!important}
+.sigee-etapa-digitacao{background:#f97316!important;color:#fff!important}
+.sigee-etapa-conferencia{background:#7c3aed!important;color:#fff!important}
+.sigee-etapa-assinatura{background:#22d3ee!important;color:#083344!important}
 .sigee-etapa-deferido{background:#17885e!important;color:#fff!important}
 .sigee-etapa-retirado{background:#6b7685!important;color:#fff!important}
 .sigee-etapa-indeferido{background:#c83c46!important;color:#fff!important}
