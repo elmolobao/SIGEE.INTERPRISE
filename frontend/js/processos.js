@@ -1428,6 +1428,8 @@
 
   window.abrirAnaliseSIGEE=abrirAnalise;
   window.abrirPendenciaSIGEE=abrirTratarPendencia;
+  window.abrirFormularioPendenciaSIGEE=abrirFormularioPendencia;
+  window.abrirFormularioIndeferimentoSIGEE=abrirFormularioIndeferimento;
   window.abrirHistoricoProcessoSIGEE=abrirHistorico;
   window.abrirHistoricoSIGEE=abrirHistorico;
 })();
@@ -1760,8 +1762,24 @@
       fechar();
       abrirEncaminharDigitacao(id,{origem:'Análise concluída'});
     });
-    el.querySelector('[data-pend093]').addEventListener('click',()=>{fechar(); abrirFormularioPendencia(id);});
-    el.querySelector('[data-ind093]').addEventListener('click',()=>{fechar(); abrirFormularioIndeferimento(id);});
+    el.querySelector('[data-pend093]').addEventListener('click',()=>{
+      fechar();
+      if(typeof window.abrirFormularioPendenciaSIGEE==='function'){
+        setTimeout(()=>window.abrirFormularioPendenciaSIGEE(id),0);
+      }else{
+        console.error('[SIGEE] Formulário de Pendência não está disponível.');
+        alert('Não foi possível abrir o formulário de Pendência. Atualize a página e tente novamente.');
+      }
+    });
+    el.querySelector('[data-ind093]').addEventListener('click',()=>{
+      fechar();
+      if(typeof window.abrirFormularioIndeferimentoSIGEE==='function'){
+        setTimeout(()=>window.abrirFormularioIndeferimentoSIGEE(id),0);
+      }else{
+        console.error('[SIGEE] Formulário de Indeferimento não está disponível.');
+        alert('Não foi possível abrir o formulário de Indeferimento. Atualize a página e tente novamente.');
+      }
+    });
     el.querySelector('[data-hist093]').addEventListener('click',()=>{fechar(); if(typeof window.abrirHistoricoProcessoSIGEE==='function')window.abrirHistoricoProcessoSIGEE(id,()=>abrirAnaliseWorkflow093(id));});
   }
 
@@ -1804,6 +1822,8 @@
     }
     window.SIGEE_WORKFLOW_093={
       abrirAnalise:abrirAnaliseWorkflow093,
+      abrirPendencia:function(id){ return window.abrirFormularioPendenciaSIGEE?.(id); },
+      abrirIndeferimento:function(id){ return window.abrirFormularioIndeferimentoSIGEE?.(id); },
       abrirEncaminharDigitacao:abrirEncaminharDigitacao,
       abrirHistorico:function(id){
         if(typeof window.abrirHistoricoProcessoSIGEE==='function') return window.abrirHistoricoProcessoSIGEE(id);
