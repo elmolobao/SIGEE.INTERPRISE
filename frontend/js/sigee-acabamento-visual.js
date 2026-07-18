@@ -1,11 +1,11 @@
 /* =====================================================================
-   SIGEE Enterprise — Sprint 2.3.4
+   SIGEE Enterprise — Sprint 2.3.5
    Classificação visual segura e cabeçalho do modo edição.
    ===================================================================== */
 (function(){
   'use strict';
-  if(window.__SIGEE_ACABAMENTO_VISUAL_234__) return;
-  window.__SIGEE_ACABAMENTO_VISUAL_234__=true;
+  if(window.__SIGEE_ACABAMENTO_VISUAL_235__) return;
+  window.__SIGEE_ACABAMENTO_VISUAL_235__=true;
 
   const txt=v=>v==null?'':String(v).trim();
   const norm=v=>txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
@@ -19,6 +19,24 @@
       if((t.includes('AVANCAR')||oc.includes('AVANCARPROCESSO'))&&!btn.classList.contains('sigee-acao-avancar')) btn.classList.add('sigee-acao-avancar');
       if((t.includes('REGREDIR')||oc.includes('REGREDIRPROCESSO'))&&!btn.classList.contains('sigee-acao-regredir')) btn.classList.add('sigee-acao-regredir');
       if((t.includes('EXCLUIR')||oc.includes('EXCLUIRPROCESSO'))&&!btn.classList.contains('sigee-acao-excluir')) btn.classList.add('sigee-acao-excluir');
+    });
+  }
+
+
+  const CLASSES_ACAO=['sigee-btn-seguir','sigee-btn-atencao','sigee-btn-critico','sigee-btn-neutro','sigee-btn-atas','sigee-btn-confirmacao'];
+
+  function classificarBotoesWorkflow(){
+    document.querySelectorAll('button').forEach(btn=>{
+      const t=norm(btn.textContent);
+      if(!t) return;
+      btn.classList.remove(...CLASSES_ACAO);
+      if(/INDEFERIR|CANCELAR|EXCLUIR/.test(t)) btn.classList.add('sigee-btn-critico');
+      else if(/PEDIDO DE ATAS|ENVIAR PEDIDO DE ATAS/.test(t)) btn.classList.add('sigee-btn-atas');
+      else if(/RETIFICACAO|RETIFICAR|REINICIAR CICLO/.test(t)) btn.classList.add('sigee-btn-neutro');
+      else if(/CONFIRMACAO DOS DADOS|CONFIRMAR DADOS/.test(t)) btn.classList.add('sigee-btn-confirmacao');
+      else if(/REGISTRAR PENDENCIA|REITERACAO/.test(t) && !/URG/.test(t)) btn.classList.add('sigee-btn-atencao');
+      else if(/REITERACAO COM URGENCIA|REITERACAO URGENTE/.test(t)) btn.classList.add('sigee-btn-critico');
+      else if(/PROSSEGUIR|ENVIAR PARA|RECEBER DOCUMENTO|REGISTRAR DOCUMENTO RECEBIDO|CONCLUIR RETIRADA|DEFERIR|DEFERIDO|DOCUMENTO CONFERIDO|AVANCAR/.test(t)) btn.classList.add('sigee-btn-seguir');
     });
   }
 
@@ -90,6 +108,7 @@
     requestAnimationFrame(()=>{
       agendado=false;
       classificarBotoes();
+      classificarBotoesWorkflow();
       decorarFormulario();
       identidadeUsuario();
     });
@@ -100,5 +119,5 @@
   document.addEventListener('DOMContentLoaded',aplicar);
   window.addEventListener('load',()=>setTimeout(aplicar,200));
 
-  console.info('[SIGEE] Acabamento Visual Institucional 2.3.4 carregado.');
+  console.info('[SIGEE] Acabamento Visual Institucional 2.3.5 carregado.');
 })();

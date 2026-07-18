@@ -114,6 +114,8 @@
   function tituloEvento(ev) {
     const codigo = normalizar(ev?.acao || ev?.evento || '');
     const titulos = {
+      PENDENCIA_REGISTRADA: 'Análise realizada - Pendência registrada',
+      ANALISE_REALIZADA_PENDENCIA_REGISTRADA: 'Análise realizada - Pendência registrada',
       DOCUMENTO_RECEBIDO: 'Documento Recebido',
       RETIFICAR_DADOS: 'Retificação de Dados',
       SEND_REITERACAO: 'Reiteração',
