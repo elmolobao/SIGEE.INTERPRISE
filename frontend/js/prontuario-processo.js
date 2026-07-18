@@ -1,12 +1,12 @@
 /* =====================================================================
-   SIGEE Enterprise — Sprint 2.3.1
+   SIGEE Enterprise — Sprint 3.5.0
    Prontuário Eletrônico do Processo
    Camada aditiva: não altera regras, transições ou persistência do workflow.
    ===================================================================== */
 (function () {
   'use strict';
-  if (window.__SIGEE_PRONTUARIO_231__) return;
-  window.__SIGEE_PRONTUARIO_231__ = true;
+  if (window.__SIGEE_PRONTUARIO_350__) return;
+  window.__SIGEE_PRONTUARIO_350__ = true;
 
   const ETAPAS = [
     'Solicitação', 'Documento Recebido', 'Desarquivamento', 'Análise',
@@ -104,6 +104,43 @@
     return 'padrao';
   }
 
+  function dadosEvento(ev) {
+    const bruto = ev?.dados || ev?.metadata || ev?.detalhes;
+    if (!bruto) return {};
+    if (typeof bruto === 'object') return bruto;
+    try { return JSON.parse(bruto); } catch (_) { return {}; }
+  }
+
+  function tituloEvento(ev) {
+    const codigo = normalizar(ev?.acao || ev?.evento || '');
+    const titulos = {
+      DOCUMENTO_RECEBIDO: 'Documento Recebido',
+      RETIFICAR_DADOS: 'Retificação de Dados',
+      SEND_REITERACAO: 'Reiteração',
+      SEND_REITERACAO_URGENTE: 'Reiteração com Urgência',
+      CONFIRMAR_DADOS: 'Confirmação dos Dados da Busca',
+      PEDIDO_ATAS_DESARQUIVAMENTO: 'Pedido de Atas sem Pasta'
+    };
+    return titulos[codigo] || ev.acao || ev.titulo || ev.etapa || 'Movimentação processual';
+  }
+
+  function descricaoEvento(ev) {
+    const codigo = normalizar(ev?.acao || ev?.evento || '');
+    const d = dadosEvento(ev);
+    if (codigo === 'DOCUMENTO_RECEBIDO') {
+      return ev.observacao || `Documento recebido${d.tipo_arquivo ? ` (${d.tipo_arquivo})` : ''}. Processo encaminhado para Análise sem reinício do ciclo.`;
+    }
+    if (codigo === 'RETIFICAR_DADOS') {
+      const novo = d.novo_ciclo || ev.novo_ciclo;
+      return ev.observacao || `Dados retificados. O Desarquivamento foi reiniciado por 30 dias${novo ? ` no Ciclo ${novo}` : ''}.`;
+    }
+    if (codigo === 'SEND_REITERACAO') return ev.observacao || 'Reiteração registrada, mantendo a contagem contínua do ciclo.';
+    if (codigo === 'SEND_REITERACAO_URGENTE') return ev.observacao || 'Reiteração com urgência registrada, mantendo a contagem contínua do ciclo.';
+    if (codigo === 'CONFIRMAR_DADOS') return ev.observacao || 'Confirmação dos dados da busca solicitada ao requerente.';
+    if (codigo === 'PEDIDO_ATAS_DESARQUIVAMENTO') return ev.observacao || 'Pedido de Atas sem Pasta registrado. Processo encaminhado para Análise no contexto do Desarquivamento.';
+    return ev.observacao || ev.descricao || ev.resumo || 'Movimentação registrada no processo.';
+  }
+
   function detalhesEvento(ev) {
     const campos = [
       ['Responsável', ev.usuario_nome || ev.responsavel || ev.executado_por],
@@ -112,11 +149,14 @@
       ['Mensagem', ev.mensagem_codigo || ev.mensagem],
       ['Arquivo', ev.tipo_arquivo || ev.arquivo],
       ['Local', ev.local_arquivo || ev.origem],
+      ['Ciclo', ev.ciclo || ev.cycle || dadosEvento(ev).ciclo],
+      ['Novo ciclo', ev.novo_ciclo || dadosEvento(ev).novo_ciclo],
+      ['Prazo iniciado', ev.prazo_dias || dadosEvento(ev).prazo_dias ? `${ev.prazo_dias || dadosEvento(ev).prazo_dias} dias` : ''],
       ['Observação', ev.observacao || ev.descricao]
     ].filter(([,v]) => texto(v));
 
     let extras = '';
-    const dados = ev.dados || ev.metadata || ev.detalhes;
+    const dados = dadosEvento(ev);
     if (dados && typeof dados === 'object') {
       extras = Object.entries(dados)
         .filter(([,v]) => v != null && typeof v !== 'object')
@@ -186,11 +226,11 @@
           <header>
             <div>
               <time>${formatarData(ev.created_at || ev.data || ev.data_hora)}</time>
-              <h3>${escapar(ev.acao || ev.titulo || ev.etapa || 'Movimentação processual')}</h3>
+              <h3>${escapar(tituloEvento(ev))}</h3>
             </div>
             <button type="button" aria-expanded="false" data-pep-expandir="${i}">Ver detalhes</button>
           </header>
-          <p>${escapar(ev.observacao || ev.descricao || ev.resumo || 'Movimentação registrada no processo.')}</p>
+          <p>${escapar(descricaoEvento(ev))}</p>
           <div class="sigee-pep-detalhes" data-pep-detalhes="${i}">
             ${detalhesEvento(ev) || '<div><span>Registro</span><strong>Sem informações complementares.</strong></div>'}
           </div>

@@ -3432,17 +3432,12 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         const chkEmail=document.getElementById('f00-chk-email'); if(chkEmail) chkEmail.checked=false;
         preencherSelectTecnicosPorNte('f00-analista', p.nte || usuarioLogado?.nte || '');
         setDisabled('f00-submit', true); setTexto('f00-submit','Enviar para Análise');
-        const alerta = (typeof obterAlertaDesarquivamentoSIGEE === 'function') ? obterAlertaDesarquivamentoSIGEE(p) : null;
         if(typeof aplicarEstadoCamposDesarquivamentoSIGEE === 'function') aplicarEstadoCamposDesarquivamentoSIGEE(false);
-        const cont=document.getElementById('f00-container-alertas'); if(cont) cont.innerHTML='';
-        if(alerta && cont){
-            if(typeof aplicarEstadoCamposDesarquivamentoSIGEE === 'function') aplicarEstadoCamposDesarquivamentoSIGEE(true);
-            cont.className='space-y-2 bg-amber-50 border border-amber-200 rounded-lg p-3';
-            cont.innerHTML = `<div class="text-xs font-black uppercase ${alerta.classe} px-2 py-1 rounded">⚠️ ${alerta.titulo}</div>
-                <label class="flex items-start gap-2 cursor-pointer text-xs font-bold text-blue-950"><input type="checkbox" id="f00-chk-alerta-email" required class="mt-0.5"><span>${alerta.email}</span></label>
-                <label class="flex items-start gap-2 cursor-pointer text-xs font-semibold text-gray-700"><input type="checkbox" id="f00-retificar-dados" class="mt-0.5" onchange="alternarRetificacaoDesarquivamentoSIGEE && alternarRetificacaoDesarquivamentoSIGEE()"><span>RETIFICAR DADOS</span></label>
-                <textarea id="f00-detalhe-retificacao" class="hidden w-full p-2 border rounded text-xs focus:outline-none" placeholder="Informe o que foi alterado/retificado nos dados da busca..."></textarea>`;
-        } else if(cont){ cont.classList.add('hidden'); }
+        const cont=document.getElementById('f00-container-alertas');
+        if(cont){
+            cont.className='hidden';
+            cont.innerHTML='';
+        }
         document.getElementById('modal-fluxo-desarquivamento').classList.remove('hidden');
     };
     window.validarDesarquivamentoV27 = function(){
@@ -3451,42 +3446,91 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     };
     ['f00-tipo','f00-local','f00-prioridade','f00-analista'].forEach(id=>setTimeout(()=>{ const el=document.getElementById(id); if(el) el.addEventListener('change', window.validarDesarquivamentoV27); },0));
     setTimeout(()=>{ const el=document.getElementById('f00-chk-email'); if(el) el.addEventListener('change', window.validarDesarquivamentoV27); },0);
-    window.executarTransicaoDesarquivamento = function(event){
+    window.executarTransicaoDesarquivamento = async function(event){
         event.preventDefault();
         const p = obterProcessoSIGEE(valor('f00-id')); if(!p) return;
-        if(!valor('f00-tipo') || !valor('f00-local') || !valor('f00-prioridade') || !valor('f00-analista') || !chk('f00-chk-email')){ alert('Preencha todos os campos obrigatórios e confirme o envio do e-mail.'); return; }
-        const alerta = (typeof obterAlertaDesarquivamentoSIGEE === 'function') ? obterAlertaDesarquivamentoSIGEE(p) : null;
-        if(alerta && chk('f00-retificar-dados')){
-            const detalhe = valor('f00-detalhe-retificacao');
-            if(!detalhe){ alert('Informe o que foi alterado para reiniciar o ciclo de 30 dias.'); return; }
-            p.data_etapa_atual = obterDataAtualFormatada(); p.alerta_desarq_nivel=0; p.data_alerta_desarq=null;
-            registrarLog(`Processo [${p.aluno}]: ${alerta.titulo} com retificação. Ciclo de Desarquivamento reiniciado.`);
-            salvarBancoLocalSIGEE(); fecharModalFluxo('desarquivamento'); carregarEContarProcessosHorizontais(); return;
+        if(!valor('f00-tipo') || !valor('f00-local') || !valor('f00-prioridade') || !valor('f00-analista') || !chk('f00-chk-email')){
+            alert('Preencha todos os campos obrigatórios e confirme o envio do E-mail 02.');
+            return;
         }
+
         const recebidoEmSIGEE = new Date().toISOString();
-        p.tipo_arquivo = valor('f00-tipo'); p.local_arquivo = valor('f00-local'); p.prioridade = valor('f00-prioridade'); p.analista = valor('f00-analista');
+        const cicloAtual = Math.max(1, Number(p.workflow_ciclo || p.ciclo || 1));
+        const tipoArquivo = valor('f00-tipo');
+        const localArquivo = valor('f00-local');
+        const prioridade = valor('f00-prioridade');
+        const analista = valor('f00-analista');
+
+        p.tipo_arquivo = tipoArquivo;
+        p.local_arquivo = localArquivo;
+        p.prioridade = prioridade;
+        p.analista = analista;
+        p.analista_nome = p.analista_nome || analista;
+        p.tecnico_responsavel = analista;
+        p.tecnico_responsavel_nome = analista;
         p.data_arquivo_recebido = recebidoEmSIGEE;
         p.ultimo_evento_workflow = 'DOCUMENTO_RECEBIDO';
-        p.etapa='Análise'; p.data_etapa_atual=obterDataAtualFormatada(); p.prazo_etapa=7; p.updated_at=recebidoEmSIGEE;
-        registrarLog(`Processo [${p.aluno}]: Documento recebido e enviado para Análise. Analista: ${p.analista}.`);
+        p.ultima_mensagem_workflow = '02';
+        p.contexto_analise = 'DOCUMENTO_RECEBIDO';
+        p.etapa_codigo = 'ANA';
+        p.etapa = 'Análise';
+        p.etapa_atual = 'Análise';
+        p.fase_atual = 'Análise';
+        p.data_etapa_atual = recebidoEmSIGEE;
+        p.prazo_inicio = recebidoEmSIGEE;
+        p.prazo_fim = new Date(Date.now() + 7 * 86400000).toISOString();
+        p.prazo_etapa = 7;
+        p.updated_at = recebidoEmSIGEE;
+        p.workflow_ciclo = cicloAtual;
+        p.ciclo = cicloAtual;
+
+        registrarLog(`Processo [${p.aluno}]: Documento recebido e encaminhado para Análise. Tipo: ${tipoArquivo}. Local: ${localArquivo}. Analista: ${analista}.`);
+
         try {
             const clienteHistoricoSIGEE = obterSupabaseSIGEE();
             if (clienteHistoricoSIGEE) {
-                clienteHistoricoSIGEE.from('historico_processos').insert({
+                const { error } = await clienteHistoricoSIGEE.from('historico_processos').insert({
                     processo_id: p.id,
+                    workflow_instance_id: p.workflow_instance_id || null,
+                    codigo_sigee: p.codigo_sigee || null,
                     nte: p.nte || usuarioLogado?.nte || null,
                     etapa: 'Análise',
-                    acao: 'Documento Recebido',
+                    acao: 'DOCUMENTO_RECEBIDO',
+                    observacao: `Documento recebido (${tipoArquivo}) no local ${localArquivo}. E-mail 02 confirmado. Processo encaminhado para Análise sem reinício do ciclo.`,
+                    usuario_nome: usuarioLogado?.nome || usuarioLogado?.email || null,
+                    usuario_email: usuarioLogado?.email || null,
+                    usuario_perfil: usuarioLogado?.perfil || null,
+                    dados: {
+                        etapa_origem: 'Desarquivamento',
+                        etapa_destino: 'Análise',
+                        mensagem: '02',
+                        ciclo: cicloAtual,
+                        tipo_arquivo: tipoArquivo,
+                        local_arquivo: localArquivo,
+                        prioridade: prioridade,
+                        analista: analista,
+                        prazo_dias: 7,
+                        reinicia_ciclo: false
+                    },
                     created_at: recebidoEmSIGEE
-                }).then(({ error }) => {
-                    if (error) console.warn('[SIGEE] Evento Documento Recebido não gravado no histórico:', error);
-                    else window.dispatchEvent(new CustomEvent('sigee:arquivo-recebido', { detail: { processoId: p.id } }));
                 });
+                if (error) console.warn('[SIGEE] Evento Documento Recebido não gravado no histórico:', error);
+                else window.dispatchEvent(new CustomEvent('sigee:arquivo-recebido', { detail: { processoId: p.id } }));
             }
         } catch (erroHistoricoSIGEE) {
             console.warn('[SIGEE] Falha ao registrar Documento Recebido para indicadores:', erroHistoricoSIGEE);
         }
-        salvarBancoLocalSIGEE(); fecharModalFluxo('desarquivamento'); carregarEContarProcessosHorizontais();
+
+        try {
+            if(window.SIGEE_Processos && typeof window.SIGEE_Processos.salvar === 'function') await window.SIGEE_Processos.salvar(p);
+            else salvarBancoLocalSIGEE();
+        } catch (erroSalvarDocumento) {
+            console.error('[SIGEE] Falha ao salvar Documento Recebido:', erroSalvarDocumento);
+            alert('Não foi possível concluir o Documento Recebido. Tente novamente.');
+            return;
+        }
+        fecharModalFluxo('desarquivamento');
+        carregarEContarProcessosHorizontais();
     };
 
     // 01 - Análise
