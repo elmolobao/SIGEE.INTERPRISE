@@ -539,13 +539,13 @@
         if (isEstagiario(usuario())) return '<span class="text-gray-400 font-bold">Consulta</span>';
         if (!podeMovimentar(p)) return '<span class="text-gray-400 font-bold">Sem ação</span>';
         const e = normalizar(processoEtapa(p));
-        if (e.includes('ANAL')) return `<button onclick="abrirAnaliseSIGEE(${p.id})" class="bg-orange-600 hover:bg-orange-500 text-white font-bold px-2 py-1 rounded text-[10px]">Abrir Análise</button>`;
-        if (e.includes('PEND')) return `<button onclick="abrirPendenciaSIGEE(${p.id})" class="bg-purple-700 hover:bg-purple-600 text-white font-bold px-2 py-1 rounded text-[10px]">Tratar Pendência</button>`;
+        if (e.includes('ANAL')) return `<button onclick="abrirAnaliseSIGEE(${p.id})" class="sigee-list-action sigee-list-action-analysis">Abrir Análise</button>`;
+        if (e.includes('PEND')) return `<button onclick="abrirPendenciaSIGEE(${p.id})" class="sigee-list-action sigee-list-action-pending">Tratar Pendência</button>`;
         if (e.includes('INDEFER')) return '<span class="text-red-300 font-bold">Finalizado</span>';
-        if (e.includes('DIGIT')) return `<button onclick="abrirModalFluxoDigitacao(${p.id})" class="bg-orange-600 text-white font-bold px-2 py-1 rounded text-[10px]">Documento Digitado</button>`;
-        if (e.includes('CONFER')) return `<button onclick="abrirModalFluxoConferencia(${p.id})" class="bg-green-700 text-white font-bold px-2 py-1 rounded text-[10px]">Documento Conferido</button>`;
-        if (e.includes('ASSIN')) return `<button onclick="abrirModalFluxoAssinatura(${p.id})" class="bg-blue-700 text-white font-bold px-2 py-1 rounded text-[10px]">Deferido</button>`;
-        if (e.includes('AGUARD')) return `<button onclick="abrirModalFluxoAguardando(${p.id})" class="bg-gray-700 text-white font-bold px-2 py-1 rounded text-[10px]">Retirado</button>`;
+        if (e.includes('DIGIT')) return `<button onclick="abrirModalFluxoDigitacao(${p.id})" class="sigee-list-action sigee-list-action-digitacao">Documento Digitado</button>`;
+        if (e.includes('CONFER')) return `<button onclick="abrirModalFluxoConferencia(${p.id})" class="sigee-list-action sigee-list-action-conferencia">Documento Conferido</button>`;
+        if (e.includes('ASSIN')) return `<button onclick="abrirModalFluxoAssinatura(${p.id})" class="sigee-list-action sigee-list-action-assinatura">Deferido</button>`;
+        if (e.includes('AGUARD')) return `<button onclick="abrirModalFluxoAguardando(${p.id})" class="sigee-list-action sigee-list-action-retirada">Retirado</button>`;
         if (e.includes('RETIR')) return '<span class="text-gray-300 font-bold">Finalizado</span>';
 
         const codigoEtapa = normalizar(p.etapa_codigo);
@@ -556,21 +556,21 @@
         const alerta = alertaPorEtapa || alertaChave(p);
         const permiteRetificacao = ['RET', 'REU', 'CFD'].includes(codigoEtapa) || retificacaoDisponivel(alerta);
         const executada = acaoJaExecutada(p, alerta);
-        const botaoRetificacao = permiteRetificacao ? `<button onclick="abrirRetificacaoDadosSIGEE(${p.id})" class="ml-1 bg-gray-600 hover:bg-gray-500 text-white font-bold px-2 py-1 rounded text-[10px]">Retificação dos Dados</button>` : '';
+        const botaoRetificacao = permiteRetificacao ? `<button onclick="abrirRetificacaoDadosSIGEE(${p.id})" class="sigee-list-action sigee-list-action-retificacao">Retificação dos Dados</button>` : '';
         if (alerta === 'REITERACAO') return (executada
             ? '<span class="text-gray-400 font-bold">Reiteração executada</span>'
-            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'REITERACAO')" class="bg-amber-600 text-white font-bold px-2 py-1 rounded text-[10px]">Executar Reiteração</button>`) + botaoRetificacao;
+            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'REITERACAO')" class="sigee-list-action sigee-list-action-reiteracao">Executar Reiteração</button>`) + botaoRetificacao;
         if (alerta === 'REITERACAO_URGENTE') return (executada
             ? '<span class="text-gray-400 font-bold">Reiteração urgente executada</span>'
-            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'REITERACAO_URGENTE')" class="bg-orange-600 text-white font-bold px-2 py-1 rounded text-[10px]">Executar Reiteração Urgente</button>`) + botaoRetificacao;
+            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'REITERACAO_URGENTE')" class="sigee-list-action sigee-list-action-digitacao">Executar Reiteração Urgente</button>`) + botaoRetificacao;
         if (alerta === 'CONFIRMAR_DADOS') return (executada
             ? '<span class="text-gray-400 font-bold">Dados confirmados</span>'
-            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'CONFIRMAR_DADOS')" class="bg-red-600 text-white font-bold px-2 py-1 rounded text-[10px]">Confirmar Dados da Busca</button>`) + botaoRetificacao;
+            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'CONFIRMAR_DADOS')" class="sigee-list-action sigee-list-action-confirmacao">Confirmar Dados da Busca</button>`) + botaoRetificacao;
         if (alerta === 'PEDIDO_ATAS_SEM_PASTA') return executada
             ? '<span class="text-gray-400 font-bold">Atas solicitadas</span>'
-            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'PEDIDO_ATAS_SEM_PASTA')" class="bg-red-800 text-white font-bold px-2 py-1 rounded text-[10px]">Solicitar Atas sem Pasta</button>`;
+            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'PEDIDO_ATAS_SEM_PASTA')" class="sigee-list-action sigee-list-action-atas">Solicitar Atas sem Pasta</button>`;
 
-        return `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'DESARQUIVAMENTO')" class="bg-sky-700 text-white font-bold px-2 py-1 rounded text-[10px]">Documento Recebido</button>`;
+        return `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'DESARQUIVAMENTO')" class="sigee-list-action sigee-list-action-documento">Documento Recebido</button>`;
     }
 
     function renderizarProcessos() {
@@ -590,20 +590,20 @@
             let botoesAdministrativos = '';
             if (isMaster(uAtual)) {
                 botoesAdministrativos = `
-                <div class="mt-1 flex flex-wrap justify-center gap-1">
-                    <button onclick="editarProcessoMasterSIGEE(${p.id})" class="bg-blue-600 text-white text-[9px] px-2 py-0.5 rounded font-bold">Editar</button>
-                    <button onclick="regredirProcessoMasterSIGEE(${p.id})" class="bg-amber-700 text-white text-[9px] px-2 py-0.5 rounded font-bold">Regredir</button>
-                    <button onclick="avancarProcessoMasterSIGEE(${p.id})" class="bg-emerald-700 text-white text-[9px] px-2 py-0.5 rounded font-bold">Avançar</button>
-                    <button onclick="excluirProcessoMasterSIGEE(${p.id})" class="bg-red-700 text-white text-[9px] px-2 py-0.5 rounded font-bold">Excluir</button>
+                <div class="sigee-list-admin-actions">
+                    <button onclick="editarProcessoMasterSIGEE(${p.id})" class="sigee-list-admin-button sigee-list-admin-edit">Editar</button>
+                    <button onclick="regredirProcessoMasterSIGEE(${p.id})" class="sigee-list-admin-button sigee-list-admin-regress">Regredir</button>
+                    <button onclick="avancarProcessoMasterSIGEE(${p.id})" class="sigee-list-admin-button sigee-list-admin-advance">Avançar</button>
+                    <button onclick="excluirProcessoMasterSIGEE(${p.id})" class="sigee-list-admin-button sigee-list-admin-delete">Excluir</button>
                 </div>`;
             } else if (isAdmin(uAtual) && mesmoNte(nteUsuario(uAtual), processoNte(p))) {
                 botoesAdministrativos = `
-                <div class="mt-1 flex flex-wrap justify-center gap-1">
-                    <button onclick="editarProcessoMasterSIGEE(${p.id})" class="bg-blue-600 text-white text-[9px] px-2 py-0.5 rounded font-bold">Corrigir Cadastro</button>
+                <div class="sigee-list-admin-actions">
+                    <button onclick="editarProcessoMasterSIGEE(${p.id})" class="sigee-list-admin-button sigee-list-admin-edit">Corrigir Cadastro</button>
                 </div>`;
             }
             corpo.insertAdjacentHTML('beforeend', `
-                <tr class="hover:bg-blue-950/70 text-white transition-colors">
+                <tr class="sigee-process-row">
                     <td class="p-2.5">
                         <span class="sigee-aluno-nome" title="${processoAluno(p)}">${processoAluno(p)}</span>
                         <span class="sigee-codigo-linha">
@@ -619,7 +619,7 @@
                     <td class="p-2.5 text-center">${prazoVisual(p)}${alertaPrazo(p)}</td>
                     <td class="p-2.5 text-center text-[10px] font-semibold">${processoResponsavel(p)}</td>
                     <td class="p-2.5 text-center"><span class="sigee-etapa-badge ${corEtapa(etapa)} ${normalizar(p.contexto_analise).includes("DESARQUIVAMENTO") ? "sigee-etapa-analise-desarquivamento" : ""}">${etapa}</span></td>
-                    <td class="p-2.5 text-center">${acaoFluxo(p)}<button onclick="abrirHistoricoSIGEE(${p.id})" class="ml-1 bg-slate-700 hover:bg-slate-600 text-white font-bold px-2 py-1 rounded text-[10px]">Histórico</button>${botoesAdministrativos}</td>
+                    <td class="p-2.5 text-center sigee-process-actions-cell">${acaoFluxo(p)}<button onclick="abrirHistoricoSIGEE(${p.id})" class="sigee-list-action sigee-list-action-history">Histórico</button>${botoesAdministrativos}</td>
                 </tr>`);
         });
     }
