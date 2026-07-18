@@ -14,7 +14,7 @@
 (function (window) {
   'use strict';
 
-  const VERSION = '0.9.5.0';
+  const VERSION = '0.9.5.1';
 
   const ERROR_MESSAGES = Object.freeze({
     WF001: 'Estado atual inválido.',
@@ -499,6 +499,9 @@
       observacao: context.observation || null,
       cycle: currentCycle,
       ciclo: currentCycle,
+      novo_ciclo: eventCode === 'RETIFICAR_DADOS' ? Number(updatedProcess.workflow_ciclo || updatedProcess.ciclo || currentCycle + 1) : null,
+      prazo_dias: eventCode === 'RETIFICAR_DADOS' ? 30 : (updatedProcess.prazo_etapa ?? null),
+      contexto_analise: updatedProcess.contexto_analise || null,
       user: clone(user || null),
       usuario: user && (user.nome || user.name || user.email) || null,
       perfil: userProfile(user) || null,

@@ -9,7 +9,7 @@
 (function (window) {
   'use strict';
 
-  const VERSION = '0.9.5.0';
+  const VERSION = '0.9.5.1';
 
   const stateManager = window.SIGEE_STATE_MANAGER || null;
 
@@ -34,7 +34,7 @@
   });
 
   const TRANSITIONS = Object.freeze({
-    DES: Object.freeze({ SEND_REITERACAO: 'RET', LOCALIZAR_PASTA: 'PLA' }),
+    DES: Object.freeze({ SEND_REITERACAO: 'RET', RETIFICAR_DADOS: 'DES', LOCALIZAR_PASTA: 'PLA' }),
     RET: Object.freeze({ SEND_REITERACAO_URGENTE: 'REU', RETIFICAR_DADOS: 'DES', LOCALIZAR_PASTA: 'PLA' }),
     REU: Object.freeze({ CONFIRMAR_DADOS: 'CFD', RETIFICAR_DADOS: 'DES', LOCALIZAR_PASTA: 'PLA' }),
     CFD: Object.freeze({ RETIFICAR_DADOS: 'DES', DADOS_CONFIRMADOS: 'CFD', PEDIDO_ATAS_DESARQUIVAMENTO: 'ANA', LOCALIZAR_PASTA: 'PLA' }),

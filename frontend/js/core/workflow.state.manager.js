@@ -8,13 +8,13 @@
 (function (window) {
   'use strict';
 
-  const VERSION = '0.9.5.0';
+  const VERSION = '0.9.5.1';
 
   const STATE_CATALOG = Object.freeze({
     DES: Object.freeze({
       code: 'DES', name: 'Desarquivamento', order: 1, deadline: 30,
       color: '#1976D2', icon: 'folder-open',
-      allowedEvents: Object.freeze(['SEND_REITERACAO', 'LOCALIZAR_PASTA', 'DOCUMENTO_RECEBIDO'])
+      allowedEvents: Object.freeze(['SEND_REITERACAO', 'RETIFICAR_DADOS', 'LOCALIZAR_PASTA', 'DOCUMENTO_RECEBIDO'])
     }),
     RET: Object.freeze({
       code: 'RET', name: 'Reiteração', order: 2, deadline: 7,
