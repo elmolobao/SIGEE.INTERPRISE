@@ -422,7 +422,11 @@
               ciclo: record.cycle,
               novo_ciclo: record.novo_ciclo || null,
               prazo_dias: record.prazo_dias || null,
-              contexto_analise: record.contexto_analise || null
+              contexto_analise: record.contexto_analise || null,
+              executor_nome: record.usuario || currentUser()?.nome || currentUser()?.email || null,
+              executor_email: currentUser()?.email || null,
+              executor_perfil: record.perfil || currentUser()?.perfil || null,
+              executor_nte: currentUser()?.nte || currentUser()?.nte_nome || currentUser()?.grupo || null
             },
             created_at: record.createdAt
           };
