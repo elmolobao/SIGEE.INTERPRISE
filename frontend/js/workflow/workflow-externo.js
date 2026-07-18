@@ -243,16 +243,6 @@
     const result = [];
     const primary = primaryAction(stateCode);
 
-    if (primary) {
-      result.push({
-        action: primary,
-        enabled: (deadline == null || elapsed >= deadline) && !wasExecuted(process, primary.event),
-        executed: wasExecuted(process, primary.event),
-        remainingDays: deadline == null ? 0 : Math.max(0, deadline - elapsed),
-        primary: true
-      });
-    }
-
     if (['DES', 'RET', 'REU', 'CFD'].includes(stateCode)) {
       result.push({
         action: ACTIONS.RETIFICAR_DADOS,
@@ -260,6 +250,16 @@
         executed: wasExecuted(process, ACTIONS.RETIFICAR_DADOS.event),
         remainingDays: 0,
         primary: false
+      });
+    }
+
+    if (primary) {
+      result.push({
+        action: primary,
+        enabled: (deadline == null || elapsed >= deadline) && !wasExecuted(process, primary.event),
+        executed: wasExecuted(process, primary.event),
+        remainingDays: deadline == null ? 0 : Math.max(0, deadline - elapsed),
+        primary: true
       });
     }
 
@@ -422,11 +422,7 @@
               ciclo: record.cycle,
               novo_ciclo: record.novo_ciclo || null,
               prazo_dias: record.prazo_dias || null,
-              contexto_analise: record.contexto_analise || null,
-              executor_nome: record.usuario || currentUser()?.nome || currentUser()?.email || null,
-              executor_email: currentUser()?.email || null,
-              executor_perfil: record.perfil || currentUser()?.perfil || null,
-              executor_nte: currentUser()?.nte || currentUser()?.nte_nome || currentUser()?.grupo || null
+              contexto_analise: record.contexto_analise || null
             },
             created_at: record.createdAt
           };
@@ -644,11 +640,11 @@
             <div class="sigee-wfe-card"><span>Prazo da etapa</span><strong>${state.deadline == null ? 'Sem prazo' : state.deadline + ' dias'}</strong></div>
           </div>
           <div class="sigee-wfe-note">Cada comunicação somente será registrada após a confirmação obrigatória de todas as mensagens institucionais vinculadas à ação.</div>
-          <div class="sigee-wfe-actions">${actionsHtml || '<div class="sigee-wfe-card">Nenhuma ação externa disponível.</div>'}</div>
           <div class="sigee-wfe-action sigee-wfe-documento">
             <div class="sigee-wfe-action-copy"><span class="sigee-wfe-action-icon" aria-hidden="true">📁</span><div><strong>Documento Recebido</strong><p>Registre o tipo e o local do arquivo, defina a prioridade e o analista e confirme o envio do E-mail 02. O Desarquivamento será encerrado e o processo seguirá para Análise, sem reiniciar o ciclo.</p></div></div>
             <button type="button" class="sigee-wfe-btn sigee-wfe-secondary" data-wfe-documento>Receber documento</button>
           </div>
+          <div class="sigee-wfe-actions">${actionsHtml || '<div class="sigee-wfe-card">Nenhuma ação externa disponível.</div>'}</div>
         </div>
       </section>`;
 
