@@ -1337,25 +1337,12 @@
       ...inst.map(item=>Object.assign({},base,{grupo:'instituicao',item,complemento:compInst||null}))
     ];
     if(!linhas.length)throw new Error('Nenhuma pendência foi selecionada para gravação.');
+    /* O avanço para Pendência depende somente da confirmação real do INSERT.
+       Não fazemos uma segunda consulta de conferência, pois ela pode falhar por
+       RLS, latência ou diferença de retorno sem representar falha de gravação. */
     const {error}=await c.from('processo_pendencias').insert(linhas);
     if(error)throw error;
-
-    /* Trava de integridade: o processo só poderá mudar para Pendência depois
-       de o Supabase devolver exatamente os itens que acabaram de ser gravados. */
-    const {data:gravadas,error:verError}=await c.from('processo_pendencias')
-      .select('id,grupo,item,status')
-      .eq('processo_id',p.id)
-      .eq('status','pendente');
-    if(verError)throw verError;
-    const chave=x=>`${norm(x.grupo)}|${norm(x.item)}`;
-    const esperado=new Set(linhas.map(chave));
-    const confirmado=new Set((gravadas||[]).map(chave));
-    const faltantes=[...esperado].filter(k=>!confirmado.has(k));
-    if(faltantes.length || confirmado.size<esperado.size){
-      await c.from('processo_pendencias').delete().eq('processo_id',p.id).eq('status','pendente');
-      throw new Error('O Supabase não confirmou todos os itens da pendência. O processo permaneceu em Análise.');
-    }
-    return gravadas||[];
+    return linhas;
   }
   async function marcarRecebidas(ids,ator){
     if(!ids.length)return;
@@ -1747,46 +1734,31 @@
   async function abrirAnaliseWorkflow093(id){
     const p=processo(id); if(!p) return;
     if(somenteLeitura() && typeof abrirAnaliseAnterior==='function') return abrirAnaliseAnterior(id);
-    const msg=MENSAGENS.digitacao;
+
+    /* A Análise abre primeiro como uma janela de decisão. A seleção do
+       digitador só aparece quando o operador escolhe prosseguir. */
     const el=modal(`🔍 Análise Realizada — ${esc(p.codigo_sigee||p.id)}`,
       `${cabecalho(p)}
-       ${selectTecnico(p,'wf-digitador-analise093','Responsável pela Digitação',[])}
        <section class="sigee-area-etapa33 sigee-area-alternativas33">
-         <h3>Outras decisões da Análise</h3>
-         <div class="sigee-acoes33">
+         <h3>Decisão da Análise</h3>
+         <p class="sigee-texto-apoio33">Escolha a providência adequada. Os campos específicos serão apresentados somente depois da decisão.</p>
+         <div class="sigee-acoes33 sigee-acoes-decisao33">
+           <button class="btn33 btn33-verde" data-prosseguir093>✍️ Prosseguir para Digitação</button>
            <button class="btn33 btn33-amarelo" data-pend093>⚠️ Registrar Pendência</button>
            <button class="btn33 btn33-vermelho sigee-acao-indeferir33" data-ind093><span aria-hidden="true">✖</span> Indeferir Processo</button>
          </div>
        </section>
-       ${tarefa(msg,'wf-email-analise093')}
        <div class="sigee-rodape33 sigee-rodape-acoes33">
          <button class="btn33 sigee-historico33" data-hist093>📜 Histórico do Processo</button>
          <div class="sigee-acoes33">
            <button class="btn33 btn33-vermelho" data-cancelar-analise093>Cancelar</button>
-           <button class="btn33 btn33-verde" data-dig093 disabled>Prosseguir para Digitação</button>
          </div>
        </div>`,'analise');
-    const sel=el.querySelector('#wf-digitador-analise093');
-    const chk=el.querySelector('#wf-email-analise093');
-    const btn=el.querySelector('[data-dig093]');
-    await preencherSelectTecnicoWorkflow(sel,p);
-    el.querySelector('.sigee-selecao-semusuarios093')?.remove();
-    const validar=()=>{ atualizarDestaqueTecnico(el,sel); btn.disabled=!(sel.value&&chk.checked); };
-    sel.addEventListener('change',validar); chk.addEventListener('change',validar); validar();
+
     el.querySelector('[data-cancelar-analise093]').addEventListener('click',fechar);
-    btn.addEventListener('click',async()=>{
-      if(!sel.value||!chk.checked) return;
-      btn.disabled=true;
-      const digitador=sel.value, instante=agora();
-      try{
-        p.etapa=p.etapa_atual='Digitação';
-        p.data_etapa_atual=instante; p.prazo_inicio=instante; p.prazo_fim=null; p.prazo_etapa=15; p.updated_at=instante;
-        p.tecnico_responsavel=digitador; p.tecnico_responsavel_nome=digitador; p.responsavel=digitador; p.responsavel_nome=digitador;
-        p.digitador=digitador; p.digitador_nome=digitador; p.ultima_mensagem_workflow=msg.codigo;
-        await salvar(p);
-        await historico(p,'Digitação','Análise concluída — encaminhado para Digitação',`Análise concluída. Digitador: ${digitador}. Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}.`,{digitador,mensagem:msg,tarefa_confirmada:true});
-        fechar(); if(window.filtrarProcessosPorEtapa) window.filtrarProcessosPorEtapa('Digitação'); toast('Processo encaminhado para Digitação.');
-      }catch(e){ console.error('[SIGEE] Falha ao encaminhar Análise para Digitação.',e); btn.disabled=false; alert('Não foi possível encaminhar o processo para Digitação: '+(e?.message||e)); }
+    el.querySelector('[data-prosseguir093]').addEventListener('click',()=>{
+      fechar();
+      abrirEncaminharDigitacao(id,{origem:'Análise concluída'});
     });
     el.querySelector('[data-pend093]').addEventListener('click',()=>{fechar(); abrirFormularioPendencia(id);});
     el.querySelector('[data-ind093]').addEventListener('click',()=>{fechar(); abrirFormularioIndeferimento(id);});
