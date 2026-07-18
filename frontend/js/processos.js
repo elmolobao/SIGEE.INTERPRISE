@@ -1278,8 +1278,17 @@
   function escapar(v){return txt(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));}
   function nomeUsuario(){return txt(usuario().nome||usuario().email||'Usuário SIGEE');}
   function fecharModal(){document.getElementById('sigee-modal-fluxo33')?.remove();}
+  function fecharJanelasConcorrentesSIGEE(){
+    fecharModal();
+    document.querySelectorAll('[id^="modal-fluxo-"]').forEach(function(node){
+      if(node.id !== 'sigee-modal-fluxo33') node.classList.add('hidden');
+    });
+    document.querySelectorAll('.sigee-wam-overlay,.sigee-wfe-overlay').forEach(function(node){
+      if(!node.closest('#sigee-modal-fluxo33')) node.remove();
+    });
+  }
   function modal(titulo,conteudo,classe=''){
-    fecharModal(); const el=document.createElement('div'); el.id='sigee-modal-fluxo33'; el.className='sigee-modal33-backdrop';
+    fecharJanelasConcorrentesSIGEE(); const el=document.createElement('div'); el.id='sigee-modal-fluxo33'; el.className='sigee-modal33-backdrop';
     el.innerHTML=`<section class="sigee-modal33 ${classe}"><header class="sigee-modal33-header"><h2>${titulo}</h2><button type="button" data-fechar-modal33>×</button></header><div class="sigee-modal33-body">${conteudo}</div></section>`;
     document.body.appendChild(el); el.addEventListener('click',e=>{if(e.target===el||e.target.closest('[data-fechar-modal33]')) fecharModal();}); return el;
   }
@@ -1397,7 +1406,7 @@
     const msg=pendentes[0]?.mensagem_texto||mensagemPendencia(pendentes.filter(x=>x.grupo==='aluno'),pendentes.filter(x=>x.grupo==='instituicao')).texto;
     const el=modal(`⚠️ Tratar Pendência — ${escapar(p.codigo_sigee||p.id)}`,`${resumo(p)}<section class="sigee-pend-atual33"><h3>Pendências abertas</h3>${itens}</section><section class="sigee-tarefa-status331"><strong>Mensagem institucional confirmada:</strong><span>ENVIAR E-MAIL: ${escapar(msg)}</span></section>${recebidos.length?`<p class="sigee-recebidos331">Já recebidos: ${escapar(recebidos.map(x=>x.item).join(', '))}</p>`:''}<div class="sigee-acoes33"><button class="btn33 btn33-cinza" data-hist33>📜 Histórico</button>${somenteLeitura()?'':`<button class="btn33 btn33-roxo" data-salvar-receb33>Registrar Documento Recebido</button>`}</div>`,'pendencia');
     el.querySelector('[data-hist33]')?.addEventListener('click',()=>abrirHistorico(id,()=>abrirTratarPendencia(id)));
-    el.querySelector('[data-salvar-receb33]')?.addEventListener('click',async()=>{const ids=[...el.querySelectorAll('input[name="receb331"]:checked')].map(x=>Number(x.value));if(!ids.length)return alert('Marque ao menos um item recebido.');try{const ator=identidadeSessao();await marcarRecebidas(ids,ator);const restantes=pendentes.filter(x=>!ids.includes(Number(x.id)));const completo=restantes.length===0;p.pendencia_aberta=!completo;p.etapa=p.etapa_atual='Pendência';p.data_etapa_atual=agoraISO();p.tecnico_responsavel=ator.nome;p.pendencia_aluno_itens=restantes.filter(x=>x.grupo==='aluno').map(x=>x.item);p.pendencia_instituicao_itens=restantes.filter(x=>x.grupo==='instituicao').map(x=>x.item);await salvar(p);const recebidosAgora=pendentes.filter(x=>ids.includes(Number(x.id))).map(x=>x.item);await registrarHistorico(p,'Pendência',completo?'Pendência resolvida':'Recebimento parcial',`Recebido: ${recebidosAgora.join(', ')}`,{itens_recebidos:recebidosAgora,pendencia_resolvida:completo},ator);if(completo){fecharModal();toast('Pendência totalmente resolvida. Selecione o digitador e confirme a mensagem obrigatória.');setTimeout(()=>{const wf=window.SIGEE_WORKFLOW_093; if(wf?.abrirEncaminharDigitacao) wf.abrirEncaminharDigitacao(id,{origem:'Pendência resolvida'}); else window.abrirEncaminharDigitacaoSIGEE?.(id,{origem:'Pendência resolvida'});},0);}else{toast('Recebimento parcial registrado.');await abrirTratarPendencia(id);}}catch(e){console.error(e);alert('Não foi possível registrar o recebimento: '+(e.message||e));}});
+    el.querySelector('[data-salvar-receb33]')?.addEventListener('click',async()=>{const ids=[...el.querySelectorAll('input[name="receb331"]:checked')].map(x=>Number(x.value));if(!ids.length)return alert('Marque ao menos um item recebido.');try{const ator=identidadeSessao();await marcarRecebidas(ids,ator);const restantes=pendentes.filter(x=>!ids.includes(Number(x.id)));const completo=restantes.length===0;p.pendencia_aberta=!completo;p.etapa=p.etapa_atual='Pendência';p.data_etapa_atual=agoraISO();p.pendencia_aluno_itens=restantes.filter(x=>x.grupo==='aluno').map(x=>x.item);p.pendencia_instituicao_itens=restantes.filter(x=>x.grupo==='instituicao').map(x=>x.item);await salvar(p);const recebidosAgora=pendentes.filter(x=>ids.includes(Number(x.id))).map(x=>x.item);await registrarHistorico(p,'Pendência',completo?'Pendência resolvida':'Recebimento parcial',`Recebido: ${recebidosAgora.join(', ')}`,{itens_recebidos:recebidosAgora,pendencia_resolvida:completo},ator);if(completo){fecharModal();toast('Pendência totalmente resolvida. Selecione o digitador e confirme a mensagem obrigatória.');setTimeout(()=>{const wf=window.SIGEE_WORKFLOW_093; if(wf?.abrirEncaminharDigitacao) wf.abrirEncaminharDigitacao(id,{origem:'Pendência resolvida'}); else window.abrirEncaminharDigitacaoSIGEE?.(id,{origem:'Pendência resolvida'});},0);}else{toast('Recebimento parcial registrado.');await abrirTratarPendencia(id);}}catch(e){console.error(e);alert('Não foi possível registrar o recebimento: '+(e.message||e));}});
   }
 
   function formatarSEI(v){const d=txt(v).replace(/\D/g,'').slice(0,20);let o='';if(d.length)o+=d.slice(0,3);if(d.length>3)o+='.'+d.slice(3,7);if(d.length>7)o+='.'+d.slice(7,11);if(d.length>11)o+='.'+d.slice(11,18);if(d.length>18)o+='-'+d.slice(18,20);return o;}
@@ -1783,22 +1792,12 @@
   }
 
   instalarEstilosWorkflow093();
+  /* O módulo é carregado depois do app legado. Uma única instalação evita
+     disputa de funções, abertura duplicada e janelas que desaparecem. */
   instalarWorkflow093();
-  window.addEventListener('DOMContentLoaded',()=>setTimeout(instalarWorkflow093,0));
-  window.addEventListener('load',()=>{
-    setTimeout(instalarWorkflow093,0);
-    setTimeout(instalarWorkflow093,400);
-    setTimeout(instalarWorkflow093,1200);
-    setTimeout(instalarWorkflow093,2500);
-  });
-  /* Mantém as entradas públicas corretas caso algum script legado seja executado depois. */
-  setInterval(()=>{
-    if(window.abrirEncaminharDigitacaoSIGEE!==abrirEncaminharDigitacao ||
-       window.abrirModalFluxoDigitacao!==abrirDigitacao ||
-       window.abrirModalFluxoConferencia!==abrirConferencia){
-      instalarWorkflow093();
-    }
-  },1500);
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', instalarWorkflow093, {once:true});
+  }
 })();
 
 
