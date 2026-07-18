@@ -16,7 +16,7 @@
   if (window.__SIGEE_WORKFLOW_EXTERNO_095__) return;
   window.__SIGEE_WORKFLOW_EXTERNO_095__ = true;
 
-  const VERSION = '1.0.2.005';
+  const VERSION = '1.1.2';
   const EXTERNAL_STATES = Object.freeze(['DES', 'RET', 'REU', 'CFD']);
 
   const ACTIONS = Object.freeze({
@@ -253,7 +253,7 @@
       });
     }
 
-    if (['RET', 'REU', 'CFD'].includes(stateCode)) {
+    if (['DES', 'RET', 'REU', 'CFD'].includes(stateCode)) {
       result.push({
         action: ACTIONS.RETIFICAR_DADOS,
         enabled: !wasExecuted(process, ACTIONS.RETIFICAR_DADOS.event),
@@ -292,7 +292,7 @@
       .sigee-wfe-card span{display:block;color:rgba(255,255,255,.65);font-size:.75rem;font-weight:800;text-transform:uppercase}.sigee-wfe-card strong{display:block;margin-top:5px}
       .sigee-wfe-actions{display:grid;gap:10px}.sigee-wfe-action{display:flex;align-items:center;justify-content:space-between;gap:16px}.sigee-wfe-action p{margin:4px 0 0;color:rgba(255,255,255,.7);font-size:.86rem}
       .sigee-wfe-btn{padding:10px 14px;border:0;border-radius:9px;font-weight:800;cursor:pointer;background:#fff;color:#102033}.sigee-wfe-btn:disabled{opacity:.45;cursor:not-allowed}
-      .sigee-wfe-secondary{background:rgba(255,255,255,.12);color:#fff}.sigee-wfe-note{padding:13px;border-radius:10px;background:rgba(255,193,7,.1)}
+      .sigee-wfe-secondary{background:#16835d;color:#fff}.sigee-wfe-documento{border-color:rgba(16,185,129,.38);background:rgba(16,185,129,.09)}.sigee-wfe-note{padding:13px;border-radius:10px;background:rgba(255,193,7,.1)}
       @media(max-width:650px){.sigee-wfe-summary{grid-template-columns:1fr}.sigee-wfe-action{align-items:stretch;flex-direction:column}.sigee-wfe-btn{width:100%}}
     `;
     document.head.appendChild(style);
@@ -408,7 +408,10 @@
               etapa_origem: record.etapa_origem,
               etapa_destino: record.etapa_destino,
               mensagem: record.messageCode,
-              ciclo: record.cycle
+              ciclo: record.cycle,
+              novo_ciclo: record.novo_ciclo || null,
+              prazo_dias: record.prazo_dias || null,
+              contexto_analise: record.contexto_analise || null
             },
             created_at: record.createdAt
           };
@@ -623,9 +626,9 @@
           </div>
           <div class="sigee-wfe-note">Cada comunicação somente será registrada após a confirmação obrigatória de todas as mensagens institucionais vinculadas à ação.</div>
           <div class="sigee-wfe-actions">${actionsHtml || '<div class="sigee-wfe-card">Nenhuma ação externa disponível.</div>'}</div>
-          <div class="sigee-wfe-action">
-            <div><strong>Pasta localizada / Documento recebido</strong><p>Na atualização das informações, a busca será reiniciada com os novos dados apresentados. ENVIAR E-MAIL 14 - RETIFICANDO DADOS (ALUNO) E 37 - RETIFICANDO DADOS (DESARQUIVAMENTO).</p></div>
-            <button type="button" class="sigee-wfe-btn sigee-wfe-secondary" data-wfe-documento>Executar</button>
+          <div class="sigee-wfe-action sigee-wfe-documento">
+            <div><strong>Pasta localizada / Documento recebido</strong><p>Registre o tipo e o local do arquivo, defina a prioridade e o analista e confirme o envio do E-mail 02. O Desarquivamento será encerrado e o processo seguirá para Análise, sem reiniciar o ciclo.</p></div>
+            <button type="button" class="sigee-wfe-btn sigee-wfe-secondary" data-wfe-documento>Receber documento</button>
           </div>
         </div>
       </section>`;
