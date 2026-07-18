@@ -16,7 +16,7 @@
   if (window.__SIGEE_WORKFLOW_EXTERNO_095__) return;
   window.__SIGEE_WORKFLOW_EXTERNO_095__ = true;
 
-  const VERSION = '1.1.2';
+  const VERSION = '1.1.3';
   const EXTERNAL_STATES = Object.freeze(['DES', 'RET', 'REU', 'CFD']);
 
   const ACTIONS = Object.freeze({
@@ -278,6 +278,17 @@
     setTimeout(function () { el.remove(); }, 2600);
   }
 
+  function actionVisual(eventCode) {
+    const map = {
+      SEND_REITERACAO: { className: 'sigee-wfe-action-reiteracao', icon: '✉️' },
+      SEND_REITERACAO_URGENTE: { className: 'sigee-wfe-action-reiteracao-urgente', icon: '🚨' },
+      CONFIRMAR_DADOS: { className: 'sigee-wfe-action-confirmacao', icon: '☑️' },
+      RETIFICAR_DADOS: { className: 'sigee-wfe-action-retificacao', icon: '🔄' },
+      PEDIDO_ATAS_DESARQUIVAMENTO: { className: 'sigee-wfe-action-atas', icon: '📕' }
+    };
+    return map[eventCode] || { className: '', icon: '•' };
+  }
+
   function ensureMenuStyle() {
     if (document.getElementById('sigee-wfe-style')) return;
     const style = document.createElement('style');
@@ -290,7 +301,7 @@
       .sigee-wfe-body{display:grid;gap:16px;padding:20px 22px}.sigee-wfe-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
       .sigee-wfe-card,.sigee-wfe-action{padding:14px;border:1px solid rgba(255,255,255,.11);border-radius:12px;background:rgba(255,255,255,.045)}
       .sigee-wfe-card span{display:block;color:rgba(255,255,255,.65);font-size:.75rem;font-weight:800;text-transform:uppercase}.sigee-wfe-card strong{display:block;margin-top:5px}
-      .sigee-wfe-actions{display:grid;gap:10px}.sigee-wfe-action{display:flex;align-items:center;justify-content:space-between;gap:16px}.sigee-wfe-action p{margin:4px 0 0;color:rgba(255,255,255,.7);font-size:.86rem}
+      .sigee-wfe-actions{display:grid;gap:10px}.sigee-wfe-action{display:flex;align-items:center;justify-content:space-between;gap:16px}.sigee-wfe-action-copy{display:flex;align-items:flex-start;gap:12px}.sigee-wfe-action-icon{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;flex:0 0 36px;border-radius:10px;font-size:1.15rem}.sigee-wfe-action p{margin:4px 0 0;color:rgba(255,255,255,.7);font-size:.86rem}
       .sigee-wfe-btn{padding:10px 14px;border:0;border-radius:9px;font-weight:800;cursor:pointer;background:#fff;color:#102033}.sigee-wfe-btn:disabled{opacity:.45;cursor:not-allowed}
       .sigee-wfe-secondary{background:#16835d;color:#fff}.sigee-wfe-documento{border-color:rgba(16,185,129,.38);background:rgba(16,185,129,.09)}.sigee-wfe-note{padding:13px;border-radius:10px;background:rgba(255,193,7,.1)}
       @media(max-width:650px){.sigee-wfe-summary{grid-template-columns:1fr}.sigee-wfe-action{align-items:stretch;flex-direction:column}.sigee-wfe-btn{width:100%}}
@@ -600,11 +611,15 @@
         : entry.enabled
           ? 'Ação disponível'
           : 'Disponível em ' + entry.remainingDays + ' dia' + (entry.remainingDays === 1 ? '' : 's');
+      const visual = actionVisual(entry.action.event);
       return `
-        <div class="sigee-wfe-action">
-          <div>
-            <strong>${entry.action.title}</strong>
-            <p>${statusText}</p>
+        <div class="sigee-wfe-action ${visual.className}">
+          <div class="sigee-wfe-action-copy">
+            <span class="sigee-wfe-action-icon" aria-hidden="true">${visual.icon}</span>
+            <div>
+              <strong>${entry.action.title}</strong>
+              <p>${statusText}</p>
+            </div>
           </div>
           <button type="button" class="sigee-wfe-btn" data-wfe-action="${index}" ${entry.enabled ? '' : 'disabled'}>
             ${entry.executed ? 'Executada' : (entry.enabled ? 'Abrir' : 'Aguardando')}
@@ -627,7 +642,7 @@
           <div class="sigee-wfe-note">Cada comunicação somente será registrada após a confirmação obrigatória de todas as mensagens institucionais vinculadas à ação.</div>
           <div class="sigee-wfe-actions">${actionsHtml || '<div class="sigee-wfe-card">Nenhuma ação externa disponível.</div>'}</div>
           <div class="sigee-wfe-action sigee-wfe-documento">
-            <div><strong>Pasta localizada / Documento recebido</strong><p>Registre o tipo e o local do arquivo, defina a prioridade e o analista e confirme o envio do E-mail 02. O Desarquivamento será encerrado e o processo seguirá para Análise, sem reiniciar o ciclo.</p></div>
+            <div class="sigee-wfe-action-copy"><span class="sigee-wfe-action-icon" aria-hidden="true">📁</span><div><strong>Documento Recebido</strong><p>Registre o tipo e o local do arquivo, defina a prioridade e o analista e confirme o envio do E-mail 02. O Desarquivamento será encerrado e o processo seguirá para Análise, sem reiniciar o ciclo.</p></div></div>
             <button type="button" class="sigee-wfe-btn sigee-wfe-secondary" data-wfe-documento>Receber documento</button>
           </div>
         </div>
