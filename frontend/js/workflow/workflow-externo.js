@@ -243,16 +243,6 @@
     const result = [];
     const primary = primaryAction(stateCode);
 
-    if (['DES', 'RET', 'REU', 'CFD'].includes(stateCode)) {
-      result.push({
-        action: ACTIONS.RETIFICAR_DADOS,
-        enabled: !wasExecuted(process, ACTIONS.RETIFICAR_DADOS.event),
-        executed: wasExecuted(process, ACTIONS.RETIFICAR_DADOS.event),
-        remainingDays: 0,
-        primary: false
-      });
-    }
-
     if (primary) {
       result.push({
         action: primary,
@@ -260,6 +250,16 @@
         executed: wasExecuted(process, primary.event),
         remainingDays: deadline == null ? 0 : Math.max(0, deadline - elapsed),
         primary: true
+      });
+    }
+
+    if (['DES', 'RET', 'REU', 'CFD'].includes(stateCode)) {
+      result.push({
+        action: ACTIONS.RETIFICAR_DADOS,
+        enabled: !wasExecuted(process, ACTIONS.RETIFICAR_DADOS.event),
+        executed: wasExecuted(process, ACTIONS.RETIFICAR_DADOS.event),
+        remainingDays: 0,
+        primary: false
       });
     }
 
