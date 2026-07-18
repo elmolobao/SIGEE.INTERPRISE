@@ -1,4 +1,3 @@
-<!-- SIGEE SPRINT 3.5.2 — Reiteração Urgente vermelha e Confirmação branca -->
 <!-- SIGEE SPRINT 3.5.0 — Documento Recebido, Retificação e Prontuário institucional -->
 <!-- SIGEE INDEX 2.5.9 — edição de processo por perfil -->
 <!-- SIGEE INDEX 2.5.8B — Clock antes do Timer + remoção escolas-authority + workflow 1.1.1 -->
@@ -18,14 +17,14 @@
 <link href="assets/sigee-icon.svg?v=2.1.1" rel="icon" type="image/svg+xml"/>
 <link href="assets/sigee-icon-192.png?v=2.1.1" rel="alternate icon" type="image/png"/>
 <link href="assets/sigee-icon-192.png?v=2.1.1" rel="apple-touch-icon"/>
-<link href="css/enterprise.css?v=2.5.0" rel="stylesheet"/>
-<link href="css/enterprise-light.css?v=2.1.1" rel="stylesheet"/>
+<link href="css/enterprise.css?v=3.6.0" rel="stylesheet"/>
+<link href="css/enterprise-light.css?v=3.6.0" rel="stylesheet"/>
 <link href="css/sigee_footer_institucional.css" rel="stylesheet"/>
 <link href="css/prontuario-processo.css?v=2.3.1" rel="stylesheet"/>
 <link href="css/sigee-acabamento-visual.css?v=2.3.4" rel="stylesheet"/>
 <link href="css/sala-situacao.css?v=3.2.17" rel="stylesheet"/>
 <link href="css/administracao.css?v=2.4.4A" rel="stylesheet"/>
-<link href="css/workflow-design-system.css?v=3.5.2" rel="stylesheet"/>
+<link href="css/workflow-design-system.css?v=3.6.0" rel="stylesheet"/>
 <link href="css/dashboard-executivo.css?v=3.0.1" rel="stylesheet"/>
 <link href="css/centro-inteligencia.css?v=3.1.2" rel="stylesheet"/><link href="css/migracao/migracao-historica.css?v=M4.2.0" rel="stylesheet"/><link href="css/migracao/importacao-oficial.css?v=M5.1.0" rel="stylesheet"/>
 <link href="css/migracao/migracao-importacao-oficial.css?v=M5.2.0" rel="stylesheet"/>
@@ -120,11 +119,11 @@
 <h2 class="text-sm font-bold text-gray-400 uppercase tracking-wider">⚙️ Informações de Processo (Filtrado por abrangência)</h2>
 <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
 <div class="bg-white p-4 rounded-xl shadow-sm border-t-4 border-gray-400 text-center"><p class="text-[10px] text-gray-500 font-bold uppercase">Desarquivamento</p><p class="text-xl font-bold mt-1" id="dash-proc-desarquivamento">0</p></div>
-<div class="bg-white p-4 rounded-xl shadow-sm border-t-4 border-purple-500 text-center"><p class="text-[10px] text-gray-500 font-bold uppercase">Análise</p><p class="text-xl font-bold mt-1" id="dash-proc-analise">0</p></div>
-<div class="bg-white p-4 rounded-xl shadow-sm border-t-4 border-red-500 text-center"><p class="text-[10px] text-gray-500 font-bold uppercase">Pendência</p><p class="text-xl font-bold mt-1" id="dash-proc-pendencia">0</p></div>
-<div class="bg-white p-4 rounded-xl shadow-sm border-t-4 border-blue-500 text-center"><p class="text-[10px] text-gray-500 font-bold uppercase">Digitação</p><p class="text-xl font-bold mt-1" id="dash-proc-digitacao">0</p></div>
-<div class="bg-white p-4 rounded-xl shadow-sm border-t-4 border-orange-500 text-center"><p class="text-[10px] text-gray-500 font-bold uppercase">Conferência</p><p class="text-xl font-bold mt-1" id="dash-proc-conferencia">0</p></div>
-<div class="bg-white p-4 rounded-xl shadow-sm border-t-4 border-yellow-500 text-center"><p class="text-[10px] text-gray-500 font-bold uppercase">Assinatura</p><p class="text-xl font-bold mt-1" id="dash-proc-assinatura">0</p></div>
+<div class="bg-white p-4 rounded-xl shadow-sm border-t-4 border-yellow-500 text-center"><p class="text-[10px] text-gray-500 font-bold uppercase">Análise</p><p class="text-xl font-bold mt-1" id="dash-proc-analise">0</p></div>
+<div class="bg-white p-4 rounded-xl shadow-sm border-t-4 border-gray-300 text-center"><p class="text-[10px] text-gray-500 font-bold uppercase">Pendência</p><p class="text-xl font-bold mt-1" id="dash-proc-pendencia">0</p></div>
+<div class="bg-white p-4 rounded-xl shadow-sm border-t-4 border-orange-500 text-center"><p class="text-[10px] text-gray-500 font-bold uppercase">Digitação</p><p class="text-xl font-bold mt-1" id="dash-proc-digitacao">0</p></div>
+<div class="bg-white p-4 rounded-xl shadow-sm border-t-4 border-purple-500 text-center"><p class="text-[10px] text-gray-500 font-bold uppercase">Conferência</p><p class="text-xl font-bold mt-1" id="dash-proc-conferencia">0</p></div>
+<div class="bg-white p-4 rounded-xl shadow-sm border-t-4 border-cyan-500 text-center"><p class="text-[10px] text-gray-500 font-bold uppercase">Assinatura</p><p class="text-xl font-bold mt-1" id="dash-proc-assinatura">0</p></div>
 <div class="bg-white p-4 rounded-xl shadow-sm border-t-4 border-emerald-500 text-center"><p class="text-[10px] text-gray-500 font-bold uppercase">Aguard. Retirada</p><p class="text-xl font-bold mt-1" id="dash-proc-aguardando">0</p></div>
 <div class="bg-white p-4 rounded-xl shadow-sm border-t-4 border-gray-600 text-center"><p class="text-[10px] text-gray-500 font-bold uppercase">Retirado</p><p class="text-xl font-bold mt-1" id="dash-proc-retirado">0</p></div>
 </div>
@@ -730,7 +729,7 @@
 <script src="js/migracao/motor-persistencia.js?v=M5.2.2"></script>
 <script src="js/migracao/importacao-oficial.js?v=M5.2.2"></script>
 <script src="js/migracao/migracao-importacao-oficial.js?v=M5.2.2"></script>
-<script src="js/workflow/workflow-externo.js?v=1.1.3"></script>
+<script src="js/workflow/workflow-externo.js?v=1.1.2"></script>
 <script src="js/sigee_footer_institucional.js"></script>
 <script src="js/sigee_nova_solicitacao_autocomplete_fix.js"></script>
 <script src="js/sigee_perfil_estagiario_v1.js"></script>
