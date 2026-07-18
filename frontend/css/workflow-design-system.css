@@ -925,3 +925,24 @@ label:has(> #wf-email093) {
 /* Workflow externo: azul-petróleo e sequência institucional */
 .sigee-wfe-panel .sigee-wfe-head{background:#115e59!important}.sigee-wfe-panel .sigee-wfe-head h2{color:#fff!important}
 .sigee-wfe-documento{order:1}.sigee-wfe-actions{order:2}
+
+/* SIGEE 4.1.1 — correções consolidadas de contraste e ações */
+.sigee-wfe-action-retificacao .sigee-wfe-btn:not(:disabled){
+  background:#64748b!important;color:#fff!important;border-color:#475569!important;
+}
+.sigee-wfe-action-retificacao{border-color:#64748b!important;background:#f8fafc!important}
+.sigee-modal33 .sigee-condicional33{
+  background:#f8fafc!important;border:2px solid #cbd5e1!important;color:#172033!important;
+}
+.sigee-modal33 .sigee-condicional33 label,
+.sigee-modal33 .sigee-condicional33 label span{color:#334155!important;font-weight:800!important}
+.sigee-modal33 .sigee-condicional33 input{background:#fff!important;color:#111827!important;border:1px solid #94a3b8!important}
+.sigee-modal33 .sigee-condicional33 input::placeholder{color:#64748b!important}
+.btn33-vermelho,.sigee-acao-indeferir33{
+  background:#c83c46!important;color:#fff!important;border-color:#a92732!important;
+}
+.sigee-acao-indeferir33 span{color:#fff!important;font-weight:1000!important}
+.sigee-modal33.workflow093 .sigee-area-alternativas33{margin-top:18px!important}
+.sigee-modal33.workflow093 .sigee-rodape-acoes33{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:14px!important;margin-top:18px!important;padding-top:16px!important;border-top:1px solid #d6e0eb!important}
+.sigee-modal33.workflow093 .sigee-rodape-acoes33 .sigee-acoes33{margin-top:0!important}
+.sigee-modal33.workflow093 .sigee-historico33{background:#e8eef5!important;color:#243247!important;border:1px solid #c5d1df!important}
