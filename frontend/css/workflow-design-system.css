@@ -878,3 +878,144 @@ label:has(> #wf-email093) {
 .sigee-wf-etapa-assinatura .sigee-wam-btn-primary,
 .sigee-wf-etapa-assinatura .sigee-wfe-btn-primary,
 .sigee-wf-etapa-assinatura .sigee-workflow-acao-principal{background:#22d3ee!important;color:#083344!important;border-color:#06b6d4!important;}
+
+/* =====================================================================
+   SIGEE Sprint 3.7 — Template Institucional Único das Janelas
+   Estrutura: cabeçalho > identificação > conteúdo > mensagem > rodapé.
+   ===================================================================== */
+.sigee-modal-padrao{
+  --sigee-etapa-cor:var(--wf-blue-700);
+  --sigee-etapa-texto:#fff;
+  width:min(980px,calc(100vw - 34px))!important;
+  max-height:calc(100vh - 42px)!important;
+  display:flex!important;
+  flex-direction:column!important;
+  background:#fff!important;
+}
+.sigee-modal-padrao.sigee-wf-etapa-analise{--sigee-etapa-cor:#facc15;--sigee-etapa-texto:#3f3100}
+.sigee-modal-padrao.sigee-wf-etapa-pendencia{--sigee-etapa-cor:#fff;--sigee-etapa-texto:#172033}
+.sigee-modal-padrao.sigee-wf-etapa-digitacao{--sigee-etapa-cor:#f97316;--sigee-etapa-texto:#fff}
+.sigee-modal-padrao.sigee-wf-etapa-conferencia{--sigee-etapa-cor:#7c3aed;--sigee-etapa-texto:#fff}
+.sigee-modal-padrao.sigee-wf-etapa-assinatura{--sigee-etapa-cor:#22d3ee;--sigee-etapa-texto:#083344}
+.sigee-modal-padrao.sigee-wf-etapa-deferido{--sigee-etapa-cor:#138a62;--sigee-etapa-texto:#fff}
+.sigee-modal-padrao.sigee-wf-etapa-indeferido{--sigee-etapa-cor:#c83c46;--sigee-etapa-texto:#fff}
+.sigee-modal-padrao.sigee-wf-etapa-retificacao{--sigee-etapa-cor:#64748b;--sigee-etapa-texto:#fff}
+.sigee-modal-padrao.sigee-wf-etapa-documento{--sigee-etapa-cor:#138a62;--sigee-etapa-texto:#fff}
+.sigee-modal-padrao.sigee-wf-etapa-atas{--sigee-etapa-cor:#111827;--sigee-etapa-texto:#fff}
+
+.sigee-modal-padrao>.sigee-modal33-header,
+.sigee-modal-padrao>.sigee-wam-header,
+.sigee-modal-padrao>.sigee-wfe-head,
+.sigee-modal-padrao>header{
+  min-height:62px!important;
+  padding:16px 22px!important;
+  background:var(--sigee-etapa-cor)!important;
+  color:var(--sigee-etapa-texto)!important;
+  border-bottom:1px solid color-mix(in srgb,var(--sigee-etapa-cor) 70%,#64748b)!important;
+}
+.sigee-modal-padrao>header h2,
+.sigee-modal-padrao>header h3{
+  color:var(--sigee-etapa-texto)!important;
+  font-size:18px!important;
+  line-height:1.25!important;
+}
+.sigee-modal-padrao>header button{color:var(--sigee-etapa-texto)!important}
+.sigee-modal-padrao.sigee-wf-etapa-pendencia>header{border-bottom:2px solid #334155!important}
+
+.sigee-modal-padrao .sigee-modal33-body,
+.sigee-modal-padrao .sigee-wam-body,
+.sigee-modal-padrao .sigee-wfe-body{
+  overflow:auto!important;
+  padding:20px!important;
+  display:flex!important;
+  flex-direction:column!important;
+  gap:16px!important;
+  min-height:0!important;
+}
+.sigee-modal-padrao .sigee-resumo33,
+.sigee-modal-padrao .sigee-wam-summary,
+.sigee-modal-padrao .sigee-wfe-summary{
+  order:1!important;
+  display:grid!important;
+  grid-template-columns:repeat(6,minmax(0,1fr))!important;
+  gap:10px!important;
+  padding-bottom:16px!important;
+  border-bottom:1px solid #dbe4ee!important;
+}
+.sigee-modal-padrao .sigee-resumo33>div,
+.sigee-modal-padrao .sigee-wam-card,
+.sigee-modal-padrao .sigee-wfe-card{
+  min-width:0!important;
+  min-height:78px!important;
+  padding:12px 13px!important;
+}
+.sigee-modal-padrao .sigee-resumo33 strong,
+.sigee-modal-padrao .sigee-wam-value,
+.sigee-modal-padrao .sigee-wfe-card strong{
+  overflow-wrap:anywhere!important;
+}
+
+.sigee-janela-conteudo{
+  order:2!important;
+  display:flex!important;
+  flex-direction:column!important;
+  gap:14px!important;
+}
+.sigee-modal-padrao .sigee-tarefa-card,
+.sigee-modal-padrao .sigee-tarefa-obrigatoria33,
+.sigee-modal-padrao .sigee-wam-task,
+.sigee-modal-padrao .sigee-wam-message{
+  order:3!important;
+  margin-top:auto!important;
+  border-color:color-mix(in srgb,var(--sigee-etapa-cor) 70%,#94a3b8)!important;
+  background:color-mix(in srgb,var(--sigee-etapa-cor) 9%,#fff)!important;
+}
+.sigee-modal-padrao .sigee-tarefa-card strong,
+.sigee-modal-padrao .sigee-tarefa-obrigatoria33 strong{
+  color:#12365b!important;
+}
+.sigee-janela-rodape{
+  order:4!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-end!important;
+  flex-wrap:wrap!important;
+  gap:10px!important;
+  padding-top:14px!important;
+  border-top:1px solid #dbe4ee!important;
+  background:#fff!important;
+}
+.sigee-janela-rodape .sigee-linkhistorico33{margin-right:auto!important;margin-top:0!important}
+.sigee-janela-rodape button{min-height:42px!important;padding:10px 18px!important;border-radius:10px!important;font-weight:900!important}
+
+/* Cores semânticas dos botões: destino/efeito da ação, não apenas etapa atual. */
+.sigee-btn-historico{background:#eef2f7!important;color:#334155!important;border:1px solid #cbd5e1!important}
+.sigee-btn-cancelar,.sigee-btn-secundario{background:#475569!important;color:#fff!important;border:1px solid #334155!important}
+.sigee-btn-indeferir,.sigee-btn-perigo{background:#c83c46!important;color:#fff!important;border:1px solid #a82f38!important}
+.sigee-btn-pendencia{background:#fff!important;color:#172033!important;border:2px solid #334155!important;box-shadow:none!important}
+.sigee-btn-digitacao{background:#f97316!important;color:#fff!important;border:1px solid #c2410c!important}
+.sigee-btn-conferencia{background:#7c3aed!important;color:#fff!important;border:1px solid #5b21b6!important}
+.sigee-btn-assinatura{background:#22d3ee!important;color:#083344!important;border:1px solid #0891b2!important}
+.sigee-btn-deferido,.sigee-btn-sucesso{background:#138a62!important;color:#fff!important;border:1px solid #0f6f50!important}
+.sigee-btn-retirada{background:#64748b!important;color:#fff!important;border:1px solid #475569!important}
+.sigee-btn-retificacao{background:#64748b!important;color:#fff!important;border:1px solid #475569!important}
+.sigee-btn-atas{background:#111827!important;color:#fff!important;border:1px solid #000!important}
+.sigee-btn-documento{background:#138a62!important;color:#fff!important;border:1px solid #0f6f50!important}
+.sigee-btn-analise{background:#facc15!important;color:#3f3100!important;border:1px solid #ca8a04!important}
+
+.sigee-modal-padrao button:disabled{
+  background:#dce4ec!important;color:#66778a!important;border-color:#c7d2de!important;box-shadow:none!important
+}
+
+@media(max-width:950px){
+  .sigee-modal-padrao .sigee-resumo33,
+  .sigee-modal-padrao .sigee-wam-summary,
+  .sigee-modal-padrao .sigee-wfe-summary{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+}
+@media(max-width:650px){
+  .sigee-modal-padrao .sigee-resumo33,
+  .sigee-modal-padrao .sigee-wam-summary,
+  .sigee-modal-padrao .sigee-wfe-summary{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .sigee-janela-rodape button{width:100%!important}
+  .sigee-janela-rodape .sigee-linkhistorico33{width:100%!important;margin-right:0!important}
+}
