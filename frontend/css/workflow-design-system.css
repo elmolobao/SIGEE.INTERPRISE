@@ -1019,3 +1019,170 @@ label:has(> #wf-email093) {
   .sigee-janela-rodape button{width:100%!important}
   .sigee-janela-rodape .sigee-linkhistorico33{width:100%!important;margin-right:0!important}
 }
+
+
+/* =====================================================================
+   SIGEE Sprint 3.7.1 — Cores semânticas definitivas por ação
+   A cor do botão representa o efeito/destino, independentemente da etapa.
+   ===================================================================== */
+.sigee-modal-padrao .sigee-btn-historico{background:#eef2f7!important;color:#334155!important;border:1px solid #cbd5e1!important;box-shadow:none!important}
+.sigee-modal-padrao .sigee-btn-cancelar,
+.sigee-modal-padrao .sigee-btn-secundario{background:#475569!important;color:#fff!important;border:1px solid #334155!important;box-shadow:none!important}
+.sigee-modal-padrao .sigee-btn-indeferir,
+.sigee-modal-padrao .sigee-btn-perigo{background:#c83c46!important;color:#fff!important;border:1px solid #a82f38!important}
+.sigee-modal-padrao .sigee-btn-pendencia{background:#fff!important;color:#172033!important;border:2px solid #334155!important;box-shadow:none!important}
+.sigee-modal-padrao .sigee-btn-digitacao{background:#f97316!important;color:#fff!important;border:1px solid #c2410c!important}
+.sigee-modal-padrao .sigee-btn-conferencia{background:#7c3aed!important;color:#fff!important;border:1px solid #5b21b6!important}
+.sigee-modal-padrao .sigee-btn-assinatura{background:#22d3ee!important;color:#083344!important;border:1px solid #0891b2!important}
+.sigee-modal-padrao .sigee-btn-deferido,
+.sigee-modal-padrao .sigee-btn-sucesso{background:#138a62!important;color:#fff!important;border:1px solid #0f6f50!important}
+.sigee-modal-padrao .sigee-btn-retirada{background:#64748b!important;color:#fff!important;border:1px solid #475569!important}
+.sigee-modal-padrao .sigee-btn-retificacao{background:#64748b!important;color:#fff!important;border:1px solid #475569!important}
+.sigee-modal-padrao .sigee-btn-atas{background:#111827!important;color:#fff!important;border:1px solid #000!important}
+.sigee-modal-padrao .sigee-btn-documento{background:#138a62!important;color:#fff!important;border:1px solid #0f6f50!important}
+.sigee-modal-padrao .sigee-btn-analise{background:#facc15!important;color:#3f3100!important;border:1px solid #ca8a04!important}
+.sigee-modal-padrao .sigee-btn-reiteracao{background:#facc15!important;color:#3f3100!important;border:1px solid #ca8a04!important}
+.sigee-modal-padrao .sigee-btn-reiteracao-urgente{background:#dc2626!important;color:#fff!important;border:1px solid #991b1b!important}
+.sigee-modal-padrao .sigee-btn-confirmacao{background:#fff!important;color:#172033!important;border:2px solid #64748b!important;box-shadow:none!important}
+
+/* Mantém o cabeçalho da Análise amarelo e impede contaminação pelo botão Indeferir. */
+.sigee-modal-padrao.sigee-wf-etapa-analise>header,
+.sigee-modal-padrao.sigee-wf-etapa-analise>.sigee-modal33-header,
+.sigee-modal-padrao.sigee-wf-etapa-analise>.sigee-wam-header,
+.sigee-modal-padrao.sigee-wf-etapa-analise>.sigee-wfe-head{
+  background:#facc15!important;color:#3f3100!important;border-bottom-color:#ca8a04!important
+}
+.sigee-modal-padrao.sigee-wf-etapa-analise>header h1,
+.sigee-modal-padrao.sigee-wf-etapa-analise>header h2,
+.sigee-modal-padrao.sigee-wf-etapa-analise>header h3,
+.sigee-modal-padrao.sigee-wf-etapa-analise>header button{color:#3f3100!important}
+
+/* =====================================================================
+   SIGEE Sprint 3.7.2 — Modelo Oficial de Janelas
+   Cor da etapa na janela; cor semântica da ação nos botões.
+   Mensagem institucional sempre como último bloco antes do rodapé.
+   ===================================================================== */
+.sigee-modal-padrao{
+  width:min(1120px,calc(100vw - 32px))!important;
+  max-height:calc(100vh - 36px)!important;
+  border-radius:18px!important;
+}
+
+/* Cabeçalho conforme a etapa aprovada */
+.sigee-modal-padrao.sigee-wf-etapa-analise{--sigee-etapa-cor:#facc15;--sigee-etapa-texto:#3f3100}
+.sigee-modal-padrao.sigee-wf-etapa-pendencia{--sigee-etapa-cor:#ffffff;--sigee-etapa-texto:#172033}
+.sigee-modal-padrao.sigee-wf-etapa-digitacao{--sigee-etapa-cor:#f97316;--sigee-etapa-texto:#ffffff}
+.sigee-modal-padrao.sigee-wf-etapa-conferencia{--sigee-etapa-cor:#7c3aed;--sigee-etapa-texto:#ffffff}
+.sigee-modal-padrao.sigee-wf-etapa-assinatura{--sigee-etapa-cor:#22d3ee;--sigee-etapa-texto:#083344}
+.sigee-modal-padrao.sigee-wf-etapa-deferido{--sigee-etapa-cor:#138a62;--sigee-etapa-texto:#ffffff}
+.sigee-modal-padrao.sigee-wf-etapa-retirado{--sigee-etapa-cor:#64748b;--sigee-etapa-texto:#ffffff}
+.sigee-modal-padrao.sigee-wf-etapa-indeferido{--sigee-etapa-cor:#c83c46;--sigee-etapa-texto:#ffffff}
+
+.sigee-modal-padrao>.sigee-modal33-header,
+.sigee-modal-padrao>.sigee-wam-header,
+.sigee-modal-padrao>.sigee-wfe-head,
+.sigee-modal-padrao>header{
+  background:var(--sigee-etapa-cor)!important;
+  color:var(--sigee-etapa-texto)!important;
+}
+.sigee-modal-padrao.sigee-wf-etapa-pendencia>.sigee-modal33-header,
+.sigee-modal-padrao.sigee-wf-etapa-pendencia>.sigee-wam-header,
+.sigee-modal-padrao.sigee-wf-etapa-pendencia>.sigee-wfe-head,
+.sigee-modal-padrao.sigee-wf-etapa-pendencia>header{
+  border-bottom:2px solid #334155!important;
+}
+
+/* Resumo uniforme, sem cortar aluno/código/escola */
+.sigee-modal-padrao .sigee-resumo33,
+.sigee-modal-padrao .sigee-wam-summary,
+.sigee-modal-padrao .sigee-wfe-summary{
+  grid-template-columns:repeat(auto-fit,minmax(145px,1fr))!important;
+  align-items:stretch!important;
+}
+.sigee-modal-padrao .sigee-resumo33>div,
+.sigee-modal-padrao .sigee-wam-card,
+.sigee-modal-padrao .sigee-wfe-card{
+  min-width:0!important;
+  overflow:visible!important;
+}
+.sigee-modal-padrao .sigee-resumo33 strong,
+.sigee-modal-padrao .sigee-wam-value,
+.sigee-modal-padrao .sigee-wfe-card strong{
+  display:block!important;
+  white-space:normal!important;
+  word-break:normal!important;
+  overflow-wrap:anywhere!important;
+}
+
+/* Área central e mensagem obrigatória */
+.sigee-janela-conteudo{min-height:96px!important}
+.sigee-modal-padrao .sigee-tarefa-card,
+.sigee-modal-padrao .sigee-tarefa-obrigatoria33,
+.sigee-modal-padrao .sigee-wam-task,
+.sigee-modal-padrao .sigee-wam-message,
+.sigee-modal-padrao .sigee-wfe-action.sigee-tarefa-card{
+  order:3!important;
+  margin-top:0!important;
+  padding:16px 18px!important;
+  border-radius:13px!important;
+}
+
+/* Rodapé padrão: Histórico à esquerda, demais ações à direita */
+.sigee-janela-rodape{min-height:62px!important;padding:14px 0 0!important}
+.sigee-janela-rodape .sigee-btn-historico,
+.sigee-janela-rodape .sigee-linkhistorico33{margin-right:auto!important}
+
+/* Regra oficial dos botões por efeito da ação */
+.sigee-btn-enviar,
+.sigee-btn-avancar,
+.sigee-btn-receber,
+.sigee-btn-concluir,
+.sigee-btn-deferido,
+.sigee-btn-sucesso{
+  background:linear-gradient(135deg,#16a34a,#15803d)!important;
+  color:#fff!important;
+  -webkit-text-fill-color:#fff!important;
+  border:1px solid #166534!important;
+  box-shadow:0 8px 20px rgba(21,128,61,.25)!important;
+}
+.sigee-btn-pendencia{
+  background:#facc15!important;
+  color:#3f3100!important;
+  -webkit-text-fill-color:#3f3100!important;
+  border:1px solid #ca8a04!important;
+}
+.sigee-btn-indeferir,.sigee-btn-perigo{
+  background:linear-gradient(135deg,#dc3545,#b42331)!important;
+  color:#fff!important;
+  -webkit-text-fill-color:#fff!important;
+  border:1px solid #991b1b!important;
+}
+.sigee-btn-cancelar,.sigee-btn-secundario{
+  background:#475569!important;color:#fff!important;border:1px solid #334155!important;
+}
+.sigee-btn-historico{
+  background:#eef4f9!important;color:#334155!important;border:1px solid #cbd5e1!important;
+}
+.sigee-btn-retificacao{background:#64748b!important;color:#fff!important;border-color:#475569!important}
+.sigee-btn-reiteracao{background:#facc15!important;color:#3f3100!important;border-color:#ca8a04!important}
+.sigee-btn-reiteracao-urgente{background:#dc2626!important;color:#fff!important;border-color:#991b1b!important}
+.sigee-btn-confirmacao{background:#fff!important;color:#172033!important;border:2px solid #334155!important}
+.sigee-btn-atas{background:#111827!important;color:#fff!important;border-color:#000!important}
+
+/* Nunca permitir que a cor da etapa sobrescreva o significado do botão. */
+.sigee-modal-padrao .sigee-btn-enviar:not(:disabled),
+.sigee-modal-padrao .sigee-btn-avancar:not(:disabled),
+.sigee-modal-padrao .sigee-btn-receber:not(:disabled),
+.sigee-modal-padrao .sigee-btn-concluir:not(:disabled),
+.sigee-modal-padrao .sigee-btn-deferido:not(:disabled),
+.sigee-modal-padrao .sigee-btn-sucesso:not(:disabled){
+  background:linear-gradient(135deg,#16a34a,#15803d)!important;
+  color:#fff!important;
+  border-color:#166534!important;
+}
+
+@media(max-width:720px){
+  .sigee-modal-padrao .sigee-resumo33,
+  .sigee-modal-padrao .sigee-wam-summary,
+  .sigee-modal-padrao .sigee-wfe-summary{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
