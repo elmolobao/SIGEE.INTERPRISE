@@ -268,8 +268,8 @@
 .sigee-wf-etapa-indeferido{--wf-accent:#c83c46}
 .sigee-wf-etapa-retificacao{--wf-accent:#64748b}
 .sigee-wf-etapa-reiteracao{--wf-accent:#c89424}
-.sigee-wf-etapa-reiteracao-urgente{--wf-accent:#e97824}
-.sigee-wf-etapa-confirmacao{--wf-accent:#c83c46}
+.sigee-wf-etapa-reiteracao-urgente{--wf-accent:#c83c46}
+.sigee-wf-etapa-confirmacao{--wf-accent:#ffffff}
 .sigee-wf-etapa-atas{--wf-accent:#1f2937}
 
 /* Correção específica da tela mostrada */
@@ -857,3 +857,57 @@ label:has(> #wf-email093) {
   visibility: visible !important;
 }
 
+
+
+/* =====================================================================
+   SIGEE Sprint 3.5.2 — Identidade visual oficial do ciclo externo
+   Documento: verde | Retificação: cinza | Reiteração: amarelo
+   Reiteração Urgente: vermelho | Confirmação: branco | Atas: preto
+   ===================================================================== */
+.sigee-wfe-action.sigee-wfe-documento{
+  background:#eaf7f1!important;border:2px solid #138a62!important;color:#174f3c!important;
+}
+.sigee-wfe-documento .sigee-wfe-action-icon{background:#138a62!important;color:#fff!important}
+.sigee-wfe-documento strong{color:#0d694a!important}.sigee-wfe-documento p{color:#3c6658!important}
+.sigee-wfe-documento .sigee-wfe-btn:not(:disabled){background:#138a62!important;color:#fff!important;border:1px solid #0d694a!important}
+
+.sigee-wfe-action-reiteracao{
+  background:#fff8dc!important;border:2px solid #c89424!important;color:#5d470d!important;
+}
+.sigee-wfe-action-reiteracao .sigee-wfe-action-icon{background:#c89424!important;color:#fff!important}
+.sigee-wfe-action-reiteracao strong{color:#6c5009!important}.sigee-wfe-action-reiteracao p{color:#756335!important}
+.sigee-wfe-action-reiteracao .sigee-wfe-btn:not(:disabled){background:#c89424!important;color:#fff!important;border:1px solid #967018!important}
+
+.sigee-wfe-action-reiteracao-urgente{
+  background:#c83c46!important;border:2px solid #9f2530!important;color:#fff!important;
+  box-shadow:0 10px 24px rgba(200,60,70,.20)!important;
+}
+.sigee-wfe-action-reiteracao-urgente .sigee-wfe-action-icon{background:#fff!important;color:#c83c46!important}
+.sigee-wfe-action-reiteracao-urgente strong,
+.sigee-wfe-action-reiteracao-urgente p{color:#fff!important}
+.sigee-wfe-action-reiteracao-urgente .sigee-wfe-btn:not(:disabled){background:#fff!important;color:#a92631!important;border:1px solid #fff!important}
+
+.sigee-wfe-action-confirmacao{
+  background:#fff!important;border:3px solid #c83c46!important;color:#172033!important;
+  box-shadow:0 0 0 4px rgba(200,60,70,.08)!important;
+}
+.sigee-wfe-action-confirmacao .sigee-wfe-action-icon{background:#fff!important;color:#c83c46!important;border:2px solid #c83c46!important}
+.sigee-wfe-action-confirmacao strong{color:#a92631!important}.sigee-wfe-action-confirmacao p{color:#40516a!important}
+.sigee-wfe-action-confirmacao .sigee-wfe-btn:not(:disabled){background:#fff!important;color:#a92631!important;border:2px solid #c83c46!important}
+
+.sigee-wfe-action-retificacao{
+  background:#f1f5f9!important;border:2px solid #64748b!important;color:#334155!important;
+}
+.sigee-wfe-action-retificacao .sigee-wfe-action-icon{background:#64748b!important;color:#fff!important}
+.sigee-wfe-action-retificacao strong{color:#334155!important}.sigee-wfe-action-retificacao p{color:#64748b!important}
+.sigee-wfe-action-retificacao .sigee-wfe-btn:not(:disabled){background:#64748b!important;color:#fff!important;border:1px solid #475569!important}
+
+.sigee-wfe-action-atas{
+  background:#1f2937!important;border:2px solid #111827!important;color:#fff!important;
+}
+.sigee-wfe-action-atas .sigee-wfe-action-icon{background:#fff!important;color:#111827!important}
+.sigee-wfe-action-atas strong,.sigee-wfe-action-atas p{color:#fff!important}
+.sigee-wfe-action-atas .sigee-wfe-btn:not(:disabled){background:#fff!important;color:#111827!important;border:1px solid #fff!important}
+
+/* Mantém o card identificável mesmo quando a ação estiver aguardando. */
+.sigee-wfe-action .sigee-wfe-btn:disabled{opacity:1!important;background:#e5e7eb!important;color:#64748b!important;border:1px solid #cbd5e1!important}
