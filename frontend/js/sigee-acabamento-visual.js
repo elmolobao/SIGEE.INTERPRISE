@@ -14,6 +14,17 @@
     document.querySelectorAll('#tabela-processos-corpo button').forEach(btn=>{
       const t=norm(btn.textContent);
       const oc=norm(btn.getAttribute('onclick')||'');
+      btn.classList.remove(...CLASSES_ETAPA);
+      if(t.includes('DESARQUIVAMENTO')||t.includes('WORKFLOW EXTERNO')) btn.classList.add('sigee-btn-etapa-desarquivamento');
+      else if(t.includes('ABRIR ANALISE')||t==='ANALISE') btn.classList.add('sigee-btn-etapa-analise');
+      else if(t.includes('TRATAR PENDENCIA')||t==='PENDENCIA') btn.classList.add('sigee-btn-etapa-pendencia');
+      else if(t.includes('DIGITACAO')||t.includes('DOCUMENTO DIGITADO')) btn.classList.add('sigee-btn-etapa-digitacao');
+      else if(t.includes('CONFERENCIA')||t.includes('DOCUMENTO CONFERIDO')) btn.classList.add('sigee-btn-etapa-conferencia');
+      else if(t.includes('ASSINATURA')||t.includes('DOCUMENTO ASSINADO')) btn.classList.add('sigee-btn-etapa-assinatura');
+      else if(t.includes('DEFERIDO')||t.includes('AGUARDANDO RETIRADA')) btn.classList.add('sigee-btn-etapa-deferido');
+      else if(t.includes('REGISTRAR RETIRADA')||t==='RETIRADO') btn.classList.add('sigee-btn-etapa-retirado');
+      else if(t.includes('INDEFERIDO')) btn.classList.add('sigee-btn-etapa-indeferido');
+
       if((t.includes('PRONTUARIO')||t.includes('HISTORICO')||oc.includes('ABRIRHISTORICO'))&&!btn.classList.contains('sigee-acao-prontuario')) btn.classList.add('sigee-acao-prontuario');
       if((t==='EDITAR'||t.includes('CORRIGIR CADASTRO')||oc.includes('EDITARPROCESSO'))&&!btn.classList.contains('sigee-acao-editar')) btn.classList.add('sigee-acao-editar');
       if((t.includes('AVANCAR')||oc.includes('AVANCARPROCESSO'))&&!btn.classList.contains('sigee-acao-avancar')) btn.classList.add('sigee-acao-avancar');
@@ -24,6 +35,7 @@
 
 
   const CLASSES_ACAO=['sigee-btn-seguir','sigee-btn-atencao','sigee-btn-critico','sigee-btn-neutro','sigee-btn-atas','sigee-btn-confirmacao'];
+  const CLASSES_ETAPA=['sigee-btn-etapa-desarquivamento','sigee-btn-etapa-analise','sigee-btn-etapa-pendencia','sigee-btn-etapa-digitacao','sigee-btn-etapa-conferencia','sigee-btn-etapa-assinatura','sigee-btn-etapa-deferido','sigee-btn-etapa-retirado','sigee-btn-etapa-indeferido'];
 
   function classificarBotoesWorkflow(){
     document.querySelectorAll('button').forEach(btn=>{

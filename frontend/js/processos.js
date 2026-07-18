@@ -1319,7 +1319,8 @@
   async function substituirPendencias(p,aluno,inst,compAluno,compInst,msg,ator){
     const c=cliente();if(!c)throw new Error('Cliente Supabase indisponível');
     const identidade=ator||identidadeSessao();
-    const {error:delError}=await c.from('processo_pendencias').delete().eq('processo_id',p.id).eq('status','pendente');if(delError)throw delError;
+    const {error:delError}=await c.from('processo_pendencias').delete().eq('processo_id',p.id).eq('status','pendente');
+    if(delError)throw delError;
     const base={
       processo_id:p.id,
       codigo_sigee:p.codigo_sigee||'',
@@ -1335,7 +1336,26 @@
       ...aluno.map(item=>Object.assign({},base,{grupo:'aluno',item,complemento:compAluno||null})),
       ...inst.map(item=>Object.assign({},base,{grupo:'instituicao',item,complemento:compInst||null}))
     ];
-    const {error}=await c.from('processo_pendencias').insert(linhas);if(error)throw error;
+    if(!linhas.length)throw new Error('Nenhuma pendência foi selecionada para gravação.');
+    const {error}=await c.from('processo_pendencias').insert(linhas);
+    if(error)throw error;
+
+    /* Trava de integridade: o processo só poderá mudar para Pendência depois
+       de o Supabase devolver exatamente os itens que acabaram de ser gravados. */
+    const {data:gravadas,error:verError}=await c.from('processo_pendencias')
+      .select('id,grupo,item,status')
+      .eq('processo_id',p.id)
+      .eq('status','pendente');
+    if(verError)throw verError;
+    const chave=x=>`${norm(x.grupo)}|${norm(x.item)}`;
+    const esperado=new Set(linhas.map(chave));
+    const confirmado=new Set((gravadas||[]).map(chave));
+    const faltantes=[...esperado].filter(k=>!confirmado.has(k));
+    if(faltantes.length || confirmado.size<esperado.size){
+      await c.from('processo_pendencias').delete().eq('processo_id',p.id).eq('status','pendente');
+      throw new Error('O Supabase não confirmou todos os itens da pendência. O processo permaneceu em Análise.');
+    }
+    return gravadas||[];
   }
   async function marcarRecebidas(ids,ator){
     if(!ids.length)return;
@@ -1381,7 +1401,7 @@
     }
     el.querySelectorAll('input[name="pendAluno"],input[name="pendInst"]').forEach(i=>i.addEventListener('change',atualizarTarefa)); atualizarTarefa();
     el.querySelector('[data-voltar33]').addEventListener('click',()=>window.abrirAnaliseSIGEE?.(id));
-    botao.addEventListener('click',async()=>{const aluno=marcados(el,'pendAluno'),inst=marcados(el,'pendInst');if(!aluno.length&&!inst.length)return alert('Selecione ao menos uma pendência.');if(!el.querySelector('#pend-email33')?.checked)return alert('Confirme a execução da tarefa obrigatória.');const ca=txt(el.querySelector('#pend-aluno-comp33').value),ci=txt(el.querySelector('#pend-inst-comp33').value),msg=mensagemPendencia(aluno,inst);if(aluno.includes('Outros')&&!ca)return alert('Informe a descrição da pendência “Outros” do Aluno/Requerente.');if(inst.includes('Outros')&&!ci)return alert('Informe a descrição da pendência “Outros” da Instituição.');botao.disabled=true;try{const ator=identidadeSessao();await substituirPendencias(p,aluno,inst,ca,ci,msg,ator);p.pendencia_aluno_itens=aluno;p.pendencia_instituicao_itens=inst;p.pendencia_aluno_complemento=ca;p.pendencia_instituicao_complemento=ci;p.pendencia_aberta=true;p.etapa=p.etapa_atual='Pendência';p.data_etapa_atual=agoraISO();p.tecnico_responsavel=ator.nome;await salvar(p);const obs=[aluno.length?`Aluno: ${aluno.join(', ')}`:'',inst.length?`Instituição: ${inst.join(', ')}`:'',ca?`Complemento aluno: ${ca}`:'',ci?`Complemento instituição: ${ci}`:'',`Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}`].filter(Boolean).join(' | ');await registrarHistorico(p,'Pendência','Análise realizada - Pendência registrada',obs,{aluno,instituicao:inst,mensagem:msg,tarefa_confirmada:true},ator);
+    botao.addEventListener('click',async()=>{const aluno=marcados(el,'pendAluno'),inst=marcados(el,'pendInst');if(!aluno.length&&!inst.length)return alert('Selecione ao menos uma pendência.');if(!el.querySelector('#pend-email33')?.checked)return alert('Confirme a execução da tarefa obrigatória.');const ca=txt(el.querySelector('#pend-aluno-comp33').value),ci=txt(el.querySelector('#pend-inst-comp33').value),msg=mensagemPendencia(aluno,inst);if(aluno.includes('Outros')&&!ca)return alert('Informe a descrição da pendência “Outros” do Aluno/Requerente.');if(inst.includes('Outros')&&!ci)return alert('Informe a descrição da pendência “Outros” da Instituição.');botao.disabled=true;try{const ator=identidadeSessao();const gravadas=await substituirPendencias(p,aluno,inst,ca,ci,msg,ator);if(!gravadas.length)throw new Error('Nenhuma pendência foi confirmada pelo Supabase.');const estadoAnterior={etapa:p.etapa,etapa_atual:p.etapa_atual,data_etapa_atual:p.data_etapa_atual,tecnico_responsavel:p.tecnico_responsavel,pendencia_aberta:p.pendencia_aberta};p.pendencia_aluno_itens=aluno;p.pendencia_instituicao_itens=inst;p.pendencia_aluno_complemento=ca;p.pendencia_instituicao_complemento=ci;p.pendencia_aberta=true;p.etapa=p.etapa_atual='Pendência';p.data_etapa_atual=agoraISO();p.tecnico_responsavel=ator.nome;try{await salvar(p);}catch(saveError){Object.assign(p,estadoAnterior);const c=cliente();if(c)await c.from('processo_pendencias').delete().eq('processo_id',p.id).eq('status','pendente');throw saveError;}const obs=[aluno.length?`Aluno: ${aluno.join(', ')}`:'',inst.length?`Instituição: ${inst.join(', ')}`:'',ca?`Complemento aluno: ${ca}`:'',ci?`Complemento instituição: ${ci}`:'',`Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}`].filter(Boolean).join(' | ');await registrarHistorico(p,'Pendência','Análise realizada - Pendência registrada',obs,{aluno,instituicao:inst,mensagem:msg,tarefa_confirmada:true},ator);
         fecharModal();
         if (typeof window.filtrarProcessosPorEtapa === 'function') {
           window.filtrarProcessosPorEtapa('Pendência');
