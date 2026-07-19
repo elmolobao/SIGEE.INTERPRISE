@@ -626,7 +626,7 @@
     const form = modal.querySelector('form');
     if (!form || form.dataset.sigeeUsuariosSubmitV24 === '1') return;
     form.dataset.sigeeUsuariosSubmitV24 = '1';
-    form.addEventListener('submit', window.salvarNovoUsuarioFormularioMaster, true);
+    // RC4.1.6: listener legado desativado; o submit é ligado uma única vez ao final do arquivo.
   }
 
   document.addEventListener('DOMContentLoaded', function(){
@@ -920,7 +920,7 @@
     prepararSelectsUsuario(document.getElementById('user-form-perfil')?.value || '', document.getElementById('user-form-nte')?.value || '');
     if (form && form.dataset.sigee26Submit !== '1') {
       form.dataset.sigee26Submit = '1';
-      form.addEventListener('submit', window.salvarNovoUsuarioFormularioMaster, true);
+      // RC4.1.6: listener legado desativado; o submit é ligado uma única vez ao final do arquivo.
     }
   }
   document.addEventListener('DOMContentLoaded', function(){ setTimeout(capturarSubmit, 300); setTimeout(atualizarListaUsuarios, 700); });
@@ -1256,8 +1256,13 @@
   };
 
   window.salvarNovoUsuarioFormularioMaster = async function(event){
-    if (event) event.preventDefault();
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    if (window.__SIGEE_SALVANDO_USUARIO__) return;
     if (!podeGerenciarUsuarios()) return alert('Operação permitida apenas para o perfil Master.');
+    window.__SIGEE_SALVANDO_USUARIO__ = true;
     const c = client();
     if (!c) return alert('Cliente Supabase não localizado.');
 
@@ -1299,8 +1304,25 @@
     } catch(e) {
       console.error('Erro ao salvar usuário:', e);
       alert('Erro ao salvar usuário: ' + (e.message || e));
+    } finally {
+      window.__SIGEE_SALVANDO_USUARIO__ = false;
     }
   };
+
+  function vincularSubmitUsuarioUnico(){
+    const form = document.getElementById('form-cadastro-usuario') || document.querySelector('#modal-cadastro-usuario form');
+    if (!form || form.dataset.sigeeSubmitUnico === '1') return;
+    form.dataset.sigeeSubmitUnico = '1';
+    form.addEventListener('submit', function(event){
+      window.salvarNovoUsuarioFormularioMaster(event);
+    }, false);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', vincularSubmitUsuarioUnico, { once: true });
+  } else {
+    vincularSubmitUsuarioUnico();
+  }
 
   window.resetarSenhaUsuarioMaster = async function(id){
     if (!podeGerenciarUsuarios()) return alert('Operação permitida apenas para o perfil Master.');
