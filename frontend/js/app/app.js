@@ -9593,8 +9593,8 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
       perfil,
       nte,
       nte_id: perfil === 'SEC' ? null : (u.nte_id || nteId(nte)),
-      senha: txt(u.senha || u.senha_hash || '123'),
-      senha_hash: txt(u.senha_hash || u.senha || '123'),
+      senha: txt(u.senha || u.senha_hash || 'SEC@2026'),
+      senha_hash: txt(u.senha_hash || u.senha || 'SEC@2026'),
       ativo: u.ativo !== false && u.Ativo !== false,
       Ativo: u.ativo !== false && u.Ativo !== false,
       forcar_troca_senha: !!u.forcar_troca_senha,
@@ -9783,12 +9783,12 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     const base = baseUsuarios();
     const u = base.find(x => String(x.id) === String(id));
     if (!u) return alert('Usuário não localizado.');
-    const novo = normalizarUsuario({ ...u, senha: '123', senha_hash: '123', forcar_troca_senha: true });
+    const novo = normalizarUsuario({ ...u, senha: 'SEC@2026', senha_hash: 'SEC@2026', forcar_troca_senha: true });
     try {
       const salvo = await salvarUsuarioSupabase(novo);
       Object.assign(u, salvo);
       try { localStorage.setItem('SIGEE_USUARIOS_CACHE', JSON.stringify(base.map(normalizarUsuario))); } catch (e) {}
-      alert(`Senha de ${u.nome} resetada para 123. O usuário deverá cadastrar nova senha no próximo acesso.`);
+      alert(`Senha de ${u.nome} resetada para SEC@2026. O usuário deverá cadastrar nova senha no próximo acesso.`);
       if (typeof window.carregarListaUsuarios === 'function') window.carregarListaUsuarios();
     } catch (e) {
       alert('Erro ao resetar senha: ' + (e.message || e.details || e));
