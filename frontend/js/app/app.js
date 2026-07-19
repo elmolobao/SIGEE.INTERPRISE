@@ -4349,9 +4349,19 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     });
     const pf=document.getElementById('user-form-perfil');
     if(pf){
-      const atual=perfil(pf.value);
-      pf.innerHTML='<option value="Master">Master</option><option value="Administrador">Administrador</option><option value="Tecnico">Tecnico</option><option value="Consulta">Consulta</option>';
-      pf.value=atual;
+      const atual = pf.value;
+      const utils = window.SIGEE_CONFIG_UTILS;
+
+      if (utils && typeof utils.preencherSelectPerfis === 'function') {
+        utils.preencherSelectPerfis(pf, atual, false);
+      } else {
+        // Fallback seguro: nunca reduzir o catálogo oficial por uma rotina legada.
+        const perfis = ['Master', 'SEC', 'Gestor', 'Administrador', 'Técnico', 'Estagiário', 'Consulta'];
+        pf.innerHTML = perfis.map(function(perfilItem){
+          return '<option value="' + perfilItem + '">' + perfilItem + '</option>';
+        }).join('');
+        if (atual && perfis.includes(atual)) pf.value = atual;
+      }
     }
   };
 
@@ -10755,31 +10765,3 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
   console.info('[SIGEE] Proteções de duplicidade e acervo não recolhido ativas.');
 })();
 
-
-/* =====================================================================
- * RC4.1.3 — Ponte de compatibilidade da reestruturação de perfis.
- * Mantém blocos legados operacionais, mas retira deles a autoridade final
- * sobre catálogo, normalização, menus e seletores de perfil.
- * ===================================================================== */
-(function (window) {
-  'use strict';
-  function central(value) {
-    return window.SIGEE_PERFIS && window.SIGEE_PERFIS.normalizar
-      ? window.SIGEE_PERFIS.normalizar(value)
-      : String(value || '').trim();
-  }
-  window.normalizarPerfilSIGEE = central;
-  window.perfilCanonicoSIGEE = central;
-  window.perfilCanonico = central;
-  window.SIGEE_NORMALIZAR_PERFIL = central;
-
-  function aplicar() {
-    if (window.SIGEE_PERFIS) window.SIGEE_PERFIS.garantirSelects(document);
-    if (window.SIGEE_PERMISSOES) window.SIGEE_PERMISSOES.aplicarMenu();
-  }
-  document.addEventListener('DOMContentLoaded', aplicar);
-  document.addEventListener('sigee:usuario-logado', aplicar);
-  document.addEventListener('sigee:navegacao-concluida', aplicar);
-  window.addEventListener('load', aplicar);
-  setTimeout(aplicar, 0);
-})(window);
