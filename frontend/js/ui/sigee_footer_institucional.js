@@ -13,27 +13,22 @@
   };
 
   function obterUsuarioSessaoSIGEE() {
-    const candidatos = [];
-
-    try { if (window.usuarioLogado) candidatos.push(window.usuarioLogado); } catch (_) {}
-
-    const chaves = [
-      'usuarioLogado',
-      'SIGEE_USUARIO_LOGADO',
-      'sigee_usuario_logado',
-      'SIGEE_USER',
-      'sigee_user'
-    ];
-
-    chaves.forEach((chave) => {
+    try {
+      const central = window.SIGEE_SESSION?.getUser?.();
+      if (central) return central;
+    } catch (_) {}
+    try { if (window.usuarioLogado) return window.usuarioLogado; } catch (_) {}
+    const chaves = ['SIGEE_USUARIO_LOGADO','usuarioLogadoSIGEE','usuarioLogado','sigee_usuario_logado','SIGEE_USER','sigee_user'];
+    for (const chave of chaves) {
       try {
         const valor = localStorage.getItem(chave) || sessionStorage.getItem(chave);
-        if (!valor) return;
-        candidatos.push(JSON.parse(valor));
+        if (valor) {
+          const usuario = JSON.parse(valor);
+          if (usuario) return usuario;
+        }
       } catch (_) {}
-    });
-
-    return candidatos.find((u) => u && (u.nome || u.email || u.perfil || u.nte || u.nte_id)) || null;
+    }
+    return null;
   }
 
   function normalizarPerfil(perfil) {
