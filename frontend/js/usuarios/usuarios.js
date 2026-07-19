@@ -35,6 +35,7 @@
     const p = up(valor || 'Tecnico');
     if (p.includes('SEC')) return 'SEC';
     if (p.includes('MASTER')) return 'Master';
+    if (p.includes('GESTOR') || p.includes('DIRIGENTE')) return 'Gestor';
     if (p.includes('ADMIN')) return 'Administrador';
     if (p.includes('ESTAG')) return 'Estagiario';
     if (p.includes('GESTOR') || p.includes('DIRIGENTE')) return 'Gestor';
@@ -415,6 +416,7 @@
     const p = normal(valor || 'Tecnico');
     if (p.includes('SEC')) return 'SEC';
     if (p.includes('MASTER')) return 'Master';
+    if (p.includes('GESTOR') || p.includes('DIRIGENTE')) return 'Gestor';
     if (p.includes('ADMIN')) return 'Administrador';
     if (p.includes('ESTAG')) return 'Estagiario';
     if (p.includes('GESTOR') || p.includes('DIRIGENTE')) return 'Gestor';
@@ -1057,7 +1059,7 @@
   'use strict';
 
   const TABELA = 'usuarios_sigee';
-  const SENHA_PADRAO = '123';
+  const SENHA_PADRAO = 'SEC@2026';
 
   function texto(v){ return (v === undefined || v === null) ? '' : String(v).trim(); }
   function emailNorm(v){ return texto(v).toLowerCase(); }
@@ -1066,6 +1068,7 @@
     const p = semAcento(v || 'Tecnico').toUpperCase();
     if (p.includes('SEC')) return 'SEC';
     if (p.includes('MASTER')) return 'Master';
+    if (p.includes('GESTOR') || p.includes('DIRIGENTE')) return 'Gestor';
     if (p.includes('ADMIN')) return 'Administrador';
     if (p.includes('CONSULT')) return 'Consulta';
     if (p.includes('ESTAG')) return 'Estagiario';
@@ -1133,7 +1136,8 @@
       nte: p === 'SEC' ? 'SEC - TODOS OS NTES' : nteTexto(nteId, nte),
       ativo,
       Ativo: ativo,
-      forcar_troca_senha: false
+      // O chamador define: true em novo cadastro/reset; preservado em edição.
+      forcar_troca_senha: true
     };
   }
 
@@ -1275,6 +1279,17 @@
       nte: document.getElementById('user-form-nte')?.value
     });
 
+    // Novo cadastro: exige recadastramento no primeiro acesso.
+    // Edição comum: preserva o estado atual, sem reabrir o modal indevidamente.
+    if (id) {
+      const atual = (window.usuariosDB || []).map(mapUsuario).find(function(u){ return String(u.id) === String(id); });
+      payload.forcar_troca_senha = atual ? !!atual.forcar_troca_senha : false;
+    } else {
+      payload.senha = SENHA_PADRAO;
+      payload.senha_hash = SENHA_PADRAO;
+      payload.forcar_troca_senha = true;
+    }
+
     if (!payload.nome || !payload.email) return alert('Informe nome e e-mail.');
 
     try {
@@ -1329,10 +1344,10 @@
     const c = client();
     if (!c) return alert('Cliente Supabase não localizado.');
     try {
-      const { error } = await c.from(TABELA).update({ senha: SENHA_PADRAO, senha_hash: SENHA_PADRAO, forcar_troca_senha: false }).eq('id', id);
+      const { error } = await c.from(TABELA).update({ senha: SENHA_PADRAO, senha_hash: SENHA_PADRAO, forcar_troca_senha: true }).eq('id', id);
       if (error) throw error;
       await window.carregarListaUsuarios();
-      alert('Senha resetada para: ' + SENHA_PADRAO);
+      alert('Senha resetada para ' + SENHA_PADRAO + '. No próximo login, o usuário deverá cadastrar uma nova senha.');
     } catch(e) {
       console.error('Erro ao resetar senha:', e);
       alert('Erro ao resetar senha: ' + (e.message || e));
