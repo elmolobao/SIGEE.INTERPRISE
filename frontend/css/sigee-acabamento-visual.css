@@ -293,3 +293,38 @@ header.sigee-header,
 .sigee-modal33.pendencia .sigee-pend-item331 small{color:#475569!important;}
 .sigee-modal33.pendencia .sigee-pend-item331:hover{background:#eef2ff!important;border-color:#818cf8!important;}
 .sigee-btn-tratar-pendencia{color:#fff!important;background:#7e22ce!important;}
+
+
+/* ============================================================
+   SIGEE 4.1.8 — AUTORIDADE VISUAL DOS BOTÕES OPERACIONAIS
+   A cor representa a ação executada, não apenas a etapa atual.
+   ============================================================ */
+#tabela-processos-corpo .sigee-btn-acao{
+  display:inline-flex!important;align-items:center!important;justify-content:center!important;
+  min-height:28px!important;max-width:132px!important;padding:6px 10px!important;
+  border:1px solid transparent!important;border-radius:9px!important;
+  font-size:10px!important;font-weight:900!important;line-height:1.12!important;
+  text-align:center!important;text-decoration:none!important;cursor:pointer!important;
+  color:#fff!important;box-shadow:0 5px 14px rgba(15,23,42,.16)!important;
+  transition:transform .15s ease,filter .15s ease,box-shadow .15s ease!important;
+}
+#tabela-processos-corpo .sigee-btn-acao:hover{transform:translateY(-1px)!important;filter:brightness(1.08)!important;box-shadow:0 7px 18px rgba(15,23,42,.23)!important}
+#tabela-processos-corpo .sigee-btn-acao:focus-visible{outline:3px solid rgba(59,130,246,.32)!important;outline-offset:2px!important}
+#tabela-processos-corpo .sigee-btn-acao:disabled{opacity:.46!important;filter:grayscale(.25)!important;cursor:not-allowed!important;transform:none!important}
+
+/* Ações homologadas */
+#tabela-processos-corpo .sigee-acao-documento-recebido{background:#15803d!important;border-color:#166534!important}
+#tabela-processos-corpo .sigee-acao-reiteracao{background:#facc15!important;border-color:#ca8a04!important;color:#422006!important}
+#tabela-processos-corpo .sigee-acao-reiteracao-urgente{background:#ea580c!important;border-color:#c2410c!important}
+#tabela-processos-corpo .sigee-acao-confirmacao{background:#dc2626!important;border-color:#b91c1c!important}
+#tabela-processos-corpo .sigee-acao-retificacao{background:#64748b!important;border-color:#475569!important}
+#tabela-processos-corpo .sigee-acao-atas{background:#111827!important;border-color:#030712!important}
+#tabela-processos-corpo .sigee-acao-pendencia{background:#7e22ce!important;border-color:#6b21a8!important;color:#fff!important}
+#tabela-processos-corpo .sigee-acao-analise{background:#d97706!important;border-color:#b45309!important;color:#fff!important}
+#tabela-processos-corpo .sigee-acao-digitacao{background:#f97316!important;border-color:#ea580c!important;color:#fff!important}
+#tabela-processos-corpo .sigee-acao-conferido{background:#15803d!important;border-color:#166534!important}
+#tabela-processos-corpo .sigee-acao-deferido{background:#16a34a!important;border-color:#15803d!important}
+#tabela-processos-corpo .sigee-acao-retirado{background:#374151!important;border-color:#1f2937!important}
+
+/* Modalidade: evita desaparecimento visual por herança de cor. */
+#tabela-processos-corpo td:nth-child(3){color:#0f2742!important;font-weight:800!important;opacity:1!important}
