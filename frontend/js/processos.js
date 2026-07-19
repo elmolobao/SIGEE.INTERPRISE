@@ -1564,6 +1564,9 @@
     });}
 
   window.abrirAnaliseSIGEE=abrirAnalise;
+  // Entradas públicas distintas: registrar uma nova pendência durante a
+  // Análise e tratar uma pendência já aberta.
+  window.abrirRegistrarPendenciaSIGEE=abrirFormularioPendencia;
   window.abrirPendenciaSIGEE=abrirTratarPendencia;
   window.abrirHistoricoProcessoSIGEE=abrirHistorico;
   window.abrirHistoricoSIGEE=abrirHistorico;

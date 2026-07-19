@@ -9300,26 +9300,15 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
   'use strict';
 
   window.abrirModalRegistrarPendencia = function(id){
-    if (typeof window.abrirModalFluxoAnalise !== 'function') {
-      console.error('[SIGEE] Função de abertura da Análise não localizada.');
-      return;
+    // A janela homologada de registro de pendência pertence ao módulo
+    // processos.js. Não reutilizar o modal legado de Análise do app.js.
+    if (typeof window.abrirRegistrarPendenciaSIGEE === 'function') {
+      return window.abrirRegistrarPendenciaSIGEE(id);
     }
 
-    // Inicializa corretamente os dados do processo e o modal.
-    window.abrirModalFluxoAnalise(id);
-
-    const seletor = document.getElementById('f01-pendencia');
-    if (seletor) seletor.value = 'sim';
-
-    const titulo = document.querySelector('#modal-fluxo-analise h3');
-    if (titulo) titulo.innerHTML = '⚠️ Registrar Pendência';
-
-    if (typeof window.onChangePendenciaAnalise === 'function') {
-      window.onChangePendenciaAnalise();
-    }
-
-    const detalhe = document.getElementById('f01-txt-detalhe');
-    if (detalhe) detalhe.focus();
+    console.error('[SIGEE] Janela oficial de Registrar Pendência não localizada.');
+    alert('Não foi possível abrir a janela de Registrar Pendência. Recarregue a página e tente novamente.');
+    return false;
   };
 
   // Mantém o título correto quando a abertura for a análise normal.
