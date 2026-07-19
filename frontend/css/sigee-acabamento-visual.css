@@ -285,3 +285,11 @@ header.sigee-header,
   background:#5b21b6!important;
   color:#ffffff!important;
 }
+
+
+/* SIGEE 4.1.7 — contraste seguro das pendências abertas */
+.sigee-modal33.pendencia .sigee-pend-item331{background:#f8fafc!important;border:1px solid #cbd5e1!important;color:#0f172a!important;}
+.sigee-modal33.pendencia .sigee-pend-item331 strong{color:#0f172a!important;}
+.sigee-modal33.pendencia .sigee-pend-item331 small{color:#475569!important;}
+.sigee-modal33.pendencia .sigee-pend-item331:hover{background:#eef2ff!important;border-color:#818cf8!important;}
+.sigee-btn-tratar-pendencia{color:#fff!important;background:#7e22ce!important;}
