@@ -16,7 +16,7 @@
   if (window.__SIGEE_WORKFLOW_EXTERNO_095__) return;
   window.__SIGEE_WORKFLOW_EXTERNO_095__ = true;
 
-  const VERSION = '1.1.4';
+  const VERSION = '1.1.3';
   const EXTERNAL_STATES = Object.freeze(['DES', 'RET', 'REU', 'CFD']);
 
   const ACTIONS = Object.freeze({
@@ -640,11 +640,11 @@
             <div class="sigee-wfe-card"><span>Prazo da etapa</span><strong>${state.deadline == null ? 'Sem prazo' : state.deadline + ' dias'}</strong></div>
           </div>
           <div class="sigee-wfe-note">Cada comunicação somente será registrada após a confirmação obrigatória de todas as mensagens institucionais vinculadas à ação.</div>
-          <div class="sigee-wfe-actions">${actionsHtml || '<div class="sigee-wfe-card">Nenhuma ação externa disponível.</div>'}</div>
           <div class="sigee-wfe-action sigee-wfe-documento">
             <div class="sigee-wfe-action-copy"><span class="sigee-wfe-action-icon" aria-hidden="true">📁</span><div><strong>Documento Recebido</strong><p>Registre o tipo e o local do arquivo, defina a prioridade e o analista e confirme o envio do E-mail 02. O Desarquivamento será encerrado e o processo seguirá para Análise, sem reiniciar o ciclo.</p></div></div>
             <button type="button" class="sigee-wfe-btn sigee-wfe-secondary" data-wfe-documento>Receber documento</button>
           </div>
+          <div class="sigee-wfe-actions">${actionsHtml || '<div class="sigee-wfe-card">Nenhuma ação externa disponível.</div>'}</div>
         </div>
       </section>`;
 
