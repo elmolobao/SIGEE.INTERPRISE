@@ -20,6 +20,10 @@
   });
 
   function normalize(value) {
+    if (window.SIGEE_PERFIS && typeof window.SIGEE_PERFIS.normalizar === 'function') {
+      const central = window.SIGEE_PERFIS.normalizar(value);
+      if (central) return central;
+    }
     if (window.SIGEE_SESSION && typeof window.SIGEE_SESSION.normalizarPerfil === 'function') {
       return window.SIGEE_SESSION.normalizarPerfil(value);
     }

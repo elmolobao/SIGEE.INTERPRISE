@@ -67,6 +67,9 @@
   }
 
   function normalizarPerfil(value) {
+    if (window.SIGEE_PERFIS && typeof window.SIGEE_PERFIS.chave === 'function') {
+      return window.SIGEE_PERFIS.chave(value) || null;
+    }
     const token = normalizarToken(value);
     if (token === 'SEC' || token.includes('SECRETARIA')) return PERFIS.SEC;
     if (token.includes('MASTER')) return PERFIS.MASTER;
@@ -90,12 +93,18 @@
   ]);
 
   function listarPerfis() {
+    if (window.SIGEE_PERFIS && typeof window.SIGEE_PERFIS.listar === 'function') {
+      return window.SIGEE_PERFIS.listar().map(function (item) { return Object.freeze({ key:item.key, value:item.value, label:item.label }); });
+    }
     return PERFIS_ORDEM.map(function (key) {
       return Object.freeze({ key: key, value: PERFIS_LABELS[key], label: PERFIS_LABELS[key] });
     });
   }
 
   function preencherSelectPerfis(select, valorAtual, incluirPlaceholder) {
+    if (window.SIGEE_PERFIS && typeof window.SIGEE_PERFIS.preencherSelect === 'function') {
+      return window.SIGEE_PERFIS.preencherSelect(select, valorAtual, incluirPlaceholder);
+    }
     if (!select) return false;
     const atual = normalizarPerfil(valorAtual == null ? select.value : valorAtual);
     const options = listarPerfis();
