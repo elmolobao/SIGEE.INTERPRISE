@@ -16,11 +16,17 @@
     Administrador: Object.freeze({ global:0, usuarios:0, logs:1, salaSituacao:0, relatorios:1, importarEscola:0, exportar:1, abrirSolicitacao:1, visualizarProcesso:1, moverProcesso:1, editarProcesso:1, excluirProcesso:0, regredirProcesso:0, cadastrarEscola:0, editarEscola:1 }),
     'Técnico': Object.freeze({ global:0, usuarios:0, logs:0, salaSituacao:0, relatorios:0, importarEscola:0, exportar:0, abrirSolicitacao:1, visualizarProcesso:1, moverProcesso:1, editarProcesso:0, excluirProcesso:0, regredirProcesso:0, cadastrarEscola:0, editarEscola:1 }),
     'Estagiário': Object.freeze({ global:0, usuarios:0, logs:0, salaSituacao:0, relatorios:0, importarEscola:0, exportar:0, abrirSolicitacao:1, visualizarProcesso:1, moverProcesso:0, editarProcesso:0, excluirProcesso:0, regredirProcesso:0, cadastrarEscola:0, editarEscola:0 }),
-    Consulta: Object.freeze({ global:0, usuarios:0, logs:0, salaSituacao:0, relatorios:0, importarEscola:0, exportar:0, abrirSolicitacao:0, visualizarProcesso:1, moverProcesso:0, editarProcesso:0, excluirProcesso:0, regredirProcesso:0, cadastrarEscola:0, editarEscola:0 })
+    Consulta: Object.freeze({ global:0, usuarios:0, logs:0, salaSituacao:0, relatorios:1, importarEscola:0, exportar:0, abrirSolicitacao:0, visualizarProcesso:1, moverProcesso:0, editarProcesso:0, excluirProcesso:0, regredirProcesso:0, cadastrarEscola:0, editarEscola:0 })
   });
 
   function normalize(value) {
-    return window.SIGEE_AUTH ? window.SIGEE_AUTH.normalizarPerfil(value) : String(value || '').trim();
+    if (window.SIGEE_SESSION && typeof window.SIGEE_SESSION.normalizarPerfil === 'function') {
+      return window.SIGEE_SESSION.normalizarPerfil(value);
+    }
+    if (window.SIGEE_AUTH && typeof window.SIGEE_AUTH.normalizarPerfil === 'function') {
+      return window.SIGEE_AUTH.normalizarPerfil(value);
+    }
+    return String(value || '').trim();
   }
   function user() {
     return window.SIGEE_SESSION ? window.SIGEE_SESSION.getUser() : (window.usuarioLogado || null);

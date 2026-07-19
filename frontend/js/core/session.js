@@ -6,16 +6,51 @@
   'use strict';
 
   const STORAGE_KEYS = Object.freeze(['SIGEE_USUARIO_LOGADO', 'usuarioLogadoSIGEE']);
+  const PROFILE_MAP = Object.freeze({
+    MASTER: 'Master', SEC: 'SEC', GESTOR: 'Gestor', DIRIGENTE: 'Gestor',
+    ADMINISTRADOR: 'Administrador', ADMINISTRATOR: 'Administrador',
+    TECNICO: 'Técnico', ESTAGIARIO: 'Estagiário', CONSULTA: 'Consulta'
+  });
   let currentUser = null;
 
   function parseJSON(value) {
     try { return value ? JSON.parse(value) : null; } catch (_) { return null; }
   }
 
+  function token(value) {
+    return String(value == null ? '' : value)
+      .trim()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toUpperCase();
+  }
+
+  function normalizeProfile(value) {
+    const key = token(value);
+    if (!key) return '';
+    if (PROFILE_MAP[key]) return PROFILE_MAP[key];
+    if (key.includes('MASTER')) return 'Master';
+    if (key === 'SEC' || key.includes('SECRETARIA')) return 'SEC';
+    if (key.includes('GESTOR') || key.includes('DIRIGENTE')) return 'Gestor';
+    if (key.includes('ADMIN')) return 'Administrador';
+    if (key.includes('TECNIC')) return 'Técnico';
+    if (key.includes('ESTAG')) return 'Estagiário';
+    if (key.includes('CONSULT')) return 'Consulta';
+    return String(value == null ? '' : value).trim();
+  }
+
+  function normalizeUser(user) {
+    if (!user || typeof user !== 'object') return null;
+    const normalized = Object.assign({}, user);
+    const rawProfile = normalized.perfil || normalized.tipo || normalized.role;
+    if (rawProfile) normalized.perfil = normalizeProfile(rawProfile);
+    return normalized;
+  }
+
   function readStorage() {
     for (const key of STORAGE_KEYS) {
       const user = parseJSON(window.localStorage && localStorage.getItem(key));
-      if (user && typeof user === 'object') return user;
+      if (user && typeof user === 'object') return normalizeUser(user);
     }
     return null;
   }
@@ -27,7 +62,8 @@
   function getUser() {
     if (currentUser) return currentUser;
     if (window.usuarioLogado && typeof window.usuarioLogado === 'object') {
-      currentUser = window.usuarioLogado;
+      currentUser = normalizeUser(window.usuarioLogado);
+      window.usuarioLogado = currentUser;
       return currentUser;
     }
     currentUser = readStorage();
@@ -37,7 +73,7 @@
 
   function setUser(user, options) {
     const opts = Object.assign({ persist: true, emit: true }, options || {});
-    currentUser = user && typeof user === 'object' ? user : null;
+    currentUser = normalizeUser(user);
     window.usuarioLogado = currentUser;
 
     if (opts.persist && window.localStorage) {
@@ -59,5 +95,5 @@
     return setUser(null, options);
   }
 
-  window.SIGEE_SESSION = Object.freeze({ getUser, setUser, patchUser, clear, STORAGE_KEYS });
+  window.SIGEE_SESSION = Object.freeze({ getUser, setUser, patchUser, clear, normalizarPerfil: normalizeProfile, STORAGE_KEYS });
 })(window);
