@@ -31,9 +31,20 @@
   function isGlobal() { const p = perfilAtual(); return p === 'MASTER' || p === 'SEC'; }
   function isTecnico() { return perfilAtual() === 'TECNICO'; }
   function podeCadastrar() { return perfilAtual() === 'MASTER'; }
-  function podeEditar() { const p = perfilAtual(); return ['MASTER','ADMINISTRADOR','TECNICO'].includes(p); }
+  function podeEditar() {
+    try {
+      if (window.SIGEE_PERMISSOES && typeof window.SIGEE_PERMISSOES.pode === 'function') {
+        return !!window.SIGEE_PERMISSOES.pode('editarEscola');
+      }
+    } catch (_) {}
+    const p = perfilAtual();
+    return ['MASTER','SEC','ADMINISTRADOR','TECNICO'].includes(p);
+  }
   function podeEditarCompleto() { return perfilAtual() === 'MASTER'; }
-  function podeEditarLimitado() { const p = perfilAtual(); return p === 'TECNICO' || p === 'ADMINISTRADOR'; }
+  function podeEditarLimitado() {
+    const p = perfilAtual();
+    return p === 'SEC' || p === 'TECNICO' || p === 'ADMINISTRADOR';
+  }
   function nteIdUsuario() {
     const u = window.usuarioLogado || {};
     const direto = Number(u.nte_id || u.nteId || u.id_nte || 0);
