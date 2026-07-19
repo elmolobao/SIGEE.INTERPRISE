@@ -25,7 +25,11 @@ function aplicar(){
   if(!atual) return false;
   atual.perfil=pf();
   try { window.usuarioLogado=atual; } catch(e){}
-  document.body.classList.toggle('sigee-perfil-master-oficial', pf()==='Master');
+  ['master','sec','gestor','administrador','tecnico','estagiario','consulta'].forEach(function(nome){
+    document.body.classList.remove('sigee-perfil-'+nome+'-oficial');
+  });
+  const classePerfil=norm(pf()).toLowerCase();
+  if(classePerfil) document.body.classList.add('sigee-perfil-'+classePerfil+'-oficial');
   show('#menu-usuarios',can('usuarios'));
   show('#menu-relatorios',can('relatorios'));
   show('#menu-sala-situacao',can('sala'));
@@ -59,7 +63,13 @@ function instalarAutoridade(){
 }
 const css=document.createElement('style');
 css.id='sigee-perfis-oficial-css';
-css.textContent='body.sigee-perfil-master-oficial #menu-usuarios{display:block!important;}';
+css.textContent=[
+'body.sigee-perfil-master-oficial #menu-usuarios,body.sigee-perfil-master-oficial #menu-relatorios,body.sigee-perfil-master-oficial #menu-sala-situacao{display:block!important;visibility:visible!important;opacity:1!important;}',
+'body.sigee-perfil-sec-oficial #menu-relatorios,body.sigee-perfil-sec-oficial #menu-sala-situacao{display:block!important;visibility:visible!important;opacity:1!important;}',
+'body.sigee-perfil-gestor-oficial #menu-relatorios,body.sigee-perfil-gestor-oficial #menu-sala-situacao{display:block!important;visibility:visible!important;opacity:1!important;}',
+'body:not(.sigee-perfil-master-oficial) #menu-usuarios{display:none!important;}',
+'body.sigee-perfil-administrador-oficial #menu-sala-situacao,body.sigee-perfil-tecnico-oficial #menu-sala-situacao,body.sigee-perfil-estagiario-oficial #menu-sala-situacao,body.sigee-perfil-consulta-oficial #menu-sala-situacao{display:none!important;}'
+].join('\n');
 document.head.appendChild(css);
 document.addEventListener('DOMContentLoaded',instalarAutoridade);
 window.addEventListener('load',instalarAutoridade);
