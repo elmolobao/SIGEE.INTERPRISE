@@ -239,7 +239,7 @@
     document.getElementById('user-form-senha').value = 'SECBA2026';
     try { if (typeof inicializarSelectsNteEcosystem === 'function') inicializarSelectsNteEcosystem(); } catch(e) {}
     const perfilSel = document.getElementById('user-form-perfil');
-    if (perfilSel) perfilSel.innerHTML = '<option value="SEC">SEC</option><option value="Master">Master</option><option value="Gestor">Gestor</option><option value="Administrador">Administrador</option><option value="Tecnico">Tecnico</option><option value="Estagiario">Estagiario</option><option value="Consulta">Consulta</option>';
+    if (perfilSel) perfilSel.innerHTML = '<option value="Master">Master</option><option value="SEC">SEC</option><option value="Gestor">Gestor</option><option value="Administrador">Administrador</option><option value="Técnico">Técnico</option><option value="Estagiário">Estagiário</option><option value="Consulta">Consulta</option>';
     document.getElementById('modal-cadastro-usuario').classList.remove('hidden');
   };
 
@@ -255,7 +255,7 @@
     try { if (typeof inicializarSelectsNteEcosystem === 'function') inicializarSelectsNteEcosystem(); } catch(e) {}
     const nte = document.getElementById('user-form-nte'); if (nte) nte.value = nteUsuario(u);
     const perfilSel = document.getElementById('user-form-perfil');
-    if (perfilSel) { perfilSel.innerHTML = '<option value="SEC">SEC</option><option value="Master">Master</option><option value="Gestor">Gestor</option><option value="Administrador">Administrador</option><option value="Tecnico">Tecnico</option><option value="Estagiario">Estagiario</option><option value="Consulta">Consulta</option>'; perfilSel.value = u.perfil; }
+    if (perfilSel) { perfilSel.innerHTML = '<option value="Master">Master</option><option value="SEC">SEC</option><option value="Gestor">Gestor</option><option value="Administrador">Administrador</option><option value="Técnico">Técnico</option><option value="Estagiário">Estagiário</option><option value="Consulta">Consulta</option>'; perfilSel.value = u.perfil; }
     document.getElementById('modal-cadastro-usuario').classList.remove('hidden');
   };
 
