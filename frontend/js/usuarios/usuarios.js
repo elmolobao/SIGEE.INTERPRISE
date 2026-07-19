@@ -1476,8 +1476,9 @@
   }
 
   function permitido(){
-    const perfil=String(window.usuarioLogado?.perfil||'').toUpperCase();
-    return perfil.includes('MASTER') || perfil.includes('ADMIN');
+    if (window.SIGEE_PERMISSOES?.pode) return window.SIGEE_PERMISSOES.pode('usuarios');
+    const perfil=String(window.usuarioLogado?.perfil||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toUpperCase();
+    return perfil === 'MASTER';
   }
 
   function criarDiagnostico(){
