@@ -11,10 +11,10 @@
   });
   const MATRIX = Object.freeze({
     Master: Object.freeze({ global:1, usuarios:1, logs:1, salaSituacao:1, inteligencia:1, relatorios:1, importarEscola:1, exportar:1, abrirSolicitacao:1, visualizarProcesso:1, moverProcesso:1, editarProcesso:1, excluirProcesso:1, regredirProcesso:1, cadastrarEscola:1, editarEscola:1 }),
-    SEC: Object.freeze({ global:0, usuarios:0, logs:0, salaSituacao:1, inteligencia:1, relatorios:1, importarEscola:0, exportar:1, abrirSolicitacao:0, visualizarProcesso:1, moverProcesso:0, editarProcesso:0, excluirProcesso:0, regredirProcesso:0, cadastrarEscola:0, editarEscola:1 }),
-    Gestor: Object.freeze({ global:0, usuarios:0, logs:0, salaSituacao:1, inteligencia:1, relatorios:1, importarEscola:0, exportar:1, abrirSolicitacao:0, visualizarProcesso:1, moverProcesso:0, editarProcesso:0, excluirProcesso:0, regredirProcesso:0, cadastrarEscola:0, editarEscola:0 }),
-    Administrador: Object.freeze({ global:0, usuarios:0, logs:0, salaSituacao:0, inteligencia:1, relatorios:1, importarEscola:0, exportar:1, abrirSolicitacao:1, visualizarProcesso:1, moverProcesso:1, editarProcesso:1, excluirProcesso:0, regredirProcesso:0, cadastrarEscola:0, editarEscola:1 }),
-    'Técnico': Object.freeze({ global:0, usuarios:0, logs:0, salaSituacao:0, inteligencia:1, relatorios:0, importarEscola:0, exportar:0, abrirSolicitacao:1, visualizarProcesso:1, moverProcesso:1, editarProcesso:0, excluirProcesso:0, regredirProcesso:0, cadastrarEscola:0, editarEscola:1 }),
+    SEC: Object.freeze({ global:0, usuarios:0, logs:0, salaSituacao:1, inteligencia:0, relatorios:1, importarEscola:0, exportar:1, abrirSolicitacao:0, visualizarProcesso:1, moverProcesso:0, editarProcesso:0, excluirProcesso:0, regredirProcesso:0, cadastrarEscola:0, editarEscola:1 }),
+    Gestor: Object.freeze({ global:0, usuarios:0, logs:0, salaSituacao:1, inteligencia:0, relatorios:1, importarEscola:0, exportar:1, abrirSolicitacao:0, visualizarProcesso:1, moverProcesso:0, editarProcesso:0, excluirProcesso:0, regredirProcesso:0, cadastrarEscola:0, editarEscola:0 }),
+    Administrador: Object.freeze({ global:0, usuarios:0, logs:0, salaSituacao:0, inteligencia:0, relatorios:1, importarEscola:0, exportar:1, abrirSolicitacao:1, visualizarProcesso:1, moverProcesso:1, editarProcesso:1, excluirProcesso:0, regredirProcesso:0, cadastrarEscola:0, editarEscola:1 }),
+    'Técnico': Object.freeze({ global:0, usuarios:0, logs:0, salaSituacao:0, inteligencia:0, relatorios:0, importarEscola:0, exportar:0, abrirSolicitacao:1, visualizarProcesso:1, moverProcesso:1, editarProcesso:0, excluirProcesso:0, regredirProcesso:0, cadastrarEscola:0, editarEscola:1 }),
     'Estagiário': Object.freeze({ global:0, usuarios:0, logs:0, salaSituacao:0, inteligencia:0, relatorios:0, importarEscola:0, exportar:0, abrirSolicitacao:1, visualizarProcesso:1, moverProcesso:0, editarProcesso:0, excluirProcesso:0, regredirProcesso:0, cadastrarEscola:0, editarEscola:0 }),
     Consulta: Object.freeze({ global:0, usuarios:0, logs:0, salaSituacao:0, inteligencia:0, relatorios:1, importarEscola:0, exportar:0, abrirSolicitacao:0, visualizarProcesso:1, moverProcesso:0, editarProcesso:0, excluirProcesso:0, regredirProcesso:0, cadastrarEscola:0, editarEscola:0 })
   });
@@ -29,7 +29,7 @@
     return String(value || '').trim();
   }
   function user() {
-    return window.SIGEE_SESSION ? window.SIGEE_SESSION.getUser() : (window.usuarioLogado || null);
+    return window.usuarioLogado || (window.SIGEE_SESSION ? window.SIGEE_SESSION.getUser() : null);
   }
   function profile(target) { return normalize((target || user() || {}).perfil); }
   function can(action, target) { return Boolean(MATRIX[profile(target)] && MATRIX[profile(target)][action]); }
@@ -69,7 +69,7 @@
     if (!current || !document.body) return false;
     current.perfil = profile(current);
     document.body.dataset.sigeePerfil = current.perfil;
-    setVisible('#menu-usuarios', can('usuarios', current));
+    setVisible('#menu-usuarios,#menu-administracao-bloco', can('usuarios', current));
     setVisible('#menu-logs', can('logs', current));
     setVisible('#menu-sala-situacao', can('salaSituacao', current));
     setVisible('#menu-relatorios', can('relatorios', current));
