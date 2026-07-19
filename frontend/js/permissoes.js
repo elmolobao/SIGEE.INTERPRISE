@@ -11,7 +11,8 @@
     ADMIN:'Administrador',
     TECNICO:'Tecnico',
     ESTAGIARIO:'Estagiario',
-    CONSULTA:'Consulta'
+    CONSULTA:'Consulta',
+    DIRIGENTE:'Dirigente'
   };
 
   const MATRIZ={
@@ -27,18 +28,23 @@
       editarProcesso:true,
       excluirProcesso:true,
       regredirProcesso:true,
-      editarEscola:true
+      cadastrarEscola:true,
+      editarEscola:true,
+      acessarRelatorios:true,
+      acessarSalaSituacao:true
     },
 
-    SEC:{global:true,usuarios:false,logs:true,importar:false,exportar:true,abrirSolicitacao:false,visualizarProcesso:true,moverProcesso:false,editarProcesso:false,excluirProcesso:false,regredirProcesso:false,editarEscola:false},
+    SEC:{global:true,usuarios:false,logs:true,importar:false,exportar:true,abrirSolicitacao:false,visualizarProcesso:true,moverProcesso:false,editarProcesso:false,excluirProcesso:false,regredirProcesso:false,cadastrarEscola:false,editarEscola:false,acessarRelatorios:true,acessarSalaSituacao:true},
 
-    Administrador:{global:false,usuarios:false,logs:true,importar:true,exportar:true,abrirSolicitacao:true,visualizarProcesso:true,moverProcesso:true,editarProcesso:true,excluirProcesso:false,regredirProcesso:false,editarEscola:true},
+    Administrador:{global:false,usuarios:false,logs:true,importar:true,exportar:true,abrirSolicitacao:true,visualizarProcesso:true,moverProcesso:true,editarProcesso:true,excluirProcesso:false,regredirProcesso:false,cadastrarEscola:false,editarEscola:true,acessarRelatorios:true,acessarSalaSituacao:false},
 
-    Tecnico:{global:false,usuarios:false,logs:false,importar:false,exportar:false,abrirSolicitacao:true,visualizarProcesso:true,moverProcesso:true,editarProcesso:false,excluirProcesso:false,regredirProcesso:false,editarEscola:true},
+    Tecnico:{global:false,usuarios:false,logs:false,importar:false,exportar:false,abrirSolicitacao:false,visualizarProcesso:true,moverProcesso:true,editarProcesso:false,excluirProcesso:false,regredirProcesso:false,cadastrarEscola:false,editarEscola:true,acessarRelatorios:false,acessarSalaSituacao:false},
 
-    Estagiario:{global:false,usuarios:false,logs:false,importar:false,exportar:false,abrirSolicitacao:true,visualizarProcesso:true,moverProcesso:false,editarProcesso:false,excluirProcesso:false,regredirProcesso:false,editarEscola:false},
+    Estagiario:{global:false,usuarios:false,logs:false,importar:false,exportar:false,abrirSolicitacao:true,visualizarProcesso:true,moverProcesso:false,editarProcesso:false,excluirProcesso:false,regredirProcesso:false,cadastrarEscola:false,editarEscola:false,acessarRelatorios:false,acessarSalaSituacao:false},
 
-    Consulta:{global:false,usuarios:false,logs:false,importar:false,exportar:false,abrirSolicitacao:false,visualizarProcesso:true,moverProcesso:false,editarProcesso:false,excluirProcesso:false,regredirProcesso:false,editarEscola:false}
+    Consulta:{global:false,usuarios:false,logs:false,importar:false,exportar:false,abrirSolicitacao:false,visualizarProcesso:true,moverProcesso:false,editarProcesso:false,excluirProcesso:false,regredirProcesso:false,cadastrarEscola:false,editarEscola:false,acessarRelatorios:false,acessarSalaSituacao:false},
+
+    Dirigente:{global:true,usuarios:false,logs:false,importar:false,exportar:false,abrirSolicitacao:false,visualizarProcesso:true,moverProcesso:false,editarProcesso:false,excluirProcesso:false,regredirProcesso:false,cadastrarEscola:false,editarEscola:false,acessarRelatorios:true,acessarSalaSituacao:true}
   };
 
   const semAcento=v=>String(v??'')
@@ -52,6 +58,7 @@
     if(p.includes('MASTER'))return PERFIS.MASTER;
     if(p.includes('ADMIN'))return PERFIS.ADMIN;
     if(p.includes('ESTAG'))return PERFIS.ESTAGIARIO;
+    if(p.includes('DIRIG'))return PERFIS.DIRIGENTE;
     if(p.includes('CONSULT'))return PERFIS.CONSULTA;
     if(p.includes('TECNIC'))return PERFIS.TECNICO;
     return String(v??'').trim();
@@ -85,8 +92,11 @@
     toggle('#menu-logs',pode('logs',u));
     toggle('#btn-importar-dados-master,.import-only',pode('importar',u));
     toggle('.export-only',pode('exportar',u));
+    toggle('#menu-relatorios',pode('acessarRelatorios',u));
+    toggle('#menu-sala-situacao',pode('acessarSalaSituacao',u));
     toggle('[onclick*="abrirFormularioNovaSolicitacao"],.btn-nova-solicitacao,#btn-nova-solicitacao,[data-acao="nova-solicitacao"]',pode('abrirSolicitacao',u));
     toggle('[onclick*="editarProcesso"],.btn-editar-processo',pode('editarProcesso',u));
+    toggle('[onclick*="abrirModalNovaEscola"],.btn-nova-escola',pode('cadastrarEscola',u));
 
     const abaUsuarios=document.getElementById('aba-usuarios');
     if(abaUsuarios&&!abaUsuarios.classList.contains('hidden')&&!pode('usuarios',u)){

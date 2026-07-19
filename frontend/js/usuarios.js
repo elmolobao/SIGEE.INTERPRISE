@@ -36,6 +36,8 @@
     if (p.includes('SEC')) return 'SEC';
     if (p.includes('MASTER')) return 'Master';
     if (p.includes('ADMIN')) return 'Administrador';
+    if (p.includes('DIRIG')) return 'Dirigente';
+    if (p.includes('ESTAG')) return 'Estagiario';
     if (p.includes('CONSULT')) return 'Consulta';
     return 'Tecnico';
   }
@@ -63,6 +65,8 @@
   function isAdmin(u){ return perfilCanonico(u && u.perfil) === 'Administrador'; }
   function isTecnico(u){ return perfilCanonico(u && u.perfil) === 'Tecnico'; }
   function isConsulta(u){ return perfilCanonico(u && u.perfil) === 'Consulta'; }
+  function isEstagiario(u){ return perfilCanonico(u && u.perfil) === 'Estagiario'; }
+  function isDirigente(u){ return perfilCanonico(u && u.perfil) === 'Dirigente'; }
   function isGlobal(u){ return isSEC(u) || isMaster(u); }
 
   function nteUsuario(u){
@@ -83,23 +87,25 @@
 
   const Perm = {
     acessoGlobal: isGlobal,
-    visualizarTodosNtes: isGlobal,
-    dashboardGlobal: isGlobal,
-    cadastrarEscola: u => isSEC(u) || isMaster(u) || isAdmin(u) || isTecnico(u),
-    alterarEscola: u => isSEC(u) || isMaster(u) || isAdmin(u) || isTecnico(u),
-    alterarEscolaCompleta: u => isSEC(u) || isMaster(u) || isAdmin(u),
-    alterarEscolaLimitada: u => isTecnico(u),
-    excluirEscola: u => isSEC(u) || isMaster(u),
-    importarDados: u => isSEC(u) || isMaster(u) || isAdmin(u),
-    exportarDados: u => isSEC(u) || isMaster(u) || isAdmin(u),
-    abrirSolicitacao: u => isSEC(u) || isMaster(u) || isAdmin(u) || isTecnico(u),
-    movimentarFluxo: u => isSEC(u) || isMaster(u) || isAdmin(u) || isTecnico(u),
+    visualizarTodosNtes: u => isGlobal(u) || isDirigente(u),
+    dashboardGlobal: u => isGlobal(u) || isDirigente(u),
+    cadastrarEscola: u => isMaster(u),
+    alterarEscola: u => isMaster(u) || isAdmin(u) || isTecnico(u),
+    alterarEscolaCompleta: u => isMaster(u),
+    alterarEscolaLimitada: u => isAdmin(u) || isTecnico(u),
+    excluirEscola: u => isMaster(u),
+    importarDados: u => isMaster(u) || isAdmin(u),
+    exportarDados: u => isMaster(u) || isAdmin(u),
+    abrirSolicitacao: u => isMaster(u) || isAdmin(u) || isEstagiario(u),
+    movimentarFluxo: u => isMaster(u) || isAdmin(u) || isTecnico(u),
     gerirUsuarios: u => isMaster(u),
     alterarUsuarios: u => isMaster(u),
     cadastrarUsuarios: u => isMaster(u),
     excluirUsuarios: u => isMaster(u),
     acessarLogs: u => isSEC(u) || isMaster(u) || isAdmin(u),
-    usuariosConectados: u => isSEC(u) || isMaster(u) || isAdmin(u)
+    usuariosConectados: u => isSEC(u) || isMaster(u) || isAdmin(u),
+    acessarRelatorios: u => isMaster(u) || isSEC(u) || isAdmin(u) || isDirigente(u),
+    acessarSalaSituacao: u => isMaster(u) || isSEC(u) || isDirigente(u)
   };
 
   function setHidden(el, ocultar){
@@ -131,6 +137,8 @@
     setHidden(document.getElementById('menu-logs'), !Perm.acessarLogs(u));
 
     lockButton(document.getElementById('btn-importar-dados-master'), !Perm.importarDados(u));
+    lockButton(document.getElementById('menu-relatorios'), !Perm.acessarRelatorios(u));
+    lockButton(document.getElementById('menu-sala-situacao'), !Perm.acessarSalaSituacao(u));
     const inputImportar = document.getElementById('input-importar-excel');
     if (inputImportar) inputImportar.disabled = !Perm.importarDados(u);
 
@@ -237,7 +245,7 @@
     document.getElementById('user-form-senha').value = 'SECBA2026';
     try { if (typeof inicializarSelectsNteEcosystem === 'function') inicializarSelectsNteEcosystem(); } catch(e) {}
     const perfilSel = document.getElementById('user-form-perfil');
-    if (perfilSel) perfilSel.innerHTML = '<option value="SEC">SEC</option><option value="Master">Master</option><option value="Administrador">Administrador</option><option value="Tecnico">Tecnico</option><option value="Consulta">Consulta</option>';
+    if (perfilSel) perfilSel.innerHTML = '<option value="SEC">SEC</option><option value="Master">Master</option><option value="Administrador">Administrador</option><option value="Tecnico">Tecnico</option><option value="Estagiario">Estagiario</option><option value="Dirigente">Dirigente</option><option value="Consulta">Consulta</option>';
     document.getElementById('modal-cadastro-usuario').classList.remove('hidden');
   };
 
@@ -253,7 +261,7 @@
     try { if (typeof inicializarSelectsNteEcosystem === 'function') inicializarSelectsNteEcosystem(); } catch(e) {}
     const nte = document.getElementById('user-form-nte'); if (nte) nte.value = nteUsuario(u);
     const perfilSel = document.getElementById('user-form-perfil');
-    if (perfilSel) { perfilSel.innerHTML = '<option value="SEC">SEC</option><option value="Master">Master</option><option value="Administrador">Administrador</option><option value="Tecnico">Tecnico</option><option value="Consulta">Consulta</option>'; perfilSel.value = u.perfil; }
+    if (perfilSel) { perfilSel.innerHTML = '<option value="SEC">SEC</option><option value="Master">Master</option><option value="Administrador">Administrador</option><option value="Tecnico">Tecnico</option><option value="Estagiario">Estagiario</option><option value="Dirigente">Dirigente</option><option value="Consulta">Consulta</option>'; perfilSel.value = u.perfil; }
     document.getElementById('modal-cadastro-usuario').classList.remove('hidden');
   };
 
@@ -414,6 +422,8 @@
     if (p.includes('SEC')) return 'SEC';
     if (p.includes('MASTER')) return 'Master';
     if (p.includes('ADMIN')) return 'Administrador';
+    if (p.includes('DIRIG')) return 'Dirigente';
+    if (p.includes('ESTAG')) return 'Estagiario';
     if (p.includes('CONSULT')) return 'Consulta';
     return 'Tecnico';
   }

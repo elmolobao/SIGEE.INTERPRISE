@@ -30,10 +30,10 @@
   }
   function isGlobal() { const p = perfilAtual(); return p === 'MASTER' || p === 'SEC'; }
   function isTecnico() { return perfilAtual() === 'TECNICO'; }
-  function podeCadastrar() { const p = perfilAtual(); return p === 'MASTER' || p === 'ADMINISTRADOR'; }
+  function podeCadastrar() { return perfilAtual() === 'MASTER'; }
   function podeEditar() { const p = perfilAtual(); return ['MASTER','ADMINISTRADOR','TECNICO'].includes(p); }
-  function podeEditarCompleto() { const p = perfilAtual(); return p === 'MASTER' || p === 'ADMINISTRADOR'; }
-  function podeEditarLimitado() { return perfilAtual() === 'TECNICO'; }
+  function podeEditarCompleto() { return perfilAtual() === 'MASTER'; }
+  function podeEditarLimitado() { const p = perfilAtual(); return p === 'TECNICO' || p === 'ADMINISTRADOR'; }
   function nteIdUsuario() {
     const u = window.usuarioLogado || {};
     const direto = Number(u.nte_id || u.nteId || u.id_nte || 0);
@@ -550,7 +550,7 @@
   }
 
   function abrirNovaEscola() {
-    if (!podeCadastrar()) return alert('Somente Master e Administrador podem cadastrar escola.');
+    if (!podeCadastrar()) return alert('Somente o perfil Master pode cadastrar escola.');
     garantirModalEscola();
     ['id','mec','nome','municipio','nte','dep','local'].forEach(k => { const el = document.getElementById(`escola-form-${k}`); if (el) el.value = ''; });
     if (isGlobal()) {
@@ -641,7 +641,7 @@
 
     setDisabled(
       ['escola-form-mec','escola-form-nome','escola-form-dep'],
-      podeEditarLimitado()
+      !podeEditarCompleto()
     );
     const municipioElPermissao = campo('escola-form-municipio');
     if (municipioElPermissao) municipioElPermissao.disabled = true;
@@ -674,6 +674,21 @@
     event.preventDefault();
     const id = texto(document.getElementById('escola-form-id')?.value);
     const existente = id ? await obterEscolaPorId(id) : null;
+
+    // Segurança de autorização no ponto de gravação: não depende do botão/modal.
+    if (!existente && !podeCadastrar()) {
+      return alert('Somente o perfil Master pode cadastrar escola.');
+    }
+    if (existente && !podeEditar()) {
+      return alert('Seu perfil não possui permissão para alterar escola.');
+    }
+    if (existente && !isGlobal()) {
+      const nteId = nteIdUsuario();
+      if (nteId && Number(existente.nte_id) !== nteId) {
+        return alert('Acesso permitido apenas às escolas do seu NTE.');
+      }
+    }
+
     const payload = existente ? { ...existente } : {};
     if (!existente || podeEditarCompleto()) {
       payload.cod_mec = texto(document.getElementById('escola-form-mec').value);

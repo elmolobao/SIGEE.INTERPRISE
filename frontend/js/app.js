@@ -4350,7 +4350,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     const pf=document.getElementById('user-form-perfil');
     if(pf){
       const atual=perfil(pf.value);
-      pf.innerHTML='<option value="Master">Master</option><option value="Administrador">Administrador</option><option value="Tecnico">Tecnico</option><option value="Consulta">Consulta</option>';
+      pf.innerHTML='<option value="SEC">SEC</option><option value="Master">Master</option><option value="Administrador">Administrador</option><option value="Tecnico">Tecnico</option><option value="Estagiario">Estagiario</option><option value="Dirigente">Dirigente</option><option value="Consulta">Consulta</option>';
       pf.value=atual;
     }
   };
@@ -8449,6 +8449,7 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     if (p.includes('MASTER')) return 'Master';
     if (p.includes('ADMIN')) return 'Administrador';
     if (p.includes('SEC')) return 'SEC';
+    if (p.includes('DIRIG')) return 'Dirigente';
     if (p.includes('CONSULT')) return 'Consulta';
     if (p.includes('ESTAG')) return 'Estagiario';
     return 'Tecnico';
@@ -8519,9 +8520,10 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
       'novo-proc-aluno','novo-proc-escola','novo-proc-documento',
       'novo-proc-modalidade','novo-proc-ensino'
     ];
-    const idsEditaveisAdmin = ['novo-proc-aluno','novo-proc-escola'];
+    const idsEditaveisAdmin = ['novo-proc-aluno','novo-proc-escola','novo-proc-documento','novo-proc-responsavel-tarefa'];
     const todos = [
       ...idsEditaveisMaster,
+      'novo-proc-responsavel-tarefa',
       'novo-autofill-mec','novo-autofill-nte','novo-autofill-municipio',
       'novo-autofill-dep','novo-autofill-situacao','novo-autofill-acervo',
       'novo-autofill-local-acervo'
@@ -8544,6 +8546,47 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     bloquearCampo(chk, true);
   }
 
+  function garantirCampoResponsavelTarefaSIGEE(){
+    let campo = el('novo-proc-responsavel-tarefa');
+    if (campo) return campo;
+    const doc = el('novo-proc-documento');
+    const grid = doc?.closest('.grid');
+    if (!grid) return null;
+    const box = document.createElement('div');
+    box.id = 'sigee-box-responsavel-tarefa';
+    box.innerHTML = `
+      <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Responsável pela Tarefa</label>
+      <select class="w-full p-2 border rounded-lg text-xs bg-white focus:outline-none font-medium" id="novo-proc-responsavel-tarefa">
+        <option value="">SELECIONE</option>
+      </select>`;
+    grid.appendChild(box);
+    return el('novo-proc-responsavel-tarefa');
+  }
+
+  function nteNumeroSIGEE(v){
+    const m = txt(v).match(/NTE\s*[- ]?\s*(\d{1,2})/i);
+    return m ? Number(m[1]) : null;
+  }
+
+  function preencherResponsaveisTarefaSIGEE(p){
+    const campo = garantirCampoResponsavelTarefaSIGEE();
+    if (!campo) return;
+    const nteProc = valor(p,'nte','nte_nome','grupo');
+    const numeroProc = nteNumeroSIGEE(nteProc);
+    const atual = valor(p,'responsavel_etapa','responsavel_etapa_nome','tecnico_responsavel','tecnico_responsavel_nome','responsavel','responsavel_nome');
+    const base = Array.isArray(window.usuariosDB) ? window.usuariosDB : [];
+    const nomes = base.filter(u => {
+      if (u?.ativo === false) return false;
+      const pu = norm(u?.perfil);
+      if (!(pu.includes('TECNIC') || pu.includes('ADMIN') || pu.includes('MASTER'))) return false;
+      const nu = nteNumeroSIGEE(u?.nte || u?.nte_nome || u?.grupo);
+      return perfil() === 'Master' || !numeroProc || !nu || numeroProc === nu;
+    }).map(u => txt(u.nome || u.email)).filter(Boolean);
+    if (atual) nomes.unshift(atual);
+    const unicos = [...new Set(nomes)].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+    campo.innerHTML = '<option value="">SELECIONE</option>' + unicos.map(n => `<option value="${n.replace(/"/g,'&quot;')}">${n}</option>`).join('');
+  }
+
   function preencher(p){
     const escolaNome = valor(p,'escola_nome','escola','nome_escola','instituicao');
     const codMec = valor(p,'cod_mec','codigo_mec','escola_cod_mec','codigo_mec_escola');
@@ -8555,6 +8598,9 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     setValor('novo-proc-documento', valor(p,'documento_tipo','documento','documento_solicitado','tipo_documento'));
     setValor('novo-proc-modalidade', valor(p,'modalidade','oferta_modalidade'));
     setValor('novo-proc-ensino', valor(p,'nivel_oferta','ensino','oferta_nivel','nivel'));
+    garantirCampoResponsavelTarefaSIGEE();
+    preencherResponsaveisTarefaSIGEE(p);
+    setValor('novo-proc-responsavel-tarefa', valor(p,'responsavel_etapa','responsavel_etapa_nome','tecnico_responsavel','tecnico_responsavel_nome','responsavel','responsavel_nome'));
     setValor('novo-autofill-mec', codMec);
     setValor('novo-autofill-nte', valor(p,'nte','nte_nome','grupo'));
     setValor('novo-autofill-municipio', valor(p,'municipio','escola_municipio'));
@@ -8600,6 +8646,7 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
       documento: valor(p,'documento_tipo','documento'),
       modalidade: valor(p,'modalidade','oferta_modalidade'),
       ensino: valor(p,'nivel_oferta','ensino','oferta_nivel'),
+      responsavel: valor(p,'responsavel_etapa','responsavel_etapa_nome','tecnico_responsavel','tecnico_responsavel_nome','responsavel','responsavel_nome'),
       nte: valor(p,'nte','nte_nome','grupo'),
       municipio: valor(p,'municipio')
     };
@@ -8633,7 +8680,7 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
   function alteracoesEntre(antes, depois){
     const nomes = {
       aluno:'Nome do aluno', escola:'Escola', documento:'Documento',
-      modalidade:'Modalidade', ensino:'Nível de oferta', nte:'NTE', municipio:'Município'
+      modalidade:'Modalidade', ensino:'Nível de oferta', responsavel:'Responsável pela tarefa', nte:'NTE', municipio:'Município'
     };
     return Object.keys(antes).filter(k => txt(antes[k]) !== txt(depois[k])).map(k => ({
       campo: nomes[k] || k,
@@ -8663,11 +8710,22 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     p.aluno = p.aluno_nome = aluno;
     p.escola = p.escola_nome = escola;
 
+    const documento = txt(el('novo-proc-documento')?.value);
+    if (documento) p.documento = p.documento_tipo = p.documento_solicitado = documento;
+
+    const responsavel = txt(el('novo-proc-responsavel-tarefa')?.value);
+    if (responsavel) {
+      p.responsavel_etapa = responsavel;
+      p.responsavel_etapa_nome = responsavel;
+      p.tecnico_responsavel = responsavel;
+      p.tecnico_responsavel_nome = responsavel;
+      p.responsavel = responsavel;
+      p.responsavel_nome = responsavel;
+    }
+
     if (pf === 'Master') {
-      const documento = txt(el('novo-proc-documento')?.value);
       const modalidade = txt(el('novo-proc-modalidade')?.value);
       const ensino = txt(el('novo-proc-ensino')?.value);
-      if (documento) p.documento = p.documento_tipo = documento;
       p.modalidade = modalidade;
       p.ensino = p.nivel_oferta = ensino;
     }
@@ -8790,7 +8848,7 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
 
   function podeCadastrarEscola246E(){
     const p=perfilAtualEscolas246E();
-    return p==='MASTER'||p==='ADMINISTRADOR';
+    return p==='MASTER';
   }
 
   function aplicarAutoridadeEscolas246E(){
@@ -9120,3 +9178,87 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
   });
 })();
 
+
+
+/* =====================================================================
+   SIGEE 2.4.8 — Autoridade final de perfis e acessos institucionais
+   Regras: Estagiário abre processo; Administrador edita cadastro limitado;
+   Sala de Situação: somente Master, SEC e Dirigente;
+   Dirigente: consulta processos, relatórios e Sala, sem ações operacionais.
+   ===================================================================== */
+(function(){
+  'use strict';
+  if(window.__SIGEE_AUTORIDADE_PERFIS_248__) return;
+  window.__SIGEE_AUTORIDADE_PERFIS_248__=true;
+
+  const norm=v=>String(v??'').trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
+  const perfil=()=>{
+    const p=norm((window.usuarioLogado||{}).perfil);
+    if(p.includes('MASTER')) return 'Master';
+    if(p==='SEC'||p.includes('SECRETARIA')) return 'SEC';
+    if(p.includes('DIRIG')) return 'Dirigente';
+    if(p.includes('ADMIN')) return 'Administrador';
+    if(p.includes('ESTAG')) return 'Estagiario';
+    if(p.includes('CONSULT')) return 'Consulta';
+    return 'Tecnico';
+  };
+  const podeSala=()=>['Master','SEC','Dirigente'].includes(perfil());
+  const podeRelatorios=()=>['Master','SEC','Administrador','Dirigente'].includes(perfil());
+  const podeAbrir=()=>['Master','Administrador','Estagiario'].includes(perfil());
+  const podeEditar=()=>['Master','Administrador'].includes(perfil());
+
+  function mostrar(el,sim){
+    if(!el) return;
+    el.classList.toggle('hidden',!sim);
+    el.style.display=sim?'':'none';
+    el.style.visibility=sim?'visible':'hidden';
+    el.setAttribute('aria-hidden',sim?'false':'true');
+    if('disabled' in el) el.disabled=!sim;
+  }
+
+  function aplicar(){
+    mostrar(document.getElementById('menu-sala-situacao'),podeSala());
+    mostrar(document.getElementById('menu-relatorios'),podeRelatorios());
+    document.querySelectorAll('#btn-nova-solicitacao,.btn-nova-solicitacao,[data-acao="nova-solicitacao"],[onclick*="abrirFormularioNovaSolicitacao"]').forEach(e=>mostrar(e,podeAbrir()));
+    document.querySelectorAll('.btn-editar-processo,[onclick*="abrirFormularioProcessoSIGEE"],[onclick*="editarProcesso"]').forEach(e=>mostrar(e,podeEditar()));
+  }
+
+  const navegarOriginal=window.navegar;
+  function navegarProtegido(aba){
+    const a=norm(aba).replace(/\s+/g,'-');
+    if((a==='SALA-SITUACAO'||a==='SALA-DE-SITUACAO')&&!podeSala()){
+      alert('A Sala de Situação é exclusiva dos perfis Master, SEC e Dirigente.');
+      return false;
+    }
+    if(a==='RELATORIOS'&&!podeRelatorios()){
+      alert('Seu perfil não possui acesso aos relatórios.');
+      return false;
+    }
+    return typeof navegarOriginal==='function'?navegarOriginal.apply(this,arguments):false;
+  }
+
+  function instalar(){
+    aplicar();
+    if(window.navegar!==navegarProtegido){
+      window.navegar=navegarProtegido;
+      try{navegar=navegarProtegido}catch(_){ }
+    }
+    try{
+      if(window.SIGEE_PERMISSOES?.MATRIZ){
+        const m=window.SIGEE_PERMISSOES.MATRIZ;
+        if(m.Estagiario) m.Estagiario.abrirSolicitacao=true;
+        if(m.Administrador) m.Administrador.editarProcesso=true;
+        m.Dirigente={global:false,usuarios:false,logs:false,importar:false,exportar:false,abrirSolicitacao:false,visualizarProcesso:true,moverProcesso:false,editarProcesso:false,excluirProcesso:false,regredirProcesso:false,cadastrarEscola:false,editarEscola:false,acessarRelatorios:true,acessarSalaSituacao:true};
+      }
+    }catch(_){ }
+  }
+
+  const obs=new MutationObserver(()=>aplicar());
+  function iniciar(){
+    instalar();
+    if(document.body) obs.observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style']});
+    [100,500,1500,3000].forEach(t=>setTimeout(instalar,t));
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',iniciar,{once:true}); else iniciar();
+  window.addEventListener('load',instalar);
+})();
