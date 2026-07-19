@@ -14,6 +14,7 @@
   const PERFIS = {
     SEC: 'SEC',
     MASTER: 'MASTER',
+    GESTOR: 'GESTOR',
     ADMINISTRADOR: 'ADMINISTRADOR',
     TECNICO: 'TECNICO',
     CONSULTA: 'CONSULTA',
@@ -23,6 +24,7 @@
   const PERFIS_LABELS = {
     SEC: 'SEC',
     MASTER: 'Master',
+    GESTOR: 'Gestor',
     ADMINISTRADOR: 'Administrador',
     TECNICO: 'Técnico',
     CONSULTA: 'Consulta',
@@ -68,11 +70,42 @@
     const token = normalizarToken(value);
     if (token === 'SEC' || token.includes('SECRETARIA')) return PERFIS.SEC;
     if (token.includes('MASTER')) return PERFIS.MASTER;
+    if (token.includes('GESTOR') || token.includes('DIRIGENTE')) return PERFIS.GESTOR;
     if (token.includes('ADMIN')) return PERFIS.ADMINISTRADOR;
     if (token.includes('ESTAG')) return PERFIS.ESTAGIARIO;
     if (token.includes('CONSULT')) return PERFIS.CONSULTA;
     if (token.includes('TECNIC')) return PERFIS.TECNICO;
     return null;
+  }
+
+
+  const PERFIS_ORDEM = Object.freeze([
+    PERFIS.MASTER,
+    PERFIS.SEC,
+    PERFIS.GESTOR,
+    PERFIS.ADMINISTRADOR,
+    PERFIS.TECNICO,
+    PERFIS.ESTAGIARIO,
+    PERFIS.CONSULTA
+  ]);
+
+  function listarPerfis() {
+    return PERFIS_ORDEM.map(function (key) {
+      return Object.freeze({ key: key, value: PERFIS_LABELS[key], label: PERFIS_LABELS[key] });
+    });
+  }
+
+  function preencherSelectPerfis(select, valorAtual, incluirPlaceholder) {
+    if (!select) return false;
+    const atual = normalizarPerfil(valorAtual == null ? select.value : valorAtual);
+    const options = listarPerfis();
+    const prefixo = incluirPlaceholder ? '<option value="">Selecione o Perfil</option>' : '';
+    select.innerHTML = prefixo + options.map(function (item) {
+      return '<option value="' + item.value + '">' + item.label + '</option>';
+    }).join('');
+    const labelAtual = atual ? PERFIS_LABELS[atual] : '';
+    if (labelAtual) select.value = labelAtual;
+    return true;
   }
 
   function normalizarEtapa(value) {
@@ -146,6 +179,8 @@
   window.SIGEE_CONFIG_UTILS = Object.freeze({
     normalizarPerfil: normalizarPerfil,
     normalizarEtapa: normalizarEtapa,
+    listarPerfis: listarPerfis,
+    preencherSelectPerfis: preencherSelectPerfis,
     labelPerfil: function (value) {
       const key = normalizarPerfil(value);
       return key ? PERFIS_LABELS[key] : String(value == null ? '' : value);

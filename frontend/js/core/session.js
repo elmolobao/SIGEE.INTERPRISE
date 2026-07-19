@@ -26,6 +26,10 @@
   }
 
   function normalizeProfile(value) {
+    if (window.SIGEE_CONFIG_UTILS && typeof window.SIGEE_CONFIG_UTILS.normalizarPerfil === 'function') {
+      const configKey = window.SIGEE_CONFIG_UTILS.normalizarPerfil(value);
+      if (configKey && window.SIGEE_CONFIG && window.SIGEE_CONFIG.perfisLabels) return window.SIGEE_CONFIG.perfisLabels[configKey] || '';
+    }
     const key = token(value);
     if (!key) return '';
     if (PROFILE_MAP[key]) return PROFILE_MAP[key];

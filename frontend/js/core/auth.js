@@ -17,6 +17,7 @@
   }
   function normalizeEmail(email) { return text(email).toLowerCase(); }
   function normalizeProfile(value) {
+    if (window.SIGEE_SESSION && typeof window.SIGEE_SESSION.normalizarPerfil === 'function') return window.SIGEE_SESSION.normalizarPerfil(value);
     const key = token(value);
     if (!key) return '';
     if (PROFILE_MAP[key]) return PROFILE_MAP[key];
