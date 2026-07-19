@@ -542,7 +542,7 @@
         if (!podeMovimentar(p)) return '<span class="text-gray-400 font-bold">Sem ação</span>';
         const e = normalizar(processoEtapa(p));
         if (e.includes('ANAL')) return `<button onclick="abrirAnaliseSIGEE(${p.id})" class="bg-orange-600 hover:bg-orange-500 text-white font-bold px-2 py-1 rounded text-[10px]">Abrir Análise</button>`;
-        if (e.includes('PEND')) return `<button onclick="abrirPendenciaSIGEE(${p.id})" class="bg-purple-700 hover:bg-purple-600 text-white font-bold px-2 py-1 rounded text-[10px]">Tratar Pendência</button>`;
+        if (e.includes('PEND')) return `<button onclick="abrirPendenciaSIGEE(${p.id})" class="sigee-btn-tratar-pendencia bg-purple-700 hover:bg-purple-600 text-white font-bold px-2 py-1 rounded text-[10px]">Tratar Pendência</button>`;
         if (e.includes('INDEFER')) return '<span class="text-red-300 font-bold">Finalizado</span>';
         if (e.includes('DIGIT')) return `<button onclick="abrirModalFluxoDigitacao(${p.id})" class="bg-orange-600 text-white font-bold px-2 py-1 rounded text-[10px]">Documento Digitado</button>`;
         if (e.includes('CONFER')) return `<button onclick="abrirModalFluxoConferencia(${p.id})" class="bg-green-700 text-white font-bold px-2 py-1 rounded text-[10px]">Documento Conferido</button>`;
@@ -1062,6 +1062,22 @@
           ...r,
           ...convertido,
           id: Number(convertido.id ?? r.id) || convertido.id || r.id,
+          modalidade:
+            convertido.modalidade ||
+            convertido.oferta_modalidade ||
+            convertido.nivel_oferta ||
+            convertido.ensino ||
+            r.modalidade ||
+            r.oferta_modalidade ||
+            r.nivel_oferta ||
+            r.ensino ||
+            '',
+          nivel_oferta:
+            convertido.nivel_oferta ||
+            convertido.ensino ||
+            r.nivel_oferta ||
+            r.ensino ||
+            '',
           tecnico_responsavel: responsavel,
           tecnico_responsavel_nome:
             convertido.tecnico_responsavel_nome ||
