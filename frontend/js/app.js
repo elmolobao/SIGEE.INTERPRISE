@@ -1418,7 +1418,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                         badgeAlertaPrazo = `<span class="block ${alertaDesarq.classe} text-[8px] font-extrabold px-1 py-0.5 rounded uppercase mt-0.5 animate-pulse">⚠️ ${alertaDesarq.titulo}</span>`;
                     }
                 } else if (p.etapa === "Análise") {
-                    botaoFluxoContextual = `<button onclick="abrirModalFluxoAnalise(${p.id})" class="bg-blue-800 text-white font-bold px-2 py-1 rounded text-[10px] cursor-pointer">✅ ANÁLISE REALIZADA</button>`;
+                    botaoFluxoContextual = `<div class="flex gap-1 flex-wrap"><button onclick="abrirModalRegistrarPendencia(${p.id})" class="bg-red-700 text-white font-bold px-2 py-1 rounded text-[10px] cursor-pointer">⚠️ Registrar Pendência</button><button onclick="abrirModalFluxoAnalise(${p.id})" class="bg-blue-800 text-white font-bold px-2 py-1 rounded text-[10px] cursor-pointer">✅ Enviar para Digitação</button></div>`;
                 } else if (p.etapa === "Pendência") {
                     botaoFluxoContextual = `<button onclick="abrirModalFluxoPendencia(${p.id})" class="bg-red-600 text-white font-bold px-2 py-1 rounded text-[10px] cursor-pointer">⚠️ Tratar Pendência</button>`;
                 } else if (p.etapa === "Digitação") {
@@ -6007,7 +6007,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     const e=up(etapa); if(e.includes('ANAL')) return 'bg-purple-600 text-white'; if(e.includes('PEND')) return 'bg-red-600 text-white'; if(e.includes('DIGIT')) return 'bg-orange-500 text-white'; if(e.includes('CONFER')) return 'bg-green-600 text-white'; if(e.includes('ASSIN')) return 'bg-blue-700 text-white'; if(e.includes('DEFER')) return 'bg-emerald-600 text-white'; if(e.includes('RETIR')) return 'bg-gray-700 text-white'; return 'bg-sky-600 text-white';
   }
   function acaoProcesso(p){
-    const e=up(p.etapa); if(e.includes('ANAL')) return `<button onclick="abrirModalFluxoAnalise(${p.id})" class="bg-purple-700 text-white font-bold px-2 py-1 rounded text-[10px]">Análise Realizada</button>`;
+    const e=up(p.etapa); if(e.includes('ANAL')) return `<div class="flex gap-1 flex-wrap"><button onclick="abrirModalRegistrarPendencia(${p.id})" class="bg-red-700 text-white font-bold px-2 py-1 rounded text-[10px]">Registrar Pendência</button><button onclick="abrirModalFluxoAnalise(${p.id})" class="bg-purple-700 text-white font-bold px-2 py-1 rounded text-[10px]">Enviar Digitação</button></div>`;
     if(e.includes('PEND')) return `<button onclick="abrirModalFluxoPendencia(${p.id})" class="bg-red-700 text-white font-bold px-2 py-1 rounded text-[10px]">Tratar Pendência</button>`;
     if(e.includes('DIGIT')) return `<button onclick="abrirModalFluxoDigitacao(${p.id})" class="bg-orange-600 text-white font-bold px-2 py-1 rounded text-[10px]">Documento Digitado</button>`;
     if(e.includes('CONFER')) return `<button onclick="abrirModalFluxoConferencia(${p.id})" class="bg-green-700 text-white font-bold px-2 py-1 rounded text-[10px]">Documento Conferido</button>`;
@@ -7546,7 +7546,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   function acaoFluxo(p){
     if(!podeMovimentarProcesso(user(),p)) return '<span class="text-gray-400 font-bold">Sem ação</span>';
     const e=up(p.etapa||p.etapa_atual);
-    if(e.includes('ANAL')) return `<button onclick="abrirModalFluxoAnalise(${p.id})" class="bg-purple-700 text-white font-bold px-2 py-1 rounded text-[10px]">Análise Realizada</button>`;
+    if(e.includes('ANAL')) return `<div class="flex gap-1 flex-wrap"><button onclick="abrirModalRegistrarPendencia(${p.id})" class="bg-red-700 text-white font-bold px-2 py-1 rounded text-[10px]">Registrar Pendência</button><button onclick="abrirModalFluxoAnalise(${p.id})" class="bg-purple-700 text-white font-bold px-2 py-1 rounded text-[10px]">Enviar Digitação</button></div>`;
     if(e.includes('PEND')) return `<button onclick="abrirModalFluxoPendencia(${p.id})" class="bg-red-700 text-white font-bold px-2 py-1 rounded text-[10px]">Tratar Pendência</button>`;
     if(e.includes('DIGIT')) return `<button onclick="abrirModalFluxoDigitacao(${p.id})" class="bg-orange-600 text-white font-bold px-2 py-1 rounded text-[10px]">Documento Digitado</button>`;
     if(e.includes('CONFER')) return `<button onclick="abrirModalFluxoConferencia(${p.id})" class="bg-green-700 text-white font-bold px-2 py-1 rounded text-[10px]">Documento Conferido</button>`;
@@ -9290,4 +9290,45 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
   window.addEventListener('load',instalar,{once:true});
   window.addEventListener('focus',()=>setTimeout(aplicar,50));
   window.SIGEE_APLICAR_PERMISSOES_249=instalar;
+})();
+
+
+/* SIGEE PATCH V3.1 — abertura direta do registro de pendência
+   Evita que o botão "Registrar Pendência" execute a abertura padrão da Análise,
+   que sempre reinicializa o campo f01-pendencia com o valor "não". */
+(function(){
+  'use strict';
+
+  window.abrirModalRegistrarPendencia = function(id){
+    if (typeof window.abrirModalFluxoAnalise !== 'function') {
+      console.error('[SIGEE] Função de abertura da Análise não localizada.');
+      return;
+    }
+
+    // Inicializa corretamente os dados do processo e o modal.
+    window.abrirModalFluxoAnalise(id);
+
+    const seletor = document.getElementById('f01-pendencia');
+    if (seletor) seletor.value = 'sim';
+
+    const titulo = document.querySelector('#modal-fluxo-analise h3');
+    if (titulo) titulo.innerHTML = '⚠️ Registrar Pendência';
+
+    if (typeof window.onChangePendenciaAnalise === 'function') {
+      window.onChangePendenciaAnalise();
+    }
+
+    const detalhe = document.getElementById('f01-txt-detalhe');
+    if (detalhe) detalhe.focus();
+  };
+
+  // Mantém o título correto quando a abertura for a análise normal.
+  const aberturaAnaliseOriginal = window.abrirModalFluxoAnalise;
+  if (typeof aberturaAnaliseOriginal === 'function') {
+    window.abrirModalFluxoAnalise = function(id){
+      aberturaAnaliseOriginal(id);
+      const titulo = document.querySelector('#modal-fluxo-analise h3');
+      if (titulo) titulo.innerHTML = '🔍 Análise Operacional';
+    };
+  }
 })();
