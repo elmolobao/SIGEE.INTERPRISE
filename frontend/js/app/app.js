@@ -10755,3 +10755,31 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
   console.info('[SIGEE] Proteções de duplicidade e acervo não recolhido ativas.');
 })();
 
+
+/* =====================================================================
+ * RC4.1.3 — Ponte de compatibilidade da reestruturação de perfis.
+ * Mantém blocos legados operacionais, mas retira deles a autoridade final
+ * sobre catálogo, normalização, menus e seletores de perfil.
+ * ===================================================================== */
+(function (window) {
+  'use strict';
+  function central(value) {
+    return window.SIGEE_PERFIS && window.SIGEE_PERFIS.normalizar
+      ? window.SIGEE_PERFIS.normalizar(value)
+      : String(value || '').trim();
+  }
+  window.normalizarPerfilSIGEE = central;
+  window.perfilCanonicoSIGEE = central;
+  window.perfilCanonico = central;
+  window.SIGEE_NORMALIZAR_PERFIL = central;
+
+  function aplicar() {
+    if (window.SIGEE_PERFIS) window.SIGEE_PERFIS.garantirSelects(document);
+    if (window.SIGEE_PERMISSOES) window.SIGEE_PERMISSOES.aplicarMenu();
+  }
+  document.addEventListener('DOMContentLoaded', aplicar);
+  document.addEventListener('sigee:usuario-logado', aplicar);
+  document.addEventListener('sigee:navegacao-concluida', aplicar);
+  window.addEventListener('load', aplicar);
+  setTimeout(aplicar, 0);
+})(window);
