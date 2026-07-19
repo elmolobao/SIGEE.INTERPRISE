@@ -1468,8 +1468,9 @@
 
 
 /* =====================================================================
- * RC4.1.3 — Gestão de usuários consumindo o catálogo único de perfis.
- * Executado por último para impedir que blocos legados removam Gestor.
+ * RC4.1.4 — Gestão de usuários consumindo o catálogo único de perfis.
+ * Correção: sem MutationObserver sobre o próprio select, evitando ciclo
+ * infinito de reconstrução do DOM que travava a tela de login.
  * ===================================================================== */
 (function (window) {
   'use strict';
@@ -1478,23 +1479,8 @@
     window.SIGEE_PERFIS.garantirSelects(root || document);
     return true;
   }
-  function observar() {
-    if (!document.body || !window.MutationObserver) return;
-    const observer = new MutationObserver(function (mutations) {
-      let precisa = false;
-      mutations.forEach(function (m) {
-        if (m.type !== 'childList') return;
-        if (m.target && m.target.matches && (m.target.matches('#user-form-perfil,select[name="perfil"],select[data-sigee-perfis]'))) precisa = true;
-        Array.from(m.addedNodes || []).forEach(function (node) {
-          if (node.nodeType === 1 && (node.matches?.('#user-form-perfil,select[name="perfil"],select[data-sigee-perfis]') || node.querySelector?.('#user-form-perfil,select[name="perfil"],select[data-sigee-perfis]'))) precisa = true;
-        });
-      });
-      if (precisa) aplicar(document);
-    });
-    observer.observe(document.body, { childList:true, subtree:true });
-  }
-  document.addEventListener('DOMContentLoaded', function () { aplicar(document); observar(); });
+  document.addEventListener('DOMContentLoaded', function () { aplicar(document); });
   document.addEventListener('sigee:usuario-logado', function () { aplicar(document); });
+  document.addEventListener('sigee:login-concluido', function () { aplicar(document); });
   window.addEventListener('load', function () { aplicar(document); });
-  setTimeout(function () { aplicar(document); }, 0);
 })(window);
