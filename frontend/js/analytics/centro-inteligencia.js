@@ -29,9 +29,9 @@
     const na = String(a).match(/\d{1,2}/)?.[0], nb = String(b).match(/\d{1,2}/)?.[0];
     return na && nb ? Number(na) === Number(nb) : norm(a) === norm(b);
   };
-  const globalAccess = () => profile().includes('MASTER') || profile().includes('SEC');
-  const canAccess = () => globalAccess() || profile().includes('ADMIN');
-  const scoped = list => globalAccess() ? list.slice() : list.filter(x => sameNte(nteOf(x), userNte()));
+  const globalAccess = () => Boolean(window.SIGEE_PERMISSOES?.ehGlobal?.());
+  const canAccess = () => Boolean(window.SIGEE_PERMISSOES?.pode?.('inteligencia'));
+  const scoped = list => window.SIGEE_PERMISSOES?.filtrarTerritorio ? window.SIGEE_PERMISSOES.filtrarTerritorio(list) : (globalAccess() ? list.slice() : list.filter(x => sameNte(nteOf(x), userNte())));
   const idOf = o => text(val(o,'id','codigo_sigee','cod_mec','codigo_mec','email')) || '—';
   const schoolName = o => text(val(o,'nome_escola','escola_nome','nome','escola','instituicao'));
   const processSchool = o => text(val(o,'escola_nome','escola','nome_escola','instituicao'));

@@ -86,7 +86,8 @@
   }
 
   function filteredProcesses() {
-    const all = arr('processosDB','processos');
+    const origem = arr('processosDB','processos');
+    const all = window.SIGEE_PERMISSOES?.filtrarTerritorio ? window.SIGEE_PERMISSOES.filtrarTerritorio(origem) : origem;
     const days = Number(document.getElementById('sigee-exec-periodo')?.value || 0);
     if (!days) return all.slice();
     const min = new Date(); min.setDate(min.getDate()-days);

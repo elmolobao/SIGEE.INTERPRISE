@@ -37,6 +37,9 @@
   }
   function etapa(p) { return txt(p && (p.etapa_atual || p.etapa || p.fase_atual)) || 'Desarquivamento'; }
   function procNte(p) { return nte(p && (p.nte || p.nte_nome || p.grupo || p.territorio || p.nte_id)); }
+  function podeGlobal(){ return Boolean(window.SIGEE_PERMISSOES?.ehGlobal?.()); }
+  function nteUsuario(){ return nte(window.SIGEE_PERMISSOES?.nteAtual?.() || (window.usuarioLogado && (window.usuarioLogado.nte || window.usuarioLogado.nte_nome || window.usuarioLogado.grupo))); }
+  function escopo(lista){ return window.SIGEE_PERMISSOES?.filtrarTerritorio ? window.SIGEE_PERMISSOES.filtrarTerritorio(lista) : (podeGlobal() ? lista.slice() : lista.filter(function(p){ return procNte(p)===nteUsuario(); })); }
   function inicio(p) { return p && (p.data_etapa_atual || p.prazo_inicio || p.created_at || p.criado_em || p.data_solicitacao); }
   function finalizado(p) { var e = norm(etapa(p)); return e.indexOf('RETIR') >= 0 || e.indexOf('INDEFER') >= 0; }
   function limite(e) {
@@ -71,6 +74,7 @@
     var sel = document.getElementById('sala-v2-filtro-nte');
     if (sel && sel.options.length === 1) {
       for (var i=1;i<=27;i++) { var o=document.createElement('option'); o.value='NTE-'+String(i).padStart(2,'0'); o.textContent=o.value; sel.appendChild(o); }
+      if (!podeGlobal()) { var meuNte=nteUsuario(); sel.value=meuNte; sel.disabled=true; filtroNte=meuNte; }
     }
     if (sel && !sel.dataset.bound) { sel.dataset.bound='1'; sel.addEventListener('change', function(){ filtroNte=sel.value; render(); }); }
     var btn=document.getElementById('sala-v2-atualizar');
@@ -224,6 +228,8 @@
   function render() {
     var sec=garantirEstrutura(); if(!sec) return;
     var todos=lista().slice();
+    todos=escopo(todos);
+    if (!podeGlobal()) filtroNte=nteUsuario();
     var base=filtroNte==='GLOBAL'?todos:todos.filter(function(p){return procNte(p)===filtroNte;});
     var ativos=base.filter(function(p){return !finalizado(p);}), venc=ativos.filter(vencido);
     var conclHoje=base.filter(function(p){return finalizado(p)&&hoje(p.finalizado_em||p.updated_at);});
