@@ -1,25 +1,69 @@
 /**
- * SIGEE RC4.1.10 — Autoridade final de acesso e escopo territorial.
- * Carregar como último script local do index.
+ * SIGEE RC4.1.12 — Autoridade final de identidade, perfil e permissões.
+ * Deve ser o último script local carregado no index.html.
  */
-(function (window) {
+(function (window, document) {
   'use strict';
-  if (window.__SIGEE_AUTHORITY_4110__) return;
-  window.__SIGEE_AUTHORITY_4110__ = true;
+  if (window.__SIGEE_AUTHORITY_4112__) return;
+  window.__SIGEE_AUTHORITY_4112__ = true;
 
-  const normalize = value => {
-    if (window.SIGEE_PERMISSOES?.normalizarPerfil) return window.SIGEE_PERMISSOES.normalizarPerfil(value);
-    const p = String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toUpperCase();
+  function normalize(value) {
+    try {
+      if (window.SIGEE_PERMISSOES?.normalizarPerfil) return window.SIGEE_PERMISSOES.normalizarPerfil(value);
+      if (window.SIGEE_SESSION?.normalizarPerfil) return window.SIGEE_SESSION.normalizarPerfil(value);
+    } catch (_) {}
+    const p = String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toUpperCase();
     if (p.includes('MASTER')) return 'Master';
     if (p === 'SEC' || p.includes('SECRETARIA')) return 'SEC';
     if (p.includes('GESTOR') || p.includes('DIRIGENTE')) return 'Gestor';
     if (p.includes('ADMIN')) return 'Administrador';
     if (p.includes('ESTAG')) return 'Estagiário';
     if (p.includes('CONSULT')) return 'Consulta';
-    return 'Técnico';
-  };
-  const current = () => window.usuarioLogado || window.SIGEE_SESSION?.getUser?.() || null;
-  const can = action => Boolean(window.SIGEE_PERMISSOES?.pode?.(action, current()));
+    if (p.includes('TECNIC')) return 'Técnico';
+    return String(value || '').trim();
+  }
+
+  function sameEmail(a, b) {
+    return String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+  }
+
+  function readStoredUsers() {
+    const arrays = [];
+    if (Array.isArray(window.usuariosDB)) arrays.push(window.usuariosDB);
+    ['SIGEE_USUARIOS_DB','usuariosDB','usuarios_sigee_cache'].forEach(key => {
+      try {
+        const data = JSON.parse(localStorage.getItem(key) || 'null');
+        if (Array.isArray(data)) arrays.push(data);
+      } catch (_) {}
+    });
+    return arrays.flat();
+  }
+
+  function reconcileUser() {
+    let base = null;
+    try { base = window.SIGEE_SESSION?.getUser?.() || null; } catch (_) {}
+    if (!base && window.usuarioLogado) base = window.usuarioLogado;
+    if (!base) return null;
+
+    const email = base.email || base.login || base.usuario;
+    const cadastrado = readStoredUsers().find(u => sameEmail(u?.email || u?.login, email));
+    const merged = Object.assign({}, base, cadastrado || {});
+    merged.perfil = normalize((cadastrado && (cadastrado.perfil || cadastrado.tipo || cadastrado.role)) || base.perfil || base.tipo || base.role);
+    if (!merged.perfil) return null;
+
+    try {
+      if (window.SIGEE_SESSION?.setUser) window.SIGEE_SESSION.setUser(merged, { persist: true, emit: false });
+      else window.usuarioLogado = merged;
+    } catch (_) { window.usuarioLogado = merged; }
+    window.usuarioLogado = merged;
+    return merged;
+  }
+
+  function current() { return reconcileUser(); }
+  function can(action) {
+    const user = current();
+    return Boolean(user && window.SIGEE_PERMISSOES?.pode?.(action, user));
+  }
 
   function visibility(selector, visible) {
     document.querySelectorAll(selector).forEach(el => {
@@ -30,11 +74,26 @@
     });
   }
 
+  function updateIdentity(user) {
+    if (!user) return;
+    const perfil = normalize(user.perfil);
+    const nte = user.nte || user.nte_nome || user.grupo || user.territorio || '';
+
+    const card = document.getElementById('user-perfil');
+    if (card) card.textContent = `${perfil} | ${nte}`;
+
+    document.querySelectorAll('[data-sigee-user-profile],#perfil-usuario-logado,#usuario-perfil-logado').forEach(el => {
+      el.textContent = perfil;
+    });
+
+    try { window.SIGEE_FOOTER_INSTITUCIONAL?.atualizar?.(); } catch (_) {}
+  }
+
   function apply() {
     const user = current();
     if (!user || !document.body) return;
-    user.perfil = normalize(user.perfil);
     document.body.dataset.sigeePerfil = user.perfil;
+    updateIdentity(user);
 
     visibility('#menu-usuarios,#menu-logs,#menu-administracao-bloco', can('usuarios'));
     visibility('#menu-relatorios', can('relatorios'));
@@ -43,24 +102,14 @@
     visibility('#btn-nova-solicitacao,[data-acao="nova-solicitacao"],.btn-nova-solicitacao,button[onclick*="abrirFormularioNovaSolicitacao"]', can('abrirSolicitacao'));
     visibility('[data-sigee-permissao="editar-escola"],.btn-editar-escola,.btn-alterar-escola-sigee,button[onclick*="editarEscola"],button[onclick*="abrirModalEditarEscola"]', can('editarEscola'));
 
-    const restrictedTabs = [
-      ['#aba-usuarios,#aba-logs,#aba-diagnostico', 'usuarios'],
-      ['#aba-sala-situacao', 'salaSituacao'],
-      ['#aba-inteligencia', 'inteligencia']
-    ];
-    restrictedTabs.forEach(([sel, action]) => {
-      document.querySelectorAll(sel).forEach(tab => {
-        if (!can(action) && !tab.classList.contains('hidden')) {
-          tab.classList.add('hidden');
-          document.getElementById('aba-painel')?.classList.remove('hidden');
-        }
-      });
-    });
+    if (!can('usuarios')) visibility('#aba-usuarios,#aba-logs,#aba-diagnostico', false);
+    if (!can('salaSituacao')) visibility('#aba-sala-situacao', false);
+    if (!can('inteligencia')) visibility('#aba-inteligencia', false);
   }
 
   function guard(name, action, message) {
     const fn = window[name];
-    if (typeof fn !== 'function' || fn.__SIGEE_4110_GUARD__) return;
+    if (typeof fn !== 'function' || fn.__SIGEE_4112_GUARD__) return;
     const wrapped = function () {
       if (!can(action)) {
         alert(message || 'Seu perfil não possui permissão para esta ação.');
@@ -68,7 +117,7 @@
       }
       return fn.apply(this, arguments);
     };
-    wrapped.__SIGEE_4110_GUARD__ = true;
+    wrapped.__SIGEE_4112_GUARD__ = true;
     window[name] = wrapped;
     try { globalThis[name] = wrapped; } catch (_) {}
   }
@@ -82,11 +131,10 @@
   function enforce() {
     guards();
     apply();
-    window.SIGEE_DASHBOARD_EXECUTIVO?.render?.();
   }
 
   function burst() {
-    [0,50,150,400,900,1800,3200].forEach(ms => setTimeout(enforce, ms));
+    [0, 50, 150, 400, 900, 1800, 3200].forEach(ms => setTimeout(enforce, ms));
   }
 
   document.addEventListener('DOMContentLoaded', burst);
@@ -96,21 +144,19 @@
   window.addEventListener('load', burst);
 
   const previousNavigate = window.navegar;
-  if (typeof previousNavigate === 'function' && !previousNavigate.__SIGEE_4110_NAV__) {
+  if (typeof previousNavigate === 'function' && !previousNavigate.__SIGEE_4112_NAV__) {
     const nav = function (aba) {
-      if (aba === 'usuarios' || aba === 'logs' || aba === 'diagnostico') {
-        if (!can('usuarios')) { alert('Acesso permitido apenas ao perfil Master.'); aba = 'painel'; }
-      }
+      if (['usuarios','logs','diagnostico'].includes(aba) && !can('usuarios')) { alert('Acesso permitido apenas ao perfil Master.'); aba = 'painel'; }
       if (aba === 'sala-situacao' && !can('salaSituacao')) { alert('Seu perfil não possui acesso à Sala de Situação.'); aba = 'painel'; }
       if ((aba === 'inteligencia' || aba === 'centro-inteligencia') && !can('inteligencia')) { alert('Acesso permitido apenas ao perfil Master.'); aba = 'painel'; }
       const out = previousNavigate.call(this, aba);
       burst();
       return out;
     };
-    nav.__SIGEE_4110_NAV__ = true;
+    nav.__SIGEE_4112_NAV__ = true;
     window.navegar = nav;
     try { globalThis.navegar = nav; } catch (_) {}
   }
 
-  window.SIGEE_AUTORIDADE_FINAL = Object.freeze({ aplicar: enforce, reaplicar: burst });
-})(window);
+  window.SIGEE_AUTORIDADE_FINAL = Object.freeze({ aplicar: enforce, reaplicar: burst, reconciliarUsuario: reconcileUser });
+})(window, document);
