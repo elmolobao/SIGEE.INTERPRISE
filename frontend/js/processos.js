@@ -159,7 +159,13 @@
     function processoEscola(p) { return texto(p && (p.escola || p.escola_nome || p.nome_escola || p.instituicao)); }
     function processoCodigoSec(p) { return texto(p && (p.codigo_sec || p.cod_sec || p.codigo_sec_escola || p.escola_codigo_sec || p.codigo_escola || p.cod_escola)); }
     function processoDocumento(p) { return texto(p && (p.documento || p.documento_tipo || p.documento_solicitado)); }
-    function processoModalidade(p) { return texto(p && (p.modalidade || p.oferta_modalidade || p.nivel_oferta || p.ensino)); }
+    function processoModalidade(p) {
+        if (!p) return '';
+        const modalidade = texto(p.modalidade || p.oferta_modalidade || p.modalidade_ensino || p.tipo_modalidade);
+        const nivel = texto(p.nivel_oferta || p.oferta_nivel || p.ensino || p.nivel_ensino);
+        if (modalidade && nivel && normalizar(modalidade) !== normalizar(nivel)) return `${modalidade} / ${nivel}`;
+        return modalidade || nivel;
+    }
     function processoPrioridade(p) { return texto(p && p.prioridade) || 'Normal'; }
     function processoResponsavel(p) {
         if (!p) return 'Não atribuído';
@@ -541,13 +547,13 @@
         if (isEstagiario(usuario())) return '<span class="text-gray-400 font-bold">Consulta</span>';
         if (!podeMovimentar(p)) return '<span class="text-gray-400 font-bold">Sem ação</span>';
         const e = normalizar(processoEtapa(p));
-        if (e.includes('ANAL')) return `<button onclick="abrirAnaliseSIGEE(${p.id})" class="bg-orange-600 hover:bg-orange-500 text-white font-bold px-2 py-1 rounded text-[10px]">Abrir Análise</button>`;
-        if (e.includes('PEND')) return `<button onclick="abrirPendenciaSIGEE(${p.id})" class="sigee-btn-tratar-pendencia bg-purple-700 hover:bg-purple-600 text-white font-bold px-2 py-1 rounded text-[10px]">Tratar Pendência</button>`;
+        if (e.includes('ANAL')) return `<button onclick="abrirAnaliseSIGEE(${p.id})" class="sigee-btn-acao sigee-acao-analise">Abrir Análise</button>`;
+        if (e.includes('PEND')) return `<button onclick="abrirPendenciaSIGEE(${p.id})" class="sigee-btn-acao sigee-acao-pendencia sigee-btn-tratar-pendencia">Tratar Pendência</button>`;
         if (e.includes('INDEFER')) return '<span class="text-red-300 font-bold">Finalizado</span>';
-        if (e.includes('DIGIT')) return `<button onclick="abrirModalFluxoDigitacao(${p.id})" class="bg-orange-600 text-white font-bold px-2 py-1 rounded text-[10px]">Documento Digitado</button>`;
-        if (e.includes('CONFER')) return `<button onclick="abrirModalFluxoConferencia(${p.id})" class="bg-green-700 text-white font-bold px-2 py-1 rounded text-[10px]">Documento Conferido</button>`;
-        if (e.includes('ASSIN')) return `<button onclick="abrirModalFluxoAssinatura(${p.id})" class="bg-blue-700 text-white font-bold px-2 py-1 rounded text-[10px]">Deferido</button>`;
-        if (e.includes('AGUARD')) return `<button onclick="abrirModalFluxoAguardando(${p.id})" class="bg-gray-700 text-white font-bold px-2 py-1 rounded text-[10px]">Retirado</button>`;
+        if (e.includes('DIGIT')) return `<button onclick="abrirModalFluxoDigitacao(${p.id})" class="sigee-btn-acao sigee-acao-digitacao">Documento Digitado</button>`;
+        if (e.includes('CONFER')) return `<button onclick="abrirModalFluxoConferencia(${p.id})" class="sigee-btn-acao sigee-acao-conferido">Documento Conferido</button>`;
+        if (e.includes('ASSIN')) return `<button onclick="abrirModalFluxoAssinatura(${p.id})" class="sigee-btn-acao sigee-acao-deferido">Deferido</button>`;
+        if (e.includes('AGUARD')) return `<button onclick="abrirModalFluxoAguardando(${p.id})" class="sigee-btn-acao sigee-acao-retirado">Retirado</button>`;
         if (e.includes('RETIR')) return '<span class="text-gray-300 font-bold">Finalizado</span>';
 
         const codigoEtapa = normalizar(p.etapa_codigo);
@@ -558,21 +564,21 @@
         const alerta = alertaPorEtapa || alertaChave(p);
         const permiteRetificacao = ['RET', 'REU', 'CFD'].includes(codigoEtapa) || retificacaoDisponivel(alerta);
         const executada = acaoJaExecutada(p, alerta);
-        const botaoRetificacao = permiteRetificacao ? `<button onclick="abrirRetificacaoDadosSIGEE(${p.id})" class="ml-1 bg-gray-600 hover:bg-gray-500 text-white font-bold px-2 py-1 rounded text-[10px]">Retificação dos Dados</button>` : '';
+        const botaoRetificacao = permiteRetificacao ? `<button onclick="abrirRetificacaoDadosSIGEE(${p.id})" class="sigee-btn-acao sigee-acao-retificacao">Retificação dos Dados</button>` : '';
         if (alerta === 'REITERACAO') return (executada
             ? '<span class="text-gray-400 font-bold">Reiteração executada</span>'
-            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'REITERACAO')" class="bg-amber-600 text-white font-bold px-2 py-1 rounded text-[10px]">Executar Reiteração</button>`) + botaoRetificacao;
+            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'REITERACAO')" class="sigee-btn-acao sigee-acao-reiteracao">Executar Reiteração</button>`) + botaoRetificacao;
         if (alerta === 'REITERACAO_URGENTE') return (executada
             ? '<span class="text-gray-400 font-bold">Reiteração urgente executada</span>'
-            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'REITERACAO_URGENTE')" class="bg-orange-600 text-white font-bold px-2 py-1 rounded text-[10px]">Executar Reiteração Urgente</button>`) + botaoRetificacao;
+            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'REITERACAO_URGENTE')" class="sigee-btn-acao sigee-acao-reiteracao-urgente">Executar Reiteração Urgente</button>`) + botaoRetificacao;
         if (alerta === 'CONFIRMAR_DADOS') return (executada
             ? '<span class="text-gray-400 font-bold">Dados confirmados</span>'
-            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'CONFIRMAR_DADOS')" class="bg-red-600 text-white font-bold px-2 py-1 rounded text-[10px]">Confirmar Dados da Busca</button>`) + botaoRetificacao;
+            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'CONFIRMAR_DADOS')" class="sigee-btn-acao sigee-acao-confirmacao">Confirmar Dados da Busca</button>`) + botaoRetificacao;
         if (alerta === 'PEDIDO_ATAS_SEM_PASTA') return executada
             ? '<span class="text-gray-400 font-bold">Atas solicitadas</span>'
-            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'PEDIDO_ATAS_SEM_PASTA')" class="bg-red-800 text-white font-bold px-2 py-1 rounded text-[10px]">Solicitar Atas sem Pasta</button>`;
+            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'PEDIDO_ATAS_SEM_PASTA')" class="sigee-btn-acao sigee-acao-atas">Solicitar Atas sem Pasta</button>`;
 
-        return `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'DESARQUIVAMENTO')" class="bg-sky-700 text-white font-bold px-2 py-1 rounded text-[10px]">Documento Recebido</button>`;
+        return `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'DESARQUIVAMENTO')" class="sigee-btn-acao sigee-acao-documento-recebido">Documento Recebido</button>`;
     }
 
     function renderizarProcessos() {
@@ -1066,16 +1072,20 @@
             convertido.modalidade ||
             convertido.oferta_modalidade ||
             convertido.nivel_oferta ||
+            convertido.oferta_nivel ||
             convertido.ensino ||
             r.modalidade ||
             r.oferta_modalidade ||
             r.nivel_oferta ||
+            r.oferta_nivel ||
             r.ensino ||
             '',
           nivel_oferta:
             convertido.nivel_oferta ||
+            convertido.oferta_nivel ||
             convertido.ensino ||
             r.nivel_oferta ||
+            r.oferta_nivel ||
             r.ensino ||
             '',
           tecnico_responsavel: responsavel,
@@ -1160,7 +1170,7 @@
       etapa: r.etapa_atual || r.etapa || r.fase_atual || 'Desarquivamento',
       etapa_atual: r.etapa_atual || r.etapa || 'Desarquivamento',
       nte: r.nte || r.nte_nome || r.grupo || '',
-      modalidade: r.modalidade || r.oferta_modalidade || r.nivel_oferta || '',
+      modalidade: r.modalidade || r.oferta_modalidade || r.modalidade_ensino || r.tipo_modalidade || r.nivel_oferta || r.oferta_nivel || r.ensino || r.nivel_ensino || '',
       prioridade: r.prioridade || 'Normal',
       tecnico_responsavel: r.tecnico_responsavel_nome || r.tecnico_responsavel || r.responsavel_nome || r.responsavel || r.usuario_responsavel_nome || r.usuario_responsavel || r.tecnico_nome || r.analista_nome || r.analista || r.analista_selecionado_nome || r.analista_selecionado || r.digitador_nome || r.digitador || r.conferente_nome || r.conferente || r.atribuido_para_nome || r.atribuido_para || '',
       tecnico_responsavel_nome: r.tecnico_responsavel_nome || r.tecnico_responsavel || '',
