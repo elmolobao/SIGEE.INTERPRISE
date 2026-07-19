@@ -1418,7 +1418,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                         badgeAlertaPrazo = `<span class="block ${alertaDesarq.classe} text-[8px] font-extrabold px-1 py-0.5 rounded uppercase mt-0.5 animate-pulse">⚠️ ${alertaDesarq.titulo}</span>`;
                     }
                 } else if (p.etapa === "Análise") {
-                    botaoFluxoContextual = `<div class="flex gap-1 flex-wrap"><button onclick="abrirModalRegistrarPendencia(${p.id})" class="bg-red-700 text-white font-bold px-2 py-1 rounded text-[10px] cursor-pointer">⚠️ Registrar Pendência</button><button onclick="abrirModalFluxoAnalise(${p.id})" class="bg-blue-800 text-white font-bold px-2 py-1 rounded text-[10px] cursor-pointer">✅ Enviar para Digitação</button></div>`;
+                    botaoFluxoContextual = `<button onclick="abrirModalFluxoAnalise(${p.id})" class="bg-blue-800 text-white font-bold px-2 py-1 rounded text-[10px] cursor-pointer">✅ ANÁLISE REALIZADA</button>`;
                 } else if (p.etapa === "Pendência") {
                     botaoFluxoContextual = `<button onclick="abrirModalFluxoPendencia(${p.id})" class="bg-red-600 text-white font-bold px-2 py-1 rounded text-[10px] cursor-pointer">⚠️ Tratar Pendência</button>`;
                 } else if (p.etapa === "Digitação") {
@@ -4350,7 +4350,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     const pf=document.getElementById('user-form-perfil');
     if(pf){
       const atual=perfil(pf.value);
-      pf.innerHTML='<option value="SEC">SEC</option><option value="Master">Master</option><option value="Administrador">Administrador</option><option value="Tecnico">Tecnico</option><option value="Estagiario">Estagiario</option><option value="Gestor">Gestor</option><option value="Consulta">Consulta</option>';
+      pf.innerHTML='<option value="Master">Master</option><option value="Administrador">Administrador</option><option value="Tecnico">Tecnico</option><option value="Consulta">Consulta</option>';
       pf.value=atual;
     }
   };
@@ -6007,7 +6007,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     const e=up(etapa); if(e.includes('ANAL')) return 'bg-purple-600 text-white'; if(e.includes('PEND')) return 'bg-red-600 text-white'; if(e.includes('DIGIT')) return 'bg-orange-500 text-white'; if(e.includes('CONFER')) return 'bg-green-600 text-white'; if(e.includes('ASSIN')) return 'bg-blue-700 text-white'; if(e.includes('DEFER')) return 'bg-emerald-600 text-white'; if(e.includes('RETIR')) return 'bg-gray-700 text-white'; return 'bg-sky-600 text-white';
   }
   function acaoProcesso(p){
-    const e=up(p.etapa); if(e.includes('ANAL')) return `<div class="flex gap-1 flex-wrap"><button onclick="abrirModalRegistrarPendencia(${p.id})" class="bg-red-700 text-white font-bold px-2 py-1 rounded text-[10px]">Registrar Pendência</button><button onclick="abrirModalFluxoAnalise(${p.id})" class="bg-purple-700 text-white font-bold px-2 py-1 rounded text-[10px]">Enviar Digitação</button></div>`;
+    const e=up(p.etapa); if(e.includes('ANAL')) return `<button onclick="abrirModalFluxoAnalise(${p.id})" class="bg-purple-700 text-white font-bold px-2 py-1 rounded text-[10px]">Análise Realizada</button>`;
     if(e.includes('PEND')) return `<button onclick="abrirModalFluxoPendencia(${p.id})" class="bg-red-700 text-white font-bold px-2 py-1 rounded text-[10px]">Tratar Pendência</button>`;
     if(e.includes('DIGIT')) return `<button onclick="abrirModalFluxoDigitacao(${p.id})" class="bg-orange-600 text-white font-bold px-2 py-1 rounded text-[10px]">Documento Digitado</button>`;
     if(e.includes('CONFER')) return `<button onclick="abrirModalFluxoConferencia(${p.id})" class="bg-green-700 text-white font-bold px-2 py-1 rounded text-[10px]">Documento Conferido</button>`;
@@ -6778,6 +6778,8 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     if(p.includes('SEC')) return 'SEC';
     if(p.includes('MASTER')) return 'Master';
     if(p.includes('ADMINISTR') || p.includes('ADMIN')) return 'Administrador';
+    if(p.includes('ESTAG')) return 'Estagiario';
+    if(p.includes('GESTOR') || p.includes('DIRIGENTE')) return 'Gestor';
     if(p.includes('CONSULT')) return 'Consulta';
     if(p.includes('TECNIC')) return 'Tecnico';
     return 'Tecnico';
@@ -6806,14 +6808,14 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   const Perm = {
     visualizarTodos: u => isGlobal(u),
     dashboardGlobal: u => isGlobal(u),
-    cadastrarEscola: u => isGlobal(u) || isAdmin(u) || isTecnico(u),
+    cadastrarEscola: u => isMaster(u),
     alterarEscola: u => isGlobal(u) || isAdmin(u) || isTecnico(u),
     excluirEscola: u => isGlobal(u),
-    importarEscolas: u => isGlobal(u) || isAdmin(u),
+    importarEscolas: u => isMaster(u),
     importarProcessos: u => isGlobal(u) || isAdmin(u),
     importarUsuarios: u => isGlobal(u),
     exportarDados: u => isGlobal(u) || isAdmin(u),
-    abrirSolicitacao: u => isGlobal(u) || isAdmin(u) || isTecnico(u),
+    abrirSolicitacao: u => isMaster(u) || isAdmin(u) || isTecnico(u) || perfilCanonico(u&&u.perfil)==='Estagiario',
     alterarFluxo: u => isGlobal(u) || isAdmin(u) || isTecnico(u),
     tecnicosQualquerNte: u => isGlobal(u),
     cadastrarUsuarios: u => isGlobal(u),
@@ -7008,7 +7010,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   if(typeof oldImportar === 'function'){
     window.processarImportacaoOtimizada = function(event){
       const u = usuarioAtual();
-      if(!(Perm.importarEscolas(u) || Perm.importarProcessos(u))){ alert('A importação do cadastro de escolas é permitida somente para o perfil Master.'); if(event?.target) event.target.value=''; return; }
+      if(!(Perm.importarEscolas(u) || Perm.importarProcessos(u))){ alert('Importação permitida apenas para SEC, Master e Administrador.'); if(event?.target) event.target.value=''; return; }
       return oldImportar.apply(this, arguments);
     };
     try{ processarImportacaoOtimizada = window.processarImportacaoOtimizada; }catch(e){}
@@ -7137,7 +7139,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   if(typeof importarOriginalV43 === 'function'){
     window.processarImportacaoOtimizada = function(event){
       if(!podeImportar()){
-        alert('A importação do cadastro de escolas é permitida somente para o perfil Master.');
+        alert('Importação permitida apenas para SEC, Master e Administrador.');
         if(event && event.target) event.target.value = '';
         return false;
       }
@@ -7216,7 +7218,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   function global(u=user()){ return isSEC(u) || isMaster(u); }
   function canUsers(u=user()){ return isSEC(u) || isMaster(u); }
   function canLogs(u=user()){ return isSEC(u) || isMaster(u) || isAdmin(u); }
-  function canImport(u=user()){ return isMaster(u); }
+  function canImport(u=user()){ return isSEC(u) || isMaster(u) || isAdmin(u); }
   function canExport(u=user()){ return isSEC(u) || isMaster(u) || isAdmin(u); }
   function canEditSchool(u=user()){ return isSEC(u) || isMaster(u) || isAdmin(u) || isTecnico(u); }
   function canFlow(u=user()){ return isSEC(u) || isMaster(u) || isAdmin(u) || isTecnico(u); }
@@ -7316,7 +7318,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   if(typeof impPrev === 'function'){
     window.processarImportacaoOtimizada = function(event){
       if(!canImport(user())){
-        alert('A importação do cadastro de escolas é permitida somente para o perfil Master.');
+        alert('Importação permitida apenas para SEC, Master e Administrador.');
         if(event && event.target) event.target.value = '';
         return false;
       }
@@ -7331,7 +7333,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     clearTimeout(t); t=setTimeout(aplicarPermissoesV44, 15);
   });
   document.addEventListener('DOMContentLoaded', ()=>{
-    obs.observe(document.body, {childList:true, subtree:true});
+    obs.observe(document.body, {childList:true, subtree:true, attributes:true, attributeFilter:['class','style']});
     aplicarPermissoesV44();
     setTimeout(aplicarPermissoesV44, 300);
     setTimeout(aplicarPermissoesV44, 1200);
@@ -7546,7 +7548,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   function acaoFluxo(p){
     if(!podeMovimentarProcesso(user(),p)) return '<span class="text-gray-400 font-bold">Sem ação</span>';
     const e=up(p.etapa||p.etapa_atual);
-    if(e.includes('ANAL')) return `<div class="flex gap-1 flex-wrap"><button onclick="abrirModalRegistrarPendencia(${p.id})" class="bg-red-700 text-white font-bold px-2 py-1 rounded text-[10px]">Registrar Pendência</button><button onclick="abrirModalFluxoAnalise(${p.id})" class="bg-purple-700 text-white font-bold px-2 py-1 rounded text-[10px]">Enviar Digitação</button></div>`;
+    if(e.includes('ANAL')) return `<button onclick="abrirModalFluxoAnalise(${p.id})" class="bg-purple-700 text-white font-bold px-2 py-1 rounded text-[10px]">Análise Realizada</button>`;
     if(e.includes('PEND')) return `<button onclick="abrirModalFluxoPendencia(${p.id})" class="bg-red-700 text-white font-bold px-2 py-1 rounded text-[10px]">Tratar Pendência</button>`;
     if(e.includes('DIGIT')) return `<button onclick="abrirModalFluxoDigitacao(${p.id})" class="bg-orange-600 text-white font-bold px-2 py-1 rounded text-[10px]">Documento Digitado</button>`;
     if(e.includes('CONFER')) return `<button onclick="abrirModalFluxoConferencia(${p.id})" class="bg-green-700 text-white font-bold px-2 py-1 rounded text-[10px]">Documento Conferido</button>`;
@@ -8449,7 +8451,6 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     if (p.includes('MASTER')) return 'Master';
     if (p.includes('ADMIN')) return 'Administrador';
     if (p.includes('SEC')) return 'SEC';
-    if (p.includes('GESTOR')) return 'Gestor';
     if (p.includes('CONSULT')) return 'Consulta';
     if (p.includes('ESTAG')) return 'Estagiario';
     return 'Tecnico';
@@ -8520,10 +8521,9 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
       'novo-proc-aluno','novo-proc-escola','novo-proc-documento',
       'novo-proc-modalidade','novo-proc-ensino'
     ];
-    const idsEditaveisAdmin = ['novo-proc-aluno','novo-proc-escola','novo-proc-documento','novo-proc-responsavel-tarefa'];
+    const idsEditaveisAdmin = ['novo-proc-aluno','novo-proc-escola'];
     const todos = [
       ...idsEditaveisMaster,
-      'novo-proc-responsavel-tarefa',
       'novo-autofill-mec','novo-autofill-nte','novo-autofill-municipio',
       'novo-autofill-dep','novo-autofill-situacao','novo-autofill-acervo',
       'novo-autofill-local-acervo'
@@ -8546,47 +8546,6 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     bloquearCampo(chk, true);
   }
 
-  function garantirCampoResponsavelTarefaSIGEE(){
-    let campo = el('novo-proc-responsavel-tarefa');
-    if (campo) return campo;
-    const doc = el('novo-proc-documento');
-    const grid = doc?.closest('.grid');
-    if (!grid) return null;
-    const box = document.createElement('div');
-    box.id = 'sigee-box-responsavel-tarefa';
-    box.innerHTML = `
-      <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Responsável pela Tarefa</label>
-      <select class="w-full p-2 border rounded-lg text-xs bg-white focus:outline-none font-medium" id="novo-proc-responsavel-tarefa">
-        <option value="">SELECIONE</option>
-      </select>`;
-    grid.appendChild(box);
-    return el('novo-proc-responsavel-tarefa');
-  }
-
-  function nteNumeroSIGEE(v){
-    const m = txt(v).match(/NTE\s*[- ]?\s*(\d{1,2})/i);
-    return m ? Number(m[1]) : null;
-  }
-
-  function preencherResponsaveisTarefaSIGEE(p){
-    const campo = garantirCampoResponsavelTarefaSIGEE();
-    if (!campo) return;
-    const nteProc = valor(p,'nte','nte_nome','grupo');
-    const numeroProc = nteNumeroSIGEE(nteProc);
-    const atual = valor(p,'responsavel_etapa','responsavel_etapa_nome','tecnico_responsavel','tecnico_responsavel_nome','responsavel','responsavel_nome');
-    const base = Array.isArray(window.usuariosDB) ? window.usuariosDB : [];
-    const nomes = base.filter(u => {
-      if (u?.ativo === false) return false;
-      const pu = norm(u?.perfil);
-      if (!(pu.includes('TECNIC') || pu.includes('ADMIN') || pu.includes('MASTER'))) return false;
-      const nu = nteNumeroSIGEE(u?.nte || u?.nte_nome || u?.grupo);
-      return perfil() === 'Master' || !numeroProc || !nu || numeroProc === nu;
-    }).map(u => txt(u.nome || u.email)).filter(Boolean);
-    if (atual) nomes.unshift(atual);
-    const unicos = [...new Set(nomes)].sort((a,b)=>a.localeCompare(b,'pt-BR'));
-    campo.innerHTML = '<option value="">SELECIONE</option>' + unicos.map(n => `<option value="${n.replace(/"/g,'&quot;')}">${n}</option>`).join('');
-  }
-
   function preencher(p){
     const escolaNome = valor(p,'escola_nome','escola','nome_escola','instituicao');
     const codMec = valor(p,'cod_mec','codigo_mec','escola_cod_mec','codigo_mec_escola');
@@ -8598,9 +8557,6 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     setValor('novo-proc-documento', valor(p,'documento_tipo','documento','documento_solicitado','tipo_documento'));
     setValor('novo-proc-modalidade', valor(p,'modalidade','oferta_modalidade'));
     setValor('novo-proc-ensino', valor(p,'nivel_oferta','ensino','oferta_nivel','nivel'));
-    garantirCampoResponsavelTarefaSIGEE();
-    preencherResponsaveisTarefaSIGEE(p);
-    setValor('novo-proc-responsavel-tarefa', valor(p,'responsavel_etapa','responsavel_etapa_nome','tecnico_responsavel','tecnico_responsavel_nome','responsavel','responsavel_nome'));
     setValor('novo-autofill-mec', codMec);
     setValor('novo-autofill-nte', valor(p,'nte','nte_nome','grupo'));
     setValor('novo-autofill-municipio', valor(p,'municipio','escola_municipio'));
@@ -8646,7 +8602,6 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
       documento: valor(p,'documento_tipo','documento'),
       modalidade: valor(p,'modalidade','oferta_modalidade'),
       ensino: valor(p,'nivel_oferta','ensino','oferta_nivel'),
-      responsavel: valor(p,'responsavel_etapa','responsavel_etapa_nome','tecnico_responsavel','tecnico_responsavel_nome','responsavel','responsavel_nome'),
       nte: valor(p,'nte','nte_nome','grupo'),
       municipio: valor(p,'municipio')
     };
@@ -8680,7 +8635,7 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
   function alteracoesEntre(antes, depois){
     const nomes = {
       aluno:'Nome do aluno', escola:'Escola', documento:'Documento',
-      modalidade:'Modalidade', ensino:'Nível de oferta', responsavel:'Responsável pela tarefa', nte:'NTE', municipio:'Município'
+      modalidade:'Modalidade', ensino:'Nível de oferta', nte:'NTE', municipio:'Município'
     };
     return Object.keys(antes).filter(k => txt(antes[k]) !== txt(depois[k])).map(k => ({
       campo: nomes[k] || k,
@@ -8710,22 +8665,11 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     p.aluno = p.aluno_nome = aluno;
     p.escola = p.escola_nome = escola;
 
-    const documento = txt(el('novo-proc-documento')?.value);
-    if (documento) p.documento = p.documento_tipo = p.documento_solicitado = documento;
-
-    const responsavel = txt(el('novo-proc-responsavel-tarefa')?.value);
-    if (responsavel) {
-      p.responsavel_etapa = responsavel;
-      p.responsavel_etapa_nome = responsavel;
-      p.tecnico_responsavel = responsavel;
-      p.tecnico_responsavel_nome = responsavel;
-      p.responsavel = responsavel;
-      p.responsavel_nome = responsavel;
-    }
-
     if (pf === 'Master') {
+      const documento = txt(el('novo-proc-documento')?.value);
       const modalidade = txt(el('novo-proc-modalidade')?.value);
       const ensino = txt(el('novo-proc-ensino')?.value);
+      if (documento) p.documento = p.documento_tipo = documento;
       p.modalidade = modalidade;
       p.ensino = p.nivel_oferta = ensino;
     }
@@ -9178,146 +9122,3 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
   });
 })();
 
-
-
-/* =====================================================================
-   SIGEE 2.4.9 — Autoridade final de perfis, menus e ações restritas
-   - GESTOR criado como perfil consultivo global.
-   - Estagiário pode abrir Nova Solicitação e não edita escolas.
-   - Administrador não importa cadastro de escolas.
-   - Administração/Usuários somente Master.
-   - Funções sem permissão ficam ocultas, não apenas desabilitadas.
-   - Sem MutationObserver de classe/style, evitando painel piscando.
-   ===================================================================== */
-(function(){
-  'use strict';
-  if(window.__SIGEE_AUTORIDADE_PERFIS_249__) return;
-  window.__SIGEE_AUTORIDADE_PERFIS_249__=true;
-
-  const norm=v=>String(v??'').trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
-  const perfil=()=>{
-    const p=norm((window.usuarioLogado||{}).perfil);
-    if(p.includes('MASTER')) return 'Master';
-    if(p==='SEC'||p.includes('SECRETARIA')) return 'SEC';
-    if(p.includes('GESTOR')) return 'Gestor';
-    if(p.includes('ADMIN')) return 'Administrador';
-    if(p.includes('ESTAG')) return 'Estagiario';
-    if(p.includes('CONSULT')) return 'Consulta';
-    return 'Tecnico';
-  };
-
-  const regras=()=>{
-    const p=perfil();
-    return {
-      usuarios:p==='Master',
-      logs:['Master','SEC','Administrador'].includes(p),
-      relatorios:['Master','SEC','Administrador','Gestor'].includes(p),
-      sala:['Master','SEC','Gestor'].includes(p),
-      novaSolicitacao:['Master','Administrador','Estagiario'].includes(p),
-      editarProcesso:['Master','Administrador'].includes(p),
-      cadastrarEscola:p==='Master',
-      editarEscola:['Master','Administrador','Tecnico'].includes(p),
-      importarEscolas:p==='Master',
-      exportar:['Master','SEC','Administrador'].includes(p)
-    };
-  };
-
-  function visibilidade(el,sim){
-    if(!el) return;
-    el.hidden=!sim;
-    el.classList.toggle('hidden',!sim);
-    el.style.setProperty('display',sim?'':'none','important');
-    el.setAttribute('aria-hidden',sim?'false':'true');
-    if('disabled' in el) el.disabled=!sim;
-  }
-  function todos(sel,sim){ document.querySelectorAll(sel).forEach(el=>visibilidade(el,sim)); }
-
-  function aplicar(){
-    const r=regras();
-    visibilidade(document.getElementById('menu-usuarios'),r.usuarios);
-    visibilidade(document.getElementById('aba-usuarios'),r.usuarios);
-    visibilidade(document.getElementById('menu-logs'),r.logs);
-    visibilidade(document.getElementById('menu-relatorios'),r.relatorios);
-    visibilidade(document.getElementById('menu-sala-situacao'),r.sala);
-    todos('#btn-nova-solicitacao,.btn-nova-solicitacao,[data-acao="nova-solicitacao"],[onclick*="abrirFormularioNovaSolicitacao"]',r.novaSolicitacao);
-    todos('.btn-editar-processo,[onclick*="abrirFormularioProcessoSIGEE"],[onclick*="editarProcesso"]',r.editarProcesso);
-    todos('#btn-cadastrar-escola-master,.btn-nova-escola,[onclick*="abrirModalNovaEscola"]',r.cadastrarEscola);
-    visibilidade(document.getElementById('btn-importar-dados-master'),r.importarEscolas);
-    todos('.export-only',r.exportar);
-  }
-
-  function podeAcessarAba(aba){
-    const a=norm(aba).replace(/\s+/g,'-'); const r=regras();
-    if(a==='USUARIOS') return r.usuarios;
-    if(a==='LOGS') return r.logs;
-    if(a==='SALA-SITUACAO'||a==='SALA-DE-SITUACAO') return r.sala;
-    if(a==='PAINEL'||a==='RELATORIOS') return r.relatorios;
-    return true;
-  }
-
-  function instalarNavegacao(){
-    const base=(window.SIGEE_NAVIGATION&&window.SIGEE_NAVIGATION.navegar)||window.navegar;
-    if(typeof base!=='function'||base.__SIGEE_PERFIL_249__) return;
-    const protegida=function(aba){
-      if(!podeAcessarAba(aba)){
-        alert('Seu perfil não possui acesso a esta área.');
-        return false;
-      }
-      return base.apply(this,arguments);
-    };
-    protegida.__SIGEE_PERFIL_249__=true;
-    window.navegar=protegida; try{navegar=protegida}catch(_){ }
-  }
-
-  function sincronizarMatriz(){
-    try{
-      const m=window.SIGEE_PERMISSOES?.MATRIZ; if(!m) return;
-      if(m.Estagiario){m.Estagiario.abrirSolicitacao=true;m.Estagiario.editarEscola=false;}
-      if(m.Administrador){m.Administrador.editarProcesso=true;m.Administrador.cadastrarEscola=false;m.Administrador.importarEscolas=false;}
-      m.Gestor={global:true,usuarios:false,logs:false,importar:false,importarEscolas:false,exportar:false,abrirSolicitacao:false,visualizarProcesso:true,moverProcesso:false,editarProcesso:false,excluirProcesso:false,regredirProcesso:false,cadastrarEscola:false,editarEscola:false,acessarRelatorios:true,acessarSalaSituacao:true};
-      delete m.Dirigente;
-    }catch(_){ }
-  }
-
-  function instalar(){ sincronizarMatriz(); aplicar(); instalarNavegacao(); }
-  function iniciar(){
-    instalar();
-    [50,250,800,1600].forEach(t=>setTimeout(instalar,t));
-    document.addEventListener('sigee:usuario-logado',instalar);
-    document.addEventListener('sigee:navegacao',aplicar);
-  }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',iniciar,{once:true}); else iniciar();
-  window.addEventListener('load',instalar,{once:true});
-  window.addEventListener('focus',()=>setTimeout(aplicar,50));
-  window.SIGEE_APLICAR_PERMISSOES_249=instalar;
-})();
-
-
-/* SIGEE PATCH V3.1 — abertura direta do registro de pendência
-   Evita que o botão "Registrar Pendência" execute a abertura padrão da Análise,
-   que sempre reinicializa o campo f01-pendencia com o valor "não". */
-(function(){
-  'use strict';
-
-  window.abrirModalRegistrarPendencia = function(id){
-    // A janela homologada de registro de pendência pertence ao módulo
-    // processos.js. Não reutilizar o modal legado de Análise do app.js.
-    if (typeof window.abrirRegistrarPendenciaSIGEE === 'function') {
-      return window.abrirRegistrarPendenciaSIGEE(id);
-    }
-
-    console.error('[SIGEE] Janela oficial de Registrar Pendência não localizada.');
-    alert('Não foi possível abrir a janela de Registrar Pendência. Recarregue a página e tente novamente.');
-    return false;
-  };
-
-  // Mantém o título correto quando a abertura for a análise normal.
-  const aberturaAnaliseOriginal = window.abrirModalFluxoAnalise;
-  if (typeof aberturaAnaliseOriginal === 'function') {
-    window.abrirModalFluxoAnalise = function(id){
-      aberturaAnaliseOriginal(id);
-      const titulo = document.querySelector('#modal-fluxo-analise h3');
-      if (titulo) titulo.innerHTML = '🔍 Análise Operacional';
-    };
-  }
-})();

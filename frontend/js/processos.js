@@ -539,13 +539,13 @@
         if (isEstagiario(usuario())) return '<span class="text-gray-400 font-bold">Consulta</span>';
         if (!podeMovimentar(p)) return '<span class="text-gray-400 font-bold">Sem ação</span>';
         const e = normalizar(processoEtapa(p));
-        if (e.includes('ANAL')) return `<button onclick="abrirAnaliseSIGEE(${p.id})" class="sigee-list-action sigee-list-action-analysis">Abrir Análise</button>`;
-        if (e.includes('PEND')) return `<button onclick="abrirPendenciaSIGEE(${p.id})" class="sigee-list-action sigee-list-action-pending">Tratar Pendência</button>`;
+        if (e.includes('ANAL')) return `<button onclick="abrirAnaliseSIGEE(${p.id})" class="bg-orange-600 hover:bg-orange-500 text-white font-bold px-2 py-1 rounded text-[10px]">Abrir Análise</button>`;
+        if (e.includes('PEND')) return `<button onclick="abrirPendenciaSIGEE(${p.id})" class="bg-purple-700 hover:bg-purple-600 text-white font-bold px-2 py-1 rounded text-[10px]">Tratar Pendência</button>`;
         if (e.includes('INDEFER')) return '<span class="text-red-300 font-bold">Finalizado</span>';
-        if (e.includes('DIGIT')) return `<button onclick="abrirModalFluxoDigitacao(${p.id})" class="sigee-list-action sigee-list-action-digitacao">Documento Digitado</button>`;
-        if (e.includes('CONFER')) return `<button onclick="abrirModalFluxoConferencia(${p.id})" class="sigee-list-action sigee-list-action-conferencia">Documento Conferido</button>`;
-        if (e.includes('ASSIN')) return `<button onclick="abrirModalFluxoAssinatura(${p.id})" class="sigee-list-action sigee-list-action-assinatura">Deferido</button>`;
-        if (e.includes('AGUARD')) return `<button onclick="abrirModalFluxoAguardando(${p.id})" class="sigee-list-action sigee-list-action-retirada">Retirado</button>`;
+        if (e.includes('DIGIT')) return `<button onclick="abrirModalFluxoDigitacao(${p.id})" class="bg-orange-600 text-white font-bold px-2 py-1 rounded text-[10px]">Documento Digitado</button>`;
+        if (e.includes('CONFER')) return `<button onclick="abrirModalFluxoConferencia(${p.id})" class="bg-green-700 text-white font-bold px-2 py-1 rounded text-[10px]">Documento Conferido</button>`;
+        if (e.includes('ASSIN')) return `<button onclick="abrirModalFluxoAssinatura(${p.id})" class="bg-blue-700 text-white font-bold px-2 py-1 rounded text-[10px]">Deferido</button>`;
+        if (e.includes('AGUARD')) return `<button onclick="abrirModalFluxoAguardando(${p.id})" class="bg-gray-700 text-white font-bold px-2 py-1 rounded text-[10px]">Retirado</button>`;
         if (e.includes('RETIR')) return '<span class="text-gray-300 font-bold">Finalizado</span>';
 
         const codigoEtapa = normalizar(p.etapa_codigo);
@@ -556,21 +556,21 @@
         const alerta = alertaPorEtapa || alertaChave(p);
         const permiteRetificacao = ['RET', 'REU', 'CFD'].includes(codigoEtapa) || retificacaoDisponivel(alerta);
         const executada = acaoJaExecutada(p, alerta);
-        const botaoRetificacao = permiteRetificacao ? `<button onclick="abrirRetificacaoDadosSIGEE(${p.id})" class="sigee-list-action sigee-list-action-retificacao">Retificação dos Dados</button>` : '';
+        const botaoRetificacao = permiteRetificacao ? `<button onclick="abrirRetificacaoDadosSIGEE(${p.id})" class="ml-1 bg-gray-600 hover:bg-gray-500 text-white font-bold px-2 py-1 rounded text-[10px]">Retificação dos Dados</button>` : '';
         if (alerta === 'REITERACAO') return (executada
             ? '<span class="text-gray-400 font-bold">Reiteração executada</span>'
-            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'REITERACAO')" class="sigee-list-action sigee-list-action-reiteracao">Executar Reiteração</button>`) + botaoRetificacao;
+            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'REITERACAO')" class="bg-amber-600 text-white font-bold px-2 py-1 rounded text-[10px]">Executar Reiteração</button>`) + botaoRetificacao;
         if (alerta === 'REITERACAO_URGENTE') return (executada
             ? '<span class="text-gray-400 font-bold">Reiteração urgente executada</span>'
-            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'REITERACAO_URGENTE')" class="sigee-list-action sigee-list-action-digitacao">Executar Reiteração Urgente</button>`) + botaoRetificacao;
+            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'REITERACAO_URGENTE')" class="bg-orange-600 text-white font-bold px-2 py-1 rounded text-[10px]">Executar Reiteração Urgente</button>`) + botaoRetificacao;
         if (alerta === 'CONFIRMAR_DADOS') return (executada
             ? '<span class="text-gray-400 font-bold">Dados confirmados</span>'
-            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'CONFIRMAR_DADOS')" class="sigee-list-action sigee-list-action-confirmacao">Confirmar Dados da Busca</button>`) + botaoRetificacao;
+            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'CONFIRMAR_DADOS')" class="bg-red-600 text-white font-bold px-2 py-1 rounded text-[10px]">Confirmar Dados da Busca</button>`) + botaoRetificacao;
         if (alerta === 'PEDIDO_ATAS_SEM_PASTA') return executada
             ? '<span class="text-gray-400 font-bold">Atas solicitadas</span>'
-            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'PEDIDO_ATAS_SEM_PASTA')" class="sigee-list-action sigee-list-action-atas">Solicitar Atas sem Pasta</button>`;
+            : `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'PEDIDO_ATAS_SEM_PASTA')" class="bg-red-800 text-white font-bold px-2 py-1 rounded text-[10px]">Solicitar Atas sem Pasta</button>`;
 
-        return `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'DESARQUIVAMENTO')" class="sigee-list-action sigee-list-action-documento">Documento Recebido</button>`;
+        return `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'DESARQUIVAMENTO')" class="bg-sky-700 text-white font-bold px-2 py-1 rounded text-[10px]">Documento Recebido</button>`;
     }
 
     function renderizarProcessos() {
@@ -590,20 +590,20 @@
             let botoesAdministrativos = '';
             if (isMaster(uAtual)) {
                 botoesAdministrativos = `
-                <div class="sigee-list-admin-actions">
-                    <button onclick="editarProcessoMasterSIGEE(${p.id})" class="sigee-list-admin-button sigee-list-admin-edit">Editar</button>
-                    <button onclick="regredirProcessoMasterSIGEE(${p.id})" class="sigee-list-admin-button sigee-list-admin-regress">Regredir</button>
-                    <button onclick="avancarProcessoMasterSIGEE(${p.id})" class="sigee-list-admin-button sigee-list-admin-advance">Avançar</button>
-                    <button onclick="excluirProcessoMasterSIGEE(${p.id})" class="sigee-list-admin-button sigee-list-admin-delete">Excluir</button>
+                <div class="mt-1 flex flex-wrap justify-center gap-1">
+                    <button onclick="editarProcessoMasterSIGEE(${p.id})" class="bg-blue-600 text-white text-[9px] px-2 py-0.5 rounded font-bold">Editar</button>
+                    <button onclick="regredirProcessoMasterSIGEE(${p.id})" class="bg-amber-700 text-white text-[9px] px-2 py-0.5 rounded font-bold">Regredir</button>
+                    <button onclick="avancarProcessoMasterSIGEE(${p.id})" class="bg-emerald-700 text-white text-[9px] px-2 py-0.5 rounded font-bold">Avançar</button>
+                    <button onclick="excluirProcessoMasterSIGEE(${p.id})" class="bg-red-700 text-white text-[9px] px-2 py-0.5 rounded font-bold">Excluir</button>
                 </div>`;
             } else if (isAdmin(uAtual) && mesmoNte(nteUsuario(uAtual), processoNte(p))) {
                 botoesAdministrativos = `
-                <div class="sigee-list-admin-actions">
-                    <button onclick="editarProcessoMasterSIGEE(${p.id})" class="sigee-list-admin-button sigee-list-admin-edit">Corrigir Cadastro</button>
+                <div class="mt-1 flex flex-wrap justify-center gap-1">
+                    <button onclick="editarProcessoMasterSIGEE(${p.id})" class="bg-blue-600 text-white text-[9px] px-2 py-0.5 rounded font-bold">Corrigir Cadastro</button>
                 </div>`;
             }
             corpo.insertAdjacentHTML('beforeend', `
-                <tr class="sigee-process-row">
+                <tr class="hover:bg-blue-950/70 text-white transition-colors">
                     <td class="p-2.5">
                         <span class="sigee-aluno-nome" title="${processoAluno(p)}">${processoAluno(p)}</span>
                         <span class="sigee-codigo-linha">
@@ -619,7 +619,7 @@
                     <td class="p-2.5 text-center">${prazoVisual(p)}${alertaPrazo(p)}</td>
                     <td class="p-2.5 text-center text-[10px] font-semibold">${processoResponsavel(p)}</td>
                     <td class="p-2.5 text-center"><span class="sigee-etapa-badge ${corEtapa(etapa)} ${normalizar(p.contexto_analise).includes("DESARQUIVAMENTO") ? "sigee-etapa-analise-desarquivamento" : ""}">${etapa}</span></td>
-                    <td class="p-2.5 text-center sigee-process-actions-cell">${acaoFluxo(p)}<button onclick="abrirHistoricoSIGEE(${p.id})" class="sigee-list-action sigee-list-action-history">Histórico</button>${botoesAdministrativos}</td>
+                    <td class="p-2.5 text-center">${acaoFluxo(p)}<button onclick="abrirHistoricoSIGEE(${p.id})" class="ml-1 bg-slate-700 hover:bg-slate-600 text-white font-bold px-2 py-1 rounded text-[10px]">Histórico</button>${botoesAdministrativos}</td>
                 </tr>`);
         });
     }
@@ -763,7 +763,7 @@
                 : `<label>NTE<input id="sigee-editproc-nte-view" value="${escHtml(nteAtual)}" readonly aria-readonly="true"></label><input type="hidden" id="sigee-editproc-nte" value="${escHtml(nteAtual)}">`}
               <label>Escola/Instituição<select id="sigee-editproc-escola" required><option value="">Carregando catálogo...</option></select></label>
               <label>Documento solicitado
-                <select id="sigee-editproc-documento" ${admin?'disabled aria-disabled="true"':''}>${opcoesDocumento}</select>
+                <select id="sigee-editproc-documento">${opcoesDocumento}</select>
               </label>
               <label>Responsável pela tarefa<select id="sigee-editproc-responsavel"><option value="">Carregando responsáveis...</option></select></label>
               <div class="sigee-editproc-actions"><button type="button" class="sigee-editproc-cancel">Cancelar</button><button type="submit" class="sigee-editproc-save">Salvar alterações</button></div>
@@ -1309,7 +1309,7 @@
     try{if(!c)throw new Error('Cliente Supabase indisponível');const {error}=await c.from('historico_processos').insert(registro);if(error)throw error;return true;}catch(e){console.error('[SIGEE] Histórico não gravado.',e);toast('A ação foi salva, mas o histórico não pôde ser registrado.','erro');return false;}
   }
   async function salvar(p){if(window.SIGEE_Processos?.salvar)await window.SIGEE_Processos.salvar(p);if(window.recarregarCentralProcessosSIGEE)await window.recarregarCentralProcessosSIGEE(true);else window.SIGEE_Processos?.contar?.();}
-  function resumo(p){const etapa=txt(p.etapa_atual||p.etapa),dias=window.SIGEE_Processos?.diasDesde?.(p.data_etapa_atual||p.created_at)||0,e=norm(etapa),limite=e.includes('ANAL')?7:e.includes('DIGIT')?15:e.includes('CONFER')?10:e.includes('ASSIN')?7:(p.prazo_etapa||null);const resp=p.tecnico_responsavel_nome||p.tecnico_responsavel||p.responsavel_nome||p.responsavel||p.analista_nome||p.analista||p.digitador_nome||p.digitador||p.conferente_nome||p.conferente||'Não atribuído';return `<div class="sigee-resumo33"><div><span>Aluno</span><strong>${escapar(p.aluno||p.aluno_nome||'-')}</strong></div><div><span>Código SIGEE</span><strong>${escapar(p.codigo_sigee||p.id||'-')}</strong></div><div><span>Escola</span><strong>${escapar(p.escola||p.escola_nome||'-')}</strong></div><div><span>NTE</span><strong>${escapar(p.nte||p.nte_nome||'-')}</strong></div><div><span>Responsável</span><strong>${escapar(resp)}</strong></div><div><span>Prazo</span><strong>${limite?`${dias}/${limite} dias`:`${dias} dias`}</strong></div></div>`;}
+  function resumo(p){const etapa=txt(p.etapa_atual||p.etapa),dias=window.SIGEE_Processos?.diasDesde?.(p.data_etapa_atual||p.created_at)||0,limite=norm(etapa).includes('ANAL')?7:null;return `<div class="sigee-resumo33"><div><span>Aluno</span><strong>${escapar(p.aluno||p.aluno_nome||'-')}</strong></div><div><span>Escola</span><strong>${escapar(p.escola||p.escola_nome||'-')}</strong></div><div><span>Modalidade</span><strong>${escapar(p.modalidade||'-')}</strong></div><div><span>Prioridade</span><strong>${escapar(p.prioridade||'Normal')}</strong></div><div><span>Prazo da etapa</span><strong>${limite?`${dias}/${limite}`:`${dias} dias`}</strong></div><div><span>Quem analisou</span><strong>${escapar(p.analista_nome||p.analista||p.digitador_nome||p.digitador||p.conferente_nome||p.conferente||p.tecnico_responsavel_nome||p.tecnico_responsavel||p.responsavel_nome||p.responsavel||p.usuario_responsavel_nome||p.usuario_responsavel||p.tecnico_nome||'Não atribuído')}</strong></div><div><span>Data da solicitação</span><strong>${escapar(p.data_solicitacao||p.created_at||'-')}</strong></div><div><span>Entrada na etapa</span><strong>${escapar(p.data_etapa_atual||'-')}</strong></div></div>`;}
   function mensagemPendencia(aluno,inst){if(!aluno.length&&!inst.length)return null;if(aluno.length&&inst.length)return {codigo:'09',texto:'09 - Aluno Pendência (INSTITUIÇÃO e REQUERENTE)'};if(inst.length)return {codigo:'08',texto:'08 - Aluno Pendência (INSTITUIÇÃO)'};return {codigo:'07',texto:'07 - Aluno Pendência (Aluno)'};}
   function cardTarefa(msg,confirmado=false){if(!msg)return '';return `<section class="sigee-tarefa-obrigatoria33"><div class="sigee-tarefa-icone33">📧</div><div class="sigee-tarefa-conteudo33"><span>TAREFA OBRIGATÓRIA</span><strong>ENVIAR E-MAIL: ${escapar(msg.texto)}</strong><p>Execute a mensagem institucional na ferramenta de e-mail e confirme abaixo antes de registrar a pendência.</p><label><input type="checkbox" id="pend-email33" ${confirmado?'checked':''}> Confirmo que executei esta tarefa.</label></div></section>`;}
   function checks(valores,nome,selecionados=[]){return valores.map(v=>`<label class="sigee-check33"><input type="checkbox" name="${nome}" value="${escapar(v)}" ${selecionados.includes(v)?'checked':''}><span>${escapar(v)}</span></label>`).join('');}
@@ -1319,8 +1319,7 @@
   async function substituirPendencias(p,aluno,inst,compAluno,compInst,msg,ator){
     const c=cliente();if(!c)throw new Error('Cliente Supabase indisponível');
     const identidade=ator||identidadeSessao();
-    const {error:delError}=await c.from('processo_pendencias').delete().eq('processo_id',p.id).eq('status','pendente');
-    if(delError)throw delError;
+    const {error:delError}=await c.from('processo_pendencias').delete().eq('processo_id',p.id).eq('status','pendente');if(delError)throw delError;
     const base={
       processo_id:p.id,
       codigo_sigee:p.codigo_sigee||'',
@@ -1336,13 +1335,7 @@
       ...aluno.map(item=>Object.assign({},base,{grupo:'aluno',item,complemento:compAluno||null})),
       ...inst.map(item=>Object.assign({},base,{grupo:'instituicao',item,complemento:compInst||null}))
     ];
-    if(!linhas.length)throw new Error('Nenhuma pendência foi selecionada para gravação.');
-    /* O avanço para Pendência depende somente da confirmação real do INSERT.
-       Não fazemos uma segunda consulta de conferência, pois ela pode falhar por
-       RLS, latência ou diferença de retorno sem representar falha de gravação. */
-    const {error}=await c.from('processo_pendencias').insert(linhas);
-    if(error)throw error;
-    return linhas;
+    const {error}=await c.from('processo_pendencias').insert(linhas);if(error)throw error;
   }
   async function marcarRecebidas(ids,ator){
     if(!ids.length)return;
@@ -1357,15 +1350,12 @@
     if(error)throw error;
   }
 
-  async function prosseguirAnalise(id){
-    /* Proteção contra o fluxo legado: a Digitação exige seleção obrigatória do digitador
-       e confirmação da mensagem institucional. Nunca avance diretamente por esta função. */
-    if(typeof window.abrirAnaliseSIGEE==='function') return window.abrirAnaliseSIGEE(id);
-  }
+  async function prosseguirAnalise(id){const p=processo(id);if(!p)return;p.etapa=p.etapa_atual='Digitação';p.data_etapa_atual=agoraISO();p.tecnico_responsavel=nomeUsuario();p.pendencia_aberta=false;await salvar(p);await registrarHistorico(p,'Análise Realizada','Análise realizada','Processo encaminhado para Digitação.');fecharModal();toast('Processo encaminhado para Digitação.');}
   function abrirAnalise(id){const p=processo(id);if(!p)return;contextoRetorno=()=>abrirAnalise(id);const bloqueio=somenteLeitura()?'<p class="sigee-aviso33">Perfil com acesso somente para consulta.</p>':'';const acoes=somenteLeitura()?'':`<div class="sigee-acoes33"><button class="btn33 btn33-amarelo" data-prosseguir33>✍️ Prosseguir para Digitação</button><button class="btn33 btn33-roxo" data-pendencia33>⚠️ Registrar Pendência</button><button class="btn33 btn33-vermelho" data-indeferir33>⛔ Indeferir Processo</button></div>`;const el=modal(`🔍 Análise Realizada — ${escapar(p.codigo_sigee||p.id)}`,`${resumo(p)}${bloqueio}${acoes}<div class="sigee-linkhistorico33"><button data-historico33>📜 Ver histórico completo</button></div>`,'analise');el.querySelector('[data-prosseguir33]')?.addEventListener('click',()=>prosseguirAnalise(id));el.querySelector('[data-pendencia33]')?.addEventListener('click',()=>abrirFormularioPendencia(id));el.querySelector('[data-indeferir33]')?.addEventListener('click',()=>abrirFormularioIndeferimento(id));el.querySelector('[data-historico33]')?.addEventListener('click',()=>abrirHistorico(id,()=>abrirAnalise(id)));}
 
-  function abrirFormularioPendencia(id){
+  async function abrirFormularioPendencia(id){
     const p=processo(id);if(!p||somenteLeitura())return; contextoRetorno=()=>abrirFormularioPendencia(id);
+    const atuais=await carregarPendencias(id); const pendentes=atuais.filter(x=>x.status==='pendente');
     /* Ao abrir “Registrar Pendência”, todas as opções começam desmarcadas.
        Pendências já existentes são tratadas na janela própria “Tratar Pendência”. */
     const selecionadosAluno=[]; const selecionadosInst=[];
@@ -1386,8 +1376,8 @@
       botao.disabled=true;
     }
     el.querySelectorAll('input[name="pendAluno"],input[name="pendInst"]').forEach(i=>i.addEventListener('change',atualizarTarefa)); atualizarTarefa();
-    el.querySelector('[data-voltar33]').addEventListener('click',()=>window.abrirAnaliseSIGEE?.(id));
-    botao.addEventListener('click',async()=>{const aluno=marcados(el,'pendAluno'),inst=marcados(el,'pendInst');if(!aluno.length&&!inst.length)return alert('Selecione ao menos uma pendência.');if(!el.querySelector('#pend-email33')?.checked)return alert('Confirme a execução da tarefa obrigatória.');const ca=txt(el.querySelector('#pend-aluno-comp33').value),ci=txt(el.querySelector('#pend-inst-comp33').value),msg=mensagemPendencia(aluno,inst);if(aluno.includes('Outros')&&!ca)return alert('Informe a descrição da pendência “Outros” do Aluno/Requerente.');if(inst.includes('Outros')&&!ci)return alert('Informe a descrição da pendência “Outros” da Instituição.');botao.disabled=true;try{const ator=identidadeSessao();const gravadas=await substituirPendencias(p,aluno,inst,ca,ci,msg,ator);if(!gravadas.length)throw new Error('Nenhuma pendência foi confirmada pelo Supabase.');const estadoAnterior={etapa:p.etapa,etapa_atual:p.etapa_atual,data_etapa_atual:p.data_etapa_atual,tecnico_responsavel:p.tecnico_responsavel,pendencia_aberta:p.pendencia_aberta};p.pendencia_aluno_itens=aluno;p.pendencia_instituicao_itens=inst;p.pendencia_aluno_complemento=ca;p.pendencia_instituicao_complemento=ci;p.pendencia_aberta=true;p.etapa=p.etapa_atual='Pendência';p.data_etapa_atual=agoraISO();p.tecnico_responsavel=ator.nome;try{await salvar(p);}catch(saveError){Object.assign(p,estadoAnterior);const c=cliente();if(c)await c.from('processo_pendencias').delete().eq('processo_id',p.id).eq('status','pendente');throw saveError;}const obs=[aluno.length?`Aluno: ${aluno.join(', ')}`:'',inst.length?`Instituição: ${inst.join(', ')}`:'',ca?`Complemento aluno: ${ca}`:'',ci?`Complemento instituição: ${ci}`:'',`Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}`].filter(Boolean).join(' | ');await registrarHistorico(p,'Pendência','Análise realizada - Pendência registrada',obs,{aluno,instituicao:inst,mensagem:msg,tarefa_confirmada:true},ator);
+    el.querySelector('[data-voltar33]').addEventListener('click',()=>abrirAnalise(id));
+    botao.addEventListener('click',async()=>{const aluno=marcados(el,'pendAluno'),inst=marcados(el,'pendInst');if(!aluno.length&&!inst.length)return alert('Selecione ao menos uma pendência.');if(!el.querySelector('#pend-email33')?.checked)return alert('Confirme a execução da tarefa obrigatória.');const ca=txt(el.querySelector('#pend-aluno-comp33').value),ci=txt(el.querySelector('#pend-inst-comp33').value),msg=mensagemPendencia(aluno,inst);if(aluno.includes('Outros')&&!ca)return alert('Informe a descrição da pendência “Outros” do Aluno/Requerente.');if(inst.includes('Outros')&&!ci)return alert('Informe a descrição da pendência “Outros” da Instituição.');botao.disabled=true;try{const ator=identidadeSessao();await substituirPendencias(p,aluno,inst,ca,ci,msg,ator);p.pendencia_aluno_itens=aluno;p.pendencia_instituicao_itens=inst;p.pendencia_aluno_complemento=ca;p.pendencia_instituicao_complemento=ci;p.pendencia_aberta=true;p.etapa=p.etapa_atual='Pendência';p.data_etapa_atual=agoraISO();p.tecnico_responsavel=ator.nome;await salvar(p);const obs=[aluno.length?`Aluno: ${aluno.join(', ')}`:'',inst.length?`Instituição: ${inst.join(', ')}`:'',ca?`Complemento aluno: ${ca}`:'',ci?`Complemento instituição: ${ci}`:'',`Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}`].filter(Boolean).join(' | ');await registrarHistorico(p,'Pendência','Pendência registrada',obs,{aluno,instituicao:inst,mensagem:msg,tarefa_confirmada:true},ator);
         fecharModal();
         if (typeof window.filtrarProcessosPorEtapa === 'function') {
           window.filtrarProcessosPorEtapa('Pendência');
@@ -1401,161 +1391,18 @@
   }
 
   async function abrirTratarPendencia(id){
-    const p=processo(id);
-    if(!p)return;
-    contextoRetorno=()=>abrirTratarPendencia(id);
-
-    const dados=await carregarPendencias(id);
-    const pendentes=dados.filter(x=>x.status==='pendente');
-    const recebidos=dados.filter(x=>x.status==='recebido');
-
-    if(!pendentes.length){
-      modal(
-        `⚠️ Pendência — ${escapar(p.codigo_sigee||p.id)}`,
-        `${resumo(p)}<div class="sigee-vazio33">Não há pendências abertas para este processo.</div><div class="sigee-acoes33"><button class="btn33 sigee-historico33" data-hist33>📜 Histórico</button></div>`,
-        'pendencia'
-      ).querySelector('[data-hist33]')?.addEventListener('click',()=>abrirHistorico(id,()=>abrirTratarPendencia(id)));
-      return;
-    }
-
+    const p=processo(id);if(!p)return;contextoRetorno=()=>abrirTratarPendencia(id);const dados=await carregarPendencias(id);const pendentes=dados.filter(x=>x.status==='pendente'),recebidos=dados.filter(x=>x.status==='recebido');
+    if(!pendentes.length){modal(`⚠️ Pendência — ${escapar(p.codigo_sigee||p.id)}`,`${resumo(p)}<div class="sigee-vazio33">Não há pendências abertas para este processo.</div><div class="sigee-acoes33"><button class="btn33 btn33-cinza" data-hist33>Histórico</button></div>`).querySelector('[data-hist33]')?.addEventListener('click',()=>abrirHistorico(id,()=>abrirTratarPendencia(id)));return;}
     const itens=pendentes.map(x=>`<label class="sigee-pend-item331"><input type="checkbox" name="receb331" value="${x.id}"><span><strong>${escapar(x.item)}</strong><small>${x.grupo==='aluno'?'Aluno/Requerente':'Instituição'}${x.complemento?` — ${escapar(x.complemento)}`:''}</small></span></label>`).join('');
-    const ator=identidadeSessao();
-    const mensagensRetorno={
-      correto:{codigo:'33',texto:'33 - Documento recebido',titulo:'O DOCUMENTO FOI ENVIADO CORRETAMENTE'},
-      ilegivel:{codigo:'30',texto:'30 - Documento ILEGÍVEL',titulo:'O DOCUMENTO ESTÁ ILEGÍVEL, CORTADO OU INCOMPLETO'}
-    };
-
-    const responsavel=`<section class="sigee-responsavel-acao33"><div class="sigee-responsavel-icone33">👤</div><div><span>RESPONSÁVEL PELA AÇÃO</span><input type="text" value="${escapar(ator.nome)}" disabled><small>${escapar(ator.perfil||'Usuário')} · ${escapar(ator.nte||'SIGEE')}</small></div></section>`;
-    const resultado=`<fieldset class="sigee-field33 sigee-resultado-pendencia33"><legend>Resultado da conferência do documento</legend><label class="sigee-radio33"><input type="radio" name="resultadoPend331" value="correto"><span><strong>${mensagensRetorno.correto.titulo}</strong><small>Enviar e-mail: ${mensagensRetorno.correto.texto}</small></span></label><label class="sigee-radio33"><input type="radio" name="resultadoPend331" value="ilegivel"><span><strong>${mensagensRetorno.ilegivel.titulo}</strong><small>Enviar e-mail: ${mensagensRetorno.ilegivel.texto}</small></span></label></fieldset>`;
-    const tarefa=`<section class="sigee-tarefa-obrigatoria33" id="tarefa-retorno-pend33"><div class="sigee-tarefa-icone33">📧</div><div class="sigee-tarefa-conteudo33"><span>TAREFA OBRIGATÓRIA</span><strong id="mensagem-retorno-pend33">SELECIONE O RESULTADO DA CONFERÊNCIA</strong><p id="orientacao-retorno-pend33">Após selecionar o resultado, execute a mensagem institucional indicada e confirme a tarefa.</p><label><input type="checkbox" id="wf-pend-retorno-email33" disabled> Confirmo que executei esta tarefa.</label></div></section>`;
-
-    const el=modal(
-      `⚠️ Tratar Pendência — ${escapar(p.codigo_sigee||p.id)}`,
-      `${resumo(p)}${responsavel}<section class="sigee-pend-atual33"><h3>Pendências abertas</h3>${itens}</section>${recebidos.length?`<p class="sigee-recebidos331">Já recebidos: ${escapar(recebidos.map(x=>x.item).join(', '))}</p>`:''}${resultado}${tarefa}<div class="sigee-acoes33"><button class="btn33 sigee-historico33" data-hist33>📜 Histórico</button>${somenteLeitura()?'':`<button class="btn33 btn33-verde" data-salvar-receb33 disabled>Registrar Resultado</button>`}</div>`,
-      'pendencia'
-    );
-
-    const btn=el.querySelector('[data-salvar-receb33]');
-    const chkEmail=el.querySelector('#wf-pend-retorno-email33');
-    const textoMensagem=el.querySelector('#mensagem-retorno-pend33');
-    const orientacao=el.querySelector('#orientacao-retorno-pend33');
-
-    function resultadoSelecionado(){
-      return el.querySelector('input[name="resultadoPend331"]:checked')?.value||'';
-    }
-
-    function atualizarMensagem(){
-      const resultadoAtual=resultadoSelecionado();
-      const config=mensagensRetorno[resultadoAtual];
-      if(config){
-        textoMensagem.textContent=`ENVIAR E-MAIL: ${config.texto}`;
-        orientacao.textContent=resultadoAtual==='correto'
-          ? 'Confirme o envio da mensagem 33 antes de registrar o recebimento do documento.'
-          : 'Confirme o envio da mensagem 30. O item permanecerá pendente até o recebimento de documento legível e completo.';
-        chkEmail.disabled=false;
-        chkEmail.checked=false;
-        if(btn){
-          btn.textContent=resultadoAtual==='correto'?'Registrar Documento Recebido':'Registrar Documento Ilegível';
-          btn.classList.toggle('btn33-verde',resultadoAtual==='correto');
-          btn.classList.toggle('btn33-vermelho',resultadoAtual==='ilegivel');
-        }
-      }else{
-        textoMensagem.textContent='SELECIONE O RESULTADO DA CONFERÊNCIA';
-        orientacao.textContent='Após selecionar o resultado, execute a mensagem institucional indicada e confirme a tarefa.';
-        chkEmail.checked=false;
-        chkEmail.disabled=true;
-        if(btn){
-          btn.textContent='Registrar Resultado';
-          btn.classList.add('btn33-verde');
-          btn.classList.remove('btn33-vermelho');
-        }
-      }
-      validar();
-    }
-
-    const validar=()=>{
-      if(!btn)return;
-      btn.disabled=!(chkEmail?.checked && resultadoSelecionado() && el.querySelector('input[name="receb331"]:checked'));
-    };
-
-    chkEmail?.addEventListener('change',validar);
-    el.querySelectorAll('input[name="receb331"]').forEach(x=>x.addEventListener('change',validar));
-    el.querySelectorAll('input[name="resultadoPend331"]').forEach(x=>x.addEventListener('change',atualizarMensagem));
+    const msg=pendentes[0]?.mensagem_texto||mensagemPendencia(pendentes.filter(x=>x.grupo==='aluno'),pendentes.filter(x=>x.grupo==='instituicao')).texto;
+    const el=modal(`⚠️ Tratar Pendência — ${escapar(p.codigo_sigee||p.id)}`,`${resumo(p)}<section class="sigee-pend-atual33"><h3>Pendências abertas</h3>${itens}</section><section class="sigee-tarefa-status331"><strong>Mensagem institucional confirmada:</strong><span>ENVIAR E-MAIL: ${escapar(msg)}</span></section>${recebidos.length?`<p class="sigee-recebidos331">Já recebidos: ${escapar(recebidos.map(x=>x.item).join(', '))}</p>`:''}<div class="sigee-acoes33"><button class="btn33 btn33-cinza" data-hist33>📜 Histórico</button>${somenteLeitura()?'':`<button class="btn33 btn33-roxo" data-salvar-receb33>Registrar Documento Recebido</button>`}</div>`,'pendencia');
     el.querySelector('[data-hist33]')?.addEventListener('click',()=>abrirHistorico(id,()=>abrirTratarPendencia(id)));
-
-    btn?.addEventListener('click',async()=>{
-      const ids=[...el.querySelectorAll('input[name="receb331"]:checked')].map(x=>Number(x.value));
-      const resultadoAtual=resultadoSelecionado();
-      const config=mensagensRetorno[resultadoAtual];
-      if(!ids.length)return alert('Marque ao menos um item relacionado ao documento analisado.');
-      if(!config)return alert('Informe se o documento foi recebido corretamente ou se está ilegível, cortado ou incompleto.');
-      if(!chkEmail?.checked)return alert('Confirme o envio da mensagem institucional.');
-
-      try{
-        btn.disabled=true;
-        const itensSelecionados=pendentes.filter(x=>ids.includes(Number(x.id))).map(x=>x.item);
-
-        if(resultadoAtual==='ilegivel'){
-          p.pendencia_aberta=true;
-          p.etapa=p.etapa_atual='Pendência';
-          p.data_etapa_atual=agoraISO();
-          p.tecnico_responsavel=ator.nome;
-          await salvar(p);
-          await registrarHistorico(
-            p,
-            'Pendência',
-            'Documento ilegível, cortado ou incompleto',
-            `Documento não aceito para os itens: ${itensSelecionados.join(', ')} | Mensagem confirmada: ${config.texto}. O processo permanece em Pendência.`,
-            {itens_analisados:itensSelecionados,documento_legivel:false,pendencia_resolvida:false,mensagem_codigo:config.codigo,mensagem_confirmada:config.texto},
-            ator
-          );
-          toast('Documento registrado como ilegível. O processo permanece em Pendência.');
-          await abrirTratarPendencia(id);
-          return;
-        }
-
-        await marcarRecebidas(ids,ator);
-        const restantes=pendentes.filter(x=>!ids.includes(Number(x.id)));
-        const completo=restantes.length===0;
-        p.pendencia_aberta=!completo;
-        p.etapa=p.etapa_atual='Pendência';
-        p.data_etapa_atual=agoraISO();
-        p.tecnico_responsavel=ator.nome;
-        p.pendencia_aluno_itens=restantes.filter(x=>x.grupo==='aluno').map(x=>x.item);
-        p.pendencia_instituicao_itens=restantes.filter(x=>x.grupo==='instituicao').map(x=>x.item);
-        await salvar(p);
-        await registrarHistorico(
-          p,
-          'Pendência',
-          completo?'Pendência resolvida':'Documento recebido - pendência parcial',
-          `Documento recebido corretamente para: ${itensSelecionados.join(', ')} | Mensagem confirmada: ${config.texto}`,
-          {itens_recebidos:itensSelecionados,documento_legivel:true,pendencia_resolvida:completo,mensagem_codigo:config.codigo,mensagem_confirmada:config.texto},
-          ator
-        );
-
-        if(completo){
-          fecharModal();
-          toast('Pendência totalmente resolvida. Selecione o digitador e confirme a mensagem obrigatória.');
-          setTimeout(()=>{
-            const wf=window.SIGEE_WORKFLOW_093;
-            if(wf?.abrirEncaminharDigitacao) wf.abrirEncaminharDigitacao(id,{origem:'Pendência resolvida'});
-            else window.abrirEncaminharDigitacaoSIGEE?.(id,{origem:'Pendência resolvida'});
-          },0);
-        }else{
-          toast('Documento recebido. O processo permanece em Pendência pelos itens restantes.');
-          await abrirTratarPendencia(id);
-        }
-      }catch(e){
-        console.error(e);
-        btn.disabled=false;
-        alert('Não foi possível registrar o resultado: '+(e.message||e));
-      }
-    });
+    el.querySelector('[data-salvar-receb33]')?.addEventListener('click',async()=>{const ids=[...el.querySelectorAll('input[name="receb331"]:checked')].map(x=>Number(x.value));if(!ids.length)return alert('Marque ao menos um item recebido.');try{const ator=identidadeSessao();await marcarRecebidas(ids,ator);const restantes=pendentes.filter(x=>!ids.includes(Number(x.id)));const completo=restantes.length===0;p.pendencia_aberta=!completo;p.etapa=p.etapa_atual='Pendência';p.data_etapa_atual=agoraISO();p.tecnico_responsavel=ator.nome;p.pendencia_aluno_itens=restantes.filter(x=>x.grupo==='aluno').map(x=>x.item);p.pendencia_instituicao_itens=restantes.filter(x=>x.grupo==='instituicao').map(x=>x.item);await salvar(p);const recebidosAgora=pendentes.filter(x=>ids.includes(Number(x.id))).map(x=>x.item);await registrarHistorico(p,'Pendência',completo?'Pendência resolvida':'Recebimento parcial',`Recebido: ${recebidosAgora.join(', ')}`,{itens_recebidos:recebidosAgora,pendencia_resolvida:completo},ator);if(completo){fecharModal();toast('Pendência totalmente resolvida. Selecione o digitador e confirme a mensagem obrigatória.');setTimeout(()=>{const wf=window.SIGEE_WORKFLOW_093; if(wf?.abrirEncaminharDigitacao) wf.abrirEncaminharDigitacao(id,{origem:'Pendência resolvida'}); else window.abrirEncaminharDigitacaoSIGEE?.(id,{origem:'Pendência resolvida'});},0);}else{toast('Recebimento parcial registrado.');await abrirTratarPendencia(id);}}catch(e){console.error(e);alert('Não foi possível registrar o recebimento: '+(e.message||e));}});
   }
 
   function formatarSEI(v){const d=txt(v).replace(/\D/g,'').slice(0,20);let o='';if(d.length)o+=d.slice(0,3);if(d.length>3)o+='.'+d.slice(3,7);if(d.length>7)o+='.'+d.slice(7,11);if(d.length>11)o+='.'+d.slice(11,18);if(d.length>18)o+='-'+d.slice(18,20);return o;}
   function seiValido(v){return /^\d{3}\.\d{4}\.\d{4}\.\d{7}-\d{2}$/.test(txt(v));}
-  function abrirFormularioIndeferimento(id){const p=processo(id);if(!p||somenteLeitura())return;contextoRetorno=()=>abrirFormularioIndeferimento(id);const radios=MOTIVOS_INDEFERIMENTO.map(m=>`<label class="sigee-radio33"><input type="radio" name="motivoInd33" value="${escapar(m)}"><span>${escapar(m)}</span></label>`).join('');const el=modal(`⛔ Indeferir Processo — ${escapar(p.codigo_sigee||p.id)}`,`${resumo(p)}<fieldset class="sigee-field33"><legend>Motivo do indeferimento (selecione apenas um)</legend>${radios}</fieldset><div id="box-sei33" class="hidden sigee-condicional33"><label>Nº do Processo SEI *<input id="processo-sei33" maxlength="24" placeholder="011.7644.2025.0117641-86"></label></div><div id="box-outros33" class="hidden sigee-condicional33"><label>Justificativa *<textarea id="justificativa-ind33"></textarea></label></div><div class="sigee-acoes33"><button class="btn33 btn33-cinza" data-voltar33>Voltar</button><button class="btn33 btn33-vermelho" data-confirmar-ind33>Confirmar Indeferimento</button></div>`,'indeferimento');const boxSei=el.querySelector('#box-sei33'),boxOutros=el.querySelector('#box-outros33'),inpSei=el.querySelector('#processo-sei33');el.querySelectorAll('input[name="motivoInd33"]').forEach(r=>r.addEventListener('change',()=>{const v=el.querySelector('input[name="motivoInd33"]:checked')?.value||'';boxSei.classList.toggle('hidden',!v.startsWith('Solicitação fora'));boxOutros.classList.toggle('hidden',v!=='Outros');}));inpSei.addEventListener('input',()=>inpSei.value=formatarSEI(inpSei.value));el.querySelector('[data-voltar33]').addEventListener('click',()=>window.abrirAnaliseSIGEE?.(id));el.querySelector('[data-confirmar-ind33]').addEventListener('click',async()=>{const motivo=el.querySelector('input[name="motivoInd33"]:checked')?.value;if(!motivo)return alert('Selecione um motivo de indeferimento.');const fora=motivo.startsWith('Solicitação fora'),outros=motivo==='Outros',sei=txt(inpSei.value),just=txt(el.querySelector('#justificativa-ind33').value);if(fora&&!seiValido(sei))return alert('Informe um número de Processo SEI válido.');if(outros&&!just)return alert('Informe a justificativa do indeferimento.');if(!confirm('Confirma o indeferimento? O processo será finalizado imediatamente.'))return;p.motivo_indeferimento=motivo;p.processo_sei_indeferimento=fora?sei:null;p.justificativa_indeferimento=outros?just:null;p.etapa=p.etapa_atual='Indeferido';p.data_etapa_atual=agoraISO();p.finalizado_em=agoraISO();p.tecnico_responsavel=nomeUsuario();p.pendencia_aberta=false;await salvar(p);await registrarHistorico(p,'Indeferido','Processo indeferido',[motivo,fora?`Processo SEI: ${sei}`:'',outros?just:''].filter(Boolean).join(' | '),{motivo,processo_sei:sei||null});fecharModal();toast('Processo indeferido e registrado no histórico.');});}
+  function abrirFormularioIndeferimento(id){const p=processo(id);if(!p||somenteLeitura())return;contextoRetorno=()=>abrirFormularioIndeferimento(id);const radios=MOTIVOS_INDEFERIMENTO.map(m=>`<label class="sigee-radio33"><input type="radio" name="motivoInd33" value="${escapar(m)}"><span>${escapar(m)}</span></label>`).join('');const el=modal(`⛔ Indeferir Processo — ${escapar(p.codigo_sigee||p.id)}`,`${resumo(p)}<fieldset class="sigee-field33"><legend>Motivo do indeferimento (selecione apenas um)</legend>${radios}</fieldset><div id="box-sei33" class="hidden sigee-condicional33"><label>Nº do Processo SEI *<input id="processo-sei33" maxlength="24" placeholder="011.7644.2025.0117641-86"></label></div><div id="box-outros33" class="hidden sigee-condicional33"><label>Justificativa *<textarea id="justificativa-ind33"></textarea></label></div><div class="sigee-acoes33"><button class="btn33 btn33-cinza" data-voltar33>Voltar</button><button class="btn33 btn33-vermelho" data-confirmar-ind33>Confirmar Indeferimento</button></div>`,'indeferimento');const boxSei=el.querySelector('#box-sei33'),boxOutros=el.querySelector('#box-outros33'),inpSei=el.querySelector('#processo-sei33');el.querySelectorAll('input[name="motivoInd33"]').forEach(r=>r.addEventListener('change',()=>{const v=el.querySelector('input[name="motivoInd33"]:checked')?.value||'';boxSei.classList.toggle('hidden',!v.startsWith('Solicitação fora'));boxOutros.classList.toggle('hidden',v!=='Outros');}));inpSei.addEventListener('input',()=>inpSei.value=formatarSEI(inpSei.value));el.querySelector('[data-voltar33]').addEventListener('click',()=>abrirAnalise(id));el.querySelector('[data-confirmar-ind33]').addEventListener('click',async()=>{const motivo=el.querySelector('input[name="motivoInd33"]:checked')?.value;if(!motivo)return alert('Selecione um motivo de indeferimento.');const fora=motivo.startsWith('Solicitação fora'),outros=motivo==='Outros',sei=txt(inpSei.value),just=txt(el.querySelector('#justificativa-ind33').value);if(fora&&!seiValido(sei))return alert('Informe um número de Processo SEI válido.');if(outros&&!just)return alert('Informe a justificativa do indeferimento.');if(!confirm('Confirma o indeferimento? O processo será finalizado imediatamente.'))return;p.motivo_indeferimento=motivo;p.processo_sei_indeferimento=fora?sei:null;p.justificativa_indeferimento=outros?just:null;p.etapa=p.etapa_atual='Indeferido';p.data_etapa_atual=agoraISO();p.finalizado_em=agoraISO();p.tecnico_responsavel=nomeUsuario();p.pendencia_aberta=false;await salvar(p);await registrarHistorico(p,'Indeferido','Processo indeferido',[motivo,fora?`Processo SEI: ${sei}`:'',outros?just:''].filter(Boolean).join(' | '),{motivo,processo_sei:sei||null});fecharModal();toast('Processo indeferido e registrado no histórico.');});}
 
   async function abrirHistorico(id,retorno){const p=processo(id);if(!p)return;const voltar=retorno||contextoRetorno;const el=modal(`📜 Histórico — ${escapar(p.codigo_sigee||p.id)}`,'<div class="sigee-loading33">Carregando histórico...</div>','historico');let dados=[];try{const c=cliente();if(c){const {data,error}=await c.from('historico_processos').select('*').eq('processo_id',p.id).order('created_at',{ascending:false});if(error)throw error;dados=data||[];}}catch(e){console.error(e);}const corpo=el.querySelector('.sigee-modal33-body');corpo.innerHTML=`${dados.length?`<div class="sigee-timeline33">${dados.map(h=>`<article><span class="sigee-timeline-dot33"></span><time>${escapar(new Date(h.created_at).toLocaleString('pt-BR'))}</time><h3>${escapar(h.acao)}</h3><p><strong>${escapar(h.etapa||'')}</strong> — ${escapar(h.usuario_nome||'')}</p>${h.observacao?`<p>${escapar(h.observacao)}</p>`:''}</article>`).join('')}</div>`:'<div class="sigee-vazio33">Nenhuma movimentação registrada.</div>'}<div class="sigee-acoes33"><button class="btn33 btn33-cinza" data-voltar-hist331>Voltar</button></div>`;corpo.querySelector('[data-voltar-hist331]').addEventListener('click',()=>{
       fecharModal();
@@ -1599,33 +1446,20 @@
   function mesmoNte(a,b){ const x=nteNumero(a),y=nteNumero(b); return x&&y ? x===y : norm(a)===norm(b); }
 
   function fechar(){ document.getElementById('sigee-modal-workflow093')?.remove(); }
-  function modal(titulo,conteudo,etapa='padrao'){
+  function modal(titulo,conteudo){
     fechar();
     const el=document.createElement('div');
     el.id='sigee-modal-workflow093';
     el.className='sigee-modal33-backdrop';
-    el.innerHTML=`<section class="sigee-modal33 workflow093 sigee-wf-etapa-${etapa}"><header class="sigee-modal33-header"><h2>${titulo}</h2><button type="button" data-fechar093>×</button></header><div class="sigee-modal33-body">${conteudo}</div></section>`;
+    el.innerHTML=`<section class="sigee-modal33 workflow093"><header class="sigee-modal33-header"><h2>${titulo}</h2><button type="button" data-fechar093>×</button></header><div class="sigee-modal33-body">${conteudo}</div></section>`;
     document.body.appendChild(el);
     el.addEventListener('click',e=>{ if(e.target===el || e.target.closest('[data-fechar093]')) fechar(); });
     return el;
   }
   function toast(msg){ if(typeof window.mostrarToast==='function') return window.mostrarToast(msg); alert(msg); }
-  function responsavelAtual(p){
-    return txt(p.tecnico_responsavel_nome||p.tecnico_responsavel||p.responsavel_nome||p.responsavel||p.analista_nome||p.analista||p.digitador_nome||p.digitador||p.conferente_nome||p.conferente)||'Não atribuído';
-  }
-  function prazoAtual(p){
-    const etapa=norm(p.etapa_atual||p.etapa); const inicio=p.data_etapa_atual||p.prazo_inicio||p.created_at;
-    let dias=0; if(inicio){ const d=new Date(inicio); if(!Number.isNaN(d.getTime())) dias=Math.max(0,Math.floor((Date.now()-d.getTime())/86400000)); }
-    const limite=etapa.includes('ANAL')?7:etapa.includes('DIGIT')?15:etapa.includes('CONFER')?10:etapa.includes('ASSIN')?7:(p.prazo_etapa||null);
-    return limite?`${dias}/${limite} dias`:`${dias} dias`;
-  }
   function cabecalho(p){
     const codigo=txt(p.codigo_sigee || p.id);
-    return `<div class="sigee-resumo33"><div><span>Aluno</span><strong>${esc(p.aluno||p.aluno_nome||'-')}</strong></div><div><span>Código SIGEE</span><strong>${esc(codigo)}</strong></div><div><span>Escola</span><strong>${esc(p.escola||p.escola_nome||'-')}</strong></div><div><span>NTE</span><strong>${esc(p.nte||p.nte_nome||'-')}</strong></div><div><span>Responsável</span><strong>${esc(responsavelAtual(p))}</strong></div><div><span>Prazo</span><strong>${esc(prazoAtual(p))}</strong></div></div>`;
-  }
-  function responsavelOperador(){
-    const u=usuario();
-    return `<section class="sigee-responsavel-acao33"><div class="sigee-responsavel-icone33">👤</div><div><span>RESPONSÁVEL PELA AÇÃO</span><input type="text" value="${esc(nomeUsuario())}" disabled><small>${esc(txt(u.perfil)||'Usuário')} · ${esc(txt(u.nte||u.nte_nome||u.grupo)||'SIGEE')}</small></div></section>`;
+    return `<div class="sigee-resumo33"><div><span>Aluno</span><strong>${esc(p.aluno||p.aluno_nome||'-')}</strong></div><div><span>Código SIGEE</span><strong>${esc(codigo)}</strong></div><div><span>Escola</span><strong>${esc(p.escola||p.escola_nome||'-')}</strong></div><div><span>NTE</span><strong>${esc(p.nte||p.nte_nome||'-')}</strong></div></div>`;
   }
   function tarefa(msg,id='wf-email093'){
     return `<section class="sigee-tarefa-obrigatoria33"><div class="sigee-tarefa-icone33">📧</div><div class="sigee-tarefa-conteudo33"><span>TAREFA OBRIGATÓRIA</span><strong>ENVIAR E-MAIL: ${esc(msg.texto)}</strong><p>Execute a mensagem institucional na ferramenta de e-mail. Em seguida, confirme a realização da tarefa para liberar o avanço.</p><label><input type="checkbox" id="${id}"> Confirmo que executei esta tarefa.</label></div></section>`;
@@ -1758,7 +1592,7 @@
     const p=processo(id); if(!p || bloquearLeitura()) return;
     const msg=MENSAGENS.digitacao;
     const origem=txt(opcoes.origem||'Análise realizada');
-    const el=modal(`✍️ Enviar para Digitação — ${esc(p.codigo_sigee||p.id)}`,`${cabecalho(p)}${selectTecnico(p,'wf-digitador093','Responsável pela Digitação',[])}${tarefa(msg)}<div class="sigee-acoes33"><button class="btn33 btn33-vermelho" data-cancelar093>Cancelar</button><button class="btn33 btn33-verde" data-confirmar093 disabled>Enviar para Digitação</button></div>`,'digitacao');
+    const el=modal(`✍️ Enviar para Digitação — ${esc(p.codigo_sigee||p.id)}`,`${cabecalho(p)}${selectTecnico(p,'wf-digitador093','Responsável pela Digitação',[])}${tarefa(msg)}<div class="sigee-acoes33"><button class="btn33 btn33-cinza" data-cancelar093>Cancelar</button><button class="btn33 btn33-amarelo" data-confirmar093 disabled>Enviar para Digitação</button></div>`);
     const sel=el.querySelector('#wf-digitador093'),chk=el.querySelector('#wf-email093'),btn=el.querySelector('[data-confirmar093]');
     await preencherSelectTecnicoWorkflow(sel,p);
     const semUsuarios=el.querySelector('.sigee-selecao-semusuarios093'); if(semUsuarios) semUsuarios.remove();
@@ -1820,7 +1654,7 @@
   async function abrirDigitacao(id){
     const p=processo(id); if(!p || bloquearLeitura()) return;
     const msg=MENSAGENS.conferencia;
-    const el=modal(`✍️ Digitação Concluída — ${esc(p.codigo_sigee||p.id)}`,`${cabecalho(p)}${selectTecnico(p,'wf-conferente093','Responsável pela Conferência',[])}${tarefa(msg)}<div class="sigee-acoes33"><button class="btn33 btn33-vermelho" data-cancelar093>Cancelar</button><button class="btn33 btn33-verde" data-confirmar093 disabled>Enviar para Conferência</button></div>`,'digitacao');
+    const el=modal(`✍️ Digitação Concluída — ${esc(p.codigo_sigee||p.id)}`,`${cabecalho(p)}${selectTecnico(p,'wf-conferente093','Responsável pela Conferência',[])}${tarefa(msg)}<div class="sigee-acoes33"><button class="btn33 btn33-cinza" data-cancelar093>Cancelar</button><button class="btn33 btn33-verde" data-confirmar093 disabled>Enviar para Conferência</button></div>`);
     const sel=el.querySelector('#wf-conferente093'),chk=el.querySelector('#wf-email093'),btn=el.querySelector('[data-confirmar093]');
     await preencherSelectTecnicoWorkflow(sel,p);
     const semUsuarios=el.querySelector('.sigee-selecao-semusuarios093'); if(semUsuarios) semUsuarios.remove();
@@ -1832,7 +1666,7 @@
   function abrirConferencia(id){
     const p=processo(id); if(!p || bloquearLeitura()) return;
     const msg=MENSAGENS.assinatura;
-    const el=modal(`✔️ Conferência Concluída — ${esc(p.codigo_sigee||p.id)}`,`${cabecalho(p)}${responsavelOperador()}${tarefa(msg)}<div class="sigee-acoes33"><button class="btn33 btn33-vermelho" data-cancelar093>Cancelar</button><button class="btn33 btn33-verde" data-confirmar093 disabled>Enviar para Assinatura</button></div>`,'conferencia');
+    const el=modal(`✔️ Conferência Concluída — ${esc(p.codigo_sigee||p.id)}`,`${cabecalho(p)}${tarefa(msg)}<div class="sigee-acoes33"><button class="btn33 btn33-cinza" data-cancelar093>Cancelar</button><button class="btn33 btn33-verde" data-confirmar093 disabled>Enviar para Assinatura</button></div>`);
     const chk=el.querySelector('#wf-email093'),btn=el.querySelector('[data-confirmar093]'); chk.addEventListener('change',()=>btn.disabled=!chk.checked);
     el.querySelector('[data-cancelar093]').addEventListener('click',fechar);
     btn.addEventListener('click',async()=>{btn.disabled=true;p.etapa=p.etapa_atual='Assinatura';p.data_etapa_atual=agora();p.tecnico_responsavel=nomeUsuario();p.enviado_assinatura_por=nomeUsuario();await salvar(p);await historico(p,'Assinatura','Encaminhado para Assinatura',`Conferência concluída. Enviado para assinatura por ${nomeUsuario()}. Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}.`,{enviado_por:nomeUsuario(),mensagem:msg,tarefa_confirmada:true});fechar();if(window.filtrarProcessosPorEtapa)window.filtrarProcessosPorEtapa('Assinatura');toast('Processo encaminhado para Assinatura.');});
@@ -1841,7 +1675,7 @@
   function abrirAssinatura(id){
     const p=processo(id); if(!p || bloquearLeitura()) return;
     const msg=MENSAGENS.deferido;
-    const el=modal(`🖋️ Documento Assinado — ${esc(p.codigo_sigee||p.id)}`,`${cabecalho(p)}<p class="sigee-aviso33">Confirme somente após o retorno do documento assinado pelo Diretor do NTE.</p>${tarefa(msg)}<div class="sigee-acoes33"><button class="btn33 btn33-vermelho" data-cancelar093>Cancelar</button><button class="btn33 btn33-verde" data-confirmar093 disabled>Deferido</button></div>`,'assinatura');
+    const el=modal(`🖋️ Documento Assinado — ${esc(p.codigo_sigee||p.id)}`,`${cabecalho(p)}<p class="sigee-aviso33">Confirme somente após o retorno do documento assinado pelo Diretor do NTE.</p>${tarefa(msg)}<div class="sigee-acoes33"><button class="btn33 btn33-cinza" data-cancelar093>Cancelar</button><button class="btn33 btn33-verde" data-confirmar093 disabled>Deferido</button></div>`);
     const chk=el.querySelector('#wf-email093'),btn=el.querySelector('[data-confirmar093]'); chk.addEventListener('change',()=>btn.disabled=!chk.checked);
     el.querySelector('[data-cancelar093]').addEventListener('click',fechar);
     btn.addEventListener('click',async()=>{btn.disabled=true;p.etapa=p.etapa_atual='Aguardando Retirada';p.data_etapa_atual=agora();p.tecnico_responsavel=nomeUsuario();p.deferido_em=agora();await salvar(p);await historico(p,'Aguardando Retirada','Processo deferido',`Documento retornou assinado e está disponível para retirada. Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}.`,{mensagem:msg,tarefa_confirmada:true});fechar();if(window.filtrarProcessosPorEtapa)window.filtrarProcessosPorEtapa('Aguardando Retirada');toast('Processo deferido e disponível para retirada.');});
@@ -1849,7 +1683,7 @@
 
   function abrirRetirada(id){
     const p=processo(id); if(!p || bloquearLeitura()) return;
-    const el=modal(`📤 Registrar Retirada — ${esc(p.codigo_sigee||p.id)}`,`${cabecalho(p)}<fieldset class="sigee-field33"><legend>Quem retirou o documento?</legend><label class="sigee-radio33"><input type="radio" name="wf-retirada093" value="Titular"><span>Titular / Requerente</span></label><label class="sigee-radio33"><input type="radio" name="wf-retirada093" value="Terceiro"><span>Terceiro</span></label></fieldset><div id="wf-terceiro-box093" class="hidden sigee-condicional33"><label>Nome completo *<input id="wf-terceiro-nome093"></label><label>RG *<input id="wf-terceiro-rg093"></label><label>Telefone *<input id="wf-terceiro-telefone093"></label></div><div class="sigee-acoes33"><button class="btn33 btn33-vermelho" data-cancelar093>Cancelar</button><button class="btn33 btn33-verde" data-confirmar093 disabled>Concluir Retirada</button></div>`);
+    const el=modal(`📤 Registrar Retirada — ${esc(p.codigo_sigee||p.id)}`,`${cabecalho(p)}<fieldset class="sigee-field33"><legend>Quem retirou o documento?</legend><label class="sigee-radio33"><input type="radio" name="wf-retirada093" value="Titular"><span>Titular / Requerente</span></label><label class="sigee-radio33"><input type="radio" name="wf-retirada093" value="Terceiro"><span>Terceiro</span></label></fieldset><div id="wf-terceiro-box093" class="hidden sigee-condicional33"><label>Nome completo *<input id="wf-terceiro-nome093"></label><label>RG *<input id="wf-terceiro-rg093"></label><label>Telefone *<input id="wf-terceiro-telefone093"></label></div><div class="sigee-acoes33"><button class="btn33 btn33-cinza" data-cancelar093>Cancelar</button><button class="btn33 btn33-verde" data-confirmar093 disabled>Concluir Retirada</button></div>`);
     const box=el.querySelector('#wf-terceiro-box093'),btn=el.querySelector('[data-confirmar093]');
     const validar=()=>{const tipo=el.querySelector('input[name="wf-retirada093"]:checked')?.value;if(!tipo){btn.disabled=true;return;}if(tipo==='Titular'){btn.disabled=false;return;}btn.disabled=!(txt(el.querySelector('#wf-terceiro-nome093').value)&&txt(el.querySelector('#wf-terceiro-rg093').value)&&txt(el.querySelector('#wf-terceiro-telefone093').value));};
     el.querySelectorAll('input[name="wf-retirada093"]').forEach(r=>r.addEventListener('change',()=>{box.classList.toggle('hidden',r.value!=='Terceiro'||!r.checked);validar();}));
@@ -1867,37 +1701,13 @@
 
   /* Análise moderna: mantém Pendência, Indeferimento e Histórico já homologados. */
   const abrirAnaliseAnterior=window.abrirAnaliseSIGEE;
-  async function abrirAnaliseWorkflow093(id){
+  function abrirAnaliseWorkflow093(id){
     const p=processo(id); if(!p) return;
     if(somenteLeitura() && typeof abrirAnaliseAnterior==='function') return abrirAnaliseAnterior(id);
-
-    /* A Análise abre primeiro como uma janela de decisão. A seleção do
-       digitador só aparece quando o operador escolhe prosseguir. */
-    const el=modal(`🔍 Análise Realizada — ${esc(p.codigo_sigee||p.id)}`,
-      `${cabecalho(p)}
-       <section class="sigee-area-etapa33 sigee-area-alternativas33">
-         <h3>Decisão da Análise</h3>
-         <p class="sigee-texto-apoio33">Escolha a providência adequada. Os campos específicos serão apresentados somente depois da decisão.</p>
-         <div class="sigee-acoes33 sigee-acoes-decisao33">
-           <button class="btn33 btn33-verde" data-prosseguir093>✍️ Prosseguir para Digitação</button>
-           <button type="button" class="btn33 btn33-amarelo" data-pend093>⚠️ Registrar Pendência</button>
-           <button class="btn33 btn33-vermelho sigee-acao-indeferir33" data-ind093><span aria-hidden="true">✖</span> Indeferir Processo</button>
-         </div>
-       </section>
-       <div class="sigee-rodape33 sigee-rodape-acoes33">
-         <button class="btn33 sigee-historico33" data-hist093>📜 Histórico do Processo</button>
-         <div class="sigee-acoes33">
-           <button class="btn33 btn33-vermelho" data-cancelar-analise093>Cancelar</button>
-         </div>
-       </div>`,'analise');
-
-    el.querySelector('[data-cancelar-analise093]').addEventListener('click',fechar);
-    el.querySelector('[data-prosseguir093]').addEventListener('click',()=>{
-      fechar();
-      abrirEncaminharDigitacao(id,{origem:'Análise concluída'});
-    });
-    el.querySelector('[data-pend093]').addEventListener('click',(event)=>{event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();abrirFormularioPendencia(id);});
-    el.querySelector('[data-ind093]').addEventListener('click',()=>{fechar(); abrirFormularioIndeferimento(id);});
+    const el=modal(`🔍 Análise Realizada — ${esc(p.codigo_sigee||p.id)}`,`${cabecalho(p)}<div class="sigee-acoes33"><button class="btn33 btn33-amarelo" data-dig093>✍️ Prosseguir para Digitação</button><button class="btn33 btn33-roxo" data-pend093>⚠️ Registrar Pendência</button><button class="btn33 btn33-vermelho" data-ind093>⛔ Indeferir Processo</button></div><div class="sigee-linkhistorico33"><button data-hist093>📜 Ver histórico completo</button></div>`);
+    el.querySelector('[data-dig093]').addEventListener('click',()=>abrirEncaminharDigitacao(id,{origem:'Análise realizada'}));
+    el.querySelector('[data-pend093]').addEventListener('click',()=>{fechar(); if(typeof abrirAnaliseAnterior==='function'){abrirAnaliseAnterior(id);setTimeout(()=>document.querySelector('[data-pendencia33]')?.click(),0);}});
+    el.querySelector('[data-ind093]').addEventListener('click',()=>{fechar(); if(typeof abrirAnaliseAnterior==='function'){abrirAnaliseAnterior(id);setTimeout(()=>document.querySelector('[data-indeferir33]')?.click(),0);}});
     el.querySelector('[data-hist093]').addEventListener('click',()=>{fechar(); if(typeof window.abrirHistoricoProcessoSIGEE==='function')window.abrirHistoricoProcessoSIGEE(id,()=>abrirAnaliseWorkflow093(id));});
   }
 
@@ -1974,8 +1784,21 @@
 
   instalarEstilosWorkflow093();
   instalarWorkflow093();
-  window.addEventListener('DOMContentLoaded',instalarWorkflow093,{once:true});
-  window.addEventListener('load',instalarWorkflow093,{once:true});
+  window.addEventListener('DOMContentLoaded',()=>setTimeout(instalarWorkflow093,0));
+  window.addEventListener('load',()=>{
+    setTimeout(instalarWorkflow093,0);
+    setTimeout(instalarWorkflow093,400);
+    setTimeout(instalarWorkflow093,1200);
+    setTimeout(instalarWorkflow093,2500);
+  });
+  /* Mantém as entradas públicas corretas caso algum script legado seja executado depois. */
+  setInterval(()=>{
+    if(window.abrirEncaminharDigitacaoSIGEE!==abrirEncaminharDigitacao ||
+       window.abrirModalFluxoDigitacao!==abrirDigitacao ||
+       window.abrirModalFluxoConferencia!==abrirConferencia){
+      instalarWorkflow093();
+    }
+  },1500);
 })();
 
 
