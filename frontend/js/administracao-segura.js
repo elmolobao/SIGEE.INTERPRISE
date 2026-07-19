@@ -1,27 +1,26 @@
 (function(){
   'use strict';
-  if(window.__SIGEE_ADMIN_244A__) return;
-  window.__SIGEE_ADMIN_244A__=true;
+  if(window.__SIGEE_ADMIN_UNIFICADA_250__) return;
+  window.__SIGEE_ADMIN_UNIFICADA_250__=true;
 
-  let montado=false;
-
-  function autenticado(){
-    const login=document.getElementById('tela-login');
-    const sistema=document.getElementById('sistema-dashboard');
-    return !!window.usuarioLogado && !!sistema && sistema.classList.contains('hidden')===false &&
-      (!login || login.classList.contains('hidden'));
+  function perfil(){
+    return String(window.usuarioLogado?.perfil||'')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
   }
+  function autenticado(){
+    const sistema=document.getElementById('sistema-dashboard');
+    return !!window.usuarioLogado && !!sistema && !sistema.classList.contains('hidden');
+  }
+  function permitido(){ return perfil().includes('MASTER'); }
 
-  function permitido(){
-    const perfil=String(window.usuarioLogado?.perfil||'').toUpperCase();
-    return perfil.includes('MASTER') || perfil.includes('ADMIN');
+  function removerDuplicidades(){
+    document.querySelectorAll('#menu-administracao-bloco').forEach((el,i)=>{ if(i>0) el.remove(); });
   }
 
   function criarDiagnostico(){
     if(document.getElementById('aba-diagnostico')) return;
     const main=document.querySelector('#sistema-dashboard main');
     if(!main) return;
-
     const sec=document.createElement('section');
     sec.id='aba-diagnostico';
     sec.className='hidden sigee-diagnostico space-y-5';
@@ -32,7 +31,7 @@
       </header>
       <div id="diagnostico-resumo" class="sigee-diagnostico-resumo">
         <div class="sigee-diag-indicador"><i></i><div><strong id="diag-status-geral">Verificando...</strong><span id="diag-atualizado">Aguardando análise</span></div></div>
-        <div><span>Versão instalada</span><strong>2.4.4A</strong></div>
+        <div><span>Versão instalada</span><strong>2.5.0</strong></div>
         <div><span>Ambiente</span><strong>Vercel + Supabase</strong></div>
       </div>
       <div class="sigee-diag-grid" id="diag-componentes"></div>
@@ -48,62 +47,67 @@
     document.getElementById('btn-atualizar-diagnostico')?.addEventListener('click',()=>window.atualizarDiagnosticoSIGEE?.(true));
   }
 
-  function montarMenu(){
-    if(montado || !autenticado() || !permitido()) return;
+  function montar(){
+    if(!autenticado()) return;
+    const menuUsuarios=document.getElementById('menu-usuarios');
+    const menuLogs=document.getElementById('menu-logs');
+    const nav=(menuUsuarios||menuLogs)?.parentElement;
+    if(!nav) return;
 
-    const botaoLogs=document.getElementById('menu-logs');
-    if(!botaoLogs || botaoLogs.dataset.adminConvertido==='1') return;
+    removerDuplicidades();
+    if(!permitido()){
+      menuUsuarios?.classList.add('hidden');
+      menuLogs?.classList.add('hidden');
+      document.getElementById('menu-administracao-bloco')?.remove();
+      return;
+    }
 
     criarDiagnostico();
+    menuUsuarios?.classList.add('hidden');
+    menuLogs?.classList.add('hidden');
 
-    const nav=botaoLogs.parentElement;
-    const bloco=document.createElement('div');
-    bloco.id='menu-administracao-bloco';
-    bloco.className='sigee-admin-menu';
-
-    const principal=document.createElement('button');
-    principal.type='button';
-    principal.className='sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer flex items-center justify-between';
-    principal.innerHTML='<span>⚙️ Administração</span><span id="admin-menu-seta">▾</span>';
-
-    const submenu=document.createElement('div');
-    submenu.id='submenu-administracao';
-    submenu.className='hidden sigee-admin-submenu';
-    submenu.innerHTML=`
-      <button type="button" data-admin="historico">📝 Histórico de Atividades</button>
-      <button type="button" data-admin="diagnostico">🩺 Centro de Diagnóstico</button>`;
-
-    principal.addEventListener('click',()=>{
-      submenu.classList.toggle('hidden');
-      const seta=document.getElementById('admin-menu-seta');
-      if(seta)seta.textContent=submenu.classList.contains('hidden')?'▾':'▴';
-    });
-
-    submenu.addEventListener('click',event=>{
-      const acao=event.target.closest('[data-admin]')?.dataset.admin;
-      if(!acao)return;
-      if(acao==='historico'){
-        window.navegar?.('logs');
-      }else{
-        document.querySelectorAll('main > section[id^="aba-"]').forEach(s=>s.classList.add('hidden'));
-        document.getElementById('aba-diagnostico')?.classList.remove('hidden');
-        window.atualizarDiagnosticoSIGEE?.();
-      }
-    });
-
-    bloco.append(principal,submenu);
-    botaoLogs.dataset.adminConvertido='1';
-    botaoLogs.replaceWith(bloco);
-    montado=true;
+    let bloco=document.getElementById('menu-administracao-bloco');
+    if(!bloco){
+      bloco=document.createElement('div');
+      bloco.id='menu-administracao-bloco';
+      bloco.className='sigee-admin-menu';
+      bloco.innerHTML=`
+        <button type="button" id="menu-administracao-principal" class="sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer flex items-center justify-between">
+          <span>⚙️ Administração</span><span id="admin-menu-seta">▾</span>
+        </button>
+        <div id="submenu-administracao" class="hidden sigee-admin-submenu">
+          <button type="button" data-admin="usuarios">👥 Gestão de Usuários</button>
+          <button type="button" data-admin="historico">📝 Histórico de Atividades</button>
+          <button type="button" data-admin="diagnostico">🩺 Centro de Diagnóstico</button>
+        </div>`;
+      nav.insertBefore(bloco, menuUsuarios || menuLogs || null);
+      bloco.querySelector('#menu-administracao-principal').addEventListener('click',()=>{
+        const sub=bloco.querySelector('#submenu-administracao');
+        sub.classList.toggle('hidden');
+        bloco.querySelector('#admin-menu-seta').textContent=sub.classList.contains('hidden')?'▾':'▴';
+      });
+      bloco.querySelector('#submenu-administracao').addEventListener('click',evento=>{
+        const acao=evento.target.closest('[data-admin]')?.dataset.admin;
+        if(!acao) return;
+        if(acao==='usuarios') window.navegar?.('usuarios');
+        else if(acao==='historico') window.navegar?.('logs');
+        else {
+          document.querySelectorAll('main > section[id^="aba-"]').forEach(s=>s.classList.add('hidden'));
+          document.getElementById('aba-diagnostico')?.classList.remove('hidden');
+          window.atualizarDiagnosticoSIGEE?.();
+        }
+      });
+    }
+    bloco.classList.remove('hidden');
   }
 
-  // No DOMContentLoaded work that can affect login.
-  const intervalo=setInterval(()=>{
-    if(autenticado()){
-      montarMenu();
-      if(montado)clearInterval(intervalo);
-    }
-  },500);
-
-  window.addEventListener('sigee:login-concluido',montarMenu);
+  function agendar(){ setTimeout(montar,0); }
+  document.addEventListener('DOMContentLoaded',agendar,{once:true});
+  window.addEventListener('load',agendar,{once:true});
+  document.addEventListener('sigee:usuario-logado',agendar);
+  window.addEventListener('sigee:login-concluido',agendar);
+  document.addEventListener('sigee:navegacao',()=>{
+    if(autenticado()) removerDuplicidades();
+  });
+  window.SIGEE_MONTAR_ADMINISTRACAO=montar;
 })();
