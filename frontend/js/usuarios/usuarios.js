@@ -1164,10 +1164,24 @@
     }
   }
 
-  function popularPerfis(){
+  function popularPerfis(valorAtual){
     const sel = document.getElementById('user-form-perfil');
     if (!sel) return;
-    sel.innerHTML = '<option value="SEC">SEC</option><option value="Master">Master</option><option value="Administrador">Administrador</option><option value="Tecnico">Tecnico</option><option value="Consulta">Consulta</option><option value="Estagiario">Estagiario</option>';
+
+    const atual = valorAtual == null ? sel.value : valorAtual;
+    const utils = window.SIGEE_CONFIG_UTILS;
+
+    if (utils && typeof utils.preencherSelectPerfis === 'function') {
+      utils.preencherSelectPerfis(sel, atual, false);
+      return;
+    }
+
+    // Fallback seguro: mantém os sete perfis oficiais caso o core ainda não esteja disponível.
+    const perfis = ['Master', 'SEC', 'Gestor', 'Administrador', 'Técnico', 'Estagiário', 'Consulta'];
+    sel.innerHTML = perfis.map(function(perfil){
+      return '<option value="' + perfil + '">' + perfil + '</option>';
+    }).join('');
+    if (atual && perfis.includes(atual)) sel.value = atual;
   }
 
   function renderizarUsuarios(lista){
@@ -1466,21 +1480,3 @@
   window.addEventListener('sigee:login-concluido',montarMenu);
 })();
 
-
-/* =====================================================================
- * RC4.1.4 — Gestão de usuários consumindo o catálogo único de perfis.
- * Correção: sem MutationObserver sobre o próprio select, evitando ciclo
- * infinito de reconstrução do DOM que travava a tela de login.
- * ===================================================================== */
-(function (window) {
-  'use strict';
-  function aplicar(root) {
-    if (!window.SIGEE_PERFIS) return false;
-    window.SIGEE_PERFIS.garantirSelects(root || document);
-    return true;
-  }
-  document.addEventListener('DOMContentLoaded', function () { aplicar(document); });
-  document.addEventListener('sigee:usuario-logado', function () { aplicar(document); });
-  document.addEventListener('sigee:login-concluido', function () { aplicar(document); });
-  window.addEventListener('load', function () { aplicar(document); });
-})(window);
