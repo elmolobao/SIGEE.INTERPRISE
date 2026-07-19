@@ -7672,13 +7672,25 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   function up(v){ return txt(v).toUpperCase(); }
   function noAccent(v){ return txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
   function perfil(v){
+    // RC4.1.11: a autenticação deve consumir a autoridade central de perfis.
+    // Nunca converter um perfil válido e desconhecido localmente para Técnico.
+    if (window.SIGEE_SESSION && typeof window.SIGEE_SESSION.normalizarPerfil === 'function') {
+      const central = window.SIGEE_SESSION.normalizarPerfil(v);
+      if (central) return central;
+    }
+    if (window.SIGEE_CONFIG_UTILS && typeof window.SIGEE_CONFIG_UTILS.normalizarPerfil === 'function') {
+      const central = window.SIGEE_CONFIG_UTILS.normalizarPerfil(v);
+      if (central) return central;
+    }
     const p = noAccent(v).toLowerCase();
-    if(p === 'sec') return 'SEC';
-    if(p.includes('master')) return 'Master';
-    if(p.includes('administr')) return 'Administrador';
-    if(p.includes('tecnico')) return 'Tecnico';
-    if(p.includes('consulta')) return 'Consulta';
-    return txt(v) || 'Tecnico';
+    if (p === 'sec' || p.includes('secretaria')) return 'SEC';
+    if (p.includes('master')) return 'Master';
+    if (p.includes('gestor') || p.includes('dirigente')) return 'Gestor';
+    if (p.includes('administr')) return 'Administrador';
+    if (p.includes('estagi')) return 'Estagiário';
+    if (p.includes('consulta')) return 'Consulta';
+    if (p.includes('tecnico')) return 'Técnico';
+    return txt(v);
   }
   function nteIdFrom(v){
     if(v === null || v === undefined || v === '') return null;
