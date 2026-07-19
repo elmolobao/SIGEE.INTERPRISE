@@ -701,10 +701,10 @@
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="js/config.js"></script>
-<script src="js/supabase.js"></script>
-<script src="js/auth.js"></script>
-<script src="js/permissoes.js?v=1.0.2.003B1"></script>
+<script src="js/core/config.js"></script>
+<script src="js/core/supabase.js"></script>
+<script src="js/core/auth.js"></script>
+<script src="js/core/permissoes.js?v=RC3.0"></script>
 <script src="js/core/mensagens-config.js"></script>
 <script src="js/core/pop-config.js"></script>
 <script src="js/core/workflow.event.manager.js"></script>
@@ -714,29 +714,25 @@
 <script src="js/core/workflow-engine.js?v=0.9.5.1"></script>
 <script src="js/core/transition-manager.js?v=0.9.5.1"></script>
 <script src="js/core/workflow.clock.panel.js"></script>
-<script src="js/analytics-engine.js?v=2.4.3B"></script>
-<script src="js/dashboard.js?v=3.2.17"></script>
-<script src="js/escolas.js?v=2.4.6C"></script>
-<script src="js/importacao.js"></script>
-<script src="js/exportacao.js"></script>
-<script src="js/fluxo-operacional.js"></script>
-<script src="js/app-core.js"></script>
+<script src="js/analytics/analytics-engine.js?v=2.4.3B"></script>
+<script src="js/analytics/dashboard.js?v=3.2.17"></script>
+<script src="js/escolas/escolas.js?v=2.4.6C"></script>
+<script src="js/escolas/importacao.js"></script>
+<script src="js/escolas/exportacao.js"></script>
+<script src="js/processos/fluxo-operacional.js"></script>
+<script src="js/core/app-core.js"></script>
 <script src="js/components/WorkflowActionModal.js"></script>
-<script src="js/municipios-territorios.js"></script>
-<script src="js/app.js?v=3.2.23"></script>
-<script src="js/processos.js?v=1.0.1-RC2.1"></script>
+<script src="js/escolas/municipios-territorios.js"></script>
+<script src="js/app/app.js?v=RC3.0"></script>
+<script src="js/processos/processos.js?v=RC3.0"></script>
 <script src="js/migracao/migracao-historica.js?v=M4.2.0"></script>
 <script src="js/migracao/motor-persistencia.js?v=M5.2.2"></script>
 <script src="js/migracao/importacao-oficial.js?v=M5.2.2"></script>
 <script src="js/migracao/migracao-importacao-oficial.js?v=M5.2.2"></script>
-<script src="js/workflow/workflow-externo.js?v=4.1.4"></script>
-<script src="js/sigee_footer_institucional.js"></script>
-<script src="js/sigee_nova_solicitacao_autocomplete_fix.js"></script>
-<script src="js/sigee_perfil_estagiario_v1.js"></script>
-<script src="js/sigee_sprint_2_5_perfil_senha_nova_solicitacao.js"></script>
-<script src="js/logs.js?v=1.0.2.002"></script>
-<script src="js/sigee_usuarios_crud_supabase_final.js?v=1.0.2.003A3"></script>
-<script src="js/usuarios.js?v=1.0.2.003A3"></script>
+<script src="js/processos/workflow-externo.js?v=4.1.4"></script>
+<script src="js/ui/sigee_footer_institucional.js"></script>
+<script src="js/usuarios/logs.js?v=1.0.2.002"></script>
+<script src="js/usuarios/usuarios.js?v=RC3.0"></script>
 <script>
 /* SIGEE v0.9.2 - filtro visual da tabela de usuários */
 window.filtrarTabelaUsuariosSIGEE = function (termo) {
@@ -747,16 +743,15 @@ window.filtrarTabelaUsuariosSIGEE = function (termo) {
     });
 };
 </script>
-<script src="js/prontuario-processo.js?v=3.5.0"></script>
-<script src="js/sigee-acabamento-visual.js?v=2.3.4"></script>
-<script src="js/sala-situacao.js?v=3.2.17"></script>
-<script src="js/administracao-segura.js?v=2.4.4A"></script>
-<script src="js/diagnostico-seguro.js?v=2.4.4A"></script>
-<script src="js/workflow-design-system.js?v=2.4.5C"></script>
-<script src="js/workflow-components.js?v=2.4.5C"></script>
+<script src="js/processos/prontuario-processo.js?v=3.5.0"></script>
+<script src="js/ui/sigee-acabamento-visual.js?v=2.3.4"></script>
+<script src="js/analytics/sala-situacao.js?v=3.2.17"></script>
+<script src="js/admin/diagnostico-seguro.js?v=2.4.4A"></script>
+<script src="js/ui/workflow-design-system.js?v=2.4.5C"></script>
+<script src="js/ui/workflow-components.js?v=2.4.5C"></script>
 <!-- escolas-authority.js removido: arquivo inexistente no projeto -->
-<script src="js/dashboard-executivo.js?v=3.0.1"></script>
-<script src="js/centro-inteligencia.js?v=3.1.2"></script>
+<script src="js/analytics/dashboard-executivo.js?v=3.0.1"></script>
+<script src="js/analytics/centro-inteligencia.js?v=3.1.2"></script>
 <script>
 /* Reinstala a autoridade de navegação após todos os módulos legados. */
 if (window.SIGEE_NAVIGATION && typeof window.SIGEE_NAVIGATION.install === 'function') {
@@ -813,10 +808,6 @@ if (window.SIGEE_NAVIGATION && typeof window.SIGEE_NAVIGATION.install === 'funct
   }, { once: true });
 })();
 </script>
-
-
-<script src="js/perfis-usuarios-oficial.js?v=1.0.3"></script>
-<script src="js/sigee-core-authority-rc2.js?v=1.0.1-RC2.1"></script>
 
 </body>
 </html>
