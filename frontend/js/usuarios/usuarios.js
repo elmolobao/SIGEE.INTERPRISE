@@ -655,15 +655,13 @@
 
   const TABELA = 'usuarios_sigee';
   const SENHA_PADRAO = 'SEC@2026';
-  const PERFIS = [
-    { value:'', label:'Selecione o Perfil' },
-    { value:'Master', label:'Master' },
-    { value:'SEC', label:'SEC' },
-    { value:'Administrador', label:'Administrator' },
-    { value:'Tecnico', label:'Tecnico' },
-    { value:'Estagiario', label:'Estagiário' },
+  const PERFIS = (window.SIGEE_CONFIG_UTILS?.listarPerfis?.() || [
+    { value:'Master', label:'Master' }, { value:'SEC', label:'SEC' },
+    { value:'Gestor', label:'Gestor' }, { value:'Administrador', label:'Administrador' },
+    { value:'Técnico', label:'Técnico' }, { value:'Estagiário', label:'Estagiário' },
     { value:'Consulta', label:'Consulta' }
-  ];
+  ]).map(function(item){ return { value:item.value, label:item.label }; });
+
 
   function txt(v){ return (v === null || v === undefined) ? '' : String(v).trim(); }
   function low(v){ return txt(v).toLowerCase(); }
@@ -676,14 +674,16 @@
   }
   function usuarioAtual(){ try { return window.usuarioLogado || usuarioLogado || null; } catch(e){ return window.usuarioLogado || null; } }
   function perfilCanonico(v){
+    if (window.SIGEE_SESSION?.normalizarPerfil) return window.SIGEE_SESSION.normalizarPerfil(v);
     const p = up(v);
     if (p.includes('SEC')) return 'SEC';
     if (p.includes('MASTER')) return 'Master';
+    if (p.includes('GESTOR') || p.includes('DIRIGENTE')) return 'Gestor';
     if (p.includes('ADMIN')) return 'Administrador';
-    if (p.includes('ESTAG')) return 'Estagiario';
+    if (p.includes('ESTAG')) return 'Estagiário';
     if (p.includes('CONSULT')) return 'Consulta';
-    if (p.includes('TECNIC')) return 'Tecnico';
-    return '';
+    if (p.includes('TECNIC')) return 'Técnico';
+    return txt(v);
   }
   function numeroNte(v){
     const s = txt(v);
@@ -702,7 +702,7 @@
   function nteId(v, perfil){ return perfilCanonico(perfil) === 'SEC' ? null : numeroNte(v); }
   function ativo(u){ return u && u.ativo !== false && u.Ativo !== false; }
   function podeGerir(){ const p = perfilCanonico((usuarioAtual()||{}).perfil); return p === 'Master'; }
-  function isEstagiario(u){ return perfilCanonico((u||usuarioAtual()||{}).perfil) === 'Estagiario'; }
+  function isEstagiario(u){ return perfilCanonico((u||usuarioAtual()||{}).perfil) === 'Estagiário'; }
   function isGlobal(u){ const p = perfilCanonico((u||usuarioAtual()||{}).perfil); return p === 'Master'; }
 
   function normalizarUsuario(u){
@@ -722,7 +722,7 @@
       nte_id: idNte,
       ativo: ativo(u),
       Ativo: ativo(u),
-      pode_editar: perfil === 'Estagiario' || perfil === 'Consulta' ? false : ((u||{}).pode_editar !== false),
+      pode_editar: perfil === 'Estagiário' || perfil === 'Consulta' ? false : ((u||{}).pode_editar !== false),
       forcar_troca_senha: (u||{}).forcar_troca_senha === true
     };
   }
@@ -804,7 +804,8 @@
     if (atual) select.value = formatarNte(atual, document.getElementById('user-form-perfil')?.value || '');
   }
   function prepararSelectsUsuario(valorPerfil, valorNte){
-    preencherPerfis(document.getElementById('user-form-perfil'), valorPerfil);
+    if (window.SIGEE_CONFIG_UTILS?.preencherSelectPerfis) window.SIGEE_CONFIG_UTILS.preencherSelectPerfis(document.getElementById('user-form-perfil'), valorPerfil, true);
+    else preencherPerfis(document.getElementById('user-form-perfil'), valorPerfil);
     preencherNtes(document.getElementById('user-form-nte'), valorNte);
     const pf = document.getElementById('user-form-perfil');
     const nt = document.getElementById('user-form-nte');
@@ -841,7 +842,7 @@
       </div>` : '<span class="text-xs text-gray-400 italic">Sem permissão</span>';
       corpo.insertAdjacentHTML('beforeend', `<tr class="text-xs">
         <td class="p-3 font-bold">${u.nome}<br><span class="text-xs text-gray-400 font-normal font-mono">${u.email}</span></td>
-        <td class="p-3 font-medium">${u.perfil === 'Estagiario' ? 'Estagiário' : u.perfil}</td>
+        <td class="p-3 font-medium">${u.perfil === 'Estagiário' ? 'Estagiário' : u.perfil}</td>
         <td class="p-3 font-semibold text-gray-600">${u.nte || ''}</td>
         <td class="p-3 text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${u.ativo?'bg-green-100 text-green-800':'bg-red-100 text-red-800'}">${u.ativo?'ATIVO':'INATIVO'}</span></td>
         <td class="p-3 text-center">${botoes}</td>
