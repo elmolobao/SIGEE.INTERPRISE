@@ -10765,3 +10765,17 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
   console.info('[SIGEE] Proteções de duplicidade e acervo não recolhido ativas.');
 })();
 
+
+
+/* SIGEE RC4.1.9 — reaplicação final da matriz única após módulos legados. */
+(function (window, document) {
+  'use strict';
+  function aplicar() {
+    try { window.SIGEE_PERMISSOES?.instalarProtecoes?.(); window.SIGEE_PERMISSOES?.aplicarMenu?.(); } catch (e) { console.error('[SIGEE RC4.1.9] Falha ao aplicar matriz:', e); }
+  }
+  document.addEventListener('DOMContentLoaded', aplicar);
+  document.addEventListener('sigee:usuario-logado', aplicar);
+  document.addEventListener('sigee:navegacao-concluida', aplicar);
+  window.addEventListener('load', aplicar);
+  window.SIGEE_APLICAR_MATRIZ_RC419 = aplicar;
+})(window, document);
