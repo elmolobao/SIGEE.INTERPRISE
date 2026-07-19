@@ -6238,10 +6238,14 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   function atualizarSelectPerfilV39(){
     const select = document.getElementById('user-form-perfil');
     if(!select) return;
-    const valorAtual = perfilCanonicoV39(select.value || 'Tecnico');
-    const opcoes = ['SEC','Master','Administrador','Tecnico','Consulta'];
+    if (window.SIGEE_CONFIG_UTILS?.preencherSelectPerfis) {
+      window.SIGEE_CONFIG_UTILS.preencherSelectPerfis(select, select.value || 'Técnico', false);
+      return;
+    }
+    const opcoes = ['Master','SEC','Gestor','Administrador','Técnico','Estagiário','Consulta'];
+    const valorAtual = perfilCanonicoV39(select.value || 'Técnico');
     select.innerHTML = opcoes.map(p => `<option value="${p}">${p}</option>`).join('');
-    select.value = opcoes.includes(valorAtual) ? valorAtual : 'Tecnico';
+    select.value = opcoes.includes(valorAtual) ? valorAtual : 'Técnico';
   }
 
   function aplicarPermissoesV39(){
@@ -9507,7 +9511,7 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
 (function () {
   'use strict';
 
-  const PERFIS_SIGEE = ['Master', 'SEC', 'Administrator', 'Tecnico', 'Estagiário', 'Consulta'];
+  const PERFIS_SIGEE = ['Master', 'SEC', 'Gestor', 'Administrador', 'Técnico', 'Estagiário', 'Consulta'];
   const GRUPO_SEC = 'SEC - TODOS OS NTEs';
   const EMAIL_SEC = 'sec@enova.educacao.ba.gov.br';
 
@@ -9521,17 +9525,18 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     const p = up(valor || 'Tecnico');
     if (p.includes('SEC')) return 'SEC';
     if (p.includes('MASTER')) return 'Master';
-    if (p.includes('ADMIN')) return 'Administrator';
+    if (p.includes('GESTOR') || p.includes('DIRIGENTE')) return 'Gestor';
+    if (p.includes('ADMIN')) return 'Administrador';
     if (p.includes('ESTAG')) return 'Estagiário';
     if (p.includes('CONSULT')) return 'Consulta';
-    if (p.includes('TECNIC')) return 'Tecnico';
-    return 'Tecnico';
+    if (p.includes('TECNIC')) return 'Técnico';
+    return txt(valor);
   }
 
   function isSEC(u = user()) { return perfilCanonico(u && u.perfil) === 'SEC' || low(u && u.email) === EMAIL_SEC; }
   function isMaster(u = user()) { return perfilCanonico(u && u.perfil) === 'Master'; }
-  function isAdmin(u = user()) { return perfilCanonico(u && u.perfil) === 'Administrator' || perfilCanonico(u && u.perfil) === 'Administrador'; }
-  function isTecnico(u = user()) { return perfilCanonico(u && u.perfil) === 'Tecnico'; }
+  function isAdmin(u = user()) { return perfilCanonico(u && u.perfil) === 'Administrador'; }
+  function isTecnico(u = user()) { return perfilCanonico(u && u.perfil) === 'Técnico'; }
   function isEstagiario(u = user()) { return perfilCanonico(u && u.perfil) === 'Estagiário'; }
   function isConsulta(u = user()) { return perfilCanonico(u && u.perfil) === 'Consulta'; }
   function isGlobal(u = user()) { return isSEC(u) || isMaster(u); }
@@ -9593,7 +9598,12 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
 
   function corrigirSelectPerfil(valorAtual) {
     const sel = document.getElementById('user-form-perfil');
-    if (sel) sel.innerHTML = opcoesPerfisHtml(valorAtual || sel.value || 'Tecnico');
+    if (!sel) return;
+    if (window.SIGEE_CONFIG_UTILS?.preencherSelectPerfis) {
+      window.SIGEE_CONFIG_UTILS.preencherSelectPerfis(sel, valorAtual || sel.value || 'Técnico', false);
+      return;
+    }
+    sel.innerHTML = opcoesPerfisHtml(valorAtual || sel.value || 'Técnico');
   }
 
   function atualizarCabecalhoUsuario() {
