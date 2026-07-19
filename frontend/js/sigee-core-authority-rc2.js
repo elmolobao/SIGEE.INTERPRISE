@@ -96,7 +96,13 @@
     const wf = window.SIGEE_WORKFLOW_093;
     if (!wf) return false;
     if (typeof wf.abrirAnalise === 'function') window.abrirAnaliseSIGEE = wf.abrirAnalise;
-    if (typeof wf.abrirEncaminharDigitacao === 'function') window.abrirEncaminharDigitacaoSIGEE = wf.abrirEncaminharDigitacao;
+    if (typeof wf.abrirEncaminharDigitacaoAnalise === 'function') {
+      window.abrirEncaminharDigitacaoSIGEE = wf.abrirEncaminharDigitacaoAnalise;
+      window.abrirEncaminharDigitacaoAnaliseSIGEE = wf.abrirEncaminharDigitacaoAnalise;
+    }
+    if (typeof wf.abrirEncaminharDigitacaoPendencia === 'function') {
+      window.abrirEncaminharDigitacaoPendenciaSIGEE = wf.abrirEncaminharDigitacaoPendencia;
+    }
     if (typeof wf.abrirDigitacao === 'function') window.abrirModalFluxoDigitacao = wf.abrirDigitacao;
     if (typeof wf.abrirConferencia === 'function') window.abrirModalFluxoConferencia = wf.abrirConferencia;
     if (typeof wf.abrirAssinatura === 'function') window.abrirModalFluxoAssinatura = wf.abrirAssinatura;

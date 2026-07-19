@@ -1394,7 +1394,7 @@
     /* Segurança: a Análise nunca pode alterar diretamente a etapa.
        O avanço obrigatório passa pela seleção do digitador e confirmação da mensagem. */
     if(window.SIGEE_WORKFLOW_093 && typeof window.SIGEE_WORKFLOW_093.abrirEncaminharDigitacao==='function'){
-      return window.SIGEE_WORKFLOW_093.abrirEncaminharDigitacao(id,{origem:'Análise realizada'});
+      return window.SIGEE_WORKFLOW_093.abrirEncaminharDigitacaoAnalise(id);
     }
     if(typeof window.abrirEncaminharDigitacaoSIGEE==='function'){
       return window.abrirEncaminharDigitacaoSIGEE(id,{origem:'Análise realizada'});
@@ -1452,7 +1452,7 @@
     const validar=()=>{if(btn)btn.disabled=!(chkEmail?.checked&&el.querySelector('input[name="receb331"]:checked'));};
     chkEmail?.addEventListener('change',validar);el.querySelectorAll('input[name="receb331"]').forEach(x=>x.addEventListener('change',validar));
     el.querySelector('[data-hist33]')?.addEventListener('click',()=>abrirHistorico(id,()=>abrirTratarPendencia(id)));
-    btn?.addEventListener('click',async()=>{const ids=[...el.querySelectorAll('input[name="receb331"]:checked')].map(x=>Number(x.value));if(!ids.length)return alert('Marque ao menos um item recebido.');if(!chkEmail?.checked)return alert('Confirme o envio da mensagem institucional.');try{btn.disabled=true;await marcarRecebidas(ids,ator);const restantes=pendentes.filter(x=>!ids.includes(Number(x.id)));const completo=restantes.length===0;p.pendencia_aberta=!completo;p.etapa=p.etapa_atual='Pendência';p.data_etapa_atual=agoraISO();p.tecnico_responsavel=ator.nome;p.pendencia_aluno_itens=restantes.filter(x=>x.grupo==='aluno').map(x=>x.item);p.pendencia_instituicao_itens=restantes.filter(x=>x.grupo==='instituicao').map(x=>x.item);await salvar(p);const recebidosAgora=pendentes.filter(x=>ids.includes(Number(x.id))).map(x=>x.item);await registrarHistorico(p,'Pendência',completo?'Pendência resolvida':'Recebimento parcial',`Recebido: ${recebidosAgora.join(', ')} | Mensagem confirmada: ${msg}`,{itens_recebidos:recebidosAgora,pendencia_resolvida:completo,mensagem_confirmada:msg},ator);if(completo){fecharModal();toast('Pendência totalmente resolvida. Selecione o digitador e confirme a mensagem obrigatória.');setTimeout(()=>{const wf=window.SIGEE_WORKFLOW_093; if(wf?.abrirEncaminharDigitacao) wf.abrirEncaminharDigitacao(id,{origem:'Pendência resolvida'}); else window.abrirEncaminharDigitacaoSIGEE?.(id,{origem:'Pendência resolvida'});},0);}else{toast('Recebimento parcial registrado.');await abrirTratarPendencia(id);}}catch(e){console.error(e);btn.disabled=false;alert('Não foi possível registrar o recebimento: '+(e.message||e));}});
+    btn?.addEventListener('click',async()=>{const ids=[...el.querySelectorAll('input[name="receb331"]:checked')].map(x=>Number(x.value));if(!ids.length)return alert('Marque ao menos um item recebido.');if(!chkEmail?.checked)return alert('Confirme o envio da mensagem institucional.');try{btn.disabled=true;await marcarRecebidas(ids,ator);const restantes=pendentes.filter(x=>!ids.includes(Number(x.id)));const completo=restantes.length===0;p.pendencia_aberta=!completo;p.etapa=p.etapa_atual='Pendência';p.data_etapa_atual=agoraISO();p.tecnico_responsavel=ator.nome;p.pendencia_aluno_itens=restantes.filter(x=>x.grupo==='aluno').map(x=>x.item);p.pendencia_instituicao_itens=restantes.filter(x=>x.grupo==='instituicao').map(x=>x.item);await salvar(p);const recebidosAgora=pendentes.filter(x=>ids.includes(Number(x.id))).map(x=>x.item);await registrarHistorico(p,'Pendência',completo?'Pendência resolvida':'Recebimento parcial',`Recebido: ${recebidosAgora.join(', ')} | Mensagem confirmada: ${msg}`,{itens_recebidos:recebidosAgora,pendencia_resolvida:completo,mensagem_confirmada:msg},ator);if(completo){fecharModal();toast('Pendência totalmente resolvida. Selecione o digitador e confirme a mensagem obrigatória.');setTimeout(()=>{const wf=window.SIGEE_WORKFLOW_093; if(wf?.abrirEncaminharDigitacaoPendencia) wf.abrirEncaminharDigitacaoPendencia(id); else window.abrirEncaminharDigitacaoPendenciaSIGEE?.(id);},0);}else{toast('Recebimento parcial registrado.');await abrirTratarPendencia(id);}}catch(e){console.error(e);btn.disabled=false;alert('Não foi possível registrar o recebimento: '+(e.message||e));}});
   }
 
   function formatarSEI(v){const d=txt(v).replace(/\D/g,'').slice(0,20);let o='';if(d.length)o+=d.slice(0,3);if(d.length>3)o+='.'+d.slice(3,7);if(d.length>7)o+='.'+d.slice(7,11);if(d.length>11)o+='.'+d.slice(11,18);if(d.length>18)o+='-'+d.slice(18,20);return o;}
@@ -1716,25 +1716,53 @@
 
   async function abrirEncaminharDigitacao(id,opcoes={}){
     const p=processo(id); if(!p || bloquearLeitura()) return;
+    const etapaOrigem=norm(p.etapa_atual||p.etapa);
+    const origemTipo=norm(opcoes.tipo||opcoes.origem||'ANALISE');
+    const veioPendencia=origemTipo.includes('PENDENCIA');
+    const origemEsperada=veioPendencia?'PENDENCIA':'ANALISE';
+
+    if(etapaOrigem!==origemEsperada){
+      alert(`A ação não pode ser executada: o processo está em ${p.etapa_atual||p.etapa||'etapa desconhecida'}, mas esta janela pertence à etapa ${veioPendencia?'Pendência':'Análise'}.`);
+      return;
+    }
+    if(veioPendencia && p.pendencia_aberta){
+      alert('Ainda existem pendências abertas. Registre o recebimento de todos os itens antes de encaminhar para Digitação.');
+      return;
+    }
+
     const msg=MENSAGENS.digitacao;
-    const origem=txt(opcoes.origem||'Análise realizada');
-    const el=modal(`✍️ Enviar para Digitação — ${esc(p.codigo_sigee||p.id)}`,`${cabecalho(p)}${selectTecnico(p,'wf-digitador093','Responsável pela Digitação',[])}${tarefa(msg)}<div class="sigee-acoes33"><button class="btn33 btn33-vermelho" data-cancelar093>Cancelar</button><button class="btn33 btn33-verde" data-confirmar093 disabled>Enviar para Digitação</button></div>`,'digitacao');
-    const sel=el.querySelector('#wf-digitador093'),chk=el.querySelector('#wf-email093'),btn=el.querySelector('[data-confirmar093]');
+    const origem=veioPendencia?'Pendência resolvida':'Análise realizada';
+    const idCheck=veioPendencia?'wf-email-pendencia093':'wf-email-analise093';
+    const titulo=veioPendencia?'✍️ Pendência Sanada — Enviar para Digitação':'✍️ Análise Concluída — Enviar para Digitação';
+    const el=modal(`${titulo} — ${esc(p.codigo_sigee||p.id)}`,`${cabecalho(p)}${selectTecnico(p,'wf-digitador093','Responsável pela Digitação',[])}${tarefa(msg,idCheck)}<div class="sigee-acoes33"><button type="button" class="btn33 btn33-vermelho" data-cancelar093>Cancelar</button><button type="button" class="btn33 btn33-verde" data-confirmar093 disabled>Enviar para Digitação</button></div>`,'digitacao');
+    const sel=el.querySelector('#wf-digitador093'),chk=el.querySelector('#'+idCheck),btn=el.querySelector('[data-confirmar093]');
+    chk.checked=false;
+    chk.dataset.confirmado='0';
     await preencherSelectTecnicoWorkflow(sel,p);
     const semUsuarios=el.querySelector('.sigee-selecao-semusuarios093'); if(semUsuarios) semUsuarios.remove();
-    const validar=()=>{atualizarDestaqueTecnico(el,sel);btn.disabled=!(sel.value&&chk.checked);}; sel.addEventListener('change',validar); chk.addEventListener('change',validar); validar();
+    const validar=()=>{
+      atualizarDestaqueTecnico(el,sel);
+      btn.disabled=!(sel.value && chk.checked && chk.dataset.confirmado==='1');
+    };
+    sel.addEventListener('change',validar);
+    chk.addEventListener('change',()=>{ chk.dataset.confirmado=chk.checked?'1':'0'; validar(); });
+    validar();
     el.querySelector('[data-cancelar093]').addEventListener('click',fechar);
     btn.addEventListener('click',async()=>{
-      if(!sel.value||!chk.checked) return;
+      const etapaNoClique=norm(p.etapa_atual||p.etapa);
+      if(etapaNoClique!==origemEsperada){
+        alert('A etapa do processo foi alterada durante a operação. Reabra a janela antes de continuar.');
+        fechar();
+        return;
+      }
+      if(!sel.value) return alert('Selecione o responsável pela Digitação.');
+      if(!chk.checked || chk.dataset.confirmado!=='1') return alert('Confirme manualmente o envio da mensagem institucional 03.');
       btn.disabled=true;
       const digitador=sel.value;
       const instante=agora();
       try{
-        /* Correção emergencial — Pendência resolvida -> Digitação.
-           Mantém os dois campos de etapa sincronizados e limpa integralmente
-           o estado da pendência antes da persistência no Supabase. */
-        p.etapa='Digitação';
         p.etapa_atual='Digitação';
+        delete p.etapa;
         p.etapa_codigo=null;
         p.data_etapa_atual=instante;
         p.prazo_inicio=instante;
@@ -1747,34 +1775,45 @@
         p.responsavel_nome=digitador;
         p.digitador=digitador;
         p.digitador_nome=digitador;
-        p.pendencia_aberta=false;
-        p.pendencia_aluno_itens=[];
-        p.pendencia_instituicao_itens=[];
-        p.pendencia_aluno_complemento=null;
-        p.pendencia_instituicao_complemento=null;
-        p.pendencia_restante=null;
+        if(veioPendencia){
+          p.pendencia_aberta=false;
+          p.pendencia_aluno_itens=[];
+          p.pendencia_instituicao_itens=[];
+          p.pendencia_aluno_complemento=null;
+          p.pendencia_instituicao_complemento=null;
+          p.pendencia_restante=null;
+          p.ultimo_evento_workflow='PENDENCIA_SANADA_PARA_DIGITACAO';
+        }else{
+          p.ultimo_evento_workflow='ANALISE_PARA_DIGITACAO';
+        }
         p.ultima_mensagem_workflow=msg.codigo;
-        p.ultimo_evento_workflow='PENDENCIA_SANADA_PARA_DIGITACAO';
 
         await salvar(p);
         await historico(
           p,
           'Digitação',
-          'Pendência sanada — encaminhado para Digitação',
+          veioPendencia?'Pendência sanada — encaminhado para Digitação':'Análise concluída — encaminhado para Digitação',
           `${origem}. Digitador: ${digitador}. Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}.`,
-          {digitador:digitador,mensagem:msg,tarefa_confirmada:true,pendencia_sanada:true}
+          {origem:origemEsperada,digitador,mensagem:msg,tarefa_confirmada:true,pendencia_sanada:veioPendencia}
         );
 
         fechar();
         if(window.filtrarProcessosPorEtapa) window.filtrarProcessosPorEtapa('Digitação');
         if(window.SIGEE_Processos?.contar) window.SIGEE_Processos.contar();
-        toast('Pendência sanada. Processo encaminhado para Digitação.');
+        toast(veioPendencia?'Pendência sanada. Processo encaminhado para Digitação.':'Análise concluída. Processo encaminhado para Digitação.');
       }catch(e){
-        console.error('[SIGEE] Falha ao avançar Pendência para Digitação.',e);
+        console.error('[SIGEE] Falha ao encaminhar processo para Digitação.',e);
         btn.disabled=false;
         alert('Não foi possível encaminhar o processo para Digitação: '+(e?.message||e));
       }
     });
+  }
+
+  function abrirEncaminharDigitacaoAnalise(id){
+    return abrirEncaminharDigitacao(id,{tipo:'ANALISE'});
+  }
+  function abrirEncaminharDigitacaoPendencia(id){
+    return abrirEncaminharDigitacao(id,{tipo:'PENDENCIA'});
   }
 
   async function abrirDigitacao(id){
@@ -1819,7 +1858,9 @@
   }
 
   /* Sobrescreve somente as entradas públicas do fluxo legado. */
-  window.abrirEncaminharDigitacaoSIGEE=abrirEncaminharDigitacao;
+  window.abrirEncaminharDigitacaoSIGEE=abrirEncaminharDigitacaoAnalise;
+    window.abrirEncaminharDigitacaoAnaliseSIGEE=abrirEncaminharDigitacaoAnalise;
+    window.abrirEncaminharDigitacaoPendenciaSIGEE=abrirEncaminharDigitacaoPendencia;
   window.abrirModalFluxoDigitacao=abrirDigitacao;
   window.abrirModalFluxoConferencia=abrirConferencia;
   window.abrirModalFluxoAssinatura=abrirAssinatura;
@@ -1831,7 +1872,7 @@
     const p=processo(id); if(!p) return;
     if(somenteLeitura() && typeof abrirAnaliseAnterior==='function') return abrirAnaliseAnterior(id);
     const el=modal(`🔍 Análise Realizada — ${esc(p.codigo_sigee||p.id)}`,`${cabecalho(p)}${responsavelOperador()}<section class="sigee-area-etapa33"><h3>Ação da Análise</h3><div class="sigee-acoes33"><button class="btn33 btn33-verde" data-dig093>✍️ Prosseguir para Digitação</button><button class="btn33 btn33-amarelo" data-pend093>⚠️ Registrar Pendência</button><button class="btn33 btn33-vermelho" data-ind093>⛔ Indeferir Processo</button></div></section><div class="sigee-rodape33"><button class="btn33 sigee-historico33" data-hist093>📜 Histórico do Processo</button></div>`,'analise');
-    el.querySelector('[data-dig093]').addEventListener('click',()=>abrirEncaminharDigitacao(id,{origem:'Análise realizada'}));
+    el.querySelector('[data-dig093]').addEventListener('click',()=>abrirEncaminharDigitacaoAnalise(id));
     el.querySelector('[data-pend093]').addEventListener('click',()=>{
       fechar();
       if(typeof window.abrirRegistrarPendenciaSIGEE==='function')return window.abrirRegistrarPendenciaSIGEE(id);
@@ -1873,7 +1914,9 @@
   }
 
   function instalarWorkflow093(){
-    window.abrirEncaminharDigitacaoSIGEE=abrirEncaminharDigitacao;
+    window.abrirEncaminharDigitacaoSIGEE=abrirEncaminharDigitacaoAnalise;
+    window.abrirEncaminharDigitacaoAnaliseSIGEE=abrirEncaminharDigitacaoAnalise;
+    window.abrirEncaminharDigitacaoPendenciaSIGEE=abrirEncaminharDigitacaoPendencia;
     window.abrirModalFluxoDigitacao=abrirDigitacao;
     window.abrirModalFluxoConferencia=abrirConferencia;
     window.abrirModalFluxoAssinatura=abrirAssinatura;
@@ -1886,7 +1929,9 @@
       abrirAnalise:abrirAnaliseWorkflow093,
       abrirRegistrarPendencia:function(id){return window.abrirRegistrarPendenciaSIGEE?.(id);},
       abrirIndeferimento:function(id){return window.abrirIndeferimentoSIGEE?.(id);},
-      abrirEncaminharDigitacao:abrirEncaminharDigitacao,
+      abrirEncaminharDigitacao:abrirEncaminharDigitacaoAnalise,
+      abrirEncaminharDigitacaoAnalise:abrirEncaminharDigitacaoAnalise,
+      abrirEncaminharDigitacaoPendencia:abrirEncaminharDigitacaoPendencia,
       abrirHistorico:function(id){
         if(typeof window.abrirHistoricoProcessoSIGEE==='function') return window.abrirHistoricoProcessoSIGEE(id);
       },
