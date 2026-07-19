@@ -22,12 +22,13 @@
     const p=normalizar(usuario()?.perfil);
     if(p.includes('MASTER'))return 'Master';
     if(p==='SEC'||p.includes('SECRETARIA'))return 'SEC';
+    if(p.includes('GESTOR')||p.includes('DIRIGENTE'))return 'Gestor';
     if(p.includes('ADMIN'))return 'Administrador';
     if(p.includes('CONSULT'))return 'Consulta';
     if(p.includes('ESTAG'))return 'Estagiario';
     return 'Tecnico';
   }
-  function global(){ return ['Master','SEC'].includes(perfil()); }
+  function global(){ return perfil()==='Master'; }
   function nteId(obj){
     if(!obj)return null;
     const direto=obj.nte_id??obj.nteId;
