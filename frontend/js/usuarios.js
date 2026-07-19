@@ -36,8 +36,9 @@
     if (p.includes('SEC')) return 'SEC';
     if (p.includes('MASTER')) return 'Master';
     if (p.includes('ADMIN')) return 'Administrador';
-    if (p.includes('DIRIG')) return 'Dirigente';
+    if (p.includes('GESTOR')) return 'Gestor';
     if (p.includes('ESTAG')) return 'Estagiario';
+    if (p.includes('GESTOR')) return 'Gestor';
     if (p.includes('CONSULT')) return 'Consulta';
     return 'Tecnico';
   }
@@ -66,7 +67,7 @@
   function isTecnico(u){ return perfilCanonico(u && u.perfil) === 'Tecnico'; }
   function isConsulta(u){ return perfilCanonico(u && u.perfil) === 'Consulta'; }
   function isEstagiario(u){ return perfilCanonico(u && u.perfil) === 'Estagiario'; }
-  function isDirigente(u){ return perfilCanonico(u && u.perfil) === 'Dirigente'; }
+  function isGestor(u){ return perfilCanonico(u && u.perfil) === 'Gestor'; }
   function isGlobal(u){ return isSEC(u) || isMaster(u); }
 
   function nteUsuario(u){
@@ -87,8 +88,8 @@
 
   const Perm = {
     acessoGlobal: isGlobal,
-    visualizarTodosNtes: u => isGlobal(u) || isDirigente(u),
-    dashboardGlobal: u => isGlobal(u) || isDirigente(u),
+    visualizarTodosNtes: u => isGlobal(u) || isGestor(u),
+    dashboardGlobal: u => isGlobal(u) || isGestor(u),
     cadastrarEscola: u => isMaster(u),
     alterarEscola: u => isMaster(u) || isAdmin(u) || isTecnico(u),
     alterarEscolaCompleta: u => isMaster(u),
@@ -104,8 +105,8 @@
     excluirUsuarios: u => isMaster(u),
     acessarLogs: u => isSEC(u) || isMaster(u) || isAdmin(u),
     usuariosConectados: u => isSEC(u) || isMaster(u) || isAdmin(u),
-    acessarRelatorios: u => isMaster(u) || isSEC(u) || isAdmin(u) || isDirigente(u),
-    acessarSalaSituacao: u => isMaster(u) || isSEC(u) || isDirigente(u)
+    acessarRelatorios: u => isMaster(u) || isSEC(u) || isAdmin(u) || isGestor(u),
+    acessarSalaSituacao: u => isMaster(u) || isSEC(u) || isGestor(u)
   };
 
   function setHidden(el, ocultar){
@@ -245,7 +246,7 @@
     document.getElementById('user-form-senha').value = 'SECBA2026';
     try { if (typeof inicializarSelectsNteEcosystem === 'function') inicializarSelectsNteEcosystem(); } catch(e) {}
     const perfilSel = document.getElementById('user-form-perfil');
-    if (perfilSel) perfilSel.innerHTML = '<option value="SEC">SEC</option><option value="Master">Master</option><option value="Administrador">Administrador</option><option value="Tecnico">Tecnico</option><option value="Estagiario">Estagiario</option><option value="Dirigente">Dirigente</option><option value="Consulta">Consulta</option>';
+    if (perfilSel) perfilSel.innerHTML = '<option value="SEC">SEC</option><option value="Master">Master</option><option value="Administrador">Administrador</option><option value="Tecnico">Tecnico</option><option value="Estagiario">Estagiario</option><option value="Gestor">Gestor</option><option value="Consulta">Consulta</option>';
     document.getElementById('modal-cadastro-usuario').classList.remove('hidden');
   };
 
@@ -261,7 +262,7 @@
     try { if (typeof inicializarSelectsNteEcosystem === 'function') inicializarSelectsNteEcosystem(); } catch(e) {}
     const nte = document.getElementById('user-form-nte'); if (nte) nte.value = nteUsuario(u);
     const perfilSel = document.getElementById('user-form-perfil');
-    if (perfilSel) { perfilSel.innerHTML = '<option value="SEC">SEC</option><option value="Master">Master</option><option value="Administrador">Administrador</option><option value="Tecnico">Tecnico</option><option value="Estagiario">Estagiario</option><option value="Dirigente">Dirigente</option><option value="Consulta">Consulta</option>'; perfilSel.value = u.perfil; }
+    if (perfilSel) { perfilSel.innerHTML = '<option value="SEC">SEC</option><option value="Master">Master</option><option value="Administrador">Administrador</option><option value="Tecnico">Tecnico</option><option value="Estagiario">Estagiario</option><option value="Gestor">Gestor</option><option value="Consulta">Consulta</option>'; perfilSel.value = u.perfil; }
     document.getElementById('modal-cadastro-usuario').classList.remove('hidden');
   };
 
@@ -422,8 +423,9 @@
     if (p.includes('SEC')) return 'SEC';
     if (p.includes('MASTER')) return 'Master';
     if (p.includes('ADMIN')) return 'Administrador';
-    if (p.includes('DIRIG')) return 'Dirigente';
+    if (p.includes('GESTOR')) return 'Gestor';
     if (p.includes('ESTAG')) return 'Estagiario';
+    if (p.includes('GESTOR')) return 'Gestor';
     if (p.includes('CONSULT')) return 'Consulta';
     return 'Tecnico';
   }
@@ -668,6 +670,7 @@
     { value:'Administrador', label:'Administrator' },
     { value:'Tecnico', label:'Tecnico' },
     { value:'Estagiario', label:'Estagiário' },
+    { value:'Gestor', label:'Gestor' },
     { value:'Consulta', label:'Consulta' }
   ];
 
@@ -687,6 +690,7 @@
     if (p.includes('MASTER')) return 'Master';
     if (p.includes('ADMIN')) return 'Administrador';
     if (p.includes('ESTAG')) return 'Estagiario';
+    if (p.includes('GESTOR')) return 'Gestor';
     if (p.includes('CONSULT')) return 'Consulta';
     if (p.includes('TECNIC')) return 'Tecnico';
     return '';
@@ -1027,20 +1031,7 @@
   });
   window.addEventListener('load',estabilizarInterface);
 
-  const observador=new MutationObserver(()=>{
-    const menu=document.getElementById('menu-usuarios');
-    if(menu&&!somenteMaster()&&(menu.style.display!=='none'||!menu.classList.contains('hidden'))){
-      estabilizarInterface();
-    }
-  });
-  if(document.documentElement){
-    observador.observe(document.documentElement,{
-      childList:true,
-      subtree:true,
-      attributes:true,
-      attributeFilter:['class','style']
-    });
-  }
+  // Sem observador de class/style: evita repintura e piscar do painel.
 
   setTimeout(estabilizarInterface,2500);
 })(window);

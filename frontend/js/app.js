@@ -4350,7 +4350,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     const pf=document.getElementById('user-form-perfil');
     if(pf){
       const atual=perfil(pf.value);
-      pf.innerHTML='<option value="SEC">SEC</option><option value="Master">Master</option><option value="Administrador">Administrador</option><option value="Tecnico">Tecnico</option><option value="Estagiario">Estagiario</option><option value="Dirigente">Dirigente</option><option value="Consulta">Consulta</option>';
+      pf.innerHTML='<option value="SEC">SEC</option><option value="Master">Master</option><option value="Administrador">Administrador</option><option value="Tecnico">Tecnico</option><option value="Estagiario">Estagiario</option><option value="Gestor">Gestor</option><option value="Consulta">Consulta</option>';
       pf.value=atual;
     }
   };
@@ -7008,7 +7008,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   if(typeof oldImportar === 'function'){
     window.processarImportacaoOtimizada = function(event){
       const u = usuarioAtual();
-      if(!(Perm.importarEscolas(u) || Perm.importarProcessos(u))){ alert('Importação permitida apenas para SEC, Master e Administrador.'); if(event?.target) event.target.value=''; return; }
+      if(!(Perm.importarEscolas(u) || Perm.importarProcessos(u))){ alert('A importação do cadastro de escolas é permitida somente para o perfil Master.'); if(event?.target) event.target.value=''; return; }
       return oldImportar.apply(this, arguments);
     };
     try{ processarImportacaoOtimizada = window.processarImportacaoOtimizada; }catch(e){}
@@ -7137,7 +7137,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   if(typeof importarOriginalV43 === 'function'){
     window.processarImportacaoOtimizada = function(event){
       if(!podeImportar()){
-        alert('Importação permitida apenas para SEC, Master e Administrador.');
+        alert('A importação do cadastro de escolas é permitida somente para o perfil Master.');
         if(event && event.target) event.target.value = '';
         return false;
       }
@@ -7216,7 +7216,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   function global(u=user()){ return isSEC(u) || isMaster(u); }
   function canUsers(u=user()){ return isSEC(u) || isMaster(u); }
   function canLogs(u=user()){ return isSEC(u) || isMaster(u) || isAdmin(u); }
-  function canImport(u=user()){ return isSEC(u) || isMaster(u) || isAdmin(u); }
+  function canImport(u=user()){ return isMaster(u); }
   function canExport(u=user()){ return isSEC(u) || isMaster(u) || isAdmin(u); }
   function canEditSchool(u=user()){ return isSEC(u) || isMaster(u) || isAdmin(u) || isTecnico(u); }
   function canFlow(u=user()){ return isSEC(u) || isMaster(u) || isAdmin(u) || isTecnico(u); }
@@ -7316,7 +7316,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   if(typeof impPrev === 'function'){
     window.processarImportacaoOtimizada = function(event){
       if(!canImport(user())){
-        alert('Importação permitida apenas para SEC, Master e Administrador.');
+        alert('A importação do cadastro de escolas é permitida somente para o perfil Master.');
         if(event && event.target) event.target.value = '';
         return false;
       }
@@ -7331,7 +7331,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     clearTimeout(t); t=setTimeout(aplicarPermissoesV44, 15);
   });
   document.addEventListener('DOMContentLoaded', ()=>{
-    obs.observe(document.body, {childList:true, subtree:true, attributes:true, attributeFilter:['class','style']});
+    obs.observe(document.body, {childList:true, subtree:true});
     aplicarPermissoesV44();
     setTimeout(aplicarPermissoesV44, 300);
     setTimeout(aplicarPermissoesV44, 1200);
@@ -8449,7 +8449,7 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     if (p.includes('MASTER')) return 'Master';
     if (p.includes('ADMIN')) return 'Administrador';
     if (p.includes('SEC')) return 'SEC';
-    if (p.includes('DIRIG')) return 'Dirigente';
+    if (p.includes('GESTOR')) return 'Gestor';
     if (p.includes('CONSULT')) return 'Consulta';
     if (p.includes('ESTAG')) return 'Estagiario';
     return 'Tecnico';
@@ -9181,84 +9181,113 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
 
 
 /* =====================================================================
-   SIGEE 2.4.8 — Autoridade final de perfis e acessos institucionais
-   Regras: Estagiário abre processo; Administrador edita cadastro limitado;
-   Sala de Situação: somente Master, SEC e Dirigente;
-   Dirigente: consulta processos, relatórios e Sala, sem ações operacionais.
+   SIGEE 2.4.9 — Autoridade final de perfis, menus e ações restritas
+   - GESTOR criado como perfil consultivo global.
+   - Estagiário pode abrir Nova Solicitação e não edita escolas.
+   - Administrador não importa cadastro de escolas.
+   - Administração/Usuários somente Master.
+   - Funções sem permissão ficam ocultas, não apenas desabilitadas.
+   - Sem MutationObserver de classe/style, evitando painel piscando.
    ===================================================================== */
 (function(){
   'use strict';
-  if(window.__SIGEE_AUTORIDADE_PERFIS_248__) return;
-  window.__SIGEE_AUTORIDADE_PERFIS_248__=true;
+  if(window.__SIGEE_AUTORIDADE_PERFIS_249__) return;
+  window.__SIGEE_AUTORIDADE_PERFIS_249__=true;
 
   const norm=v=>String(v??'').trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
   const perfil=()=>{
     const p=norm((window.usuarioLogado||{}).perfil);
     if(p.includes('MASTER')) return 'Master';
     if(p==='SEC'||p.includes('SECRETARIA')) return 'SEC';
-    if(p.includes('DIRIG')) return 'Dirigente';
+    if(p.includes('GESTOR')) return 'Gestor';
     if(p.includes('ADMIN')) return 'Administrador';
     if(p.includes('ESTAG')) return 'Estagiario';
     if(p.includes('CONSULT')) return 'Consulta';
     return 'Tecnico';
   };
-  const podeSala=()=>['Master','SEC','Dirigente'].includes(perfil());
-  const podeRelatorios=()=>['Master','SEC','Administrador','Dirigente'].includes(perfil());
-  const podeAbrir=()=>['Master','Administrador','Estagiario'].includes(perfil());
-  const podeEditar=()=>['Master','Administrador'].includes(perfil());
 
-  function mostrar(el,sim){
+  const regras=()=>{
+    const p=perfil();
+    return {
+      usuarios:p==='Master',
+      logs:['Master','SEC','Administrador'].includes(p),
+      relatorios:['Master','SEC','Administrador','Gestor'].includes(p),
+      sala:['Master','SEC','Gestor'].includes(p),
+      novaSolicitacao:['Master','Administrador','Estagiario'].includes(p),
+      editarProcesso:['Master','Administrador'].includes(p),
+      cadastrarEscola:p==='Master',
+      editarEscola:['Master','Administrador','Tecnico'].includes(p),
+      importarEscolas:p==='Master',
+      exportar:['Master','SEC','Administrador'].includes(p)
+    };
+  };
+
+  function visibilidade(el,sim){
     if(!el) return;
+    el.hidden=!sim;
     el.classList.toggle('hidden',!sim);
-    el.style.display=sim?'':'none';
-    el.style.visibility=sim?'visible':'hidden';
+    el.style.setProperty('display',sim?'':'none','important');
     el.setAttribute('aria-hidden',sim?'false':'true');
     if('disabled' in el) el.disabled=!sim;
   }
+  function todos(sel,sim){ document.querySelectorAll(sel).forEach(el=>visibilidade(el,sim)); }
 
   function aplicar(){
-    mostrar(document.getElementById('menu-sala-situacao'),podeSala());
-    mostrar(document.getElementById('menu-relatorios'),podeRelatorios());
-    document.querySelectorAll('#btn-nova-solicitacao,.btn-nova-solicitacao,[data-acao="nova-solicitacao"],[onclick*="abrirFormularioNovaSolicitacao"]').forEach(e=>mostrar(e,podeAbrir()));
-    document.querySelectorAll('.btn-editar-processo,[onclick*="abrirFormularioProcessoSIGEE"],[onclick*="editarProcesso"]').forEach(e=>mostrar(e,podeEditar()));
+    const r=regras();
+    visibilidade(document.getElementById('menu-usuarios'),r.usuarios);
+    visibilidade(document.getElementById('aba-usuarios'),r.usuarios);
+    visibilidade(document.getElementById('menu-logs'),r.logs);
+    visibilidade(document.getElementById('menu-relatorios'),r.relatorios);
+    visibilidade(document.getElementById('menu-sala-situacao'),r.sala);
+    todos('#btn-nova-solicitacao,.btn-nova-solicitacao,[data-acao="nova-solicitacao"],[onclick*="abrirFormularioNovaSolicitacao"]',r.novaSolicitacao);
+    todos('.btn-editar-processo,[onclick*="abrirFormularioProcessoSIGEE"],[onclick*="editarProcesso"]',r.editarProcesso);
+    todos('#btn-cadastrar-escola-master,.btn-nova-escola,[onclick*="abrirModalNovaEscola"]',r.cadastrarEscola);
+    visibilidade(document.getElementById('btn-importar-dados-master'),r.importarEscolas);
+    todos('.export-only',r.exportar);
   }
 
-  const navegarOriginal=window.navegar;
-  function navegarProtegido(aba){
-    const a=norm(aba).replace(/\s+/g,'-');
-    if((a==='SALA-SITUACAO'||a==='SALA-DE-SITUACAO')&&!podeSala()){
-      alert('A Sala de Situação é exclusiva dos perfis Master, SEC e Dirigente.');
-      return false;
-    }
-    if(a==='RELATORIOS'&&!podeRelatorios()){
-      alert('Seu perfil não possui acesso aos relatórios.');
-      return false;
-    }
-    return typeof navegarOriginal==='function'?navegarOriginal.apply(this,arguments):false;
+  function podeAcessarAba(aba){
+    const a=norm(aba).replace(/\s+/g,'-'); const r=regras();
+    if(a==='USUARIOS') return r.usuarios;
+    if(a==='LOGS') return r.logs;
+    if(a==='SALA-SITUACAO'||a==='SALA-DE-SITUACAO') return r.sala;
+    if(a==='PAINEL'||a==='RELATORIOS') return r.relatorios;
+    return true;
   }
 
-  function instalar(){
-    aplicar();
-    if(window.navegar!==navegarProtegido){
-      window.navegar=navegarProtegido;
-      try{navegar=navegarProtegido}catch(_){ }
-    }
-    try{
-      if(window.SIGEE_PERMISSOES?.MATRIZ){
-        const m=window.SIGEE_PERMISSOES.MATRIZ;
-        if(m.Estagiario) m.Estagiario.abrirSolicitacao=true;
-        if(m.Administrador) m.Administrador.editarProcesso=true;
-        m.Dirigente={global:false,usuarios:false,logs:false,importar:false,exportar:false,abrirSolicitacao:false,visualizarProcesso:true,moverProcesso:false,editarProcesso:false,excluirProcesso:false,regredirProcesso:false,cadastrarEscola:false,editarEscola:false,acessarRelatorios:true,acessarSalaSituacao:true};
+  function instalarNavegacao(){
+    const base=(window.SIGEE_NAVIGATION&&window.SIGEE_NAVIGATION.navegar)||window.navegar;
+    if(typeof base!=='function'||base.__SIGEE_PERFIL_249__) return;
+    const protegida=function(aba){
+      if(!podeAcessarAba(aba)){
+        alert('Seu perfil não possui acesso a esta área.');
+        return false;
       }
+      return base.apply(this,arguments);
+    };
+    protegida.__SIGEE_PERFIL_249__=true;
+    window.navegar=protegida; try{navegar=protegida}catch(_){ }
+  }
+
+  function sincronizarMatriz(){
+    try{
+      const m=window.SIGEE_PERMISSOES?.MATRIZ; if(!m) return;
+      if(m.Estagiario){m.Estagiario.abrirSolicitacao=true;m.Estagiario.editarEscola=false;}
+      if(m.Administrador){m.Administrador.editarProcesso=true;m.Administrador.cadastrarEscola=false;m.Administrador.importarEscolas=false;}
+      m.Gestor={global:true,usuarios:false,logs:false,importar:false,importarEscolas:false,exportar:false,abrirSolicitacao:false,visualizarProcesso:true,moverProcesso:false,editarProcesso:false,excluirProcesso:false,regredirProcesso:false,cadastrarEscola:false,editarEscola:false,acessarRelatorios:true,acessarSalaSituacao:true};
+      delete m.Dirigente;
     }catch(_){ }
   }
 
-  const obs=new MutationObserver(()=>aplicar());
+  function instalar(){ sincronizarMatriz(); aplicar(); instalarNavegacao(); }
   function iniciar(){
     instalar();
-    if(document.body) obs.observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style']});
-    [100,500,1500,3000].forEach(t=>setTimeout(instalar,t));
+    [50,250,800,1600].forEach(t=>setTimeout(instalar,t));
+    document.addEventListener('sigee:usuario-logado',instalar);
+    document.addEventListener('sigee:navegacao',aplicar);
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',iniciar,{once:true}); else iniciar();
-  window.addEventListener('load',instalar);
+  window.addEventListener('load',instalar,{once:true});
+  window.addEventListener('focus',()=>setTimeout(aplicar,50));
+  window.SIGEE_APLICAR_PERMISSOES_249=instalar;
 })();
