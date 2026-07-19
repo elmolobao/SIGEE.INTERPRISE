@@ -1364,10 +1364,8 @@
   }
   function abrirAnalise(id){const p=processo(id);if(!p)return;contextoRetorno=()=>abrirAnalise(id);const bloqueio=somenteLeitura()?'<p class="sigee-aviso33">Perfil com acesso somente para consulta.</p>':'';const acoes=somenteLeitura()?'':`<div class="sigee-acoes33"><button class="btn33 btn33-amarelo" data-prosseguir33>✍️ Prosseguir para Digitação</button><button class="btn33 btn33-roxo" data-pendencia33>⚠️ Registrar Pendência</button><button class="btn33 btn33-vermelho" data-indeferir33>⛔ Indeferir Processo</button></div>`;const el=modal(`🔍 Análise Realizada — ${escapar(p.codigo_sigee||p.id)}`,`${resumo(p)}${bloqueio}${acoes}<div class="sigee-linkhistorico33"><button data-historico33>📜 Ver histórico completo</button></div>`,'analise');el.querySelector('[data-prosseguir33]')?.addEventListener('click',()=>prosseguirAnalise(id));el.querySelector('[data-pendencia33]')?.addEventListener('click',()=>abrirFormularioPendencia(id));el.querySelector('[data-indeferir33]')?.addEventListener('click',()=>abrirFormularioIndeferimento(id));el.querySelector('[data-historico33]')?.addEventListener('click',()=>abrirHistorico(id,()=>abrirAnalise(id)));}
 
-  async function abrirFormularioPendencia(id){
+  function abrirFormularioPendencia(id){
     const p=processo(id);if(!p||somenteLeitura())return; contextoRetorno=()=>abrirFormularioPendencia(id);
-    /* A seleção deve abrir imediatamente. Pendências anteriores pertencem ao fluxo
-       'Tratar Pendência' e não precisam ser consultadas nesta abertura. */
     /* Ao abrir “Registrar Pendência”, todas as opções começam desmarcadas.
        Pendências já existentes são tratadas na janela própria “Tratar Pendência”. */
     const selecionadosAluno=[]; const selecionadosInst=[];
@@ -1566,7 +1564,6 @@
 
   window.abrirAnaliseSIGEE=abrirAnalise;
   window.abrirPendenciaSIGEE=abrirTratarPendencia;
-  window.abrirRegistrarPendenciaSIGEE=abrirFormularioPendencia;
   window.abrirHistoricoProcessoSIGEE=abrirHistorico;
   window.abrirHistoricoSIGEE=abrirHistorico;
 })();
@@ -1882,15 +1879,15 @@
          <h3>Decisão da Análise</h3>
          <p class="sigee-texto-apoio33">Escolha a providência adequada. Os campos específicos serão apresentados somente depois da decisão.</p>
          <div class="sigee-acoes33 sigee-acoes-decisao33">
-           <button type="button" class="btn33 btn33-verde" data-prosseguir093>✍️ Prosseguir para Digitação</button>
+           <button class="btn33 btn33-verde" data-prosseguir093>✍️ Prosseguir para Digitação</button>
            <button type="button" class="btn33 btn33-amarelo" data-pend093>⚠️ Registrar Pendência</button>
-           <button type="button" class="btn33 btn33-vermelho sigee-acao-indeferir33" data-ind093><span aria-hidden="true">✖</span> Indeferir Processo</button>
+           <button class="btn33 btn33-vermelho sigee-acao-indeferir33" data-ind093><span aria-hidden="true">✖</span> Indeferir Processo</button>
          </div>
        </section>
        <div class="sigee-rodape33 sigee-rodape-acoes33">
          <button class="btn33 sigee-historico33" data-hist093>📜 Histórico do Processo</button>
          <div class="sigee-acoes33">
-           <button type="button" class="btn33 btn33-vermelho" data-cancelar-analise093>Cancelar</button>
+           <button class="btn33 btn33-vermelho" data-cancelar-analise093>Cancelar</button>
          </div>
        </div>`,'analise');
 
@@ -1899,13 +1896,7 @@
       fechar();
       abrirEncaminharDigitacao(id,{origem:'Análise concluída'});
     });
-    el.querySelector('[data-pend093]').addEventListener('click',(evento)=>{
-      evento.preventDefault();
-      evento.stopPropagation();
-      evento.stopImmediatePropagation();
-      fechar();
-      setTimeout(()=>abrirFormularioPendencia(id),0);
-    });
+    el.querySelector('[data-pend093]').addEventListener('click',(event)=>{event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();abrirFormularioPendencia(id);});
     el.querySelector('[data-ind093]').addEventListener('click',()=>{fechar(); abrirFormularioIndeferimento(id);});
     el.querySelector('[data-hist093]').addEventListener('click',()=>{fechar(); if(typeof window.abrirHistoricoProcessoSIGEE==='function')window.abrirHistoricoProcessoSIGEE(id,()=>abrirAnaliseWorkflow093(id));});
   }
