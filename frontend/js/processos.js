@@ -164,7 +164,7 @@
         const modalidade = texto(p.modalidade || p.oferta_modalidade || p.modalidade_ensino || p.tipo_modalidade);
         const nivel = texto(p.nivel_oferta || p.oferta_nivel || p.ensino || p.nivel_ensino);
         if (modalidade && nivel && normalizar(modalidade) !== normalizar(nivel)) return `${modalidade} / ${nivel}`;
-        return modalidade || nivel;
+        return modalidade || nivel || 'Não informado';
     }
     function processoPrioridade(p) { return texto(p && p.prioridade) || 'Normal'; }
     function processoResponsavel(p) {
@@ -191,13 +191,13 @@
             p.atribuido_para_nome || p.atribuido_para ||
             p.responsavel_etapa_nome || p.responsavel_etapa ||
             p.criado_por_nome || p.criado_por
-        ) || 'Não atribuído';
+        ) || (p.processo_migrado ? 'Migrado' : 'Atribuição pendente');
     }
 
     function consolidarResponsavelProcesso(p) {
         if (!p) return p;
         const responsavel = processoResponsavel(p);
-        if (!responsavel || responsavel === 'Não atribuído') return p;
+        if (!responsavel || ['Não atribuído','Atribuição pendente','Migrado'].includes(responsavel)) return p;
         const etapa = normalizar(processoEtapa(p));
         p.tecnico_responsavel = responsavel;
         p.tecnico_responsavel_nome = p.tecnico_responsavel_nome || responsavel;
@@ -381,6 +381,7 @@
                 delete payload.inicio_ciclo;
                 delete payload.data_desarquivamento;
                 delete payload.data_etapa_inicial;
+                delete payload.etapa; // coluna inexistente em public.processos
                 return protegerDatasPayloadSIGEE(payload);
             }
         } catch (e) {}
@@ -398,7 +399,7 @@
             dias_decorridos: Number(p.dias_decorridos || 0),
             codigo_sigee: codigoSIGEE(p),
             prioridade: processoPrioridade(p),
-            tecnico_responsavel: processoResponsavel(p),
+            tecnico_responsavel: ['Não atribuído','Atribuição pendente','Migrado'].includes(processoResponsavel(p)) ? null : processoResponsavel(p),
             pendencia_aluno_itens: p.pendencia_aluno_itens || [],
             pendencia_instituicao_itens: p.pendencia_instituicao_itens || [],
             pendencia_aluno_complemento: p.pendencia_aluno_complemento || null,
