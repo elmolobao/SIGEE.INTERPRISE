@@ -1,5 +1,5 @@
 /**
- * SIGEE Enterprise RC4.1.3 — Catálogo único de perfis.
+ * SIGEE Enterprise RC4.1.4 — Catálogo único de perfis.
  * Nenhum módulo de interface deve manter listas ou normalizadores próprios.
  */
 (function (window) {
