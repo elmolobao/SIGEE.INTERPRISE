@@ -1065,14 +1065,30 @@
   function emailNorm(v){ return texto(v).toLowerCase(); }
   function semAcento(v){ return texto(v).normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
   function perfilCanonico(v){
-    const p = semAcento(v || 'Tecnico').toUpperCase();
-    if (p.includes('SEC')) return 'SEC';
+    // RC4.1.8: a normalização central é a autoridade. Não aplicar fallback
+    // silencioso quando o seletor possui um perfil oficial válido.
+    try {
+      if (window.SIGEE_SESSION && typeof window.SIGEE_SESSION.normalizarPerfil === 'function') {
+        const central = window.SIGEE_SESSION.normalizarPerfil(v);
+        if (central) return central;
+      }
+      if (window.SIGEE_CONFIG_UTILS && typeof window.SIGEE_CONFIG_UTILS.normalizarPerfil === 'function') {
+        const central = window.SIGEE_CONFIG_UTILS.normalizarPerfil(v);
+        if (central) return central;
+      }
+    } catch(e) {}
+
+    const original = texto(v);
+    const p = semAcento(original).toUpperCase();
+    if (!p) return '';
+    if (p === 'SEC' || p.includes('SECRETARIA')) return 'SEC';
     if (p.includes('MASTER')) return 'Master';
     if (p.includes('GESTOR') || p.includes('DIRIGENTE')) return 'Gestor';
     if (p.includes('ADMIN')) return 'Administrador';
     if (p.includes('CONSULT')) return 'Consulta';
-    if (p.includes('ESTAG')) return 'Estagiario';
-    return 'Tecnico';
+    if (p.includes('ESTAG')) return 'Estagiário';
+    if (p.includes('TECNIC')) return 'Técnico';
+    return '';
   }
   function nteIdDeValor(v){
     const s = texto(v);
@@ -1271,13 +1287,28 @@
     if (!c) return alert('Cliente Supabase não localizado.');
 
     const id = texto(document.getElementById('user-form-id')?.value);
+    const perfilSelect = document.getElementById('user-form-perfil');
+    const perfilSelecionadoBruto = texto(
+      perfilSelect?.value || perfilSelect?.selectedOptions?.[0]?.value || perfilSelect?.selectedOptions?.[0]?.textContent
+    );
+    const perfilSelecionado = perfilCanonico(perfilSelecionadoBruto);
+    const perfisOficiais = ['Master','SEC','Gestor','Administrador','Técnico','Estagiário','Consulta'];
+
+    if (!perfilSelecionado || !perfisOficiais.includes(perfilSelecionado)) {
+      window.__SIGEE_SALVANDO_USUARIO__ = false;
+      return alert('Perfil inválido ou não reconhecido. Selecione novamente o perfil antes de salvar.');
+    }
+
     const payload = payloadUsuario({
       nome: document.getElementById('user-form-nome')?.value,
       email: document.getElementById('user-form-email')?.value,
       senha: document.getElementById('user-form-senha')?.value,
-      perfil: document.getElementById('user-form-perfil')?.value,
+      perfil: perfilSelecionado,
       nte: document.getElementById('user-form-nte')?.value
     });
+    // Preserva literalmente o perfil validado. Nenhum fallback posterior pode
+    // converter Gestor em Técnico.
+    payload.perfil = perfilSelecionado;
 
     // Novo cadastro: exige recadastramento no primeiro acesso.
     // Edição comum: preserva o estado atual, sem reabrir o modal indevidamente.
@@ -1293,21 +1324,44 @@
     if (!payload.nome || !payload.email) return alert('Informe nome e e-mail.');
 
     try {
+      let usuarioPersistido = null;
       if (id) {
-        const { error } = await c.from(TABELA).update(payload).eq('id', id);
+        const { data, error } = await c.from(TABELA)
+          .update(payload)
+          .eq('id', id)
+          .select('id,email,perfil')
+          .maybeSingle();
         if (error) throw error;
+        usuarioPersistido = data;
       } else {
         const { data: existente, error: buscaErro } = await c.from(TABELA).select('id,email').eq('email', payload.email).maybeSingle();
         if (buscaErro) throw buscaErro;
         if (existente && existente.id) {
           alert('Este e-mail já existe. O cadastro existente será atualizado.');
-          const { error } = await c.from(TABELA).update(payload).eq('id', existente.id);
+          const { data, error } = await c.from(TABELA)
+            .update(payload)
+            .eq('id', existente.id)
+            .select('id,email,perfil')
+            .maybeSingle();
           if (error) throw error;
+          usuarioPersistido = data;
         } else {
-          const { error } = await c.from(TABELA).insert(payload);
+          const { data, error } = await c.from(TABELA)
+            .insert(payload)
+            .select('id,email,perfil')
+            .maybeSingle();
           if (error) throw error;
+          usuarioPersistido = data;
         }
       }
+
+      // Confirma o valor realmente gravado. Isto também evidencia eventual
+      // trigger/check do banco que tente alterar o perfil.
+      const perfilGravado = perfilCanonico(usuarioPersistido?.perfil || payload.perfil);
+      if (perfilGravado !== payload.perfil) {
+        throw new Error(`O Supabase retornou o perfil ${usuarioPersistido?.perfil || 'não informado'}, mas foi solicitado ${payload.perfil}.`);
+      }
+
       window.fecharModalUsuario();
       await window.carregarListaUsuarios();
       try {
@@ -1315,7 +1369,7 @@
           registrarLog(`Usuário ${payload.email} atualizado com o perfil ${payload.perfil}.`);
         }
       } catch(e) {}
-      alert(`Usuário salvo. Perfil aplicado: ${payload.perfil}. A alteração valerá no próximo login do usuário.`);
+      alert(`Usuário salvo. Perfil confirmado no banco: ${perfilGravado}. A alteração valerá no próximo login do usuário.`);
     } catch(e) {
       console.error('Erro ao salvar usuário:', e);
       alert('Erro ao salvar usuário: ' + (e.message || e));
