@@ -7840,17 +7840,18 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
       // RC4.3.7: marca o login manual desta execução. Sessão antiga armazenada
       // no navegador não pode abrir o recadastramento sobre a tela de login.
       window.__SIGEE_LOGIN_CONCLUIDO__ = true;
+      const detalheLogin = { usuario: u, loginConcluido: true };
       try {
-        document.dispatchEvent(new CustomEvent('sigee:usuario-logado', { detail: { usuario: u, loginConcluido: true } }));
+        document.dispatchEvent(new CustomEvent('sigee:usuario-logado', { detail: detalheLogin }));
       } catch (_) {}
-      // RC4.3.9: chamada direta e aguardada. Evita dependência da ordem dos
-      // listeners e confirma no banco o valor atual de forcar_troca_senha.
+      // RC4.3.10: chamada direta e aguardada. O recadastramento não depende mais
+      // da ordem de execução do listener global ou de uma sessão antiga.
       try {
         if (window.SIGEE_AUTH && typeof window.SIGEE_AUTH.verificarPrimeiroAcesso === 'function') {
-          await window.SIGEE_AUTH.verificarPrimeiroAcesso({ detail: { usuario: u, loginConcluido: true } });
+          await window.SIGEE_AUTH.verificarPrimeiroAcesso({ detail: detalheLogin });
         }
-      } catch (erroTrocaSenha) {
-        console.error('[SIGEE] Falha ao verificar recadastramento:', erroTrocaSenha);
+      } catch (erroRecadastramento) {
+        console.error('[SIGEE RC4.3.10] Falha ao acionar recadastramento:', erroRecadastramento);
       }
     }catch(e){
       console.error('[SIGEE] Erro login', e);
@@ -9652,7 +9653,7 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
       senha_hash: txt(u.senha_hash || u.senha || 'SEC@2026'),
       ativo: u.ativo !== false && u.Ativo !== false,
       Ativo: u.ativo !== false && u.Ativo !== false,
-      forcar_troca_senha: u.forcar_troca_senha === true || u.forcar_troca_senha === 1 || ['true','1','t'].includes(String(u.forcar_troca_senha || '').toLowerCase()),
+      forcar_troca_senha: !!u.forcar_troca_senha,
       pode_editar: perfil === 'Estagiário' || perfil === 'Consulta' ? false : (u.pode_editar !== false)
     };
   }
