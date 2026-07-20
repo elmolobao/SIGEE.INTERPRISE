@@ -127,7 +127,8 @@
     function isGestor(u) { return perfil(u) === 'Gestor'; }
     function isConsulta(u) { return perfil(u) === 'Consulta'; }
     function isEstagiario(u) { return perfil(u) === 'Estagiário'; }
-    function isGlobal(u) { return isMaster(u); }
+    // Master e SEC possuem consulta global dos processos. As permissões de mover, editar, excluir ou regredir continuam restritas pela matriz de perfil.
+    function isGlobal(u) { return isMaster(u) || isSEC(u); }
     function podeGerirProcessos(u) { return isMaster(u); }
 
     function numeroNte(v) {
