@@ -9071,22 +9071,9 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     );
   }
 
+  // Instalação idempotente: uma única execução é suficiente. As quatro
+  // reinstalações anteriores geravam trabalho e logs redundantes na carga.
   instalarAutoridadeOperacionalSIGEE256();
-
-  if (document.readyState === 'loading') {
-    document.addEventListener(
-      'DOMContentLoaded',
-      instalarAutoridadeOperacionalSIGEE256,
-      { once: true }
-    );
-  }
-
-  window.addEventListener('load', function () {
-    instalarAutoridadeOperacionalSIGEE256();
-    setTimeout(instalarAutoridadeOperacionalSIGEE256, 100);
-    setTimeout(instalarAutoridadeOperacionalSIGEE256, 500);
-    setTimeout(instalarAutoridadeOperacionalSIGEE256, 1500);
-  }, { once: true });
 })();
 
 
@@ -9127,23 +9114,35 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
   window.SIGEE_REINSTALAR_CENTRAL_PROCESSOS_257B =
     reinstalarCentralOficial257B;
 
-  function agendar257B() {
-    reinstalarCentralOficial257B();
-    setTimeout(reinstalarCentralOficial257B, 100);
-    setTimeout(reinstalarCentralOficial257B, 500);
-    setTimeout(reinstalarCentralOficial257B, 1500);
-    setTimeout(reinstalarCentralOficial257B, 3000);
+  let timer257B = 0;
+  let execucao257B = false;
+
+  function centralProcessosVisivel257B() {
+    const aba = document.getElementById('aba-processos');
+    return !!aba && !aba.classList.contains('hidden') && aba.getClientRects().length > 0;
+  }
+
+  function agendar257B(atraso = 120, forcar = false) {
+    clearTimeout(timer257B);
+    timer257B = setTimeout(function () {
+      if (document.hidden || execucao257B) return;
+      if (!forcar && !centralProcessosVisivel257B()) return;
+      execucao257B = true;
+      try { reinstalarCentralOficial257B(); }
+      finally { execucao257B = false; }
+    }, atraso);
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', agendar257B, { once: true });
+    document.addEventListener('DOMContentLoaded', function () { agendar257B(80, true); }, { once: true });
   } else {
-    agendar257B();
+    agendar257B(80, true);
   }
 
-  window.addEventListener('load', agendar257B, { once: true });
-  window.addEventListener('focus', function () {
-    setTimeout(reinstalarCentralOficial257B, 150);
+  // Ao retornar à aba do navegador, redesenha somente se a Central estiver visível.
+  // O listener de focus anterior reconstruía a tabela a cada alternância de aba.
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) agendar257B(180, false);
   });
 })();
 
