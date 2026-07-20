@@ -28,8 +28,19 @@
   function normalizeUser(user){
     if(!user||typeof user!=='object') return null;
     const out={...user};
-    const profile=canonicalProfile(out.perfil||out.tipo||out.role||out.tipo_perfil);
-    if(profile) out.perfil=profile;
+    let lockedProfile=canonicalProfile(out.perfil||out.tipo||out.role||out.tipo_perfil);
+    Object.defineProperty(out,'perfil',{
+      enumerable:true,
+      configurable:false,
+      get(){return lockedProfile;},
+      set(value){
+        const next=canonicalProfile(value);
+        // Compatibilidade segura: módulos legados podem repetir o mesmo perfil,
+        // mas não podem rebaixar/trocar o perfil durante a sessão.
+        if(!lockedProfile && next) lockedProfile=next;
+        else if(next===lockedProfile) lockedProfile=next;
+      }
+    });
     return out;
   }
   function sameIdentity(a,b){return emailOf(a) && emailOf(a)===emailOf(b);}
