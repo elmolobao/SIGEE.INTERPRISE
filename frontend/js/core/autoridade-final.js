@@ -1,72 +1,32 @@
 /**
- * SIGEE RC4.1.14 — Autoridade final de identidade, perfil e permissões.
- * Deve ser o último script local carregado no index.html.
+ * SIGEE RC4.1.15 — Autoridade final otimizada de identidade e permissões.
+ * Sem polling, varredura de storage ou reaplicações temporizadas.
  */
 (function (window, document) {
   'use strict';
-  if (window.__SIGEE_AUTHORITY_4114__) return;
-  window.__SIGEE_AUTHORITY_4114__ = true;
+  if (window.__SIGEE_AUTHORITY_4115__) return;
+  window.__SIGEE_AUTHORITY_4115__ = true;
 
   function normalize(value) {
     try {
-      if (window.SIGEE_PERMISSOES?.normalizarPerfil) return window.SIGEE_PERMISSOES.normalizarPerfil(value);
       if (window.SIGEE_SESSION?.normalizarPerfil) return window.SIGEE_SESSION.normalizarPerfil(value);
+      if (window.SIGEE_PERMISSOES?.normalizarPerfil) return window.SIGEE_PERMISSOES.normalizarPerfil(value);
     } catch (_) {}
-    const p = String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toUpperCase();
-    if (p.includes('MASTER')) return 'Master';
-    if (p === 'SEC' || p.includes('SECRETARIA')) return 'SEC';
-    if (p.includes('GESTOR') || p.includes('DIRIGENTE')) return 'Gestor';
-    if (p.includes('ADMIN')) return 'Administrador';
-    if (p.includes('ESTAG')) return 'Estagiário';
-    if (p.includes('CONSULT')) return 'Consulta';
-    if (p.includes('TECNIC')) return 'Técnico';
     return String(value || '').trim();
   }
 
-  function sameEmail(a, b) {
-    return String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+  function current() {
+    try { return window.SIGEE_SESSION?.getUser?.() || window.usuarioLogado || null; }
+    catch (_) { return window.usuarioLogado || null; }
   }
 
-  function readStoredUsers() {
-    const arrays = [];
-    if (Array.isArray(window.usuariosDB)) arrays.push(window.usuariosDB);
-    ['SIGEE_USUARIOS_DB','usuariosDB','usuarios_sigee_cache'].forEach(key => {
-      try {
-        const data = JSON.parse(localStorage.getItem(key) || 'null');
-        if (Array.isArray(data)) arrays.push(data);
-      } catch (_) {}
-    });
-    return arrays.flat();
+  function can(action, user) {
+    const target = user || current();
+    return Boolean(target && window.SIGEE_PERMISSOES?.pode?.(action, target));
   }
 
-  function reconcileUser() {
-    let base = null;
-    try { base = window.SIGEE_SESSION?.getUser?.() || null; } catch (_) {}
-    if (!base && window.usuarioLogado) base = window.usuarioLogado;
-    if (!base) return null;
-
-    const email = base.email || base.login || base.usuario;
-    const cadastrado = readStoredUsers().find(u => sameEmail(u?.email || u?.login, email));
-    const merged = Object.assign({}, base, cadastrado || {});
-    merged.perfil = normalize((cadastrado && (cadastrado.perfil || cadastrado.tipo || cadastrado.role)) || base.perfil || base.tipo || base.role);
-    if (!merged.perfil) return null;
-
-    try {
-      if (window.SIGEE_SESSION?.setUser) window.SIGEE_SESSION.setUser(merged, { persist: true, emit: false });
-      else window.usuarioLogado = merged;
-    } catch (_) { window.usuarioLogado = merged; }
-    window.usuarioLogado = merged;
-    return merged;
-  }
-
-  function current() { return reconcileUser(); }
-  function can(action) {
-    const user = current();
-    return Boolean(user && window.SIGEE_PERMISSOES?.pode?.(action, user));
-  }
-
-  function visibility(selector, visible) {
-    document.querySelectorAll(selector).forEach(el => {
+  function setVisibility(selector, visible) {
+    document.querySelectorAll(selector).forEach(function (el) {
       el.classList.toggle('hidden', !visible);
       el.style.display = visible ? '' : 'none';
       el.setAttribute('aria-hidden', visible ? 'false' : 'true');
@@ -74,107 +34,92 @@
     });
   }
 
-
-
-  function renderEffectiveIdentity() {
-    const user = reconcileUser();
-    if (!user) return null;
-    const perfil = normalize(user.perfil);
-    const nte = user.nte || user.nte_nome || user.grupo || user.territorio || '';
-    const nome = user.nome || user.nome_completo || user.email || '';
+  function renderIdentity(user) {
+    const target = user || current();
+    if (!target) return null;
+    const perfil = normalize(target.perfil || target.tipo || target.role);
+    const nte = target.nte || target.nte_nome || target.grupo || target.territorio || '';
+    const nome = target.nome || target.nome_completo || target.email || '';
     const nomeEl = document.getElementById('user-nome');
     const perfilEl = document.getElementById('user-perfil');
     if (nomeEl && nomeEl.textContent !== nome) nomeEl.textContent = nome;
-    const textoPerfil = `${perfil}${nte ? ' | ' + nte : ''}`;
-    if (perfilEl && perfilEl.textContent !== textoPerfil) perfilEl.textContent = textoPerfil;
-    return user;
-  }
-
-  function updateIdentity(user) {
-    if (!user) return;
-    const perfil = normalize(user.perfil);
-    const nte = user.nte || user.nte_nome || user.grupo || user.territorio || '';
-
-    const card = document.getElementById('user-perfil');
-    const texto = `${perfil}${nte ? ' | ' + nte : ''}`;
-    if (card && card.textContent !== texto) card.textContent = texto;
-
-    document.querySelectorAll('[data-sigee-user-profile],#perfil-usuario-logado,#usuario-perfil-logado').forEach(el => {
-      el.textContent = perfil;
+    const profileText = `${perfil}${nte ? ' | ' + nte : ''}`;
+    if (perfilEl && perfilEl.textContent !== profileText) perfilEl.textContent = profileText;
+    document.querySelectorAll('[data-sigee-user-profile],#perfil-usuario-logado,#usuario-perfil-logado').forEach(function (el) {
+      if (el.textContent !== perfil) el.textContent = perfil;
     });
-
     try { window.SIGEE_FOOTER_INSTITUCIONAL?.atualizar?.(); } catch (_) {}
+    return target;
   }
 
   function apply() {
     const user = current();
-    if (!user || !document.body) return;
-    document.body.dataset.sigeePerfil = user.perfil;
-    updateIdentity(user);
+    if (!user || !document.body) return false;
+    const perfil = normalize(user.perfil);
+    document.body.dataset.sigeePerfil = perfil;
+    renderIdentity(user);
 
-    visibility('#menu-usuarios,#menu-logs,#menu-administracao-bloco', can('usuarios'));
-    visibility('#menu-relatorios', can('relatorios'));
-    visibility('#menu-sala-situacao', can('salaSituacao'));
-    visibility('#menu-inteligencia', can('inteligencia'));
-    visibility('#btn-nova-solicitacao,[data-acao="nova-solicitacao"],.btn-nova-solicitacao,button[onclick*="abrirFormularioNovaSolicitacao"]', can('abrirSolicitacao'));
-    visibility('[data-sigee-permissao="editar-escola"],.btn-editar-escola,.btn-alterar-escola-sigee,button[onclick*="editarEscola"],button[onclick*="abrirModalEditarEscola"]', can('editarEscola'));
+    setVisibility('#menu-usuarios,#menu-logs,#menu-administracao-bloco', can('usuarios', user));
+    setVisibility('#menu-relatorios', can('relatorios', user));
+    setVisibility('#menu-sala-situacao', can('salaSituacao', user));
+    setVisibility('#menu-inteligencia', can('inteligencia', user));
+    setVisibility('#btn-nova-solicitacao,[data-acao="nova-solicitacao"],.btn-nova-solicitacao,button[onclick*="abrirFormularioNovaSolicitacao"]', can('abrirSolicitacao', user));
+    setVisibility('[data-sigee-permissao="editar-escola"],.btn-editar-escola,.btn-alterar-escola-sigee,button[onclick*="editarEscola"],button[onclick*="abrirModalEditarEscola"]', can('editarEscola', user));
 
-    if (!can('usuarios')) visibility('#aba-usuarios,#aba-logs,#aba-diagnostico', false);
-    if (!can('salaSituacao')) visibility('#aba-sala-situacao', false);
-    if (!can('inteligencia')) visibility('#aba-inteligencia', false);
+    if (!can('usuarios', user)) setVisibility('#aba-usuarios,#aba-logs,#aba-diagnostico', false);
+    if (!can('salaSituacao', user)) setVisibility('#aba-sala-situacao', false);
+    if (!can('inteligencia', user)) setVisibility('#aba-inteligencia', false);
+    return true;
   }
 
   function guard(name, action, message) {
     const fn = window[name];
-    if (typeof fn !== 'function' || fn.__SIGEE_4114_GUARD__) return;
+    if (typeof fn !== 'function' || fn.__SIGEE_4115_GUARD__) return;
     const wrapped = function () {
-      if (!can(action)) {
-        alert(message || 'Seu perfil não possui permissão para esta ação.');
-        return false;
-      }
+      if (!can(action)) { alert(message || 'Seu perfil não possui permissão para esta ação.'); return false; }
       return fn.apply(this, arguments);
     };
-    wrapped.__SIGEE_4114_GUARD__ = true;
+    wrapped.__SIGEE_4115_GUARD__ = true;
     window[name] = wrapped;
     try { globalThis[name] = wrapped; } catch (_) {}
   }
 
-  function guards() {
+  function installGuards() {
     guard('abrirFormularioNovaSolicitacao', 'abrirSolicitacao');
-    ['abrirModalEditarEscolaSIGEE','editarEscolaSIGEE','editarEscolaSIGEEV45','abrirModalEditarEscolaV37']
-      .forEach(name => guard(name, 'editarEscola', 'Seu perfil não possui permissão para editar escolas.'));
+    ['abrirModalEditarEscolaSIGEE','editarEscolaSIGEE','editarEscolaSIGEEV45','abrirModalEditarEscolaV37'].forEach(function (name) {
+      guard(name, 'editarEscola', 'Seu perfil não possui permissão para editar escolas.');
+    });
   }
 
-  function enforce() {
-    guards();
-    apply();
-  }
+  function enforce() { installGuards(); return apply(); }
+  function schedule() { window.requestAnimationFrame ? requestAnimationFrame(enforce) : setTimeout(enforce, 0); }
 
-  function burst() {
-    [0, 50, 150, 400, 900, 1800, 3200].forEach(ms => setTimeout(enforce, ms));
-  }
-
-  document.addEventListener('DOMContentLoaded', burst);
-  document.addEventListener('sigee:usuario-logado', burst);
-  document.addEventListener('sigee:login-concluido', burst);
-  document.addEventListener('sigee:navegacao-concluida', burst);
-  window.addEventListener('load', burst);
+  document.addEventListener('DOMContentLoaded', schedule, { once: true });
+  document.addEventListener('sigee:usuario-logado', schedule);
+  document.addEventListener('sigee:login-concluido', schedule);
+  document.addEventListener('sigee:navegacao-concluida', schedule);
+  window.addEventListener('load', schedule, { once: true });
 
   const previousNavigate = window.navegar;
-  if (typeof previousNavigate === 'function' && !previousNavigate.__SIGEE_4114_NAV__) {
+  if (typeof previousNavigate === 'function' && !previousNavigate.__SIGEE_4115_NAV__) {
     const nav = function (aba) {
       if (['usuarios','logs','diagnostico'].includes(aba) && !can('usuarios')) { alert('Acesso permitido apenas ao perfil Master.'); aba = 'painel'; }
       if (aba === 'sala-situacao' && !can('salaSituacao')) { alert('Seu perfil não possui acesso à Sala de Situação.'); aba = 'painel'; }
       if ((aba === 'inteligencia' || aba === 'centro-inteligencia') && !can('inteligencia')) { alert('Acesso permitido apenas ao perfil Master.'); aba = 'painel'; }
-      const out = previousNavigate.call(this, aba);
-      burst();
-      return out;
+      const result = previousNavigate.call(this, aba);
+      schedule();
+      return result;
     };
-    nav.__SIGEE_4114_NAV__ = true;
+    nav.__SIGEE_4115_NAV__ = true;
     window.navegar = nav;
     try { globalThis.navegar = nav; } catch (_) {}
   }
 
-  window.SIGEE_RENDERIZAR_IDENTIDADE_EFETIVA = renderEffectiveIdentity;
-  window.SIGEE_AUTORIDADE_FINAL = Object.freeze({ aplicar: enforce, reaplicar: burst, reconciliarUsuario: reconcileUser, renderizarIdentidade: renderEffectiveIdentity });
+  window.SIGEE_RENDERIZAR_IDENTIDADE_EFETIVA = renderIdentity;
+  window.SIGEE_AUTORIDADE_FINAL = Object.freeze({
+    aplicar: enforce,
+    reaplicar: schedule,
+    reconciliarUsuario: current,
+    renderizarIdentidade: renderIdentity
+  });
 })(window, document);

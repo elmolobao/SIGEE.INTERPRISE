@@ -1,5 +1,5 @@
 /**
- * SIGEE Enterprise RC4.1 — Autoridade única de perfis e permissões.
+ * SIGEE Enterprise RC4.1.15 — Autoridade única de perfis e permissões.
  * Não executa polling, MutationObserver ou reaplicações contínuas.
  */
 (function (window) {
@@ -29,7 +29,7 @@
     return String(value || '').trim();
   }
   function user() {
-    return window.usuarioLogado || (window.SIGEE_SESSION ? window.SIGEE_SESSION.getUser() : null);
+    return window.SIGEE_SESSION ? window.SIGEE_SESSION.getUser() : (window.usuarioLogado || null);
   }
   function profile(target) { return normalize((target || user() || {}).perfil); }
   function can(action, target) { return Boolean(MATRIX[profile(target)] && MATRIX[profile(target)][action]); }
@@ -67,8 +67,8 @@
   function apply() {
     const current = user();
     if (!current || !document.body) return false;
-    current.perfil = profile(current);
-    document.body.dataset.sigeePerfil = current.perfil;
+    const currentProfile = profile(current);
+    document.body.dataset.sigeePerfil = currentProfile;
     setVisible('#menu-usuarios,#menu-administracao-bloco', can('usuarios', current));
     setVisible('#menu-logs', can('logs', current));
     setVisible('#menu-sala-situacao', can('salaSituacao', current));

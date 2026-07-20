@@ -1,5 +1,5 @@
 /**
- * SIGEE Enterprise RC4.1 — Sessão central.
+ * SIGEE Enterprise RC4.1.15 — Sessão central otimizada.
  * Fonte única para leitura, gravação e eventos do usuário autenticado.
  */
 (function (window) {
@@ -79,18 +79,34 @@
     return currentUser;
   }
 
+  function stableUserKey(user) {
+    if (!user) return '';
+    return JSON.stringify({
+      id: user.id == null ? null : user.id,
+      email: String(user.email || user.login || '').trim().toLowerCase(),
+      perfil: normalizeProfile(user.perfil || user.tipo || user.role),
+      nte: String(user.nte || user.nte_nome || user.grupo || user.territorio || user.nte_id || '').trim(),
+      nome: String(user.nome || user.nome_completo || '').trim()
+    });
+  }
+
   function setUser(user, options) {
     const opts = Object.assign({ persist: true, emit: true }, options || {});
-    currentUser = normalizeUser(user);
+    const nextUser = normalizeUser(user);
+    const previousKey = stableUserKey(currentUser || window.usuarioLogado);
+    const nextKey = stableUserKey(nextUser);
+    const changed = previousKey !== nextKey;
+
+    currentUser = nextUser;
     window.usuarioLogado = currentUser;
 
-    if (opts.persist && window.localStorage) {
+    if (opts.persist && changed && window.localStorage) {
       STORAGE_KEYS.forEach(function (key) {
         if (currentUser) localStorage.setItem(key, JSON.stringify(currentUser));
         else localStorage.removeItem(key);
       });
     }
-    if (opts.emit) emit(currentUser ? 'sigee:usuario-logado' : 'sigee:usuario-deslogado', currentUser);
+    if (opts.emit && changed) emit(currentUser ? 'sigee:usuario-logado' : 'sigee:usuario-deslogado', currentUser);
     return currentUser;
   }
 
