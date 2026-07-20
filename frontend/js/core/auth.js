@@ -1,5 +1,5 @@
 /**
- * SIGEE Enterprise RC4.3.5 — Autenticação e primeiro acesso.
+ * SIGEE Enterprise RC4.3.6 — Autenticação e primeiro acesso.
  * Depende de session.js e supabase.js. Não controla menus ou permissões.
  */
 (function (window) {
@@ -96,11 +96,11 @@
     const user = getUser();
     const loginCompleted = event?.detail?.loginConcluido === true;
     if (!user || user.forcar_troca_senha !== true) return;
-    // Nunca exibir o modal sobre a tela de login. O evento de login é a
-    // autoridade principal; a verificação visual protege restaurações de sessão.
-    if (!loginCompleted && !authenticatedAreaIsVisible()) return;
+    // Exigência absoluta: o modal só pode abrir após um login manual concluído
+    // nesta execução da página. Uma sessão antiga em localStorage não basta.
+    if (!loginCompleted || window.__SIGEE_LOGIN_CONCLUIDO__ !== true) return;
     setTimeout(function () {
-      if (authenticatedAreaIsVisible()) showPasswordModal();
+      if (window.__SIGEE_LOGIN_CONCLUIDO__ === true && authenticatedAreaIsVisible()) showPasswordModal();
     }, 120);
   }
 
@@ -115,6 +115,4 @@
   window.perfilCanonicoSIGEE = normalizeProfile;
 
   document.addEventListener('sigee:usuario-logado', checkFirstAccess);
-  // Em restauração de sessão, só verifica depois que a área autenticada estiver visível.
-  window.addEventListener('load', function () { setTimeout(function () { checkFirstAccess(); }, 400); });
 })(window);
