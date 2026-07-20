@@ -28,7 +28,7 @@
     if(p.includes('ESTAG'))return 'Estagiario';
     return 'Tecnico';
   }
-  function global(){ return perfil()==='Master'; }
+  function global(){ return window.SIGEE_PERMISSOES?.ehGlobal?.(usuario())===true; }
   function nteId(obj){
     if(!obj)return null;
     const direto=obj.nte_id??obj.nteId;

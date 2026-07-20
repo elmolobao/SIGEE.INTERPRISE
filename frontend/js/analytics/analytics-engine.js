@@ -115,7 +115,8 @@
   }
 
   function calcular(filtro={}){
-    const todos=sincronizar();
+    const origem=sincronizar();
+    const todos=window.SIGEE_PERMISSOES?.filtrarTerritorio?window.SIGEE_PERMISSOES.filtrarTerritorio(origem):origem.slice();
     const alvo=filtro.nte&&filtro.nte!=='TODOS'&&filtro.nte!=='GLOBAL'?Number(filtro.nte):null;
     const periodo=criarPeriodo(filtro.tipo||'ACUMULADO',filtro.ini||null,filtro.fim||null);
     const chave=`${assinaturaAtual}|${alvo||'GLOBAL'}|${periodo.tipo}|${periodo.ini?.toISOString()||''}|${periodo.fim?.toISOString()||''}`;
