@@ -7837,7 +7837,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
       aplicarPermissoesCore();
       await registrarLogCore('LOGIN', `Perfil ${u.perfil} / ${u.nte}`);
       if(typeof navegar === 'function') navegar('processos'); else await carregarDashboardCore();
-      // RC4.3.6: marca o login manual desta execução. Sessão antiga armazenada
+      // RC4.3.7: marca o login manual desta execução. Sessão antiga armazenada
       // no navegador não pode abrir o recadastramento sobre a tela de login.
       window.__SIGEE_LOGIN_CONCLUIDO__ = true;
       try {
@@ -9860,7 +9860,7 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
   }
 
   async function verificarTrocaSenhaObrigatoria() {
-    // RC4.3.6: rotina legada desativada. A única autoridade para abrir o
+    // RC4.3.7: rotina legada desativada. A única autoridade para abrir o
     // recadastramento é SIGEE_AUTH, acionada pelo evento de login concluído.
     return false;
   }
