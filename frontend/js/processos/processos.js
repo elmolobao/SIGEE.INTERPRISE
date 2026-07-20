@@ -674,34 +674,81 @@
           .sigee-editproc-meta{grid-column:1/-1;padding:10px 12px;border-radius:10px;background:rgba(14,165,233,.09);color:#bae6fd;font-size:11px}
           .sigee-editproc-actions{grid-column:1/-1;display:flex;justify-content:flex-end;gap:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.10)}
           .sigee-editproc-actions button{padding:10px 15px;border-radius:10px;font-weight:900;cursor:pointer}.sigee-editproc-cancel{background:#334155!important;color:#fff!important}.sigee-editproc-save{background:#059669!important;color:#fff!important}
+          .sigee-editproc-school-wrap{position:relative}.sigee-editproc-school-results{position:absolute;z-index:4;left:0;right:0;top:calc(100% + 5px);max-height:250px;overflow:auto;border:1px solid #38bdf8;border-radius:10px;background:#fff;box-shadow:0 18px 45px rgba(0,0,0,.4)}
+          .sigee-editproc-school-results.hidden{display:none}.sigee-editproc-school-option{display:flex!important;width:100%;flex-direction:column;align-items:flex-start!important;gap:3px;padding:10px 12px!important;border:0!important;border-bottom:1px solid #e2e8f0!important;border-radius:0!important;background:#fff!important;color:#0f172a!important;text-align:left;cursor:pointer}.sigee-editproc-school-option:hover,.sigee-editproc-school-option:focus{background:#e0f2fe!important}.sigee-editproc-school-option strong{font-size:11px}.sigee-editproc-school-option span{font-size:10px;color:#475569}.sigee-editproc-school-empty{padding:13px;color:#475569;font-size:11px}.sigee-editproc-school-label small{color:#bae6fd;text-transform:none;font-weight:600}.sigee-editproc-school-label small.sigee-editproc-invalid{color:#fca5a5}
           @media(max-width:620px){.sigee-editproc-body{grid-template-columns:1fr}.sigee-editproc-body label.full,.sigee-editproc-meta,.sigee-editproc-actions{grid-column:auto}}
         `;
         document.head.appendChild(style);
     }
 
-    async function carregarCatalogoEdicaoSIGEE() {
-        let escolas = Array.isArray(window.escolasDB) ? window.escolasDB.slice() : [];
-        let usuarios = Array.isArray(window.usuariosDB) ? window.usuariosDB.slice() : [];
+    function numeroNteEdicao(valor) {
+        const m = texto(valor).match(/(?:NTE\s*[-:]?\s*)?(\d{1,2})/i);
+        return m ? Number(m[1]) : null;
+    }
+
+    function escolaEdicaoNormalizada(e) {
+        return {
+            id: texto(e && e.id),
+            nome: texto(e && (e.nome_escola || e.nome || e.escola)),
+            municipio: texto(e && e.municipio),
+            mec: texto(e && (e.cod_mec || e.codigo_mec || e.mec)),
+            nte: nteRegistroEdicao(e),
+            nte_id: e && e.nte_id != null ? Number(e.nte_id) : numeroNteEdicao(nteRegistroEdicao(e)),
+            bruto: e || {}
+        };
+    }
+
+    async function pesquisarEscolasEdicaoSIGEE(termo, nte) {
+        const busca = texto(termo);
+        if (busca.length < 2) return [];
+        const nteNumero = numeroNteEdicao(nte);
+        const chave = normalizar(busca);
+        const local = (Array.isArray(window.escolasDB) ? window.escolasDB : [])
+            .map(escolaEdicaoNormalizada)
+            .filter(e => (!nteNumero || e.nte_id === nteNumero) && normalizar(`${e.nome} ${e.municipio} ${e.mec}`).includes(chave))
+            .slice(0, 30);
         const c = supabaseClient();
-        async function buscarTodos(tabela, colunas) {
-            if (!c) return [];
-            const saida = [];
-            for (let inicio = 0; inicio < 50000; inicio += 1000) {
-                const { data, error } = await c.from(tabela).select(colunas).range(inicio, inicio + 999);
-                if (error) throw error;
-                const lote = data || [];
-                saida.push(...lote);
-                if (lote.length < 1000) break;
-            }
-            return saida;
+        if (!c) return local;
+        try {
+            const seguro = busca.replace(/[,%()]/g, ' ').replace(/\s+/g, ' ').trim();
+            let q = c.from((window.SIGEE_SUPABASE_TABELAS && window.SIGEE_SUPABASE_TABELAS.escolas) || 'escolas_sigee')
+                .select('id,nome_escola,municipio,cod_mec,nte_id,nte,status_acervo,ativo')
+                .or(`nome_escola.ilike.%${seguro}%,municipio.ilike.%${seguro}%,cod_mec.ilike.%${seguro}%`)
+                .limit(30);
+            if (nteNumero) q = q.eq('nte_id', nteNumero);
+            const { data, error } = await q;
+            if (error) throw error;
+            const remoto = (data || []).map(escolaEdicaoNormalizada);
+            const mapa = new Map();
+            [...local, ...remoto].forEach(e => mapa.set(e.id || `${normalizar(e.nome)}|${e.nte_id}`, e));
+            return Array.from(mapa.values()).slice(0, 30);
+        } catch (erro) {
+            console.warn('[SIGEE] Pesquisa de escolas na edição indisponível; usando catálogo local.', erro);
+            return local;
         }
-        try {
-            if (!escolas.length) escolas = await buscarTodos((window.SIGEE_SUPABASE_TABELAS && window.SIGEE_SUPABASE_TABELAS.escolas) || 'escolas_sigee', '*');
-        } catch (e) { console.warn('[SIGEE] Catálogo de escolas indisponível para edição.', e); }
-        try {
-            if (!usuarios.length) usuarios = await buscarTodos((window.SIGEE_SUPABASE_TABELAS && window.SIGEE_SUPABASE_TABELAS.usuarios) || 'usuarios_sigee', '*');
-        } catch (e) { console.warn('[SIGEE] Usuários indisponíveis para edição.', e); }
-        return { escolas, usuarios };
+    }
+
+    async function carregarResponsaveisEdicaoSIGEE(nte) {
+        const nteNumero = numeroNteEdicao(nte);
+        const locais = Array.isArray(window.usuariosDB) ? window.usuariosDB.slice() : [];
+        const c = supabaseClient();
+        let usuarios = locais;
+        if (c) {
+            try {
+                let q = c.from((window.SIGEE_SUPABASE_TABELAS && window.SIGEE_SUPABASE_TABELAS.usuarios) || 'usuarios_sigee')
+                    .select('id,nome,nome_completo,email,perfil,ativo,nte,nte_id')
+                    .limit(300);
+                if (nteNumero) q = q.eq('nte_id', nteNumero);
+                const { data, error } = await q;
+                if (error) throw error;
+                usuarios = data || [];
+            } catch (erro) {
+                console.warn('[SIGEE] Responsáveis indisponíveis para edição; usando sessão local.', erro);
+            }
+        }
+        return usuarios
+            .filter(x => x.ativo !== false && (!nteNumero || numeroNteEdicao(nteRegistroEdicao(x)) === nteNumero) && ['TECNICO','ADMINISTRADOR','MASTER'].some(k=>normalizar(x.perfil).includes(k)))
+            .sort((a,b)=>texto(a.nome||a.nome_completo||a.email).localeCompare(texto(b.nome||b.nome_completo||b.email),'pt-BR'));
     }
 
     function nteRegistroEdicao(item) {
@@ -738,7 +785,6 @@
 
         garantirEstiloEdicaoProcessoSIGEE();
         document.getElementById('sigee-modal-edicao-processo')?.remove();
-        const catalogo = await carregarCatalogoEdicaoSIGEE();
         const modal = document.createElement('div');
         modal.id = 'sigee-modal-edicao-processo';
         modal.className = 'sigee-editproc-backdrop';
@@ -752,6 +798,16 @@
         const documentos = listaDocumentosEdicaoSIGEE();
         if (documentoAtual && !documentos.some(x => normalizar(x) === normalizar(documentoAtual))) documentos.unshift(documentoAtual);
         const opcoesDocumento = documentos.map(doc => `<option value="${escHtml(doc)}" ${normalizar(doc)===normalizar(documentoAtual)?'selected':''}>${escHtml(doc)}</option>`).join('');
+        const escolaAtual = escolaEdicaoNormalizada({
+            id: p.escola_id,
+            nome_escola: processoEscola(p),
+            cod_mec: p.cod_mec || p.codigo_mec,
+            nte: nteAtual,
+            nte_id: numeroNteEdicao(nteAtual)
+        });
+        let escolaSelecionada = escolaAtual.nome ? escolaAtual : null;
+        let timerPesquisa = null;
+        let sequenciaPesquisa = 0;
 
         modal.innerHTML = `
           <section class="sigee-editproc-panel" role="dialog" aria-modal="true" aria-labelledby="sigee-editproc-title">
@@ -765,9 +821,15 @@
               ${master
                 ? `<label>NTE<select id="sigee-editproc-nte">${opcoesNte}</select></label>`
                 : `<label>NTE<input id="sigee-editproc-nte-view" value="${escHtml(nteAtual)}" readonly aria-readonly="true"></label><input type="hidden" id="sigee-editproc-nte" value="${escHtml(nteAtual)}">`}
-              <label>Escola/Instituição<select id="sigee-editproc-escola" required><option value="">Carregando catálogo...</option></select></label>
+              <label class="full sigee-editproc-school-label">Escola/Instituição
+                <div class="sigee-editproc-school-wrap">
+                  <input id="sigee-editproc-escola-busca" required autocomplete="off" value="${escHtml(escolaAtual.nome)}" placeholder="🔎 Digite nome da escola, município ou código MEC...">
+                  <div id="sigee-editproc-escola-lista" class="sigee-editproc-school-results hidden" role="listbox"></div>
+                </div>
+                <small id="sigee-editproc-escola-status">Escola atual mantida. Digite para pesquisar e alterar.</small>
+              </label>
               <label>Documento solicitado
-                <select id="sigee-editproc-documento">${opcoesDocumento}</select>
+                <select id="sigee-editproc-documento" ${master?'':'disabled aria-disabled="true" title="Alteração permitida apenas ao perfil Master"'}>${opcoesDocumento}</select>
               </label>
               <label>Responsável pela tarefa<select id="sigee-editproc-responsavel"><option value="">Carregando responsáveis...</option></select></label>
               <div class="sigee-editproc-actions"><button type="button" class="sigee-editproc-cancel">Cancelar</button><button type="submit" class="sigee-editproc-save">Salvar alterações</button></div>
@@ -776,41 +838,77 @@
         document.body.appendChild(modal);
 
         const selNte = modal.querySelector('#sigee-editproc-nte');
-        const selEscola = modal.querySelector('#sigee-editproc-escola');
+        const inputEscola = modal.querySelector('#sigee-editproc-escola-busca');
+        const listaEscola = modal.querySelector('#sigee-editproc-escola-lista');
+        const statusEscola = modal.querySelector('#sigee-editproc-escola-status');
         const selResponsavel = modal.querySelector('#sigee-editproc-responsavel');
         const selDocumento = modal.querySelector('#sigee-editproc-documento');
 
-        function preencherEscolas() {
-            const alvo = texto(selNte.value || nteAtual);
-            const lista = catalogo.escolas
-                .filter(e => !alvo || mesmoNte(alvo, nteRegistroEdicao(e)))
-                .sort((a,b)=>texto(a.nome_escola||a.nome||a.escola).localeCompare(texto(b.nome_escola||b.nome||b.escola),'pt-BR'));
-            const atualId = texto(p.escola_id);
-            const atualNome = processoEscola(p);
-            let encontrouAtual = false;
-            const opcoes = lista.map(e=>{
-                const idEsc = texto(e.id);
-                const nome = texto(e.nome_escola||e.nome||e.escola);
-                const mec = texto(e.cod_mec||e.codigo_mec||e.mec);
-                const selected = (atualId && atualId===idEsc) || normalizar(nome)===normalizar(atualNome);
-                if (selected) encontrouAtual = true;
-                return `<option value="${escHtml(idEsc)}" data-nome="${escHtml(nome)}" data-mec="${escHtml(mec)}" ${selected?'selected':''}>${escHtml(nome)}${mec?' · MEC '+escHtml(mec):''}</option>`;
-            }).join('');
-            const opcaoLegada = !encontrouAtual && atualNome
-                ? `<option value="${escHtml(atualId || '__ATUAL__')}" data-nome="${escHtml(atualNome)}" data-mec="${escHtml(p.cod_mec||p.codigo_mec||'')}" selected>${escHtml(atualNome)} · Escola atual</option>`
-                : '';
-            selEscola.innerHTML = '<option value="">-- Selecione a escola cadastrada --</option>' + opcaoLegada + opcoes;
-            if (!selEscola.value && atualNome) {
-                const correspondente = Array.from(selEscola.options).find(o => normalizar(o.dataset.nome) === normalizar(atualNome));
-                if (correspondente) selEscola.value = correspondente.value;
-            }
+        function esconderResultados() {
+            listaEscola.classList.add('hidden');
+            listaEscola.innerHTML = '';
         }
 
-        function preencherResponsaveis() {
+        function selecionarEscola(escola) {
+            escolaSelecionada = escola;
+            inputEscola.value = escola.nome;
+            inputEscola.dataset.selectedId = escola.id || '';
+            inputEscola.dataset.selectedName = escola.nome || '';
+            inputEscola.dataset.selectedMec = escola.mec || '';
+            statusEscola.textContent = `${escola.nome}${escola.municipio ? ' · ' + escola.municipio : ''}${escola.mec ? ' · MEC ' + escola.mec : ''}`;
+            statusEscola.classList.remove('sigee-editproc-invalid');
+            esconderResultados();
+        }
+
+        function renderizarResultados(escolas) {
+            if (!escolas.length) {
+                listaEscola.innerHTML = '<div class="sigee-editproc-school-empty">Nenhuma escola localizada neste NTE.</div>';
+                listaEscola.classList.remove('hidden');
+                return;
+            }
+            listaEscola.innerHTML = escolas.map((e, idx) => `
+              <button type="button" class="sigee-editproc-school-option" data-index="${idx}" role="option">
+                <strong>${escHtml(e.nome)}</strong>
+                <span>${escHtml(e.municipio || 'Município não informado')}${e.mec ? ' · MEC ' + escHtml(e.mec) : ''}</span>
+              </button>`).join('');
+            listaEscola.classList.remove('hidden');
+            listaEscola.querySelectorAll('.sigee-editproc-school-option').forEach(btn => {
+                btn.addEventListener('click', () => selecionarEscola(escolas[Number(btn.dataset.index)]));
+            });
+        }
+
+        async function executarPesquisaEscola() {
+            const termo = texto(inputEscola.value);
+            if (termo.length < 2) {
+                esconderResultados();
+                statusEscola.textContent = escolaSelecionada ? 'Escola atual mantida. Digite ao menos 2 letras para alterar.' : 'Digite ao menos 2 letras e selecione uma escola.';
+                return;
+            }
+            const minhaSequencia = ++sequenciaPesquisa;
+            statusEscola.textContent = 'Pesquisando escolas...';
+            const escolas = await pesquisarEscolasEdicaoSIGEE(termo, selNte.value || nteAtual);
+            if (minhaSequencia !== sequenciaPesquisa || !modal.isConnected) return;
+            renderizarResultados(escolas);
+            statusEscola.textContent = `${escolas.length} resultado(s). Selecione uma escola da lista.`;
+        }
+
+        inputEscola.addEventListener('input', () => {
+            const digitado = texto(inputEscola.value);
+            if (!escolaSelecionada || normalizar(digitado) !== normalizar(escolaSelecionada.nome)) {
+                escolaSelecionada = null;
+                statusEscola.textContent = 'Selecione uma escola válida na lista de resultados.';
+                statusEscola.classList.add('sigee-editproc-invalid');
+            }
+            clearTimeout(timerPesquisa);
+            timerPesquisa = setTimeout(executarPesquisaEscola, 280);
+        });
+        inputEscola.addEventListener('focus', () => { if (texto(inputEscola.value).length >= 2) executarPesquisaEscola(); });
+
+        async function preencherResponsaveis() {
             const alvo = texto(selNte.value || nteAtual);
-            const lista = catalogo.usuarios
-                .filter(x => x.ativo !== false && mesmoNte(alvo, nteRegistroEdicao(x)) && ['TECNICO','ADMINISTRADOR','MASTER'].some(k=>normalizar(x.perfil).includes(k)))
-                .sort((a,b)=>texto(a.nome||a.nome_completo||a.email).localeCompare(texto(b.nome||b.nome_completo||b.email),'pt-BR'));
+            selResponsavel.innerHTML = '<option value="">Carregando responsáveis...</option>';
+            const lista = await carregarResponsaveisEdicaoSIGEE(alvo);
+            if (!modal.isConnected) return;
             let encontrouAtual = false;
             const opcoes = lista.map(x=>{
                 const nome=texto(x.nome||x.nome_completo||x.email);
@@ -825,19 +923,26 @@
             if (responsavelAtual && !selResponsavel.value) selResponsavel.value = responsavelAtual;
         }
 
-        preencherEscolas();
         preencherResponsaveis();
-        if (master) selNte.addEventListener('change',()=>{ preencherEscolas(); preencherResponsaveis(); });
+        if (master) selNte.addEventListener('change',()=>{
+            escolaSelecionada = null;
+            inputEscola.value = '';
+            inputEscola.removeAttribute('data-selected-id');
+            statusEscola.textContent = 'NTE alterado. Pesquise e selecione uma escola do novo NTE.';
+            statusEscola.classList.add('sigee-editproc-invalid');
+            esconderResultados();
+            preencherResponsaveis();
+        });
 
-        const fechar = () => modal.remove();
+        const fechar = () => { clearTimeout(timerPesquisa); modal.remove(); };
         modal.querySelector('.sigee-editproc-close').addEventListener('click', fechar);
         modal.querySelector('.sigee-editproc-cancel').addEventListener('click', fechar);
         modal.addEventListener('click', e => { if (e.target === modal) fechar(); });
+        modal.addEventListener('click', e => { if (!e.target.closest('.sigee-editproc-school-wrap')) esconderResultados(); });
         modal.querySelector('form').addEventListener('submit', async e => {
             e.preventDefault();
             const btn = modal.querySelector('.sigee-editproc-save');
-            const optEscola = selEscola.selectedOptions[0];
-            if (!optEscola || !optEscola.value) return alert('Selecione uma escola cadastrada no catálogo.');
+            if (!escolaSelecionada || !escolaSelecionada.nome) return alert('Pesquise e selecione uma escola válida na lista.');
             const novoAluno = texto(modal.querySelector('#sigee-editproc-aluno').value).toUpperCase();
             if (!novoAluno) return alert('Informe o nome do requerente/aluno.');
 
@@ -848,13 +953,11 @@
             btn.disabled = true; btn.textContent = 'Salvando...';
             try {
                 p.aluno = p.aluno_nome = novoAluno;
-                if (optEscola.value !== '__ATUAL__') p.escola_id = optEscola.value;
-                p.escola = p.escola_nome = texto(optEscola.dataset.nome).toUpperCase();
-                if (optEscola.dataset.mec) p.cod_mec = p.codigo_mec = optEscola.dataset.mec;
-                p.documento = p.documento_tipo = texto(selDocumento.value).toUpperCase();
-                if (master) {
-                    p.nte = texto(selNte.value) || p.nte;
-                }
+                if (escolaSelecionada.id) p.escola_id = escolaSelecionada.id;
+                p.escola = p.escola_nome = texto(escolaSelecionada.nome).toUpperCase();
+                if (escolaSelecionada.mec) p.cod_mec = p.codigo_mec = escolaSelecionada.mec;
+                if (master) p.documento = p.documento_tipo = texto(selDocumento.value).toUpperCase();
+                if (master) p.nte = texto(selNte.value) || p.nte;
                 const resp = texto(selResponsavel.value);
                 p.tecnico_responsavel = p.tecnico_responsavel_nome = resp || null;
                 p.responsavel = p.responsavel_nome = resp || null;
@@ -868,7 +971,7 @@
                 if (normalizar(antes.aluno) !== normalizar(processoAluno(p))) alteracoes.push(`nome: ${antes.aluno} → ${processoAluno(p)}`);
                 if (normalizar(antes.escola) !== normalizar(processoEscola(p))) alteracoes.push(`escola: ${antes.escola} → ${processoEscola(p)}`);
                 if (master && normalizar(antes.nte) !== normalizar(processoNte(p))) alteracoes.push(`NTE: ${antes.nte} → ${processoNte(p)}`);
-                if (normalizar(antes.documento) !== normalizar(processoDocumento(p))) alteracoes.push(`documento: ${antes.documento} → ${processoDocumento(p)}`);
+                if (master && normalizar(antes.documento) !== normalizar(processoDocumento(p))) alteracoes.push(`documento: ${antes.documento} → ${processoDocumento(p)}`);
                 if (normalizar(antes.responsavel) !== normalizar(processoResponsavel(p))) alteracoes.push(`responsável: ${antes.responsavel} → ${processoResponsavel(p)}`);
 
                 registrar(`[${admin?'ADMINISTRADOR':'MASTER'}] Editou processo ID ${p.id}${alteracoes.length ? ' — ' + alteracoes.join('; ') : ' — sem alteração de valores'}.`);
@@ -878,7 +981,7 @@
                 try { if (typeof mostrarToast === 'function') mostrarToast('Processo atualizado com sucesso.'); } catch (_) {}
             } catch (erro) {
                 console.error('[SIGEE] Falha ao editar processo:', erro);
-                alert('Não foi possível salvar a edição do processo.');
+                alert('Não foi possível salvar a edição do processo: ' + (erro && erro.message ? erro.message : 'erro desconhecido'));
                 btn.disabled = false; btn.textContent = 'Salvar alterações';
             }
         });
