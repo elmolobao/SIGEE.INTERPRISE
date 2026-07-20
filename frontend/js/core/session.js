@@ -1,123 +1,77 @@
 /**
- * SIGEE Enterprise RC4.1.15 — Sessão central otimizada.
- * Fonte única para leitura, gravação e eventos do usuário autenticado.
+ * SIGEE RC4.2 — Sessão única e protegida.
+ * Nenhum módulo deve normalizar ou persistir perfil fora deste arquivo.
  */
 (function (window) {
   'use strict';
+  if (window.__SIGEE_SESSION_RC42__) return;
+  window.__SIGEE_SESSION_RC42__ = true;
 
-  const STORAGE_KEYS = Object.freeze(['SIGEE_USUARIO_LOGADO', 'usuarioLogadoSIGEE']);
-  const PROFILE_MAP = Object.freeze({
-    MASTER: 'Master', SEC: 'SEC', GESTOR: 'Gestor', DIRIGENTE: 'Gestor',
-    ADMINISTRADOR: 'Administrador', ADMINISTRATOR: 'Administrador',
-    TECNICO: 'Técnico', ESTAGIARIO: 'Estagiário', CONSULTA: 'Consulta'
-  });
+  const KEYS = Object.freeze(['SIGEE_USUARIO_LOGADO','usuarioLogadoSIGEE']);
   let currentUser = null;
 
-  function parseJSON(value) {
-    try { return value ? JSON.parse(value) : null; } catch (_) { return null; }
+  function canonicalProfile(value) {
+    if (window.SIGEE_PERFIS?.normalizar) return window.SIGEE_PERFIS.normalizar(value);
+    const p=String(value??'').trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
+    if(!p) return '';
+    if(p.includes('MASTER')) return 'Master';
+    if(p==='SEC'||p.includes('SECRETARIA')) return 'SEC';
+    if(p.includes('GESTOR')||p.includes('DIRIGENTE')) return 'Gestor';
+    if(p.includes('ADMIN')) return 'Administrador';
+    if(p.includes('TECNIC')) return 'Técnico';
+    if(p.includes('ESTAG')) return 'Estagiário';
+    if(p.includes('CONSULT')) return 'Consulta';
+    return '';
   }
-
-  function token(value) {
-    return String(value == null ? '' : value)
-      .trim()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toUpperCase();
+  function emailOf(u){return String(u?.email||u?.login||u?.usuario||'').trim().toLowerCase();}
+  function nteOf(u){return String(u?.nte||u?.nte_nome||u?.nte_vinculado||u?.grupo||u?.territorio||u?.nte_id||'').trim();}
+  function normalizeUser(user){
+    if(!user||typeof user!=='object') return null;
+    const out={...user};
+    const profile=canonicalProfile(out.perfil||out.tipo||out.role||out.tipo_perfil);
+    if(profile) out.perfil=profile;
+    return out;
   }
-
-  function normalizeProfile(value) {
-    if (window.SIGEE_PERFIS && typeof window.SIGEE_PERFIS.normalizar === 'function') {
-      const central = window.SIGEE_PERFIS.normalizar(value);
-      if (central) return central;
-    }
-    if (window.SIGEE_CONFIG_UTILS && typeof window.SIGEE_CONFIG_UTILS.normalizarPerfil === 'function') {
-      const configKey = window.SIGEE_CONFIG_UTILS.normalizarPerfil(value);
-      if (configKey && window.SIGEE_CONFIG && window.SIGEE_CONFIG.perfisLabels) return window.SIGEE_CONFIG.perfisLabels[configKey] || '';
-    }
-    const key = token(value);
-    if (!key) return '';
-    if (PROFILE_MAP[key]) return PROFILE_MAP[key];
-    if (key.includes('MASTER')) return 'Master';
-    if (key === 'SEC' || key.includes('SECRETARIA')) return 'SEC';
-    if (key.includes('GESTOR') || key.includes('DIRIGENTE')) return 'Gestor';
-    if (key.includes('ADMIN')) return 'Administrador';
-    if (key.includes('TECNIC')) return 'Técnico';
-    if (key.includes('ESTAG')) return 'Estagiário';
-    if (key.includes('CONSULT')) return 'Consulta';
-    return String(value == null ? '' : value).trim();
-  }
-
-  function normalizeUser(user) {
-    if (!user || typeof user !== 'object') return null;
-    const normalized = Object.assign({}, user);
-    const rawProfile = normalized.perfil || normalized.tipo || normalized.role;
-    if (rawProfile) normalized.perfil = normalizeProfile(rawProfile);
-    return normalized;
-  }
-
-  function readStorage() {
-    for (const key of STORAGE_KEYS) {
-      const user = parseJSON(window.localStorage && localStorage.getItem(key));
-      if (user && typeof user === 'object') return normalizeUser(user);
+  function sameIdentity(a,b){return emailOf(a) && emailOf(a)===emailOf(b);}
+  function sameUser(a,b){return sameIdentity(a,b)&&canonicalProfile(a?.perfil)===canonicalProfile(b?.perfil)&&nteOf(a)===nteOf(b)&&String(a?.nome||'')===String(b?.nome||'');}
+  function read(){
+    for(const key of KEYS){
+      try{const raw=localStorage.getItem(key);if(raw){const u=normalizeUser(JSON.parse(raw));if(u)return u;}}catch(_){ }
     }
     return null;
   }
-
-  function emit(name, detail) {
-    document.dispatchEvent(new CustomEvent(name, { detail }));
+  function persist(user){
+    for(const key of KEYS){try{user?localStorage.setItem(key,JSON.stringify(user)):localStorage.removeItem(key);}catch(_){}}
   }
-
-  function getUser() {
-    if (currentUser) return currentUser;
-    if (window.usuarioLogado && typeof window.usuarioLogado === 'object') {
-      currentUser = normalizeUser(window.usuarioLogado);
-      window.usuarioLogado = currentUser;
-      return currentUser;
+  function emit(name,user){document.dispatchEvent(new CustomEvent(name,{detail:user}));}
+  function getUser(){if(currentUser)return currentUser;currentUser=read();return currentUser;}
+  function setUser(user, options){
+    const opts={persist:true,emit:true,source:'core',forceProfile:false,...(options||{})};
+    let incoming=normalizeUser(user);
+    const old=currentUser||read();
+    // Proteção contra módulos legados: o mesmo usuário não pode ser rebaixado/trocado
+    // por atribuição indireta. Mudança de perfil só ocorre no login ou com forceProfile.
+    if(incoming&&old&&sameIdentity(old,incoming)&&!opts.forceProfile&&opts.source!=='login'){
+      incoming={...incoming,perfil:canonicalProfile(old.perfil)||canonicalProfile(incoming.perfil)};
     }
-    currentUser = readStorage();
-    if (currentUser) window.usuarioLogado = currentUser;
+    if(sameUser(old,incoming)){currentUser=old;return old;}
+    currentUser=incoming;
+    if(opts.persist)persist(currentUser);
+    if(opts.emit)emit(currentUser?'sigee:usuario-logado':'sigee:usuario-deslogado',currentUser);
     return currentUser;
   }
+  function patchUser(changes,options){return setUser({...getUser(),...(changes||{})},options);}
+  function clear(options){return setUser(null,{source:'logout',...(options||{})});}
 
-  function stableUserKey(user) {
-    if (!user) return '';
-    return JSON.stringify({
-      id: user.id == null ? null : user.id,
-      email: String(user.email || user.login || '').trim().toLowerCase(),
-      perfil: normalizeProfile(user.perfil || user.tipo || user.role),
-      nte: String(user.nte || user.nte_nome || user.grupo || user.territorio || user.nte_id || '').trim(),
-      nome: String(user.nome || user.nome_completo || '').trim()
+  // Compatibilidade controlada com o legado. Atribuições a window.usuarioLogado
+  // passam pela sessão e não podem transformar Gestor/SEC/etc. em Técnico.
+  try{
+    Object.defineProperty(window,'usuarioLogado',{
+      configurable:true,
+      get(){return getUser();},
+      set(value){setUser(value,{persist:true,emit:false,source:'legacy'});}
     });
-  }
+  }catch(_){window.usuarioLogado=getUser();}
 
-  function setUser(user, options) {
-    const opts = Object.assign({ persist: true, emit: true }, options || {});
-    const nextUser = normalizeUser(user);
-    const previousKey = stableUserKey(currentUser || window.usuarioLogado);
-    const nextKey = stableUserKey(nextUser);
-    const changed = previousKey !== nextKey;
-
-    currentUser = nextUser;
-    window.usuarioLogado = currentUser;
-
-    if (opts.persist && changed && window.localStorage) {
-      STORAGE_KEYS.forEach(function (key) {
-        if (currentUser) localStorage.setItem(key, JSON.stringify(currentUser));
-        else localStorage.removeItem(key);
-      });
-    }
-    if (opts.emit && changed) emit(currentUser ? 'sigee:usuario-logado' : 'sigee:usuario-deslogado', currentUser);
-    return currentUser;
-  }
-
-  function patchUser(changes, options) {
-    const user = Object.assign({}, getUser() || {}, changes || {});
-    return setUser(user, options);
-  }
-
-  function clear(options) {
-    return setUser(null, options);
-  }
-
-  window.SIGEE_SESSION = Object.freeze({ getUser, setUser, patchUser, clear, normalizarPerfil: normalizeProfile, STORAGE_KEYS });
+  window.SIGEE_SESSION=Object.freeze({getUser,setUser,patchUser,clear,normalizarPerfil:canonicalProfile,normalizarUsuario:normalizeUser,emailDoUsuario:emailOf,nteDoUsuario:nteOf});
 })(window);
