@@ -446,14 +446,9 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
 
         function usuarioDoSupabaseParaLocalSIGEE(u, indice) {
             const emailNormalizado = normalizarTextoSIGEE(u.email).toLowerCase();
-            const perfilOrigem = normalizarTextoSIGEE(u.perfil || u.tipo || u.role || '');
-            let perfilFinal = perfilOrigem;
-            try {
-                perfilFinal = window.SIGEE_SESSION?.normalizarPerfil?.(perfilOrigem)
-                    || window.SIGEE_PERMISSOES?.normalizarPerfil?.(perfilOrigem)
-                    || perfilOrigem;
-            } catch (_) {}
-            if (!perfilFinal) perfilFinal = 'Consulta';
+            const perfilOrigem = normalizarTextoSIGEE(u.perfil || u.tipo || u.role || 'Técnico');
+            const perfilMinusculo = perfilOrigem.toLowerCase();
+            let perfilFinal = perfilMinusculo.includes('master') || perfilMinusculo.includes('admin') ? 'Master' : 'Técnico';
 
             // Garante que o usuário institucional principal mantenha as permissões de Master,
             // mesmo quando a tabela usuarios_sigee não possuir todas as colunas administrativas.
@@ -1155,7 +1150,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 document.getElementById('tela-login').classList.add('hidden');
                 document.getElementById('sistema-dashboard').classList.remove('hidden');
                 document.getElementById('user-nome').innerText = u.nome;
-                document.getElementById('user-perfil').innerText = `${u.perfil} | ${u.nte}`;
+                window.SIGEE_RENDERIZAR_IDENTIDADE_EFETIVA?.();
                 
                 const btnImportar = document.getElementById('btn-importar-dados-master');
                 if (u.perfil === "Master") {
@@ -2059,7 +2054,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             document.getElementById('user-form-id').value = "";
             document.getElementById('user-form-nome').value = "";
             document.getElementById('user-form-email').value = "";
-            document.getElementById('user-form-senha').value = "SEC@2026";
+            document.getElementById('user-form-senha').value = "SECBA2026";
             inicializarSelectsNteEcosystem();
             document.getElementById('modal-cadastro-usuario').classList.remove('hidden');
         }
@@ -2138,7 +2133,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             let u = usuariosDB.find(user => user.id == id);
             if (u) {
                 const senhaAnterior = u.senha;
-                u.senha = "SEC@2026";
+                u.senha = "SECBA2026";
                 const ok = await salvarUsuarioIndividualSupabaseSIGEE(u, id, 'editar');
                 if (!ok) { u.senha = senhaAnterior; return; }
                 alert(`Senha do usuário ${u.nome} foi resetada para o padrão: SECBA2026`);
@@ -4009,7 +4004,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 document.getElementById('tela-login')?.classList.add('hidden');
                 document.getElementById('sistema-dashboard')?.classList.remove('hidden');
                 const nomeEl = document.getElementById('user-nome'); if(nomeEl) nomeEl.innerText = u.nome;
-                const perfEl = document.getElementById('user-perfil'); if(perfEl) perfEl.innerText = `${u.perfil}${u.grupo ? ' / ' + u.grupo : ''} | ${u.nte}`;
+                window.SIGEE_RENDERIZAR_IDENTIDADE_EFETIVA?.();
                 const podeAdminSistema = isAcessoGlobalV31(u) || perfilCanonicoV31(u.perfil) === 'Administrador';
                 const menuUsuarios = document.getElementById('menu-usuarios'); if(menuUsuarios) menuUsuarios.classList.toggle('hidden', !isAcessoGlobalV31(u));
                 const menuLogs = document.getElementById('menu-logs'); if(menuLogs) menuLogs.classList.toggle('hidden', !podeAdminSistema);
@@ -4433,10 +4428,11 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     if(!u){ alert('Credenciais inválidas, ou operador desativado no escopo regional.'); return; }
     Object.assign(u, normalizarUsuario(u));
     window.usuarioLogado = usuarioLogado = u;
+    window.SIGEE_RENDERIZAR_IDENTIDADE_EFETIVA?.();
     document.getElementById('tela-login')?.classList.add('hidden');
     document.getElementById('sistema-dashboard')?.classList.remove('hidden');
     const nomeEl=document.getElementById('user-nome'); if(nomeEl) nomeEl.innerText=u.nome;
-    const perfEl=document.getElementById('user-perfil'); if(perfEl) perfEl.innerText=`${u.perfil}${isSEC(u)?' / SEC':''} | ${u.nte}`;
+    window.SIGEE_RENDERIZAR_IDENTIDADE_EFETIVA?.();
     aplicarPermissoes();
     try{ registrarLog('Acesso realizado ao painel operacional.'); }catch(e){}
     try{ navegar('painel'); }catch(e){}
@@ -6139,8 +6135,9 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     if(!u && em==='elmo.lobao@enova.educacao.ba.gov.br' && sn==='123') u={id:1,nome:'ELMO LOBÃO',email:em,senha:'123',perfil:'Master',nte:'NTE-26 Salvador',ativo:true};
     if(!u){ alert('Credenciais inválidas, ou operador desativado no escopo regional.'); return; }
     window.usuarioLogado=u; try{ usuarioLogado=u; }catch(e){}
+    window.SIGEE_RENDERIZAR_IDENTIDADE_EFETIVA?.();
     document.getElementById('tela-login')?.classList.add('hidden'); document.getElementById('sistema-dashboard')?.classList.remove('hidden');
-    setText('user-nome',u.nome); setText('user-perfil',`${u.perfil} | ${u.nte}`);
+    window.SIGEE_RENDERIZAR_IDENTIDADE_EFETIVA?.();
     try{ registrarLog('Acesso realizado ao painel operacional.'); }catch(e){}
     try{ window.aplicarPermissoesV37&&window.aplicarPermissoesV37(); }catch(e){}
     try{ navegar('painel'); }catch(e){}
@@ -6288,9 +6285,8 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     if(menuLogs) menuLogs.classList.toggle('hidden', !logs);
 
     const nome = document.getElementById('user-nome');
-    const pf = document.getElementById('user-perfil');
     if(u && nome) nome.innerText = u.nome || '';
-    if(u && pf) pf.innerText = `${perfilUsuarioV39(u)} | ${u.nte || ''}`;
+    window.SIGEE_RENDERIZAR_IDENTIDADE_EFETIVA?.();
   }
 
   // Substitui apenas a leitura do perfil, preservando a rotina de carregamento V38.
@@ -6486,9 +6482,8 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
       .forEach(el => el.classList.toggle('hidden', !podeEditarEscolaV40(u)));
 
     const nome = document.getElementById('user-nome');
-    const pf = document.getElementById('user-perfil');
     if(u && nome) nome.innerText = u.nome || '';
-    if(u && pf) pf.innerText = `${perfilV40(u.perfil)} | ${u.nte || ''}`;
+    window.SIGEE_RENDERIZAR_IDENTIDADE_EFETIVA?.();
 
     // Se um Técnico/Consulta estiver numa aba administrativa por cache/navegação direta, volta ao Dashboard.
     const abaUsuarios = document.getElementById('aba-usuarios');
@@ -6925,7 +6920,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     if(btnCadastrarTecnico) btnCadastrarTecnico.classList.toggle('hidden', !Perm.cadastrarUsuarios(u));
 
     const nome = document.getElementById('user-nome'); if(nome && u) nome.innerText = u.nome || '';
-    const pf = document.getElementById('user-perfil'); if(pf && u) pf.innerText = `${perfilCanonico(u.perfil)} | ${nteUsuario(u)}`;
+    window.SIGEE_RENDERIZAR_IDENTIDADE_EFETIVA?.();
 
     const abaUsuarios = document.getElementById('aba-usuarios');
     if(abaUsuarios && !abaUsuarios.classList.contains('hidden') && !(Perm.alterarUsuarios(u) || Perm.cadastrarUsuarios(u))){ try{ navegar('painel'); }catch(e){} }
@@ -7111,8 +7106,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
 
     const nome = document.getElementById('user-nome');
     if(nome) nome.innerText = u.nome || '';
-    const perf = document.getElementById('user-perfil');
-    if(perf) perf.innerText = `${u.perfil} | ${u.nte || ''}`;
+    window.SIGEE_RENDERIZAR_IDENTIDADE_EFETIVA?.();
 
     const menuUsuarios = document.getElementById('menu-usuarios');
     if(menuUsuarios) menuUsuarios.classList.toggle('hidden', !podeUsuarios());
@@ -7275,8 +7269,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
 
     const nome = document.getElementById('user-nome');
     if(nome) nome.innerText = u.nome || '';
-    const perf = document.getElementById('user-perfil');
-    if(perf) perf.innerText = `${u.perfil} | ${u.nte || ''}`;
+    window.SIGEE_RENDERIZAR_IDENTIDADE_EFETIVA?.();
 
     setHidden(document.getElementById('menu-usuarios'), !canUsers(u));
     setHidden(document.getElementById('menu-logs'), !canLogs(u));
@@ -7804,9 +7797,10 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
       }
       window.usuarioLogado = u;
       try{ usuarioLogado = u; }catch(e){}
+      window.SIGEE_RENDERIZAR_IDENTIDADE_EFETIVA?.();
       try{ localStorage.setItem('SIGEE_USUARIO_LOGADO', JSON.stringify(u)); }catch(e){}
       document.getElementById('user-nome') && (document.getElementById('user-nome').innerText = u.nome);
-      document.getElementById('user-perfil') && (document.getElementById('user-perfil').innerText = `${u.perfil} | ${u.nte}`);
+      window.SIGEE_RENDERIZAR_IDENTIDADE_EFETIVA?.();
       document.getElementById('tela-login')?.classList.add('hidden');
       document.getElementById('sistema-dashboard')?.classList.remove('hidden');
       await carregarBaseUsuarioCore();
@@ -8830,28 +8824,19 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     const modulo=window.SIGEE_Escolas;
     if(!modulo)return false;
 
-    const podeEditarCentral=function(){
-      try { return !!window.SIGEE_PERMISSOES?.pode?.('editarEscola', window.SIGEE_SESSION?.getUser?.() || window.usuarioLogado); }
-      catch (_) { return false; }
-    };
     window.abrirModalNovaEscola=function(){
-      if(!podeEditarCentral()) return alert('Seu perfil não possui permissão para cadastrar escolas.');
       return modulo.abrirNova();
     };
     window.abrirModalEditarEscolaSIGEE=function(id){
-      if(!podeEditarCentral()) return alert('Seu perfil não possui permissão para editar escolas.');
       return modulo.abrirEditar(id);
     };
     window.editarEscolaSIGEE=function(id){
-      if(!podeEditarCentral()) return alert('Seu perfil não possui permissão para editar escolas.');
       return modulo.abrirEditar(id);
     };
     window.editarEscolaSIGEEV45=function(id){
-      if(!podeEditarCentral()) return alert('Seu perfil não possui permissão para editar escolas.');
       return modulo.abrirEditar(id);
     };
     window.salvarEscolaFormularioSIGEE=function(event){
-      if(!podeEditarCentral()) { event?.preventDefault?.(); return alert('Seu perfil não possui permissão para salvar alterações em escolas.'); }
       return modulo.salvar(event);
     };
     window.renderizarListaEscolasBufferMemoria=function(){
@@ -8882,8 +8867,6 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     if(novo&&window.SIGEE_Escolas){
       event.preventDefault();
       event.stopImmediatePropagation();
-      const permitido=!!window.SIGEE_PERMISSOES?.pode?.('editarEscola',window.SIGEE_SESSION?.getUser?.()||window.usuarioLogado);
-      if(!permitido) return alert('Seu perfil não possui permissão para cadastrar escolas.');
       window.SIGEE_Escolas.abrirNova();
       return;
     }
@@ -8892,8 +8875,6 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
       '.btn-alterar-escola-sigee[data-escola-id], button[onclick*="editarEscolaSIGEEV45"], button[onclick*="abrirModalEditarEscolaSIGEE"]'
     );
     if(alterar&&window.SIGEE_Escolas){
-      const permitido=!!window.SIGEE_PERMISSOES?.pode?.('editarEscola',window.SIGEE_SESSION?.getUser?.()||window.usuarioLogado);
-      if(!permitido){ event.preventDefault(); event.stopImmediatePropagation(); return alert('Seu perfil não possui permissão para editar escolas.'); }
       const id=alterar.dataset.escolaId||
         (alterar.getAttribute('onclick')||'').match(/\(\s*['"]?([^'")]+)['"]?\s*\)/)?.[1];
       if(!id)return;
@@ -9559,7 +9540,7 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
   function low(v) { return txt(v).toLowerCase(); }
   function sem(v) { return txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
   function up(v) { return sem(v).toUpperCase(); }
-  function user() { try { return window.SIGEE_SESSION?.getUser?.() || window.usuarioLogado || (typeof usuarioLogado !== 'undefined' ? usuarioLogado : null); } catch (_) { return window.usuarioLogado || null; } }
+  function user() { return window.usuarioLogado || (typeof usuarioLogado !== 'undefined' ? usuarioLogado : null); }
 
   function perfilCanonico(valor) {
     const p = up(valor || 'Tecnico');
@@ -9579,9 +9560,9 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
   function isTecnico(u = user()) { return perfilCanonico(u && u.perfil) === 'Técnico'; }
   function isEstagiario(u = user()) { return perfilCanonico(u && u.perfil) === 'Estagiário'; }
   function isConsulta(u = user()) { return perfilCanonico(u && u.perfil) === 'Consulta'; }
-  function isGlobal(u = user()) { return isMaster(u); }
-  function podeGerirUsuarios(u = user()) { return isMaster(u); }
-  function podeNovaSolicitacao(u = user()) { return isMaster(u) || isAdmin(u) || isTecnico(u) || isEstagiario(u); }
+  function isGlobal(u = user()) { return isSEC(u) || isMaster(u); }
+  function podeGerirUsuarios(u = user()) { return isSEC(u) || isMaster(u); }
+  function podeNovaSolicitacao(u = user()) { return isSEC(u) || isMaster(u) || isAdmin(u) || isTecnico(u) || isEstagiario(u); }
   function podeEditarProcesso(u = user()) { return isSEC(u) || isMaster(u) || isAdmin(u) || isTecnico(u); }
   function podeEditarEscola(u = user()) { return isSEC(u) || isMaster(u) || isAdmin(u) || isTecnico(u); }
 
@@ -9615,20 +9596,20 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
   function normalizarUsuario(u) {
     u = u || {};
     const perfil = perfilCanonico(u.perfil || u.tipo || u.role || 'Tecnico');
-    let nte = txt(u.nte || u.nte_nome || u.nte_vinculado || u.grupo || '');
+    let nte = perfil === 'SEC' ? GRUPO_SEC : txt(u.nte || u.nte_nome || u.nte_vinculado || u.grupo || '');
     return {
       ...u,
       nome: txt(u.nome || u.name).toUpperCase(),
       email: low(u.email),
       perfil,
       nte,
-      nte_id: u.nte_id || nteId(nte),
+      nte_id: perfil === 'SEC' ? null : (u.nte_id || nteId(nte)),
       senha: txt(u.senha || u.senha_hash || 'SEC@2026'),
       senha_hash: txt(u.senha_hash || u.senha || 'SEC@2026'),
       ativo: u.ativo !== false && u.Ativo !== false,
       Ativo: u.ativo !== false && u.Ativo !== false,
       forcar_troca_senha: !!u.forcar_troca_senha,
-      pode_editar: ['Gestor','Estagiário','Consulta'].includes(perfil) ? false : (u.pode_editar !== false)
+      pode_editar: perfil === 'Estagiário' || perfil === 'Consulta' ? false : (u.pode_editar !== false)
     };
   }
 
@@ -9647,14 +9628,13 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
   }
 
   function atualizarCabecalhoUsuario() {
-    const u = (window.SIGEE_SESSION?.getUser?.() || user());
+    const u = user();
     if (!u) return;
     u.perfil = perfilCanonico(u.perfil);
     if (isSEC(u)) u.nte = GRUPO_SEC;
     document.body.dataset.sigeePerfil = u.perfil;
     document.body.classList.toggle('sigee-perfil-estagiario', isEstagiario(u));
-    const p = document.getElementById('user-perfil');
-    if (p) p.innerText = `${u.perfil} | ${u.nte || ''}`;
+    window.SIGEE_RENDERIZAR_IDENTIDADE_EFETIVA?.();
   }
 
   function bloquearBotao(el, bloquear) {
@@ -9986,24 +9966,19 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
   }
 
   function perfilCanonico(valor) {
-    try {
-      const central = window.SIGEE_SESSION?.normalizarPerfil?.(valor)
-        || window.SIGEE_PERMISSOES?.normalizarPerfil?.(valor);
-      if (central) return central;
-    } catch (_) {}
     const p = norm(valor || '');
     if (p.includes('MASTER')) return 'Master';
-    if (p === 'SEC' || p.includes('SECRETARIA')) return 'SEC';
-    if (p.includes('GESTOR') || p.includes('DIRIGENTE')) return 'Gestor';
-    if (p.includes('ADMIN')) return 'Administrador';
+    if (p === 'SEC' || p.includes('TODOS OS NTES')) return 'SEC';
+    if (p.includes('ADMIN')) return 'Administrator';
     if (p.includes('ESTAG')) return 'Estagiário';
     if (p.includes('CONSULT')) return 'Consulta';
-    if (p.includes('TECNIC')) return 'Técnico';
-    return txt(valor);
+    if (p.includes('TECNIC')) return 'Tecnico';
+    return txt(valor || 'Tecnico');
   }
 
   function isGlobalPerfil(perfil) {
-    return perfilCanonico(perfil) === 'Master';
+    const p = perfilCanonico(perfil);
+    return p === 'Master' || p === 'SEC';
   }
 
   function extrairNteId(v) {
