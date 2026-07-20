@@ -7840,12 +7840,17 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
       // RC4.3.7: marca o login manual desta execução. Sessão antiga armazenada
       // no navegador não pode abrir o recadastramento sobre a tela de login.
       window.__SIGEE_LOGIN_CONCLUIDO__ = true;
-      const eventoLoginSIGEE = { detail: { usuario: u, loginConcluido: true } };
       try {
-        document.dispatchEvent(new CustomEvent('sigee:usuario-logado', eventoLoginSIGEE));
+        document.dispatchEvent(new CustomEvent('sigee:usuario-logado', { detail: { usuario: u, loginConcluido: true } }));
       } catch (_) {}
-      try { window.SIGEE_AUTH?.verificarPrimeiroAcesso?.(eventoLoginSIGEE); } catch (e) {
-        console.error('[SIGEE RC4.3.8] Falha ao verificar primeiro acesso:', e);
+      // RC4.3.9: chamada direta e aguardada. Evita dependência da ordem dos
+      // listeners e confirma no banco o valor atual de forcar_troca_senha.
+      try {
+        if (window.SIGEE_AUTH && typeof window.SIGEE_AUTH.verificarPrimeiroAcesso === 'function') {
+          await window.SIGEE_AUTH.verificarPrimeiroAcesso({ detail: { usuario: u, loginConcluido: true } });
+        }
+      } catch (erroTrocaSenha) {
+        console.error('[SIGEE] Falha ao verificar recadastramento:', erroTrocaSenha);
       }
     }catch(e){
       console.error('[SIGEE] Erro login', e);
@@ -9647,7 +9652,7 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
       senha_hash: txt(u.senha_hash || u.senha || 'SEC@2026'),
       ativo: u.ativo !== false && u.Ativo !== false,
       Ativo: u.ativo !== false && u.Ativo !== false,
-      forcar_troca_senha: !!u.forcar_troca_senha,
+      forcar_troca_senha: u.forcar_troca_senha === true || u.forcar_troca_senha === 1 || ['true','1','t'].includes(String(u.forcar_troca_senha || '').toLowerCase()),
       pode_editar: perfil === 'Estagiário' || perfil === 'Consulta' ? false : (u.pode_editar !== false)
     };
   }
@@ -9845,8 +9850,6 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
   };
 
   function criarModalTrocaSenha() {
-    // RC4.3.8: rotina legada desativada.
-    return false;
     if (document.getElementById('modal-troca-senha-obrigatoria-sigee')) return;
     const div = document.createElement('div');
     div.id = 'modal-troca-senha-obrigatoria-sigee';
@@ -10426,8 +10429,6 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
   }
 
   function instalarSenhaObrigatoria() {
-    // RC4.3.8: handler legado desativado.
-    return false;
     const btn = $(IDS.btnSenha);
     if (btn && btn.dataset.sprint25Bound !== '1') {
       btn.dataset.sprint25Bound = '1';
