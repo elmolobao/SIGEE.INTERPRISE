@@ -83,20 +83,27 @@
     alvo.appendChild(card);
   }
 
-  let agendado=false;
+  let timerAplicacao=null;
   function aplicar(){
-    if(agendado) return;
-    agendado=true;
-    requestAnimationFrame(()=>{
-      agendado=false;
+    if(document.hidden) return;
+    clearTimeout(timerAplicacao);
+    timerAplicacao=setTimeout(()=>{
+      timerAplicacao=null;
       classificarBotoes();
       decorarFormulario();
       identidadeUsuario();
-    });
+    },120);
   }
 
-  const obs=new MutationObserver(aplicar);
-  obs.observe(document.documentElement,{childList:true,subtree:true});
+  const obs=new MutationObserver(mudancas=>{
+    const relevante=mudancas.some(m=>[...m.addedNodes].some(no=>{
+      if(no.nodeType!==1) return false;
+      return no.matches?.('#tabela-processos-corpo, #modal-nova-solicitacao, [data-user-info], .user-info, #usuario-logado-info, .topbar-user') ||
+        no.querySelector?.('#tabela-processos-corpo, #modal-nova-solicitacao, [data-user-info], .user-info, #usuario-logado-info, .topbar-user');
+    }));
+    if(relevante) aplicar();
+  });
+  obs.observe(document.body||document.documentElement,{childList:true,subtree:true});
   document.addEventListener('DOMContentLoaded',aplicar);
   window.addEventListener('load',()=>setTimeout(aplicar,200));
 

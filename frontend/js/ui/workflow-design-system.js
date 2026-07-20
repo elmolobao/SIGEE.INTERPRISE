@@ -64,17 +64,19 @@
     ).forEach(prepararModal);
   }
 
-  let agendado=false;
-  const observer=new MutationObserver(()=>{
-    if(agendado)return;
-    agendado=true;
-    requestAnimationFrame(()=>{
-      agendado=false;
-      aplicar();
-    });
+  let timerAplicacao=null;
+  const seletorWorkflow='.sigee-wam-dialog,.sigee-wfe-panel,.sigee-modal33,[id^="modal-fluxo-"]';
+  const observer=new MutationObserver(mudancas=>{
+    if(document.hidden) return;
+    const relevante=mudancas.some(m=>[...m.addedNodes].some(no=>
+      no.nodeType===1 && (no.matches?.(seletorWorkflow) || no.querySelector?.(seletorWorkflow))
+    ));
+    if(!relevante) return;
+    clearTimeout(timerAplicacao);
+    timerAplicacao=setTimeout(()=>{timerAplicacao=null;aplicar();},100);
   });
 
-  observer.observe(document.documentElement,{childList:true,subtree:true});
+  observer.observe(document.body||document.documentElement,{childList:true,subtree:true});
   document.addEventListener('DOMContentLoaded',aplicar);
   window.addEventListener('load',()=>setTimeout(aplicar,300));
 
