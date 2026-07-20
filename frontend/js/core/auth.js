@@ -1,5 +1,5 @@
 /**
- * SIGEE Enterprise RC4.3.8 — Autenticação e primeiro acesso.
+ * SIGEE Enterprise RC4.3.9 — Autenticação e primeiro acesso.
  * Depende de session.js e supabase.js. Não controla menus ou permissões.
  */
 (function (window) {
@@ -82,7 +82,6 @@
     const result = await supabase.from('usuarios_sigee').update(payload).eq('email', normalizeEmail(user.email)).select('*').maybeSingle();
     if (result.error) return alert('Erro ao salvar nova senha: ' + result.error.message);
     setUser(Object.assign({}, user, payload, result.data || {}));
-    window.__SIGEE_RECADASTRAMENTO_ABERTO__ = false;
     hidePasswordModal();
     alert('Senha cadastrada com sucesso.');
   }
@@ -93,46 +92,50 @@
     const dashboardVisible = !!dashboard && !dashboard.classList.contains('hidden');
     return loginHidden && dashboardVisible;
   }
-  function exigeTrocaSenha(user) {
-    const value = user?.forcar_troca_senha;
-    if (value === true || value === 1) return true;
+  function requiresPasswordChange(value) {
     const normalized = text(value).toLowerCase();
-    return normalized === 'true' || normalized === '1' || normalized === 't' || normalized === 'sim' || normalized === 'yes';
+    return value === true || value === 1 || normalized === 'true' || normalized === '1' || normalized === 't';
   }
 
-  function checkFirstAccess(event) {
+  async function resolveFreshUser(user) {
+    if (!user || !user.email) return user || null;
+    const supabase = client();
+    if (!supabase) return user;
+    try {
+      const result = await supabase
+        .from('usuarios_sigee')
+        .select('id,email,nome,perfil,nte_id,nte,ativo,Ativo,forcar_troca_senha')
+        .eq('email', normalizeEmail(user.email))
+        .maybeSingle();
+      if (!result.error && result.data) return Object.assign({}, user, result.data);
+    } catch (_) {}
+    return user;
+  }
+
+  function waitForAuthenticatedArea(callback, attempts) {
+    const remaining = Number.isFinite(attempts) ? attempts : 20;
+    if (authenticatedAreaIsVisible()) return callback();
+    if (remaining <= 0) return;
+    setTimeout(function () { waitForAuthenticatedArea(callback, remaining - 1); }, 100);
+  }
+
+  async function checkFirstAccess(event) {
     const detail = event && event.detail ? event.detail : {};
-    const userFromEvent = detail.usuario || null;
-    const user = userFromEvent || getUser();
-    const loginCompleted = detail.loginConcluido === true;
+    const loginCompleted = detail.loginConcluido === true || window.__SIGEE_LOGIN_CONCLUIDO__ === true;
+    if (!loginCompleted) return false;
 
-    if (!loginCompleted || window.__SIGEE_LOGIN_CONCLUIDO__ !== true) return false;
-    if (!user || !exigeTrocaSenha(user)) return false;
+    let user = detail.usuario || getUser();
+    user = await resolveFreshUser(user);
+    if (!user || !requiresPasswordChange(user.forcar_troca_senha)) return false;
 
-    if (userFromEvent) {
-      try { setUser(userFromEvent, { emit: false, persist: true }); } catch (_) {}
-      window.usuarioLogado = userFromEvent;
-      try { localStorage.setItem('SIGEE_USUARIO_LOGADO', JSON.stringify(userFromEvent)); } catch (_) {}
-    }
+    try { setUser(user, { emit: false, persist: true }); } catch (_) {}
+    window.usuarioLogado = user;
 
-    if (window.__SIGEE_RECADASTRAMENTO_ABERTO__ === true) return true;
-    window.__SIGEE_RECADASTRAMENTO_ABERTO__ = true;
-
-    let attempts = 0;
-    const openWhenReady = function () {
-      attempts += 1;
-      if (window.__SIGEE_LOGIN_CONCLUIDO__ !== true) {
-        window.__SIGEE_RECADASTRAMENTO_ABERTO__ = false;
-        return;
-      }
-      if (authenticatedAreaIsVisible()) {
+    waitForAuthenticatedArea(function () {
+      if (window.__SIGEE_LOGIN_CONCLUIDO__ === true && requiresPasswordChange(user.forcar_troca_senha)) {
         showPasswordModal();
-        return;
       }
-      if (attempts < 20) setTimeout(openWhenReady, 100);
-      else showPasswordModal();
-    };
-    setTimeout(openWhenReady, 0);
+    }, 25);
     return true;
   }
 
