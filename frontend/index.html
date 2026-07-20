@@ -46,7 +46,7 @@
 </div>
 <div class="mb-6">
 <label class="block text-gray-700 text-sm font-semibold mb-2">Senha</label>
-<input class="w-full px-4 py-2 border rounded-lg focus:outline-none placeholder:text-gray-400" id="login-senha" placeholder="Sua senha" required="" type="password"/>
+<input class="w-full px-4 py-2 border rounded-lg focus:outline-none placeholder:text-gray-400" id="login-senha" name="password" autocomplete="current-password" placeholder="Sua senha" required="" type="password"/>
 </div>
 <button class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 rounded-lg shadow-md transition cursor-pointer" type="submit">Entrar no Sistema</button>
 </form>
@@ -705,7 +705,6 @@
 <script src="js/core/config.js?v=RC4.2.0"></script>
 <script src="js/core/supabase.js"></script>
 <script src="js/core/session.js?v=RC4.2.1"></script>
-<script src="js/core/auth.js?v=RC4.4.0"></script>
 <script src="js/core/permissoes.js?v=RC4.2.2"></script>
 <script src="js/core/escopo.js?v=RC4.2.2"></script>
 <script src="js/core/mensagens-config.js"></script>
@@ -728,7 +727,7 @@
 <script src="js/components/WorkflowActionModal.js"></script>
 <script src="js/escolas/municipios-territorios.js"></script>
 <script src="js/app/app.js?v=RC4.3.9"></script>
-<script src="js/processos/processos.js?v=RC4.2.1"></script>
+<script src="js/processos/processos.js?v=RC4.4.2"></script>
 <script src="js/migracao/migracao-historica.js?v=M4.2.0"></script>
 <script src="js/migracao/motor-persistencia.js?v=M5.2.2"></script>
 <script src="js/migracao/importacao-oficial.js?v=M5.2.2"></script>
@@ -756,8 +755,8 @@ window.filtrarTabelaUsuariosSIGEE = function (termo) {
 <!-- escolas-authority.js removido: arquivo inexistente no projeto -->
 <script src="js/analytics/dashboard-executivo.js?v=RC4.2.2"></script>
 <script src="js/analytics/centro-inteligencia.js?v=RC4.2.2"></script>
-<script src="js/core/login-controller.js?v=RC4.4.0"></script>
 <script src="js/core/autoridade-final.js?v=RC4.2.0"></script>
+<script src="js/core/credenciais.js?v=RC4.4.1"></script>
 <script>
 /* Reinstala a autoridade de navegação após todos os módulos legados. */
 if (window.SIGEE_NAVIGATION && typeof window.SIGEE_NAVIGATION.install === 'function') {
