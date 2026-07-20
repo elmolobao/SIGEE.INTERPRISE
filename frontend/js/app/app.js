@@ -7837,8 +7837,9 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
       aplicarPermissoesCore();
       await registrarLogCore('LOGIN', `Perfil ${u.perfil} / ${u.nte}`);
       if(typeof navegar === 'function') navegar('processos'); else await carregarDashboardCore();
-      // RC4.3.5: o recadastramento só é liberado depois que o login terminou,
-      // a tela de autenticação foi ocultada e o ambiente autenticado foi exibido.
+      // RC4.3.6: marca o login manual desta execução. Sessão antiga armazenada
+      // no navegador não pode abrir o recadastramento sobre a tela de login.
+      window.__SIGEE_LOGIN_CONCLUIDO__ = true;
       try {
         document.dispatchEvent(new CustomEvent('sigee:usuario-logado', { detail: { usuario: u, loginConcluido: true } }));
       } catch (_) {}
@@ -9859,17 +9860,9 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
   }
 
   async function verificarTrocaSenhaObrigatoria() {
-    const u = user();
-    if (!u || !u.email) return;
-    try {
-      const c = client();
-      if (!c || !c.from) return;
-      const { data } = await c.from(tabelaUsuarios()).select('id,email,forcar_troca_senha').eq('email', u.email).maybeSingle();
-      if (data && data.forcar_troca_senha) {
-        criarModalTrocaSenha();
-        document.getElementById('modal-troca-senha-obrigatoria-sigee')?.classList.remove('hidden');
-      }
-    } catch (e) { console.warn('SIGEE: não foi possível verificar troca obrigatória de senha.', e); }
+    // RC4.3.6: rotina legada desativada. A única autoridade para abrir o
+    // recadastramento é SIGEE_AUTH, acionada pelo evento de login concluído.
+    return false;
   }
 
   async function salvarNovaSenhaObrigatoria() {
@@ -9919,7 +9912,6 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     window.handleLogin = async function () {
       const r = await loginPrev.apply(this, arguments);
       setTimeout(aplicarPermissoesEstagiario, 50);
-      setTimeout(verificarTrocaSenhaObrigatoria, 300);
       setTimeout(aplicarPermissoesEstagiario, 700);
       return r;
     };
@@ -9938,10 +9930,8 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
   }
 
   document.addEventListener('DOMContentLoaded', () => {
-    criarModalTrocaSenha();
     aplicarPermissoesEstagiario();
     setTimeout(aplicarPermissoesEstagiario, 300);
-    setTimeout(verificarTrocaSenhaObrigatoria, 800);
   });
   window.addEventListener('load', () => setTimeout(aplicarPermissoesEstagiario, 150));
   setInterval(aplicarPermissoesEstagiario, 1200);
