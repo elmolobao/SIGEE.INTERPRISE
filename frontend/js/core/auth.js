@@ -1,5 +1,5 @@
 /**
- * SIGEE Enterprise RC4.3.7 — Autenticação e primeiro acesso.
+ * SIGEE Enterprise RC4.4.0 — Autenticação e recadastramento auditados.
  * Depende de session.js e supabase.js. Não controla menus ou permissões.
  */
 (function (window) {
@@ -16,18 +16,6 @@
     return text(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
   }
   function normalizeEmail(email) { return text(email).toLowerCase(); }
-  function truthyFlag(value) {
-    const v = text(value).toLowerCase();
-    return value === true || value === 1 || v === 'true' || v === '1' || v === 't' || v === 'sim';
-  }
-  function requiresPasswordChange(user, event) {
-    return !!user && (
-      truthyFlag(user.forcar_troca_senha) ||
-      user.__senha_provisoria_usada === true ||
-      event?.detail?.senhaProvisoriaUsada === true ||
-      window.__SIGEE_SENHA_PROVISORIA_USADA__ === true
-    );
-  }
   function normalizeProfile(value) {
     if (window.SIGEE_SESSION && typeof window.SIGEE_SESSION.normalizarPerfil === 'function') return window.SIGEE_SESSION.normalizarPerfil(value);
     const key = token(value);
@@ -93,8 +81,7 @@
     const payload = { senha: password, senha_hash: password, forcar_troca_senha: false };
     const result = await supabase.from('usuarios_sigee').update(payload).eq('email', normalizeEmail(user.email)).select('*').maybeSingle();
     if (result.error) return alert('Erro ao salvar nova senha: ' + result.error.message);
-    setUser(Object.assign({}, user, payload, result.data || {}, { __senha_provisoria_usada: false }));
-    window.__SIGEE_SENHA_PROVISORIA_USADA__ = false;
+    setUser(Object.assign({}, user, payload, result.data || {}));
     hidePasswordModal();
     alert('Senha cadastrada com sucesso.');
   }
@@ -105,31 +92,58 @@
     const dashboardVisible = !!dashboard && !dashboard.classList.contains('hidden');
     return loginHidden && dashboardVisible;
   }
-  function checkFirstAccess(event) {
-    // O evento de login contém o usuário recém-validado. Ele deve ter prioridade
-    // sobre uma sessão antiga ou ainda não sincronizada no SIGEE_SESSION.
-    const userFromEvent = event && event.detail ? event.detail.usuario : null;
-    const user = userFromEvent || getUser();
-    const loginCompleted = event?.detail?.loginConcluido === true;
-    if (!requiresPasswordChange(user, event)) return;
+  function requiresPasswordChange(value) {
+    const normalized = text(value).toLowerCase();
+    return value === true || value === 1 || normalized === 'true' || normalized === '1' || normalized === 't';
+  }
 
-    // Sincroniza a sessão oficial antes de abrir o modal, sem redisparar o evento.
-    if (userFromEvent) {
-      try { setUser(userFromEvent, { emit: false, persist: true }); } catch (_) {}
-    }
-    // Exigência absoluta: o modal só pode abrir após um login manual concluído
-    // nesta execução da página. Uma sessão antiga em localStorage não basta.
-    if (!loginCompleted || window.__SIGEE_LOGIN_CONCLUIDO__ !== true) return;
-    let tentativas = 0;
-    const abrirQuandoPronto = function () {
-      tentativas += 1;
-      if (window.__SIGEE_LOGIN_CONCLUIDO__ === true && authenticatedAreaIsVisible()) {
-        showPasswordModal();
-        return;
-      }
-      if (tentativas < 20) setTimeout(abrirQuandoPronto, 100);
-    };
-    setTimeout(abrirQuandoPronto, 50);
+  async function resolveFreshUser(user) {
+    if (!user || !user.email) return user || null;
+    const supabase = client();
+    if (!supabase) return user;
+    try {
+      const result = await supabase
+        .from('usuarios_sigee')
+        .select('id,email,nome,perfil,nte_id,nte,ativo,Ativo,forcar_troca_senha')
+        .eq('email', normalizeEmail(user.email))
+        .maybeSingle();
+      if (!result.error && result.data) return Object.assign({}, user, result.data);
+    } catch (_) {}
+    return user;
+  }
+
+  function waitForAuthenticatedArea(callback, attempts) {
+    const remaining = Number.isFinite(attempts) ? attempts : 20;
+    if (authenticatedAreaIsVisible()) return callback();
+    if (remaining <= 0) return;
+    setTimeout(function () { waitForAuthenticatedArea(callback, remaining - 1); }, 100);
+  }
+
+  async function checkFirstAccess(context) {
+    // Aceita os dois formatos existentes no projeto:
+    // 1) CustomEvent com detail={usuario, loginConcluido, senhaProvisoriaUsada}
+    // 2) evento de sessão com detail=<usuario>
+    const raw = context && Object.prototype.hasOwnProperty.call(context, 'detail')
+      ? context.detail
+      : context;
+    const envelope = raw && raw.usuario ? raw : { usuario: raw };
+    const loginCompleted = envelope.loginConcluido === true || window.__SIGEE_LOGIN_CONCLUIDO__ === true;
+    if (!loginCompleted) return false;
+
+    let user = envelope.usuario || getUser();
+    user = await resolveFreshUser(user);
+
+    const senhaProvisoriaUsada = envelope.senhaProvisoriaUsada === true;
+    const obrigatoria = !!user && (requiresPasswordChange(user.forcar_troca_senha) || senhaProvisoriaUsada);
+    if (!obrigatoria) return false;
+
+    try { setUser(user, { emit: false, persist: true, source: 'login' }); } catch (_) {}
+    window.usuarioLogado = user;
+
+    waitForAuthenticatedArea(function () {
+      if (window.__SIGEE_LOGIN_CONCLUIDO__ === true) showPasswordModal();
+    }, 25);
+    return true;
   }
 
   const api = Object.freeze({

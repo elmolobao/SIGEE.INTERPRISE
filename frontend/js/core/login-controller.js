@@ -1,5 +1,5 @@
 /**
- * SIGEE RC4.3.0 — Autenticação oficial centralizada no Supabase.
+ * SIGEE RC4.4.0 — Autenticação oficial centralizada e recadastramento auditado.
  *
  * Regras:
  * - o registro oficial de usuarios_sigee é a única autoridade para login;
@@ -172,7 +172,20 @@
         try { window.sincronizarSupabaseSegundoPlanoSIGEE?.(); } catch (_) {}
       }, 300);
 
-      window.SIGEE_AUTH?.verificarPrimeiroAcesso?.();
+      // O login-controller é o último script que redefine handleLogin. Portanto,
+      // ele deve marcar o login manual e enviar explicitamente o usuário oficial
+      // ao controlador de recadastramento. O evento emitido pela sessão ocorre
+      // antes desta marcação e não é suficiente sozinho.
+      window.__SIGEE_LOGIN_CONCLUIDO__ = true;
+      const contextoPrimeiroAcesso = {
+        detail: {
+          usuario: canonico,
+          loginConcluido: true,
+          senhaProvisoriaUsada: senha === (window.SIGEE_AUTH?.SENHA_PADRAO || 'SEC@2026')
+        }
+      };
+      await window.SIGEE_AUTH?.verificarPrimeiroAcesso?.(contextoPrimeiroAcesso);
+      document.dispatchEvent(new CustomEvent('sigee:login-concluido', contextoPrimeiroAcesso));
       return true;
     } catch (erro) {
       console.error('[SIGEE RC4.3.0] Falha na autenticação oficial.', erro);
@@ -184,6 +197,7 @@
   }
 
   function logout() {
+    window.__SIGEE_LOGIN_CONCLUIDO__ = false;
     window.SIGEE_SESSION?.clear?.({ persist: true, emit: true });
     document.getElementById('sistema-dashboard')?.classList.add('hidden');
     document.getElementById('tela-login')?.classList.remove('hidden');
