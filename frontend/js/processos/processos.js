@@ -1,3 +1,4 @@
+/* SIGEE RC4.5.2 — Edição de processo: NTE herdado do registro e bloqueado */
 /* SIGEE PROCESSOS PATCH 2.5.4 — edição por perfil, escola e responsável persistentes */
 /* SIGEE PROCESSOS PATCH 2.5.1A — responsável persistente */
 /* SIGEE PATCH 2.5.3 — compatibilidade do payload processos */
@@ -148,7 +149,21 @@
         const na = numeroNte(a), nb = numeroNte(b);
         return na && nb ? na === nb : normalizarNte(a) === normalizarNte(b);
     }
-    function processoNte(p) { return texto(p && (p.nte || p.nte_nome || p.grupo || p.NTE)); }
+    function processoNte(p) {
+        if (!p) return '';
+        const direto = texto(
+            p.nte ||
+            p.nte_nome ||
+            p.nte_vinculado ||
+            p.grupo ||
+            p.territorio ||
+            p.territorio_identidade ||
+            p.NTE
+        );
+        if (direto) return direto;
+        const id = Number(p.nte_id || p.territorio_id || p.nte_codigo || 0);
+        return id > 0 ? `NTE-${String(id).padStart(2, '0')}` : '';
+    }
     function processoEtapa(p) { return texto(p && (p.etapa || p.etapa_atual || p.fase_atual)) || 'Desarquivamento'; }
     function processoAluno(p) { return texto(p && (p.aluno || p.aluno_nome || p.nome_solicitante)); }
     function processoEscola(p) { return texto(p && (p.escola || p.escola_nome || p.nome_escola || p.instituicao)); }
@@ -755,6 +770,37 @@
         return texto(item && (item.nte || item.nte_nome || item.grupo || item.territorio || (item.nte_id ? `NTE-${String(item.nte_id).padStart(2,'0')}` : '')));
     }
 
+    function resolverNteProcessoEdicao(p, u) {
+        const candidatos = [
+            processoNte(p),
+            p && p.nte_id,
+            p && p.territorio_id,
+            p && p.nte_codigo,
+            p && p.escola_nte,
+            p && p.escola_nte_nome,
+            p && p.escola_nte_id
+        ];
+
+        for (const candidato of candidatos) {
+            const numero = numeroNteEdicao(candidato);
+            if (numero) return `NTE-${String(numero).padStart(2, '0')}`;
+            const textoNte = texto(candidato);
+            if (textoNte) return textoNte;
+        }
+
+        const escolaId = texto(p && p.escola_id);
+        const escolaNome = normalizar(processoEscola(p));
+        const escolaLocal = (Array.isArray(window.escolasDB) ? window.escolasDB : []).find(e =>
+            (escolaId && texto(e && e.id) === escolaId) ||
+            (escolaNome && normalizar(e && (e.nome_escola || e.nome || e.escola)) === escolaNome)
+        );
+        const nteEscola = nteRegistroEdicao(escolaLocal);
+        if (nteEscola) return nteEscola;
+
+        // Último recurso apenas para registros antigos sem NTE: utiliza o NTE da sessão.
+        return nteUsuario(u);
+    }
+
     function listaDocumentosEdicaoSIGEE() {
         const padrao = [
             'Histórico Escolar',
@@ -788,12 +834,11 @@
         const modal = document.createElement('div');
         modal.id = 'sigee-modal-edicao-processo';
         modal.className = 'sigee-editproc-backdrop';
-        const nteAtual = processoNte(p) || nteUsuario(u);
+        const nteAtual = resolverNteProcessoEdicao(p, u);
         const alunoAtual = processoAluno(p);
         const documentoAtual = processoDocumento(p);
         const responsavelAtual = processoResponsavel(p) === 'Não atribuído' ? '' : processoResponsavel(p);
         const escHtml = v => texto(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-        const opcoesNte = Array.from({length:27},(_,i)=>{ const v=`NTE-${String(i+1).padStart(2,'0')}`; return `<option value="${v}" ${normalizar(v)===normalizar(nteAtual)?'selected':''}>${v}</option>`; }).join('');
         const opcoesAlunos = listaAlunosEdicaoSIGEE().map(nome => `<option value="${escHtml(nome)}"></option>`).join('');
         const documentos = listaDocumentosEdicaoSIGEE();
         if (documentoAtual && !documentos.some(x => normalizar(x) === normalizar(documentoAtual))) documentos.unshift(documentoAtual);
@@ -818,9 +863,10 @@
                 <input id="sigee-editproc-aluno" list="sigee-editproc-alunos-lista" required value="${escHtml(alunoAtual)}" autocomplete="off">
                 <datalist id="sigee-editproc-alunos-lista">${opcoesAlunos}</datalist>
               </label>
-              ${master
-                ? `<label>NTE<select id="sigee-editproc-nte">${opcoesNte}</select></label>`
-                : `<label>NTE<input id="sigee-editproc-nte-view" value="${escHtml(nteAtual)}" readonly aria-readonly="true"></label><input type="hidden" id="sigee-editproc-nte" value="${escHtml(nteAtual)}">`}
+              <label>NTE
+                <input id="sigee-editproc-nte-view" value="${escHtml(nteAtual)}" readonly aria-readonly="true" title="NTE herdado do processo aberto">
+              </label>
+              <input type="hidden" id="sigee-editproc-nte" value="${escHtml(nteAtual)}">
               <label class="full sigee-editproc-school-label">Escola/Instituição
                 <div class="sigee-editproc-school-wrap">
                   <input id="sigee-editproc-escola-busca" required autocomplete="off" value="${escHtml(escolaAtual.nome)}" placeholder="🔎 Digite nome da escola, município ou código MEC...">
@@ -924,15 +970,6 @@
         }
 
         preencherResponsaveis();
-        if (master) selNte.addEventListener('change',()=>{
-            escolaSelecionada = null;
-            inputEscola.value = '';
-            inputEscola.removeAttribute('data-selected-id');
-            statusEscola.textContent = 'NTE alterado. Pesquise e selecione uma escola do novo NTE.';
-            statusEscola.classList.add('sigee-editproc-invalid');
-            esconderResultados();
-            preencherResponsaveis();
-        });
 
         const fechar = () => { clearTimeout(timerPesquisa); modal.remove(); };
         modal.querySelector('.sigee-editproc-close').addEventListener('click', fechar);
@@ -957,7 +994,13 @@
                 p.escola = p.escola_nome = texto(escolaSelecionada.nome).toUpperCase();
                 if (escolaSelecionada.mec) p.cod_mec = p.codigo_mec = escolaSelecionada.mec;
                 if (master) p.documento = p.documento_tipo = texto(selDocumento.value).toUpperCase();
-                if (master) p.nte = texto(selNte.value) || p.nte;
+                const nteHerdado = texto(nteAtual);
+                if (nteHerdado) {
+                    p.nte = nteHerdado;
+                    p.nte_nome = p.nte_nome || nteHerdado;
+                    const nteNumeroHerdado = numeroNteEdicao(nteHerdado);
+                    if (nteNumeroHerdado && !p.nte_id) p.nte_id = nteNumeroHerdado;
+                }
                 const resp = texto(selResponsavel.value);
                 p.tecnico_responsavel = p.tecnico_responsavel_nome = resp || null;
                 p.responsavel = p.responsavel_nome = resp || null;
@@ -970,7 +1013,7 @@
                 const alteracoes = [];
                 if (normalizar(antes.aluno) !== normalizar(processoAluno(p))) alteracoes.push(`nome: ${antes.aluno} → ${processoAluno(p)}`);
                 if (normalizar(antes.escola) !== normalizar(processoEscola(p))) alteracoes.push(`escola: ${antes.escola} → ${processoEscola(p)}`);
-                if (master && normalizar(antes.nte) !== normalizar(processoNte(p))) alteracoes.push(`NTE: ${antes.nte} → ${processoNte(p)}`);
+                
                 if (master && normalizar(antes.documento) !== normalizar(processoDocumento(p))) alteracoes.push(`documento: ${antes.documento} → ${processoDocumento(p)}`);
                 if (normalizar(antes.responsavel) !== normalizar(processoResponsavel(p))) alteracoes.push(`responsável: ${antes.responsavel} → ${processoResponsavel(p)}`);
 
