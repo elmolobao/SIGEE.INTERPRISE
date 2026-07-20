@@ -1,5 +1,5 @@
 /* =====================================================================
-   SIGEE Enterprise — Sprint 2.4.7J — Módulo Oficial de Escolas
+   SIGEE Enterprise RC4.5.0 — Módulo Oficial de Escolas
    Módulo: Escolas
    Produção: catálogo paginado, filtro por NTE e autocomplete da Nova Solicitação.
    Substitui a lógica dependente de listas locais grandes e evita limite de 1000 registros.
@@ -112,10 +112,21 @@
     const n = Number(nteId || 0);
     if (!n) return [];
 
-    const locais = (Array.isArray(window.escolasDB) ? window.escolasDB : [])
+    // A base territorial oficial é a fonte primária. Isso permite cadastrar a
+    // primeira escola de um município ainda inexistente em escolas_sigee.
+    const locais = (Array.isArray(window.SIGEE_TERRITORIOS_MUNICIPIOS)
+      ? window.SIGEE_TERRITORIOS_MUNICIPIOS
+      : [])
+      .filter(item => Number(item.nte) === n)
+      .map(item => texto(item.municipio))
+      .filter(Boolean);
+
+    // Mantém compatibilidade com municípios já gravados no catálogo/local cache.
+    (Array.isArray(window.escolasDB) ? window.escolasDB : [])
       .filter(e => Number(e.nte_id || extrairNteEscola(e.nte)) === n)
       .map(e => texto(e.municipio))
-      .filter(Boolean);
+      .filter(Boolean)
+      .forEach(municipio => locais.push(municipio));
 
     const client = supabaseClient();
     if (client) {
