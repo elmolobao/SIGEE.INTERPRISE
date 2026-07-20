@@ -375,6 +375,7 @@
             if (typeof processoParaSupabaseSIGEE === 'function') {
                 const payload = processoParaSupabaseSIGEE(p) || {};
                 payload.workflow_instance_id = p.workflow_instance_id || payload.workflow_instance_id || gerarWorkflowInstanceIdSIGEE();
+                if (payload.nte || p.nte || p.nte_id) payload.nte = nteOficial(payload.nte || p.nte_id || p.nte);
                 p.workflow_instance_id = payload.workflow_instance_id;
                 const responsavelAtual = processoResponsavel(p);
                 if (responsavelAtual && responsavelAtual !== 'Não atribuído') {
@@ -401,7 +402,7 @@
             escola_nome: processoEscola(p),
             documento_tipo: processoDocumento(p),
             etapa_atual: processoEtapa(p),
-            nte: processoNte(p),
+            nte: nteOficial(p.nte_id || processoNte(p)),
             cod_mec: p.cod_mec || p.mec || null,
             escola_id: p.escola_id == null || p.escola_id === '' ? null : (Number(p.escola_id) || p.escola_id),
             modalidade: p.modalidade || p.oferta_modalidade || null,
@@ -463,7 +464,7 @@
                     .maybeSingle();
                 if (escola) {
                     payload.cod_mec = escola.cod_mec || payload.cod_mec || null;
-                    payload.nte = escola.nte || (escola.nte_id ? `NTE-${String(escola.nte_id).padStart(2,'0')}` : payload.nte);
+                    payload.nte = nteOficial(escola.nte_id || escola.nte || payload.nte);
                     payload.escola_nome = escola.nome_escola || payload.escola_nome;
                     p.escola_id = escola.id; p.cod_mec = payload.cod_mec; p.nte = payload.nte;
                 }
@@ -1013,7 +1014,7 @@
             if (!novoAluno) return alert('Informe o nome do requerente/aluno.');
 
             const antes = {
-                aluno: processoAluno(p), nte: processoNte(p), escola: processoEscola(p),
+                aluno: processoAluno(p), nte: nteOficial(p.nte_id || processoNte(p)), escola: processoEscola(p),
                 documento: processoDocumento(p), responsavel: processoResponsavel(p)
             };
             btn.disabled = true; btn.textContent = 'Salvando...';
