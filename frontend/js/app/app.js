@@ -7746,7 +7746,13 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
       perfil: perfil(row?.perfil),
       nte_id: idNte,
       nte: idNte ? nteTexto(idNte) : txt(row?.nte || 'SEC - TODOS OS NTEs'),
-      ativo: row?.ativo !== false && row?.Ativo !== false
+      ativo: row?.ativo !== false && row?.Ativo !== false,
+      // RC4.3.4: preservar a sinalização de recadastramento recebida do banco.
+      // Sem este campo, o login normalizava o usuário e descartava a exigência
+      // de troca de senha antes de gravar a sessão.
+      forcar_troca_senha: row?.forcar_troca_senha === true ||
+        String(row?.forcar_troca_senha || '').toLowerCase() === 'true' ||
+        Number(row?.forcar_troca_senha) === 1
     };
   }
   function normalizarEscola(row){
@@ -7823,6 +7829,11 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
       try{ usuarioLogado = u; }catch(e){}
       window.SIGEE_RENDERIZAR_IDENTIDADE_EFETIVA?.();
       try{ localStorage.setItem('SIGEE_USUARIO_LOGADO', JSON.stringify(u)); }catch(e){}
+      // RC4.3.4: notificar a autoridade única de autenticação somente depois
+      // de a sessão completa (inclusive forcar_troca_senha) estar disponível.
+      try {
+        document.dispatchEvent(new CustomEvent('sigee:usuario-logado', { detail: { usuario: u } }));
+      } catch (_) {}
       document.getElementById('user-nome') && (document.getElementById('user-nome').innerText = u.nome);
       window.SIGEE_RENDERIZAR_IDENTIDADE_EFETIVA?.();
       document.getElementById('tela-login')?.classList.add('hidden');
@@ -7831,6 +7842,11 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
       aplicarPermissoesCore();
       await registrarLogCore('LOGIN', `Perfil ${u.perfil} / ${u.nte}`);
       if(typeof navegar === 'function') navegar('processos'); else await carregarDashboardCore();
+      if (u.forcar_troca_senha === true) {
+        setTimeout(() => {
+          try { window.SIGEE_AUTH?.mostrarModalTrocaSenha?.(); } catch (e) { console.error('[SIGEE RC4.3.4] Falha ao abrir recadastramento:', e); }
+        }, 80);
+      }
     }catch(e){
       console.error('[SIGEE] Erro login', e);
       alert('Erro no login: ' + (e.message || e));
