@@ -1,5 +1,5 @@
 /**
- * SIGEE Enterprise RC4.3.6 — Autenticação e primeiro acesso.
+ * SIGEE Enterprise RC4.3.7 — Autenticação e primeiro acesso.
  * Depende de session.js e supabase.js. Não controla menus ou permissões.
  */
 (function (window) {
@@ -93,9 +93,17 @@
     return loginHidden && dashboardVisible;
   }
   function checkFirstAccess(event) {
-    const user = getUser();
+    // O evento de login contém o usuário recém-validado. Ele deve ter prioridade
+    // sobre uma sessão antiga ou ainda não sincronizada no SIGEE_SESSION.
+    const userFromEvent = event && event.detail ? event.detail.usuario : null;
+    const user = userFromEvent || getUser();
     const loginCompleted = event?.detail?.loginConcluido === true;
     if (!user || user.forcar_troca_senha !== true) return;
+
+    // Sincroniza a sessão oficial antes de abrir o modal, sem redisparar o evento.
+    if (userFromEvent) {
+      try { setUser(userFromEvent, { emit: false, persist: true }); } catch (_) {}
+    }
     // Exigência absoluta: o modal só pode abrir após um login manual concluído
     // nesta execução da página. Uma sessão antiga em localStorage não basta.
     if (!loginCompleted || window.__SIGEE_LOGIN_CONCLUIDO__ !== true) return;
