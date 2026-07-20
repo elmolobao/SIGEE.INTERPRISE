@@ -154,6 +154,11 @@
       processos: (r.processos || []).filter(p => p.status_validacao === 'PRONTO' && !p.ignorar_migracao).map(p => ({
         migration_key: p.migration_key,
         aluno_nome: p.aluno_nome,
+        linha_origem: p.linha_origem || null,
+        aba_origem: p.aba_origem || '00 - DESARQUIVAR',
+        hash_origem: hashArquivo,
+        motor_migracao: 'Engine de Migração 5.5.0',
+        auditoria_aprovada: !!p.auditoria_aprovada,
         escola_nome: p.escola_nome_original || p.escola_nome,
         escola_id: p.escola_id,
         nte: `NTE ${Number(nte)}`,
@@ -162,6 +167,7 @@
         workflow_instance_id: p.workflow_instance_id || uuid(),
         auditoria_migracao: p.auditoria_m53 || [],
         decisao_master: p.decisao_m53 || 'IMPORTAR',
+        pendencia_migrada: p.pendencia_migrada || null,
         eventos: (p.eventos_validos || []).map(e => ({
           etapa: e.etapa || '',
           evento: e.evento || '',
@@ -169,7 +175,8 @@
           tipo_data: e.tipo_data || 'REAL',
           responsavel: e.responsavel || '',
           status: e.status || '',
-          aba: e.aba || ''
+          aba: e.aba || '',
+          linha_origem: e.linha_origem || null
         }))
       }))
     };

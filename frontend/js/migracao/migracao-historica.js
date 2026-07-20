@@ -162,6 +162,38 @@
     for (const n of nomes) if (obj && obj[n] != null && texto(obj[n])) return obj[n];
     return '';
   }
+
+  function campoFlexivel(obj, nomes) {
+    if (!obj) return '';
+    const chaves = Object.keys(obj);
+    for (const nome of nomes) {
+      const alvo = normalizar(nome);
+      const chave = chaves.find(k => normalizar(k) === alvo);
+      if (chave && obj[chave] != null && texto(obj[chave])) return obj[chave];
+    }
+    return '';
+  }
+
+  function detalhesPendencia(registro) {
+    return texto(campoFlexivel(registro, [
+      'PENDÊNCIA','PENDENCIA','DETALHAMENTO','DESCRIÇÃO','DESCRICAO',
+      'OBSERVAÇÃO','OBSERVACAO','MOTIVO','ASSUNTO','INFORMAÇÃO','INFORMACAO'
+    ]));
+  }
+
+  function dataAberturaPendencia(registro) {
+    return campoFlexivel(registro, [
+      'DATA ENVIO','DATA DE ENVIO','Data de Envio','ENVIO PENDÊNCIA',
+      'ENVIO PENDENCIA','DATA DA PENDÊNCIA','DATA DA PENDENCIA','DATA'
+    ]);
+  }
+
+  function dataRecebimentoPendencia(registro) {
+    return campoFlexivel(registro, [
+      'DATA RECEBIMENTO','DATA DE RECEBIMENTO','Data de Recebimento',
+      'DATA RETORNO','DATA DE RETORNO','Data de Retorno','RETORNO'
+    ]);
+  }
   function nteDoRegistro(obj) {
     return numeroNte(campo(obj, ['_nte_numero','nte','nte_nome','numero_nte','codigo_nte','nte_id']));
   }
@@ -395,7 +427,9 @@
   }
   function sheetJson(wb, name) {
     const ws = wb.Sheets[name];
-    return ws ? XLSX.utils.sheet_to_json(ws, { defval: null, raw: true }) : [];
+    if (!ws) return [];
+    return XLSX.utils.sheet_to_json(ws, { defval: null, raw: true })
+      .map((registro, indice) => ({ ...registro, __linha_origem: indice + 2 }));
   }
 
   function processarWorkbook(wb, arquivo) {
@@ -462,7 +496,7 @@
         procIssues.push(item);
         inconsistencias.push(item);
       };
-      const add = (etapa, evento, dataOriginal, resp, status, aba) => {
+      const add = (etapa, evento, dataOriginal, resp, status, aba, linhaOrigem) => {
         const data = excelData(dataOriginal);
         if (dataOriginal && !data) {
           addIssue('DATA_INVALIDA', 'Alta', `Data inválida em ${evento}`, aba);
@@ -477,36 +511,49 @@
           tipo_data: classificacaoData,
           responsavel: nomeProprio(resp),
           status: texto(status), aba,
+          linha_origem: linhaOrigem || null,
           valido_cronologia: classificacaoData === 'REAL' && !futuro
         };
         ev.push(item);
         eventos.push({ aluno_nome:nome, escola_nome:escola, ...item });
       };
 
-      add('Desarquivamento','Nova Solicitação',r['DATA ENVIO'],'','',origemNome);
-      add('Desarquivamento','Documento Recebido',r['DATA RETORNO'],'',r['SITUAÇÃO'],origemNome);
-      if (imp) add('Desarquivamento','Documento Recebido / Triagem',imp['Data de Chegada'] || imp['DATA IMPRESSÃO'],'',imp.STATUS,'01 - IMPRESSÃO');
+      add('Desarquivamento','Nova Solicitação',r['DATA ENVIO'],'','',origemNome,r.__linha_origem);
+      add('Desarquivamento','Documento Recebido',r['DATA RETORNO'],'',r['SITUAÇÃO'],origemNome,r.__linha_origem);
+      if (imp) add('Desarquivamento','Documento Recebido / Triagem',imp['Data de Chegada'] || imp['DATA IMPRESSÃO'],'',imp.STATUS,'01 - IMPRESSÃO',imp.__linha_origem);
       if (ana) {
-        add('Análise','Entrada em Análise',ana['ENVIO ANÁLISE'],ana.ANALISTA,ana.STATUS,'02 - ANÁLISE');
-        add('Análise','Saída da Análise',ana.RETORNO,ana.ANALISTA,ana.STATUS,'02 - ANÁLISE');
+        add('Análise','Entrada em Análise',ana['ENVIO ANÁLISE'],ana.ANALISTA,ana.STATUS,'02 - ANÁLISE',ana.__linha_origem);
+        add('Análise','Saída da Análise',ana.RETORNO,ana.ANALISTA,ana.STATUS,'02 - ANÁLISE',ana.__linha_origem);
       }
-      if (pen) add('Pendência','Pendência registrada',pen['Data de Retorno'],'',pen.STATUS,'03 - PENDÊNCIA');
+      const pendenciaDetalhamento = pen ? detalhesPendencia(pen) : '';
+      const pendenciaDataAberturaOriginal = pen ? dataAberturaPendencia(pen) : '';
+      const pendenciaDataRecebimentoOriginal = pen ? dataRecebimentoPendencia(pen) : '';
+      const pendenciaDataAbertura = excelData(pendenciaDataAberturaOriginal) ||
+        excelData(ana && ana.RETORNO) || excelData(ana && ana['ENVIO ANÁLISE']) || abertura;
+      const pendenciaDataRecebimento = excelData(pendenciaDataRecebimentoOriginal);
+      const pendenciaAberta = !!pen && !pendenciaDataRecebimento;
+      if (pen && pendenciaDataAbertura) {
+        add('Pendência','Pendência registrada',pendenciaDataAbertura,'',pen.STATUS,'03 - PENDÊNCIA',pen.__linha_origem);
+      }
+      if (pen && pendenciaDataRecebimento) {
+        add('Pendência','Pendência sanada / recebimento registrado',pendenciaDataRecebimento,'',pen.STATUS,'03 - PENDÊNCIA',pen.__linha_origem);
+      }
       if (dig) {
-        add('Digitação','Entrada em Digitação',dig['data de envio'],dig.DIGITADOR,dig.STATUS,'04- DIGITAÇÃO');
-        add('Digitação','Saída da Digitação',dig['data de retorno'],dig.DIGITADOR,dig.STATUS,'04- DIGITAÇÃO');
+        add('Digitação','Entrada em Digitação',dig['data de envio'],dig.DIGITADOR,dig.STATUS,'04- DIGITAÇÃO',dig.__linha_origem);
+        add('Digitação','Saída da Digitação',dig['data de retorno'],dig.DIGITADOR,dig.STATUS,'04- DIGITAÇÃO',dig.__linha_origem);
       }
       if (con) {
         const resp = con['Conferente 01'] || con['DIG.'];
-        add('Conferência','Entrada em Conferência',con['Data envio'],resp,con.STATUS,'05 - CONFERENCIA');
-        add('Conferência','Saída da Conferência',con['Data Retorno'],resp,con.STATUS,'05 - CONFERENCIA');
+        add('Conferência','Entrada em Conferência',con['Data envio'],resp,con.STATUS,'05 - CONFERENCIA',con.__linha_origem);
+        add('Conferência','Saída da Conferência',con['Data Retorno'],resp,con.STATUS,'05 - CONFERENCIA',con.__linha_origem);
       }
       if (ass) {
-        add('Assinatura','Envio para Assinatura',ass['ENVIO ASSINATURA'],'',ass['Situação'],'06 - ASSINATURA');
-        add('Assinatura','Retorno da Assinatura',ass['RETORNO ASSINATURA'],'',ass['Situação'],'06 - ASSINATURA');
+        add('Assinatura','Envio para Assinatura',ass['ENVIO ASSINATURA'],'',ass['Situação'],'06 - ASSINATURA',ass.__linha_origem);
+        add('Assinatura','Retorno da Assinatura',ass['RETORNO ASSINATURA'],'',ass['Situação'],'06 - ASSINATURA',ass.__linha_origem);
       }
       if (def) {
-        add('Aguardando Retirada','Deferido',def['DATA ASSINATURA'],'',def.STATUS,'07 - DEFERIDO');
-        if (normalizar(def.STATUS).includes('RETIR')) add('Retirado','Documento Retirado',def['DATA DA RETIRADA'],'',def.STATUS,'07 - DEFERIDO');
+        add('Aguardando Retirada','Deferido',def['DATA ASSINATURA'],'',def.STATUS,'07 - DEFERIDO',def.__linha_origem);
+        if (normalizar(def.STATUS).includes('RETIR')) add('Retirado','Documento Retirado',def['DATA DA RETIRADA'],'',def.STATUS,'07 - DEFERIDO',def.__linha_origem);
       }
 
       const validos = ev.filter(e => e.valido_cronologia && e.data).sort((a,b) => {
@@ -586,11 +633,11 @@
       let etapaAtual = 'Desarquivamento';
       if (recebimento || imp) etapaAtual = 'Análise';
       if (ana) etapaAtual = normalizar(ana.STATUS).includes('PEND') ? 'Pendência' : 'Análise';
-      if (pen && ['AGUARDANDO','PENDENCIA'].includes(normalizar(pen.STATUS))) etapaAtual = 'Pendência';
-      if (dig) etapaAtual = 'Digitação';
-      if (con) etapaAtual = 'Conferência';
-      if (ass) etapaAtual = 'Assinatura';
-      if (def) etapaAtual = normalizar(def.STATUS).includes('RETIR') ? 'Retirado' : 'Aguardando Retirada';
+      if (pen && pendenciaAberta) etapaAtual = 'Pendência';
+      if (dig && !pendenciaAberta) etapaAtual = 'Digitação';
+      if (con && !pendenciaAberta) etapaAtual = 'Conferência';
+      if (ass && !pendenciaAberta) etapaAtual = 'Assinatura';
+      if (def && !pendenciaAberta) etapaAtual = normalizar(def.STATUS).includes('RETIR') ? 'Retirado' : 'Aguardando Retirada';
 
       // A data da etapa usa somente datas reais. Datas fictícias permanecem no histórico.
       const eventosEtapaReais = validos.filter(e => e.etapa === etapaAtual);
@@ -603,7 +650,11 @@
         processo_migrado: true,
         selo_origem: 'PROCESSO MIGRADO',
         arquivo_origem: arquivo,
-        linha_origem: linhaBase + 2,
+        linha_origem: r.__linha_origem || linhaBase + 2,
+        aba_origem: origemNome,
+        hash_origem: '',
+        motor_migracao: 'Engine de Migração 5.5.0',
+        auditoria_aprovada: false,
         nte_origem: nte,
         aluno_nome: nome,
         escola_nome_original: escola,
@@ -625,6 +676,20 @@
         quantidade_datas_reais: ev.filter(e => e.tipo_data === 'REAL').length,
         quantidade_datas_ficticias: ev.filter(e => e.tipo_data === 'FICTICIA').length,
         possui_data_ficticia: ev.some(e => e.tipo_data === 'FICTICIA'),
+        pendencia_migrada: pen ? {
+          existe: true,
+          aberta: pendenciaAberta,
+          status: pendenciaAberta ? 'pendente' : 'recebido',
+          detalhamento: pendenciaDetalhamento || 'Detalhamento não disponível na base anterior.',
+          data_abertura: iso(pendenciaDataAbertura),
+          data_recebimento: iso(pendenciaDataRecebimento),
+          arquivo_origem: arquivo,
+          aba_origem: '03 - PENDÊNCIA',
+          linha_origem: pen.__linha_origem || null,
+          grupo: 'aluno',
+          mensagem_codigo: 'MIG',
+          mensagem_texto: 'Pendência migrada da planilha histórica'
+        } : null,
         status_validacao: procIssues.some(x => x.gravidade === 'Alta') ? 'PENDENTE' : 'PRONTO',
         inconsistencias: procIssues,
         diagnostico_cronologia: procIssues.filter(x => ['DATA_INVALIDA','DATA_FUTURA','ORDEM_DATAS_CRITICA','VARIACAO_FLUXO_HISTORICO'].includes(x.tipo)),
@@ -934,6 +999,11 @@
         : `Validação final concluída: qualidade ${qualidade}%. Existem itens pendentes.`,
       certificado ? 'ok' : 'erro'
     );
+    if (certificado) {
+      resultadoAtual.processos.forEach(p => {
+        p.auditoria_aprovada = p.status_validacao === 'PRONTO' && !p.ignorar_migracao;
+      });
+    }
     box?.scrollIntoView({behavior:'smooth', block:'start'});
   }
 

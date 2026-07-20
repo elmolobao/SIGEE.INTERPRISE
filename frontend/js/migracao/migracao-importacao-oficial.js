@@ -36,7 +36,7 @@
   function prepararEventos(p){
     return (p.eventos_validos||[]).map(e=>({
       etapa:e.etapa||'',evento:e.evento||'',data:e.data||'',tipo_data:e.tipo_data||'REAL',
-      responsavel:e.responsavel||'',status:e.status||'',aba:e.aba||''
+      responsavel:e.responsavel||'',status:e.status||'',aba:e.aba||'',linha_origem:e.linha_origem||null
     }));
   }
 
@@ -57,13 +57,13 @@
       versao:VERSION,nte:`NTE-${nte}`,arquivo:file.name,hash_sha256:hash,qualidade_m4:100,
       executor:{nome:window.usuarioLogado?.nome||'Master',email:window.usuarioLogado?.email||'',perfil:window.usuarioLogado?.perfil||''},
       processos:processos.map(p=>({
-        migration_key:p.migration_key,aluno_nome:p.aluno_nome,escola_nome:p.escola_nome||p.escola_nome_original,
+        migration_key:p.migration_key,aluno_nome:p.aluno_nome,escola_nome:p.escola_nome||p.escola_nome_original,linha_origem:p.linha_origem||null,aba_origem:p.aba_origem||'00 - DESARQUIVAR',hash_origem:hash,motor_migracao:'Engine de Migração 5.5.0',auditoria_aprovada:!!p.auditoria_aprovada,
         escola_id:p.escola_id,cod_mec:p.codigo_mec||p.cod_mec||'',documento_tipo:p.documento_tipo||'Histórico',
         nivel_oferta:p.nivel_oferta||'',modalidade:p.modalidade||'',prioridade:p.prioridade||'Normal',
         etapa_atual:p.etapa_atual||'Desarquivamento',data_solicitacao:p.data_solicitacao,
         data_etapa_atual:p.data_etapa_atual||p.data_solicitacao,workflow_instance_id:p.workflow_instance_id||uuid(),
         tecnico_responsavel:nomeTecnicoAtual(p),etapa_codigo:p.etapa_codigo||'',contexto_analise:p.contexto_analise||'',
-        auditoria_migracao:p.auditoria_m53||[],decisao_master:p.decisao_m53||'IMPORTAR',eventos:prepararEventos(p)
+        auditoria_migracao:p.auditoria_m53||[],decisao_master:p.decisao_m53||'IMPORTAR',pendencia_migrada:p.pendencia_migrada||null,eventos:prepararEventos(p)
       }))
     };
   }
