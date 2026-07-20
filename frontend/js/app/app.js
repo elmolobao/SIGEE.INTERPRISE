@@ -206,28 +206,28 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
 // ===== bloco JS extraído do index.html =====
 // Relação Oficial e Inalterável dos 27 NTEs da SEC/BA
         const LISTA_OFICIAL_27_NTES = [
-            "NTE-01 Irecê", "NTE-02 Bom Jesus da Lapa", "NTE-03 Seabra", "NTE-04 Serrinha", "NTE-05 Itabuna",
-            "NTE-06 Valença", "NTE-07 Teixeira de Freitas", "NTE-08 Itapetinga", "NTE-09 Amargosa", "NTE-10 Juazeiro",
-            "NTE-11 Barreiras", "NTE-12 Macaúbas", "NTE-13 Caetité", "NTE-14 Itaberaba", "NTE-15 Ipirá",
-            "NTE-16 Jacobina", "NTE-17 Ribeira do Pombal", "NTE-18 Alagoinhas", "NTE-19 Feira de Santana", "NTE-20 Vitória da Conquista",
-            "NTE-21 Santo Antônio de Jesus", "NTE-22 Jequié", "NTE-23 Santa Maria da Vitória", "NTE-24 Paulo Afonso", "NTE-25 Senhor do Bonfim",
-            "NTE-26 Salvador", "NTE-27 Eunápolis"
+            "NTE-01 (Irecê)", "NTE-02 (Bom Jesus da Lapa)", "NTE-03 (Seabra)", "NTE-04 (Serrinha)", "NTE-05 (Itabuna)",
+            "NTE-06 (Valença)", "NTE-07 (Teixeira de Freitas)", "NTE-08 (Itapetinga)", "NTE-09 (Amargosa)", "NTE-10 (Juazeiro)",
+            "NTE-11 (Barreiras)", "NTE-12 (Macaúbas)", "NTE-13 (Caetité)", "NTE-14 (Itaberaba)", "NTE-15 (Ipirá)",
+            "NTE-16 (Jacobina)", "NTE-17 (Ribeira do Pombal)", "NTE-18 (Alagoinhas)", "NTE-19 (Feira de Santana)", "NTE-20 (Vitória da Conquista)",
+            "NTE-21 (Santo Antônio de Jesus)", "NTE-22 (Jequié)", "NTE-23 (Santa Maria da Vitória)", "NTE-24 (Paulo Afonso)", "NTE-25 (Senhor do Bonfim)",
+            "NTE-26 (Salvador)", "NTE-27 (Eunápolis)"
         ];
 
         let usuariosDB = [
-            { id: 1, nome: "ELMO LOBÃO", email: "elmo.lobao@enova.educacao.ba.gov.br", senha: "123", perfil: "Master", nte: "NTE-26 Salvador", ativo: true },
-            { id: 2, nome: "ANA COSTA", email: "ana.costa@enova.educacao.ba.gov.br", senha: "123", perfil: "Técnico", nte: "NTE-26 Salvador", ativo: true },
-            { id: 3, nome: "CARLOS SOUZA", email: "carlos.souza@enova.educacao.ba.gov.br", senha: "123", perfil: "Técnico", nte: "NTE-19 Feira de Santana", ativo: true }
+            { id: 1, nome: "ELMO LOBÃO", email: "elmo.lobao@enova.educacao.ba.gov.br", senha: "123", perfil: "Master", nte: "NTE-26 (Salvador)", ativo: true },
+            { id: 2, nome: "ANA COSTA", email: "ana.costa@enova.educacao.ba.gov.br", senha: "123", perfil: "Técnico", nte: "NTE-26 (Salvador)", ativo: true },
+            { id: 3, nome: "CARLOS SOUZA", email: "carlos.souza@enova.educacao.ba.gov.br", senha: "123", perfil: "Técnico", nte: "NTE-19 (Feira de Santana)", ativo: true }
         ];
 
         let escolasDB = [
-            { id: 1, cod_mec: "290001", nome: "COLÉGIO ESTADUAL DA BAHIA (EXTINTO)", municipio: "SALVADOR", nte: "NTE-26 Salvador", dependencia: "Estadual", situacao: "Extinta", acervo: "Recolhido", local_acervo: "Acervo do NTE" },
-            { id: 2, cod_mec: "290002", nome: "ESCOLA NORMAL DE FEIRA DE SANTANA", municipio: "FEIRA DE SANTANA", nte: "NTE-19 Feira de Santana", dependencia: "Estadual", situacao: "Extinta", acervo: "Recolhido", local_acervo: "Acervo do NTE" }
+            { id: 1, cod_mec: "290001", nome: "COLÉGIO ESTADUAL DA BAHIA (EXTINTO)", municipio: "SALVADOR", nte: "NTE-26 (Salvador)", dependencia: "Estadual", situacao: "Extinta", acervo: "Recolhido", local_acervo: "Acervo do NTE" },
+            { id: 2, cod_mec: "290002", nome: "ESCOLA NORMAL DE FEIRA DE SANTANA", municipio: "FEIRA DE SANTANA", nte: "NTE-19 (Feira de Santana)", dependencia: "Estadual", situacao: "Extinta", acervo: "Recolhido", local_acervo: "Acervo do NTE" }
         ];
 
         // Controle Dinâmico das Datas das Etapas para a Contabilização Unificada de Prazos
         let processosDB = [
-            { id: 101, aluno: "AUGUSTO SILVA SANTOS", escola: "COLÉGIO ESTADUAL DA BAHIA (EXTINTO)", documento: "HISTÓRICO", etapa: "Desarquivamento", data_etapa_atual: "01/06/2026", nte: "NTE-26 Salvador", municipio: "SALVADOR" }
+            { id: 101, aluno: "AUGUSTO SILVA SANTOS", escola: "COLÉGIO ESTADUAL DA BAHIA (EXTINTO)", documento: "HISTÓRICO", etapa: "Desarquivamento", data_etapa_atual: "01/06/2026", nte: "NTE-26 (Salvador)", municipio: "SALVADOR" }
         ];
 
         let solicitacoesDB = [];
@@ -328,7 +328,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         function obterNomeNtePorIdSIGEE(id) {
             const numero = Number(id);
             const item = LISTA_OFICIAL_27_NTES.find(n => obterNumeroNteSIGEE(n) === numero);
-            return item || (numero ? ('NTE-' + String(numero).padStart(2, '0')) : 'NTE-26 Salvador');
+            return window.SIGEE_NTE?.formatar(numero) || item || (numero ? ('NTE-' + String(numero).padStart(2, '0')) : 'NTE-26 (Salvador)');
         }
 
         function normalizarValorPermitidoSIGEE(valor, padrao, mapa) {
@@ -350,7 +350,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 nte_id: (() => {
                     const direto = Number(e.nte_id);
                     if (direto && !Number.isNaN(direto)) return direto;
-                    const textoNte = e.nte || e.nte_nome || e.nte_vinculado || e.nucleo || 'NTE-26 Salvador';
+                    const textoNte = e.nte || e.nte_nome || e.nte_vinculado || e.nucleo || 'NTE-26 (Salvador)';
                     const calculado = obterNumeroNteSIGEE(textoNte);
                     return (calculado && !Number.isNaN(calculado)) ? calculado : 26;
                 })(),
@@ -368,7 +368,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 cod_mec: normalizarTextoSIGEE(e.cod_mec || e.codigo_mec || e.mec),
                 nome: normalizarMaiusculoSIGEE(e.nome_escola || e.nome || e.instituicao),
                 municipio: normalizarMaiusculoSIGEE(e.municipio || e.cidade),
-                nte: normalizarTextoSIGEE(e.nte || obterNomeNtePorIdSIGEE(e.nte_id) || 'NTE-26 Salvador'),
+                nte: normalizarTextoSIGEE(e.nte || obterNomeNtePorIdSIGEE(e.nte_id) || 'NTE-26 (Salvador)'),
                 dependencia: normalizarTextoSIGEE(e.dependencia_adm || e.dependencia || 'Estadual'),
                 situacao: normalizarTextoSIGEE(e.situacao_funcional || e.situacao || 'Extinta'),
                 acervo: normalizarTextoSIGEE(e.status_acervo || e.acervo || 'Recolhido'),
@@ -462,7 +462,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 email: emailNormalizado,
                 senha: normalizarTextoSIGEE(u.senha || u.password || '123'),
                 perfil: perfilFinal,
-                nte: normalizarTextoSIGEE(u.nte || u.nte_vinculado || obterNomeNtePorIdSIGEE(u.nte_id) || 'NTE-26 Salvador'),
+                nte: normalizarTextoSIGEE(u.nte || u.nte_vinculado || obterNomeNtePorIdSIGEE(u.nte_id) || 'NTE-26 (Salvador)'),
                 ativo: (u.ativo === undefined || u.ativo === null) ? true : !!u.ativo
             };
         }
@@ -511,7 +511,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 nivel_oferta: normalizarTextoSIGEE(p.nivel_oferta || p.ensino || null) || null,
                 modalidade: normalizarTextoSIGEE(p.modalidade || null) || null,
                 etapa_atual: normalizarTextoSIGEE(p.etapa || p.etapa_atual || 'Desarquivamento'),
-                nte: normalizarTextoSIGEE(p.nte || 'NTE-26 Salvador'),
+                nte: normalizarTextoSIGEE(p.nte || 'NTE-26 (Salvador)'),
                 cod_mec: normalizarTextoSIGEE(p.cod_mec || p.mec || null) || null,
                 escola_id: p.escola_id == null || p.escola_id === '' ? null : (Number(p.escola_id) || p.escola_id),
                 workflow_instance_id: p.workflow_instance_id || null,
@@ -544,7 +544,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 documento: normalizarTextoSIGEE(p.documento_tipo || p.documento || p.tipo_documento || 'HISTÓRICO'),
                 etapa: normalizarTextoSIGEE(p.etapa_atual || p.etapa || p.status || 'Desarquivamento'),
                 data_etapa_atual: normalizarTextoSIGEE(p.data_etapa_atual || p.created_at || obterDataAtualFormatada()),
-                nte: normalizarTextoSIGEE(p.nte || p.nte_vinculado || 'NTE-26 Salvador'),
+                nte: normalizarTextoSIGEE(p.nte || p.nte_vinculado || 'NTE-26 (Salvador)'),
                 municipio: normalizarMaiusculoSIGEE(p.municipio || p.cidade || ''),
 
                 /*
@@ -683,7 +683,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 documento: normalizarTextoSIGEE(s.documento_solicitado || s.documento || 'Histórico'),
                 etapa: normalizarTextoSIGEE(s.fase_atual || s.etapa || 'Desarquivamento'),
                 data_etapa_atual: normalizarTextoSIGEE(s.criado_em || obterDataAtualFormatada()),
-                nte: normalizarTextoSIGEE((escola && escola.nte) || 'NTE-26 Salvador'),
+                nte: normalizarTextoSIGEE((escola && escola.nte) || 'NTE-26 (Salvador)'),
                 municipio: normalizarMaiusculoSIGEE((escola && escola.municipio) || '')
             };
         }
@@ -795,7 +795,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
 
             // Se a tabela usuarios_sigee estiver vazia, mantém usuário master emergencial para não bloquear o acesso.
             if (!usuariosDB.length) {
-                usuariosDB = [{ id: 1, nome: "ELMO LOBÃO", email: "elmo.lobao@enova.educacao.ba.gov.br", senha: "123", perfil: "Master", nte: "NTE-26 Salvador", ativo: true }];
+                usuariosDB = [{ id: 1, nome: "ELMO LOBÃO", email: "elmo.lobao@enova.educacao.ba.gov.br", senha: "123", perfil: "Master", nte: "NTE-26 (Salvador)", ativo: true }];
             }
 
             sigEESupabaseOnline = erros.length === 0;
@@ -1160,7 +1160,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             const u = usuariosDB.find(user => user.email.toLowerCase() === email.toLowerCase() && user.senha === senha && user.ativo);
             if (u && u.email && u.email.toLowerCase() === 'elmo.lobao@enova.educacao.ba.gov.br') {
                 u.perfil = 'Master';
-                u.nte = u.nte || 'NTE-26 Salvador';
+                u.nte = u.nte || 'NTE-26 (Salvador)';
             }
             
             if (u) {
@@ -1918,7 +1918,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                         let acv = normalizarTextoSIGEE(obterValor(["ACERVO", "STATUS DO ACERVO"]));
                         let locAcv = normalizarTextoSIGEE(obterValor(["LOCAL DO ACERVO", "LOCAL", "LOCAL ACERVO"]));
 
-                        if(!nte) nte = "NTE-26 Salvador";
+                        if(!nte) nte = "NTE-26 (Salvador)";
                         if(!dep) dep = "Estadual";
                         if(!sit) sit = "Extinta";
                         if(!acv) acv = "Recolhido";
@@ -2207,7 +2207,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         function obterNomeNtePorIdSIGEE_V19(id) {
             const num = Number(id);
             const achado = LISTA_OFICIAL_27_NTES.find(n => obterNumeroNteSIGEE_V19(n) === num);
-            return achado || `NTE-${String(num || 26).padStart(2, '0')}`;
+            return window.SIGEE_NTE?.formatar(num || 26) || achado || `NTE-${String(num || 26).padStart(2, '0')}`;
         }
 
         function aplicarClasseStatusAcervoSIGEE() {
@@ -2239,7 +2239,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 filtroDashboardNteAtualSIGEE = select.value;
             } else {
                 box.classList.add('hidden');
-                filtroDashboardNteAtualSIGEE = usuarioLogado.nte || 'NTE-26 Salvador';
+                filtroDashboardNteAtualSIGEE = usuarioLogado.nte || 'NTE-26 (Salvador)';
             }
         }
 
@@ -2357,14 +2357,14 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 email: emailNormalizado,
                 senha: normalizarTextoSIGEE(u.senha || u.password || '123'),
                 perfil: perfilFinal,
-                nte: normalizarTextoSIGEE(u.nte || u.nte_vinculado || obterNomeNtePorIdSIGEE_V19(u.nte_id) || 'NTE-26 Salvador'),
+                nte: normalizarTextoSIGEE(u.nte || u.nte_vinculado || obterNomeNtePorIdSIGEE_V19(u.nte_id) || 'NTE-26 (Salvador)'),
                 ativo: (u.ativo === undefined || u.ativo === null) ? true : !!u.ativo
             };
         };
 
         escolaParaSupabaseSIGEE = function(e) {
             const status = normalizarTextoSIGEE(e.status_acervo || e.acervo || 'Recolhido');
-            const nteId = Number(e.nte_id) || obterNumeroNteSIGEE_V19(e.nte || e.nte_nome || e.nte_vinculado || 'NTE-26 Salvador') || 26;
+            const nteId = Number(e.nte_id) || obterNumeroNteSIGEE_V19(e.nte || e.nte_nome || e.nte_vinculado || 'NTE-26 (Salvador)') || 26;
             return {
                 cod_mec: normalizarTextoSIGEE(e.cod_mec),
                 nome_escola: normalizarMaiusculoSIGEE(e.nome || e.nome_escola || e.instituicao),
@@ -2385,7 +2385,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 nome: normalizarMaiusculoSIGEE(e.nome_escola || e.nome || e.instituicao),
                 municipio: normalizarMaiusculoSIGEE(e.municipio || e.cidade),
                 nte_id: Number(e.nte_id) || obterNumeroNteSIGEE_V19(e.nte),
-                nte: normalizarTextoSIGEE(e.nte || obterNomeNtePorIdSIGEE_V19(e.nte_id) || 'NTE-26 Salvador'),
+                nte: normalizarTextoSIGEE(e.nte || obterNomeNtePorIdSIGEE_V19(e.nte_id) || 'NTE-26 (Salvador)'),
                 dependencia: normalizarTextoSIGEE(e.dependencia_adm || e.dependencia || 'Estadual'),
                 situacao: normalizarTextoSIGEE(e.situacao_funcional || e.situacao || 'Extinta'),
                 acervo: normalizarTextoSIGEE(e.status_acervo || e.acervo || 'Recolhido'),
@@ -3874,7 +3874,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     function obterNtePadraoUsuarioV31(user){
         const u = user || {};
         if (isGrupoSecV31(u)) return 'SEC - TODOS OS NTES';
-        return textoV31(u.nte || u.nte_vinculado || u.nte_nome || 'NTE-26 Salvador');
+        return textoV31(u.nte || u.nte_vinculado || u.nte_nome || 'NTE-26 (Salvador)');
     }
 
     window.SIGEE_USUARIO_SEC_PADRAO = SIGEE_USUARIO_SEC_PADRAO;
@@ -3911,7 +3911,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 obj.grupo = 'SEC';
                 obj.nte = 'SEC - TODOS OS NTES';
             } else {
-                obj.nte = textoV31(u.nte || u.nte_vinculado || u.nte_nome || obj.nte || 'NTE-26 Salvador');
+                obj.nte = textoV31(u.nte || u.nte_vinculado || u.nte_nome || obj.nte || 'NTE-26 (Salvador)');
             }
             obj.ativo = obj.ativo !== false;
             return obj;
@@ -4187,7 +4187,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         const nome = semAcentoV31(document.getElementById('user-form-nome')?.value || '').trim();
         const email = normalizaEmailV31(document.getElementById('user-form-email')?.value || '');
         const senha = valorV31('user-form-senha') || '123';
-        const nte = valorV31('user-form-nte') || 'NTE-26 Salvador';
+        const nte = valorV31('user-form-nte') || 'NTE-26 (Salvador)';
         const perfil = perfilCanonicoV31(valorV31('user-form-perfil'));
         if (!nome || !email) { alert('Informe nome e e-mail do usuário.'); return; }
         let usuarioAtualizado;
@@ -4297,12 +4297,12 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     return p === 'Master' || p === 'Administrador' || isSEC(u);
   }
   function nteUsuario(u){
-    if(!u) return 'NTE-26 Salvador';
+    if(!u) return 'NTE-26 (Salvador)';
     if(isSEC(u)) return GRUPO_SEC_V32;
     if(txt(u.nte)) return txt(u.nte);
     if(txt(u.nte_nome)) return txt(u.nte_nome);
-    if(txt(u.nte_id)) return nomeNtePorId(u.nte_id) || 'NTE-26 Salvador';
-    return 'NTE-26 Salvador';
+    if(txt(u.nte_id)) return nomeNtePorId(u.nte_id) || 'NTE-26 (Salvador)';
+    return 'NTE-26 (Salvador)';
   }
   function nteIgual(a,b){
     if(!a || !b) return false;
@@ -4335,8 +4335,8 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     const base = (window.usuariosDB || usuariosDB);
     const add = (u) => { if(!base.some(x => email(x.email) === email(u.email))) base.push(u); };
     add({id:900001,nome:'USUÁRIO SEC',email:EMAIL_SEC_V32,senha:'123',perfil:'Administrador',nte:GRUPO_SEC_V32,grupo:'SEC',ativo:true});
-    add({id:900002,nome:'ADMINISTRADOR SIGEE',email:EMAIL_ADMIN_V32,senha:'123',perfil:'Administrador',nte:'NTE-26 Salvador',ativo:true});
-    add({id:900003,nome:'CONSULTA SIGEE',email:EMAIL_CONSULTA_V32,senha:'123',perfil:'Consulta',nte:'NTE-26 Salvador',ativo:true});
+    add({id:900002,nome:'ADMINISTRADOR SIGEE',email:EMAIL_ADMIN_V32,senha:'123',perfil:'Administrador',nte:'NTE-26 (Salvador)',ativo:true});
+    add({id:900003,nome:'CONSULTA SIGEE',email:EMAIL_CONSULTA_V32,senha:'123',perfil:'Consulta',nte:'NTE-26 (Salvador)',ativo:true});
     base.forEach((u,i)=>Object.assign(u, normalizarUsuario(u,i)));
   }
 
@@ -4514,7 +4514,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
       nome: upper(document.getElementById('user-form-nome')?.value),
       email: email(document.getElementById('user-form-email')?.value),
       senha: txt(document.getElementById('user-form-senha')?.value) || '123',
-      nte: txt(document.getElementById('user-form-nte')?.value) || 'NTE-26 Salvador',
+      nte: txt(document.getElementById('user-form-nte')?.value) || 'NTE-26 (Salvador)',
       perfil: perfil(document.getElementById('user-form-perfil')?.value),
       ativo: true
     };
@@ -4583,9 +4583,9 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     return !!(ma && mb && Number(ma[1]) === Number(mb[1]));
   }
   function nteUsuario(u){
-    if(!u) return 'NTE-26 Salvador';
+    if(!u) return 'NTE-26 (Salvador)';
     if(isSEC(u)) return GRUPO_SEC_V33;
-    return txt(u.nte || u.nte_nome || u.nte_vinculado || 'NTE-26 Salvador');
+    return txt(u.nte || u.nte_nome || u.nte_vinculado || 'NTE-26 (Salvador)');
   }
   function garantirGrupoSEC(){
     try{
@@ -4754,9 +4754,9 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     return p === 'Master' || p === 'Administrador' || isSEC(u);
   }
   function nteUsuario(u){
-    if(!u) return 'NTE-26 Salvador';
+    if(!u) return 'NTE-26 (Salvador)';
     if(isSEC(u)) return GRUPO_SEC;
-    return txt(u.nte || u.nte_nome || u.nte_vinculado || ntePorId(u.nte_id) || 'NTE-26 Salvador');
+    return txt(u.nte || u.nte_nome || u.nte_vinculado || ntePorId(u.nte_id) || 'NTE-26 (Salvador)');
   }
   function nteItem(item){
     if(!item) return '';
@@ -4984,7 +4984,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     if(typeof obterNomeNtePorIdSIGEE === 'function'){
       const n=obterNumeroNteV35(v); if(n) return obterNomeNtePorIdSIGEE(n) || txt(v);
     }
-    return txt(v) || 'NTE-26 Salvador';
+    return txt(v) || 'NTE-26 (Salvador)';
   }
   function nextId(lista, base){
     try{ return (Array.isArray(lista)&&lista.length) ? Math.max(...lista.map(x=>Number(x.id)||0)) + 1 : base; }catch(e){ return base; }
@@ -5036,7 +5036,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     const cod = getCell(row,['cod_mec','codigo_mec','código mec','mec']);
     let escolaLocal = null;
     try{ escolaLocal = (escolasDB||[]).find(e => txt(e.cod_mec)===txt(cod) || up(e.nome||e.nome_escola)===up(escola)); }catch(e){}
-    const nte = getCell(row,['nte','nte vinculado','nte correspondente']) || (escolaLocal && escolaLocal.nte) || 'NTE-26 Salvador';
+    const nte = getCell(row,['nte','nte vinculado','nte correspondente']) || (escolaLocal && escolaLocal.nte) || 'NTE-26 (Salvador)';
     return {
       id: Number(getCell(row,['id','processo','codigo','código'])) || null,
       aluno: titulo(aluno).toUpperCase(),
@@ -5230,7 +5230,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     const n = nteNumero(v);
     if(n && typeof obterNomeNtePorIdSIGEE === 'function') return obterNomeNtePorIdSIGEE(n) || `NTE-${String(n).padStart(2,'0')}`;
     if(n) return `NTE-${String(n).padStart(2,'0')}`;
-    return txt(v) || 'NTE-26 Salvador';
+    return txt(v) || 'NTE-26 (Salvador)';
   }
   function nextId(lista, base){
     const nums = Array.isArray(lista) ? lista.map(x=>Number(x.id)||0) : [];
@@ -5309,7 +5309,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     let escolaLocal = null;
     try { escolaLocal = (escolasDB||[]).find(e => txt(e.cod_mec) === txt(cod) || upper(e.nome || e.nome_escola) === upper(escolaNome)); } catch(e){}
     let nte = getCell(row, ALIAS.nte) || secondLine(instNte) || (escolaLocal && escolaLocal.nte) || '';
-    if(!nte) nte = 'NTE-26 Salvador';
+    if(!nte) nte = 'NTE-26 (Salvador)';
     return {
       id: Number(getCell(row, ['id','processo','codigo processo','código processo','nº processo','n processo'])) || null,
       aluno: titleUpper(aluno),
@@ -5395,7 +5395,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             nivel_oferta: txt(p.nivel_oferta || p.ensino || '') || null,
             modalidade: txt(p.modalidade || '') || null,
             etapa_atual: normalizarEtapaV36(p.etapa || p.etapa_atual),
-            nte: nteNome(p.nte || 'NTE-26 Salvador')
+            nte: nteNome(p.nte || 'NTE-26 (Salvador)')
           };
         }).filter(p => p.id && p.aluno_nome);
         await upsertLotesV36('processos', payload, 'id');
@@ -5527,11 +5527,11 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     }catch(e){}
     const lista = (typeof LISTA_OFICIAL_27_NTES !== 'undefined' && Array.isArray(LISTA_OFICIAL_27_NTES)) ? LISTA_OFICIAL_27_NTES : [];
     const ach = lista.find(x => nteNumero(x)===n);
-    return ach || (n ? `NTE-${String(n).padStart(2,'0')}` : 'NTE-26 Salvador');
+    return ach || (n ? `NTE-${String(n).padStart(2,'0')}` : 'NTE-26 (Salvador)');
   }
   function nteNome(v){
     const n = nteNumero(v);
-    return n ? nomeNtePorId(n) : (txt(v) || 'NTE-26 Salvador');
+    return n ? nomeNtePorId(n) : (txt(v) || 'NTE-26 (Salvador)');
   }
   function nextId(lista, base){
     const nums = Array.isArray(lista) ? lista.map(x=>Number(x.id)||0) : [];
@@ -5565,10 +5565,10 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         });
       }
       if(!usuariosDB.some(u => lower(u.email)==='administrativo@enova.educacao.ba.gov.br')){
-        usuariosDB.push({id:nextId(usuariosDB,9100), nome:'USUÁRIO ADMINISTRADOR', email:'administrativo@enova.educacao.ba.gov.br', senha:'123', perfil:'Administrador', nte:'NTE-26 Salvador', ativo:true});
+        usuariosDB.push({id:nextId(usuariosDB,9100), nome:'USUÁRIO ADMINISTRADOR', email:'administrativo@enova.educacao.ba.gov.br', senha:'123', perfil:'Administrador', nte:'NTE-26 (Salvador)', ativo:true});
       }
       if(!usuariosDB.some(u => lower(u.email)==='consulta@enova.educacao.ba.gov.br')){
-        usuariosDB.push({id:nextId(usuariosDB,9200), nome:'USUÁRIO CONSULTA', email:'consulta@enova.educacao.ba.gov.br', senha:'123', perfil:'Consulta', nte:'NTE-26 Salvador', ativo:true});
+        usuariosDB.push({id:nextId(usuariosDB,9200), nome:'USUÁRIO CONSULTA', email:'consulta@enova.educacao.ba.gov.br', senha:'123', perfil:'Consulta', nte:'NTE-26 (Salvador)', ativo:true});
       }
     }catch(e){ console.warn('SIGEE V37: não foi possível garantir usuários base.', e); }
   }
@@ -5831,7 +5831,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   }
   function converterEscola(row){
     const campoNteDep=getCell(row,['nte / dep. adm','nte dep adm','nte/dependencia','nte dependencia']);
-    const nteRaw = getCell(row,ALIAS.nte) || firstLine(campoNteDep) || getCell(row,ALIAS.nteId) || 'NTE-26 Salvador';
+    const nteRaw = getCell(row,ALIAS.nte) || firstLine(campoNteDep) || getCell(row,ALIAS.nteId) || 'NTE-26 (Salvador)';
     const nteId = nteNumero(getCell(row,ALIAS.nteId) || nteRaw) || 26;
     const dep = getCell(row,ALIAS.dependencia) || secondLine(campoNteDep) || 'Estadual';
     const nome = getCell(row,ALIAS.escola);
@@ -5841,7 +5841,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     const alunoDoc=getCell(row,['aluno / doc','aluno/doc','aluno - doc']); const instNte=getCell(row,['instituição / nte','instituicao / nte','instituição/nte','instituicao/nte']);
     const aluno=getCell(row,ALIAS.aluno)||firstLine(alunoDoc); const escolaNome=getCell(row,['escola_nome','nome_escola','nome da escola','instituição','instituicao','escola'])||firstLine(instNte)||'NÃO INFORMADA';
     const cod=getCell(row,ALIAS.mec); let esc=null; try{ esc=(escolasDB||[]).find(e=>txt(e.cod_mec)===txt(cod)||upper(e.nome||e.nome_escola)===upper(escolaNome)); }catch(e){}
-    let nte=getCell(row,ALIAS.nte)||secondLine(instNte)||(esc&&esc.nte)||nteUsuario(window.usuarioLogado)||'NTE-26 Salvador';
+    let nte=getCell(row,ALIAS.nte)||secondLine(instNte)||(esc&&esc.nte)||nteUsuario(window.usuarioLogado)||'NTE-26 (Salvador)';
     return { id:Number(getCell(row,['id','processo','codigo processo','código processo','nº processo','n processo']))||null, aluno:title(aluno), aluno_nome:title(aluno), escola:title(escolaNome), escola_nome:title(escolaNome), documento:txt(getCell(row,ALIAS.documento)||secondLine(alunoDoc)||'HISTÓRICO'), documento_tipo:txt(getCell(row,ALIAS.documento)||secondLine(alunoDoc)||'HISTÓRICO'), etapa:normalizarEtapa(getCell(row,ALIAS.etapa)), etapa_atual:normalizarEtapa(getCell(row,ALIAS.etapa)), data_etapa_atual:txt(getCell(row,ALIAS.data)|| (typeof obterDataAtualFormatada==='function'?obterDataAtualFormatada():new Date().toLocaleDateString('pt-BR'))), nte:nteNome(nte), municipio:title(getCell(row,ALIAS.municipio)||(esc&&esc.municipio)||''), modalidade:txt(getCell(row,ALIAS.modalidade)||''), ensino:txt(getCell(row,ALIAS.ensino)||''), prioridade:txt(getCell(row,ALIAS.prioridade)||''), tecnico_responsavel:txt(getCell(row,ALIAS.tecnico)||'') };
   }
   async function gravarImportacao(escolasAlteradas, processosAlterados){
@@ -5852,7 +5852,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     }
     if(processosAlterados.length){
       let prox=nextId(processosDB,101);
-      const payload=processosAlterados.map(p=>{ if(!p.id) p.id=prox++; return { id:Number(p.id), aluno_nome:title(p.aluno||p.aluno_nome), escola_nome:title(p.escola||p.escola_nome||'NÃO INFORMADA'), documento_tipo:txt(p.documento||p.documento_tipo||'HISTÓRICO'), nivel_oferta:txt(p.nivel_oferta||p.ensino||'')||null, modalidade:txt(p.modalidade||'')||null, etapa_atual:normalizarEtapa(p.etapa||p.etapa_atual), nte:nteNome(p.nte||'NTE-26 Salvador') }; }).filter(p=>p.id&&p.aluno_nome);
+      const payload=processosAlterados.map(p=>{ if(!p.id) p.id=prox++; return { id:Number(p.id), aluno_nome:title(p.aluno||p.aluno_nome), escola_nome:title(p.escola||p.escola_nome||'NÃO INFORMADA'), documento_tipo:txt(p.documento||p.documento_tipo||'HISTÓRICO'), nivel_oferta:txt(p.nivel_oferta||p.ensino||'')||null, modalidade:txt(p.modalidade||'')||null, etapa_atual:normalizarEtapa(p.etapa||p.etapa_atual), nte:nteNome(p.nte||'NTE-26 (Salvador)') }; }).filter(p=>p.id&&p.aluno_nome);
       const r=await upsertTabela('processos', payload, 'id'); if(r.error) erros.push('processos: '+(r.error.message||JSON.stringify(r.error)));
     }
     return erros;
@@ -5923,11 +5923,11 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     const n=Number(id);
     try{ if(typeof obterNomeNtePorIdSIGEE==='function'){ const r=obterNomeNtePorIdSIGEE(n); if(r) return r; } }catch(e){}
     try{ const lista=(Array.isArray(LISTA_OFICIAL_27_NTES)?LISTA_OFICIAL_27_NTES:[]); const ach=lista.find(x=>numeroNte(x)===n); if(ach) return ach; }catch(e){}
-    return n?`NTE-${String(n).padStart(2,'0')}`:'NTE-26 Salvador';
+    return n?`NTE-${String(n).padStart(2,'0')}`:'NTE-26 (Salvador)';
   }
-  function nteNome(v){ const n=numeroNte(v); return n?nomeNtePorId(n):(txt(v)||'NTE-26 Salvador'); }
+  function nteNome(v){ const n=numeroNte(v); return n?nomeNtePorId(n):(txt(v)||'NTE-26 (Salvador)'); }
   function normNte(v){ const n=numeroNte(v); return n?'NTE'+n:up(v).replace(/[^A-Z0-9]/g,''); }
-  function nteUsuario(u){ return nteNome(u&&(u.nte||u.nte_nome||u.nte_vinculado||u.grupo||u.nte_id)) || 'NTE-26 Salvador'; }
+  function nteUsuario(u){ return nteNome(u&&(u.nte||u.nte_nome||u.nte_vinculado||u.grupo||u.nte_id)) || 'NTE-26 (Salvador)'; }
   function nteIgual(a,b){ if(!a||!b) return false; if(up(a).includes('SEC')||up(b).includes('SEC')) return true; return normNte(a)===normNte(b); }
   function atualUsuario(){ return window.usuarioLogado || (typeof usuarioLogado!=='undefined'?usuarioLogado:null); }
   function setText(id,v){ const el=document.getElementById(id); if(el) el.innerText=String(v); }
@@ -5983,7 +5983,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     let pf=txt(u.perfil||u.tipo||u.role||'Tecnico');
     if(email==='elmo.lobao@enova.educacao.ba.gov.br') pf='Master';
     if(email==='sec@enova.educacao.ba.gov.br') pf='SEC';
-    return {id:Number(u.id)||i+1,nome:title(u.nome||u.name||'USUÁRIO SIGEE'),email,senha:txt(u.senha||u.password||'123')||'123',perfil:pf,nte:nteNome(u.nte||u.nte_id||u.grupo||'NTE-26 Salvador'),grupo:txt(u.grupo||''),ativo:u.ativo!==false};
+    return {id:Number(u.id)||i+1,nome:title(u.nome||u.name||'USUÁRIO SIGEE'),email,senha:txt(u.senha||u.password||'123')||'123',perfil:pf,nte:nteNome(u.nte||u.nte_id||u.grupo||'NTE-26 (Salvador)'),grupo:txt(u.grupo||''),ativo:u.ativo!==false};
   }
   function mapEscola(e,i){
     return {id:Number(e.id)||i+1,cod_mec:txt(e.cod_mec||e.codigo_mec||e.mec),nome:title(e.nome_escola||e.nome||e.instituicao||e.escola),nome_escola:title(e.nome_escola||e.nome||e.instituicao||e.escola),municipio:title(e.municipio||e.cidade||''),nte:nteNome(e.nte||e.nte_id||e.nte_nome||e.nte_vinculado),nte_id:numeroNte(e.nte_id||e.nte)||26,dependencia:txt(e.dependencia_adm||e.dependencia||'Estadual'),dependencia_adm:txt(e.dependencia_adm||e.dependencia||'Estadual'),situacao:txt(e.situacao_funcional||e.situacao||'Extinta'),situacao_funcional:txt(e.situacao_funcional||e.situacao||'Extinta'),acervo:txt(e.status_acervo||e.acervo||'Recolhido'),status_acervo:txt(e.status_acervo||e.acervo||'Recolhido'),local_acervo:txt(e.local_acervo||e.local||'')};
@@ -5991,7 +5991,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   function mapProcesso(p,i){
     const escNome=title(p.escola_nome||p.escola||p.instituicao||p.nome_escola||'');
     let esc=null; try{ esc=(escolasDB||[]).find(e=>up(e.nome)===up(escNome)||txt(e.cod_mec)===txt(p.cod_mec)); }catch(e){}
-    return {id:Number(p.id)||101+i,aluno:title(p.aluno_nome||p.aluno||p.nome_solicitante||p.nome_aluno||p.requerente),aluno_nome:title(p.aluno_nome||p.aluno||p.nome_solicitante||p.nome_aluno||p.requerente),escola:escNome || title(esc&&esc.nome) || 'NÃO INFORMADA',escola_nome:escNome || title(esc&&esc.nome) || 'NÃO INFORMADA',documento:txt(p.documento_tipo||p.documento||p.documento_solicitado||'HISTÓRICO'),documento_tipo:txt(p.documento_tipo||p.documento||p.documento_solicitado||'HISTÓRICO'),etapa:txt(p.etapa_atual||p.etapa||p.fase_atual||'Desarquivamento'),etapa_atual:txt(p.etapa_atual||p.etapa||p.fase_atual||'Desarquivamento'),data_etapa_atual:txt(p.data_etapa_atual||p.created_at||p.criado_em||dataBR()),nte:nteNome(p.nte||p.nte_id||(esc&&esc.nte)||'NTE-26 Salvador'),municipio:title(p.municipio||(esc&&esc.municipio)||''),modalidade:txt(p.modalidade||p.oferta_modalidade||''),ensino:txt(p.nivel_oferta||p.oferta_nivel||p.ensino||''),prioridade:txt(p.prioridade||''),tecnico_responsavel:txt(
+    return {id:Number(p.id)||101+i,aluno:title(p.aluno_nome||p.aluno||p.nome_solicitante||p.nome_aluno||p.requerente),aluno_nome:title(p.aluno_nome||p.aluno||p.nome_solicitante||p.nome_aluno||p.requerente),escola:escNome || title(esc&&esc.nome) || 'NÃO INFORMADA',escola_nome:escNome || title(esc&&esc.nome) || 'NÃO INFORMADA',documento:txt(p.documento_tipo||p.documento||p.documento_solicitado||'HISTÓRICO'),documento_tipo:txt(p.documento_tipo||p.documento||p.documento_solicitado||'HISTÓRICO'),etapa:txt(p.etapa_atual||p.etapa||p.fase_atual||'Desarquivamento'),etapa_atual:txt(p.etapa_atual||p.etapa||p.fase_atual||'Desarquivamento'),data_etapa_atual:txt(p.data_etapa_atual||p.created_at||p.criado_em||dataBR()),nte:nteNome(p.nte||p.nte_id||(esc&&esc.nte)||'NTE-26 (Salvador)'),municipio:title(p.municipio||(esc&&esc.municipio)||''),modalidade:txt(p.modalidade||p.oferta_modalidade||''),ensino:txt(p.nivel_oferta||p.oferta_nivel||p.ensino||''),prioridade:txt(p.prioridade||''),tecnico_responsavel:txt(
       p.tecnico_responsavel ||
       p.tecnico_responsavel_nome ||
       p.responsavel ||
@@ -6145,7 +6145,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     if(!usuariosDB.some(u=>txt(u.email).toLowerCase()==='sec@enova.educacao.ba.gov.br')) usuariosDB.push({id:900001,nome:'USUÁRIO SEC',email:'sec@enova.educacao.ba.gov.br',senha:'123',perfil:'SEC',nte:'SEC - TODOS OS NTEs',grupo:'SEC',ativo:true});
     const em=txt(document.getElementById('login-email')?.value).toLowerCase(); const sn=txt(document.getElementById('login-senha')?.value);
     let u=(usuariosDB||[]).map(mapUsuario).find(x=>x.email===em && txt(x.senha||'123')===sn && x.ativo!==false);
-    if(!u && em==='elmo.lobao@enova.educacao.ba.gov.br' && sn==='123') u={id:1,nome:'ELMO LOBÃO',email:em,senha:'123',perfil:'Master',nte:'NTE-26 Salvador',ativo:true};
+    if(!u && em==='elmo.lobao@enova.educacao.ba.gov.br' && sn==='123') u={id:1,nome:'ELMO LOBÃO',email:em,senha:'123',perfil:'Master',nte:'NTE-26 (Salvador)',ativo:true};
     if(!u){ alert('Credenciais inválidas, ou operador desativado no escopo regional.'); return; }
     window.usuarioLogado=u; try{ usuarioLogado=u; }catch(e){}
     window.SIGEE_RENDERIZAR_IDENTIDADE_EFETIVA?.();
@@ -6241,7 +6241,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     }
     if(low(u.email) === 'elmo.lobao@enova.educacao.ba.gov.br') u.perfil = 'Master';
     else u.perfil = perfilCanonicoV39(u.perfil || 'Tecnico');
-    u.nte = u.nte || u.nte_vinculado || u.grupo || 'NTE-26 Salvador';
+    u.nte = u.nte || u.nte_vinculado || u.grupo || 'NTE-26 (Salvador)';
     u.senha = u.senha || '123';
     u.ativo = u.ativo !== false;
     return u;
@@ -6254,8 +6254,8 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
       const existe = email => window.usuariosDB.some(u => low(u.email)===low(email));
       const nextId = base => Math.max(base, 0, ...window.usuariosDB.map(u=>Number(u.id)||0)) + 1;
       if(!existe(EMAIL_SEC_V39)) window.usuariosDB.push({id:nextId(900000), nome:'USUÁRIO SEC', email:EMAIL_SEC_V39, senha:'123', perfil:'SEC', grupo:'SEC', nte:'SEC - TODOS OS NTEs', ativo:true});
-      if(!existe('administrativo@enova.educacao.ba.gov.br')) window.usuariosDB.push({id:nextId(910000), nome:'USUÁRIO ADMINISTRADOR', email:'administrativo@enova.educacao.ba.gov.br', senha:'123', perfil:'Administrador', nte:'NTE-26 Salvador', ativo:true});
-      if(!existe('consulta@enova.educacao.ba.gov.br')) window.usuariosDB.push({id:nextId(920000), nome:'USUÁRIO CONSULTA', email:'consulta@enova.educacao.ba.gov.br', senha:'123', perfil:'Consulta', nte:'NTE-26 Salvador', ativo:true});
+      if(!existe('administrativo@enova.educacao.ba.gov.br')) window.usuariosDB.push({id:nextId(910000), nome:'USUÁRIO ADMINISTRADOR', email:'administrativo@enova.educacao.ba.gov.br', senha:'123', perfil:'Administrador', nte:'NTE-26 (Salvador)', ativo:true});
+      if(!existe('consulta@enova.educacao.ba.gov.br')) window.usuariosDB.push({id:nextId(920000), nome:'USUÁRIO CONSULTA', email:'consulta@enova.educacao.ba.gov.br', senha:'123', perfil:'Consulta', nte:'NTE-26 (Salvador)', ativo:true});
       window.usuariosDB.forEach(normalizarUsuarioV39);
     }catch(e){ console.warn('SIGEE V39: não foi possível garantir usuários base.', e); }
   }
@@ -6335,7 +6335,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
       base.perfil = perfilCanonicoV39(u?.perfil || u?.tipo || u?.role || base.perfil || 'Tecnico');
       if(low(base.email) === 'elmo.lobao@enova.educacao.ba.gov.br') base.perfil = 'Master';
       if(low(base.email) === EMAIL_SEC_V39) base.perfil = 'SEC';
-      base.nte = base.nte || u?.nte || u?.nte_vinculado || u?.grupo || 'NTE-26 Salvador';
+      base.nte = base.nte || u?.nte || u?.nte_vinculado || u?.grupo || 'NTE-26 (Salvador)';
       return normalizarUsuarioV39(base);
     };
     try{ usuarioDoSupabaseParaLocalSIGEE = window.usuarioDoSupabaseParaLocalSIGEE; }catch(e){}
@@ -6438,7 +6438,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
       return u;
     }
     u.perfil = perfilV40(u.perfil || u.tipo || u.role || 'Tecnico');
-    u.nte = txt(u.nte || u.nte_vinculado || u.grupo || 'NTE-26 Salvador');
+    u.nte = txt(u.nte || u.nte_vinculado || u.grupo || 'NTE-26 (Salvador)');
     u.senha = u.senha || '123';
     u.ativo = u.ativo !== false;
     return u;
@@ -6649,7 +6649,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     let pf = perfil(u.perfil || u.tipo || u.role || 'Tecnico');
     if(email==='elmo.lobao@enova.educacao.ba.gov.br') pf = 'Master';
     if(email==='sec@enova.educacao.ba.gov.br') pf = 'SEC';
-    let nte = txt(u.nte || u.nte_nome || u.nte_vinculado || u.grupo || u.nte_id || 'NTE-26 Salvador');
+    let nte = txt(u.nte || u.nte_nome || u.nte_vinculado || u.grupo || u.nte_id || 'NTE-26 (Salvador)');
     if(pf==='SEC' || up(nte).includes('SEC')) nte = 'SEC - TODOS OS NTEs';
     return Object.assign({}, u, {
       id: u.id || Date.now(),
@@ -6723,7 +6723,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
       nome: document.getElementById('user-form-nome')?.value,
       email: document.getElementById('user-form-email')?.value,
       senha: document.getElementById('user-form-senha')?.value || '123',
-      nte: document.getElementById('user-form-nte')?.value || 'NTE-26 Salvador',
+      nte: document.getElementById('user-form-nte')?.value || 'NTE-26 (Salvador)',
       perfil: document.getElementById('user-form-perfil')?.value || 'Tecnico',
       ativo: true
     });
@@ -6822,7 +6822,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   function nteUsuario(u){
     if(!u) return '';
     if(isSEC(u)) return GRUPO_SEC;
-    return txt(u.nte || u.nte_nome || u.nte_vinculado || u.grupo || 'NTE-26 Salvador');
+    return txt(u.nte || u.nte_nome || u.nte_vinculado || u.grupo || 'NTE-26 (Salvador)');
   }
   function nteItem(x){ return txt(x && (x.nte || x.nte_nome || x.nte_vinculado || x.nucleo || x.nte_descricao || x.nte_id || '')); }
   function mesmoNte(a,b){
@@ -6858,7 +6858,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     const email = low(u.email);
     let p = perfilCanonico(u.perfil || u.tipo || u.role || 'Tecnico');
     if(email === EMAIL_SEC) p = 'SEC';
-    let nte = txt(u.nte || u.nte_nome || u.nte_vinculado || u.grupo || 'NTE-26 Salvador');
+    let nte = txt(u.nte || u.nte_nome || u.nte_vinculado || u.grupo || 'NTE-26 (Salvador)');
     if(p === 'SEC') nte = GRUPO_SEC;
     // IMPORTANTE: nte SEC sozinho não transforma Técnico/Admin em global.
     u.perfil = p;
@@ -7398,7 +7398,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   function isGlobal(u){ return isSEC(u) || isMaster(u); }
   function numNte(v){ const m = txt(v).match(/NTE\s*[- ]?\s*(\d{1,2})/i); return m ? Number(m[1]) : null; }
   function normNte(v){ const n=numNte(v); return n ? 'NTE'+String(n).padStart(2,'0') : up(v).replace(/[^A-Z0-9]/g,''); }
-  function nteUsuario(u){ return isSEC(u) ? GRUPO_SEC_V45 : txt(u && (u.nte || u.nte_nome || u.nte_vinculado || u.grupo) || 'NTE-26 Salvador'); }
+  function nteUsuario(u){ return isSEC(u) ? GRUPO_SEC_V45 : txt(u && (u.nte || u.nte_nome || u.nte_vinculado || u.grupo) || 'NTE-26 (Salvador)'); }
   function mesmoNte(a,b){ if(isGlobal(user())) return true; if(!a || !b) return false; const na=numNte(a), nb=numNte(b); return na&&nb ? na===nb : normNte(a)===normNte(b); }
   function podeGerirUsuarios(u){ return isSEC(u) || isMaster(u); }
   function podeExcluirUsuario(u){ return isSEC(u) || isMaster(u); }
