@@ -1,5 +1,5 @@
 /**
- * SIGEE Enterprise RC4.3.7 — Autenticação e primeiro acesso.
+ * SIGEE Enterprise RC4.3.8 — Autenticação e primeiro acesso.
  * Depende de session.js e supabase.js. Não controla menus ou permissões.
  */
 (function (window) {
@@ -82,6 +82,7 @@
     const result = await supabase.from('usuarios_sigee').update(payload).eq('email', normalizeEmail(user.email)).select('*').maybeSingle();
     if (result.error) return alert('Erro ao salvar nova senha: ' + result.error.message);
     setUser(Object.assign({}, user, payload, result.data || {}));
+    window.__SIGEE_RECADASTRAMENTO_ABERTO__ = false;
     hidePasswordModal();
     alert('Senha cadastrada com sucesso.');
   }
@@ -92,24 +93,47 @@
     const dashboardVisible = !!dashboard && !dashboard.classList.contains('hidden');
     return loginHidden && dashboardVisible;
   }
-  function checkFirstAccess(event) {
-    // O evento de login contém o usuário recém-validado. Ele deve ter prioridade
-    // sobre uma sessão antiga ou ainda não sincronizada no SIGEE_SESSION.
-    const userFromEvent = event && event.detail ? event.detail.usuario : null;
-    const user = userFromEvent || getUser();
-    const loginCompleted = event?.detail?.loginConcluido === true;
-    if (!user || user.forcar_troca_senha !== true) return;
+  function exigeTrocaSenha(user) {
+    const value = user?.forcar_troca_senha;
+    if (value === true || value === 1) return true;
+    const normalized = text(value).toLowerCase();
+    return normalized === 'true' || normalized === '1' || normalized === 't' || normalized === 'sim' || normalized === 'yes';
+  }
 
-    // Sincroniza a sessão oficial antes de abrir o modal, sem redisparar o evento.
+  function checkFirstAccess(event) {
+    const detail = event && event.detail ? event.detail : {};
+    const userFromEvent = detail.usuario || null;
+    const user = userFromEvent || getUser();
+    const loginCompleted = detail.loginConcluido === true;
+
+    if (!loginCompleted || window.__SIGEE_LOGIN_CONCLUIDO__ !== true) return false;
+    if (!user || !exigeTrocaSenha(user)) return false;
+
     if (userFromEvent) {
       try { setUser(userFromEvent, { emit: false, persist: true }); } catch (_) {}
+      window.usuarioLogado = userFromEvent;
+      try { localStorage.setItem('SIGEE_USUARIO_LOGADO', JSON.stringify(userFromEvent)); } catch (_) {}
     }
-    // Exigência absoluta: o modal só pode abrir após um login manual concluído
-    // nesta execução da página. Uma sessão antiga em localStorage não basta.
-    if (!loginCompleted || window.__SIGEE_LOGIN_CONCLUIDO__ !== true) return;
-    setTimeout(function () {
-      if (window.__SIGEE_LOGIN_CONCLUIDO__ === true && authenticatedAreaIsVisible()) showPasswordModal();
-    }, 120);
+
+    if (window.__SIGEE_RECADASTRAMENTO_ABERTO__ === true) return true;
+    window.__SIGEE_RECADASTRAMENTO_ABERTO__ = true;
+
+    let attempts = 0;
+    const openWhenReady = function () {
+      attempts += 1;
+      if (window.__SIGEE_LOGIN_CONCLUIDO__ !== true) {
+        window.__SIGEE_RECADASTRAMENTO_ABERTO__ = false;
+        return;
+      }
+      if (authenticatedAreaIsVisible()) {
+        showPasswordModal();
+        return;
+      }
+      if (attempts < 20) setTimeout(openWhenReady, 100);
+      else showPasswordModal();
+    };
+    setTimeout(openWhenReady, 0);
+    return true;
   }
 
   const api = Object.freeze({
