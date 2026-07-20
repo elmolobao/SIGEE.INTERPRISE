@@ -7840,9 +7840,13 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
       // RC4.3.7: marca o login manual desta execução. Sessão antiga armazenada
       // no navegador não pode abrir o recadastramento sobre a tela de login.
       window.__SIGEE_LOGIN_CONCLUIDO__ = true;
+      const eventoLoginSIGEE = { detail: { usuario: u, loginConcluido: true } };
       try {
-        document.dispatchEvent(new CustomEvent('sigee:usuario-logado', { detail: { usuario: u, loginConcluido: true } }));
+        document.dispatchEvent(new CustomEvent('sigee:usuario-logado', eventoLoginSIGEE));
       } catch (_) {}
+      try { window.SIGEE_AUTH?.verificarPrimeiroAcesso?.(eventoLoginSIGEE); } catch (e) {
+        console.error('[SIGEE RC4.3.8] Falha ao verificar primeiro acesso:', e);
+      }
     }catch(e){
       console.error('[SIGEE] Erro login', e);
       alert('Erro no login: ' + (e.message || e));
@@ -9841,6 +9845,8 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
   };
 
   function criarModalTrocaSenha() {
+    // RC4.3.8: rotina legada desativada.
+    return false;
     if (document.getElementById('modal-troca-senha-obrigatoria-sigee')) return;
     const div = document.createElement('div');
     div.id = 'modal-troca-senha-obrigatoria-sigee';
@@ -10420,6 +10426,8 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
   }
 
   function instalarSenhaObrigatoria() {
+    // RC4.3.8: handler legado desativado.
+    return false;
     const btn = $(IDS.btnSenha);
     if (btn && btn.dataset.sprint25Bound !== '1') {
       btn.dataset.sprint25Bound = '1';
