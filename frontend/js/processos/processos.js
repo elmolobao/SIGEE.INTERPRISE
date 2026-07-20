@@ -1,4 +1,3 @@
-/* SIGEE PROCESSOS RC4.1.15 — perfil central e carregamento territorial otimizado */
 /* SIGEE PROCESSOS PATCH 2.5.4 — edição por perfil, escola e responsável persistentes */
 /* SIGEE PROCESSOS PATCH 2.5.1A — responsável persistente */
 /* SIGEE PATCH 2.5.3 — compatibilidade do payload processos */
@@ -116,26 +115,10 @@
         return clock && typeof clock.now === 'function' ? clock.now() : new Date();
     }
     function hojeBR() { return agoraWorkflow().toLocaleDateString('pt-BR'); }
-    function usuario() {
-        try { return window.SIGEE_SESSION?.getUser?.() || window.usuarioLogado || null; }
-        catch (e) { return window.usuarioLogado || null; }
-    }
+    function usuario() { return window.SIGEE_SESSION?.getUser?.() || window.usuarioLogado || null; }
 
     function perfil(u) {
-        const alvo = u || usuario() || {};
-        try {
-            const central = window.SIGEE_SESSION?.normalizarPerfil?.(alvo.perfil || alvo.tipo || alvo.role);
-            if (central) return central;
-        } catch (e) {}
-        const p = normalizar(alvo.perfil || alvo.tipo || alvo.role || '');
-        if (p.includes('MASTER')) return 'Master';
-        if (p === 'SEC' || p.includes('SECRETARIA')) return 'SEC';
-        if (p.includes('GESTOR') || p.includes('DIRIGENTE')) return 'Gestor';
-        if (p.includes('ADMIN')) return 'Administrador';
-        if (p.includes('CONSULT')) return 'Consulta';
-        if (p.includes('ESTAG')) return 'Estagiário';
-        if (p.includes('TECNIC')) return 'Técnico';
-        return '';
+        return window.SIGEE_SESSION?.normalizarPerfil?.((u || usuario() || {}).perfil) || '';
     }
     function isSEC(u) { return perfil(u) === 'SEC'; }
     function isMaster(u) { return perfil(u) === 'Master'; }
@@ -144,10 +127,7 @@
     function isGestor(u) { return perfil(u) === 'Gestor'; }
     function isConsulta(u) { return perfil(u) === 'Consulta'; }
     function isEstagiario(u) { return perfil(u) === 'Estagiário'; }
-    function isGlobal(u) {
-        try { return Boolean(window.SIGEE_PERMISSOES?.pode?.('global', u || usuario())); }
-        catch (e) { return isMaster(u); }
-    }
+    function isGlobal(u) { return isMaster(u); }
     function podeGerirProcessos(u) { return isMaster(u); }
 
     function numeroNte(v) {
@@ -159,7 +139,7 @@
         return n ? 'NTE' + String(n).padStart(2, '0') : normalizar(v).replace(/[^A-Z0-9]/g, '');
     }
     function nteUsuario(u) {
-        return texto(u && (u.nte || u.nte_nome || u.nte_vinculado || u.grupo || u.territorio || u.nte_id) || '');
+        return texto(u && (u.nte || u.nte_nome || u.nte_vinculado || u.grupo) || '');
     }
     function mesmoNte(a, b) {
         if (isGlobal(usuario())) return true;
@@ -966,12 +946,9 @@
   function txt(v){ return (v===null||v===undefined)?'':String(v).trim(); }
   function semAcento(v){ return txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
   function up(v){ return semAcento(v).toUpperCase(); }
-  function perfil(u){
-    const p = up((u||window.usuarioLogado||{}).perfil);
-    if (p.includes('SEC')) return 'SEC'; if (p.includes('MASTER')) return 'Master'; if (p.includes('ADMIN')) return 'Administrador'; if (p.includes('ESTAG')) return 'Estagiario'; if (p.includes('CONSULT')) return 'Consulta'; if (p.includes('TECNIC')) return 'Tecnico'; return p;
-  }
+  function perfil(u){ return window.SIGEE_SESSION?.normalizarPerfil?.((u||window.SIGEE_SESSION?.getUser?.()||{}).perfil) || ''; }
   function usuario(){ return window.usuarioLogado || null; }
-  function isEstagiario(){ return perfil(usuario()) === 'Estagiario'; }
+  function isEstagiario(){ return perfil(usuario()) === 'Estagiário'; }
   const oldEditar1 = window.editarProcessoMasterSIGEE;
   const oldEditar2 = window.editarProcessoMasterV45;
   window.editarProcessoMasterSIGEE = window.editarProcessoMasterV45 = function(){
@@ -1620,7 +1597,7 @@
   }
   function usuarioTemAcessoGlobal(){
     const p=perfilAtualWorkflow();
-    return p==='MASTER' || p==='SEC';
+    return p==='MASTER';
   }
   function nteCadastroUsuario(){
     const u=usuario();
@@ -1987,16 +1964,7 @@
 /* SIGEE 1.0.2.003B — Guarda final de permissões dos processos */
 (function(window){
   'use strict';
-  function perfil(){
-    const p=String((window.usuarioLogado||{}).perfil||'')
-      .normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
-    if(p.includes('MASTER'))return 'Master';
-    if(p.includes('SEC'))return 'SEC';
-    if(p.includes('ADMIN'))return 'Administrador';
-    if(p.includes('CONSULT'))return 'Consulta';
-    if(p.includes('ESTAG'))return 'Estagiario';
-    return 'Tecnico';
-  }
+  function perfil(){ return window.SIGEE_SESSION?.normalizarPerfil?.(window.SIGEE_SESSION?.getUser?.()?.perfil) || ''; }
   function protegerMaster(nome,mensagem){
     const original=window[nome];
     if(typeof original!=='function'||original.__SIGEE_MASTER_PROCESSO__)return;
@@ -2027,18 +1995,9 @@
 /* SIGEE 1.0.2.003B1 — Guarda da Nova Solicitação */
 (function(window){
   'use strict';
-  function perfilAtual(){
-    const p=String((window.usuarioLogado||{}).perfil||'')
-      .normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
-    if(p.includes('MASTER'))return 'Master';
-    if(p.includes('SEC'))return 'SEC';
-    if(p.includes('ADMIN'))return 'Administrador';
-    if(p.includes('CONSULT'))return 'Consulta';
-    if(p.includes('ESTAG'))return 'Estagiario';
-    return 'Tecnico';
-  }
+  function perfilAtual(){ return window.SIGEE_SESSION?.normalizarPerfil?.(window.SIGEE_SESSION?.getUser?.()?.perfil) || ''; }
   function podeCriar(){
-    return ['Master','Administrador','Tecnico','Estagiario'].includes(perfilAtual());
+    return ['Master','Administrador','Técnico','Estagiário'].includes(perfilAtual());
   }
   function aplicar(){
     const original=window.abrirFormularioNovaSolicitacao;
