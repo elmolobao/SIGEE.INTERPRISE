@@ -1,5 +1,5 @@
 /**
- * SIGEE Enterprise RC4.3.9 — Autenticação e primeiro acesso.
+ * SIGEE Enterprise RC4.3.10 — Autenticação e primeiro acesso.
  * Depende de session.js e supabase.js. Não controla menus ou permissões.
  */
 (function (window) {
@@ -92,51 +92,67 @@
     const dashboardVisible = !!dashboard && !dashboard.classList.contains('hidden');
     return loginHidden && dashboardVisible;
   }
-  function requiresPasswordChange(value) {
-    const normalized = text(value).toLowerCase();
-    return value === true || value === 1 || normalized === 'true' || normalized === '1' || normalized === 't';
-  }
-
-  async function resolveFreshUser(user) {
-    if (!user || !user.email) return user || null;
-    const supabase = client();
-    if (!supabase) return user;
-    try {
-      const result = await supabase
-        .from('usuarios_sigee')
-        .select('id,email,nome,perfil,nte_id,nte,ativo,Ativo,forcar_troca_senha')
-        .eq('email', normalizeEmail(user.email))
-        .maybeSingle();
-      if (!result.error && result.data) return Object.assign({}, user, result.data);
-    } catch (_) {}
-    return user;
-  }
-
-  function waitForAuthenticatedArea(callback, attempts) {
-    const remaining = Number.isFinite(attempts) ? attempts : 20;
-    if (authenticatedAreaIsVisible()) return callback();
-    if (remaining <= 0) return;
-    setTimeout(function () { waitForAuthenticatedArea(callback, remaining - 1); }, 100);
+  function requiresPasswordReset(value) {
+    if (value === true || value === 1) return true;
+    const normalized = String(value ?? '').trim().toLowerCase();
+    return normalized === 'true' || normalized === '1' || normalized === 't' || normalized === 'sim' || normalized === 'yes';
   }
 
   async function checkFirstAccess(event) {
-    const detail = event && event.detail ? event.detail : {};
-    const loginCompleted = detail.loginConcluido === true || window.__SIGEE_LOGIN_CONCLUIDO__ === true;
-    if (!loginCompleted) return false;
+    const eventUser = event && event.detail ? event.detail.usuario : null;
+    const loginCompleted = event?.detail?.loginConcluido === true;
 
-    let user = detail.usuario || getUser();
-    user = await resolveFreshUser(user);
-    if (!user || !requiresPasswordChange(user.forcar_troca_senha)) return false;
+    // Nunca abrir por sessão restaurada ou antes de um login manual concluído.
+    if (!loginCompleted || window.__SIGEE_LOGIN_CONCLUIDO__ !== true) return false;
 
-    try { setUser(user, { emit: false, persist: true }); } catch (_) {}
-    window.usuarioLogado = user;
+    let user = eventUser || getUser();
+    if (!user || !user.email) {
+      console.warn('[SIGEE AUTH RC4.3.10] Usuário do login não localizado para verificar recadastramento.');
+      return false;
+    }
 
-    waitForAuthenticatedArea(function () {
-      if (window.__SIGEE_LOGIN_CONCLUIDO__ === true && requiresPasswordChange(user.forcar_troca_senha)) {
-        showPasswordModal();
+    // Fonte de verdade: reler o registro atual no Supabase após autenticar.
+    // Isso evita cache, objeto normalizado incompleto e disputa entre implementações legadas.
+    try {
+      const supabase = client();
+      if (supabase) {
+        const result = await supabase
+          .from('usuarios_sigee')
+          .select('id,nome,email,perfil,nte_id,nte,ativo,Ativo,forcar_troca_senha')
+          .eq('email', normalizeEmail(user.email))
+          .maybeSingle();
+
+        if (result.error) {
+          console.error('[SIGEE AUTH RC4.3.10] Falha ao consultar recadastramento:', result.error);
+        } else if (result.data) {
+          user = Object.assign({}, user, result.data);
+          try { setUser(user, { emit: false, persist: true }); } catch (_) {}
+        }
       }
-    }, 25);
-    return true;
+    } catch (error) {
+      console.error('[SIGEE AUTH RC4.3.10] Erro na verificação de primeiro acesso:', error);
+    }
+
+    const required = requiresPasswordReset(user.forcar_troca_senha);
+    console.info('[SIGEE AUTH RC4.3.10] Verificação de recadastramento:', {
+      email: user.email,
+      valor: user.forcar_troca_senha,
+      obrigatorio: required
+    });
+
+    if (!required) return false;
+
+    // Aguarda apenas a troca visual login -> sistema, sem depender da ordem dos listeners.
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      if (authenticatedAreaIsVisible()) {
+        showPasswordModal();
+        return true;
+      }
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+
+    console.warn('[SIGEE AUTH RC4.3.10] Login concluído, mas a área autenticada não ficou visível.');
+    return false;
   }
 
   const api = Object.freeze({
