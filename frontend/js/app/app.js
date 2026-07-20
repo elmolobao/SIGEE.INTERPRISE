@@ -446,9 +446,14 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
 
         function usuarioDoSupabaseParaLocalSIGEE(u, indice) {
             const emailNormalizado = normalizarTextoSIGEE(u.email).toLowerCase();
-            const perfilOrigem = normalizarTextoSIGEE(u.perfil || u.tipo || u.role || 'Técnico');
-            const perfilMinusculo = perfilOrigem.toLowerCase();
-            let perfilFinal = perfilMinusculo.includes('master') || perfilMinusculo.includes('admin') ? 'Master' : 'Técnico';
+            const perfilOrigem = normalizarTextoSIGEE(u.perfil || u.tipo || u.role || '');
+            let perfilFinal = perfilOrigem;
+            try {
+                perfilFinal = window.SIGEE_SESSION?.normalizarPerfil?.(perfilOrigem)
+                    || window.SIGEE_PERMISSOES?.normalizarPerfil?.(perfilOrigem)
+                    || perfilOrigem;
+            } catch (_) {}
+            if (!perfilFinal) perfilFinal = 'Consulta';
 
             // Garante que o usuário institucional principal mantenha as permissões de Master,
             // mesmo quando a tabela usuarios_sigee não possuir todas as colunas administrativas.
@@ -2054,7 +2059,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             document.getElementById('user-form-id').value = "";
             document.getElementById('user-form-nome').value = "";
             document.getElementById('user-form-email').value = "";
-            document.getElementById('user-form-senha').value = "SECBA2026";
+            document.getElementById('user-form-senha').value = "SEC@2026";
             inicializarSelectsNteEcosystem();
             document.getElementById('modal-cadastro-usuario').classList.remove('hidden');
         }
@@ -2133,7 +2138,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             let u = usuariosDB.find(user => user.id == id);
             if (u) {
                 const senhaAnterior = u.senha;
-                u.senha = "SECBA2026";
+                u.senha = "SEC@2026";
                 const ok = await salvarUsuarioIndividualSupabaseSIGEE(u, id, 'editar');
                 if (!ok) { u.senha = senhaAnterior; return; }
                 alert(`Senha do usuário ${u.nome} foi resetada para o padrão: SECBA2026`);
@@ -8825,19 +8830,28 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     const modulo=window.SIGEE_Escolas;
     if(!modulo)return false;
 
+    const podeEditarCentral=function(){
+      try { return !!window.SIGEE_PERMISSOES?.pode?.('editarEscola', window.SIGEE_SESSION?.getUser?.() || window.usuarioLogado); }
+      catch (_) { return false; }
+    };
     window.abrirModalNovaEscola=function(){
+      if(!podeEditarCentral()) return alert('Seu perfil não possui permissão para cadastrar escolas.');
       return modulo.abrirNova();
     };
     window.abrirModalEditarEscolaSIGEE=function(id){
+      if(!podeEditarCentral()) return alert('Seu perfil não possui permissão para editar escolas.');
       return modulo.abrirEditar(id);
     };
     window.editarEscolaSIGEE=function(id){
+      if(!podeEditarCentral()) return alert('Seu perfil não possui permissão para editar escolas.');
       return modulo.abrirEditar(id);
     };
     window.editarEscolaSIGEEV45=function(id){
+      if(!podeEditarCentral()) return alert('Seu perfil não possui permissão para editar escolas.');
       return modulo.abrirEditar(id);
     };
     window.salvarEscolaFormularioSIGEE=function(event){
+      if(!podeEditarCentral()) { event?.preventDefault?.(); return alert('Seu perfil não possui permissão para salvar alterações em escolas.'); }
       return modulo.salvar(event);
     };
     window.renderizarListaEscolasBufferMemoria=function(){
@@ -8868,6 +8882,8 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     if(novo&&window.SIGEE_Escolas){
       event.preventDefault();
       event.stopImmediatePropagation();
+      const permitido=!!window.SIGEE_PERMISSOES?.pode?.('editarEscola',window.SIGEE_SESSION?.getUser?.()||window.usuarioLogado);
+      if(!permitido) return alert('Seu perfil não possui permissão para cadastrar escolas.');
       window.SIGEE_Escolas.abrirNova();
       return;
     }
@@ -8876,6 +8892,8 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
       '.btn-alterar-escola-sigee[data-escola-id], button[onclick*="editarEscolaSIGEEV45"], button[onclick*="abrirModalEditarEscolaSIGEE"]'
     );
     if(alterar&&window.SIGEE_Escolas){
+      const permitido=!!window.SIGEE_PERMISSOES?.pode?.('editarEscola',window.SIGEE_SESSION?.getUser?.()||window.usuarioLogado);
+      if(!permitido){ event.preventDefault(); event.stopImmediatePropagation(); return alert('Seu perfil não possui permissão para editar escolas.'); }
       const id=alterar.dataset.escolaId||
         (alterar.getAttribute('onclick')||'').match(/\(\s*['"]?([^'")]+)['"]?\s*\)/)?.[1];
       if(!id)return;
@@ -9541,7 +9559,7 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
   function low(v) { return txt(v).toLowerCase(); }
   function sem(v) { return txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
   function up(v) { return sem(v).toUpperCase(); }
-  function user() { return window.usuarioLogado || (typeof usuarioLogado !== 'undefined' ? usuarioLogado : null); }
+  function user() { try { return window.SIGEE_SESSION?.getUser?.() || window.usuarioLogado || (typeof usuarioLogado !== 'undefined' ? usuarioLogado : null); } catch (_) { return window.usuarioLogado || null; } }
 
   function perfilCanonico(valor) {
     const p = up(valor || 'Tecnico');
@@ -9561,9 +9579,9 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
   function isTecnico(u = user()) { return perfilCanonico(u && u.perfil) === 'Técnico'; }
   function isEstagiario(u = user()) { return perfilCanonico(u && u.perfil) === 'Estagiário'; }
   function isConsulta(u = user()) { return perfilCanonico(u && u.perfil) === 'Consulta'; }
-  function isGlobal(u = user()) { return isSEC(u) || isMaster(u); }
-  function podeGerirUsuarios(u = user()) { return isSEC(u) || isMaster(u); }
-  function podeNovaSolicitacao(u = user()) { return isSEC(u) || isMaster(u) || isAdmin(u) || isTecnico(u) || isEstagiario(u); }
+  function isGlobal(u = user()) { return isMaster(u); }
+  function podeGerirUsuarios(u = user()) { return isMaster(u); }
+  function podeNovaSolicitacao(u = user()) { return isMaster(u) || isAdmin(u) || isTecnico(u) || isEstagiario(u); }
   function podeEditarProcesso(u = user()) { return isSEC(u) || isMaster(u) || isAdmin(u) || isTecnico(u); }
   function podeEditarEscola(u = user()) { return isSEC(u) || isMaster(u) || isAdmin(u) || isTecnico(u); }
 
@@ -9597,20 +9615,20 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
   function normalizarUsuario(u) {
     u = u || {};
     const perfil = perfilCanonico(u.perfil || u.tipo || u.role || 'Tecnico');
-    let nte = perfil === 'SEC' ? GRUPO_SEC : txt(u.nte || u.nte_nome || u.nte_vinculado || u.grupo || '');
+    let nte = txt(u.nte || u.nte_nome || u.nte_vinculado || u.grupo || '');
     return {
       ...u,
       nome: txt(u.nome || u.name).toUpperCase(),
       email: low(u.email),
       perfil,
       nte,
-      nte_id: perfil === 'SEC' ? null : (u.nte_id || nteId(nte)),
+      nte_id: u.nte_id || nteId(nte),
       senha: txt(u.senha || u.senha_hash || 'SEC@2026'),
       senha_hash: txt(u.senha_hash || u.senha || 'SEC@2026'),
       ativo: u.ativo !== false && u.Ativo !== false,
       Ativo: u.ativo !== false && u.Ativo !== false,
       forcar_troca_senha: !!u.forcar_troca_senha,
-      pode_editar: perfil === 'Estagiário' || perfil === 'Consulta' ? false : (u.pode_editar !== false)
+      pode_editar: ['Gestor','Estagiário','Consulta'].includes(perfil) ? false : (u.pode_editar !== false)
     };
   }
 
@@ -9629,7 +9647,7 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
   }
 
   function atualizarCabecalhoUsuario() {
-    const u = user();
+    const u = (window.SIGEE_SESSION?.getUser?.() || user());
     if (!u) return;
     u.perfil = perfilCanonico(u.perfil);
     if (isSEC(u)) u.nte = GRUPO_SEC;
@@ -9968,19 +9986,24 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
   }
 
   function perfilCanonico(valor) {
+    try {
+      const central = window.SIGEE_SESSION?.normalizarPerfil?.(valor)
+        || window.SIGEE_PERMISSOES?.normalizarPerfil?.(valor);
+      if (central) return central;
+    } catch (_) {}
     const p = norm(valor || '');
     if (p.includes('MASTER')) return 'Master';
-    if (p === 'SEC' || p.includes('TODOS OS NTES')) return 'SEC';
-    if (p.includes('ADMIN')) return 'Administrator';
+    if (p === 'SEC' || p.includes('SECRETARIA')) return 'SEC';
+    if (p.includes('GESTOR') || p.includes('DIRIGENTE')) return 'Gestor';
+    if (p.includes('ADMIN')) return 'Administrador';
     if (p.includes('ESTAG')) return 'Estagiário';
     if (p.includes('CONSULT')) return 'Consulta';
-    if (p.includes('TECNIC')) return 'Tecnico';
-    return txt(valor || 'Tecnico');
+    if (p.includes('TECNIC')) return 'Técnico';
+    return txt(valor);
   }
 
   function isGlobalPerfil(perfil) {
-    const p = perfilCanonico(perfil);
-    return p === 'Master' || p === 'SEC';
+    return perfilCanonico(perfil) === 'Master';
   }
 
   function extrairNteId(v) {
