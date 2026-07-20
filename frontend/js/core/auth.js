@@ -1,5 +1,5 @@
 /**
- * SIGEE Enterprise RC4.1 — Autenticação e primeiro acesso.
+ * SIGEE Enterprise RC4.3.5 — Autenticação e primeiro acesso.
  * Depende de session.js e supabase.js. Não controla menus ou permissões.
  */
 (function (window) {
@@ -85,9 +85,23 @@
     hidePasswordModal();
     alert('Senha cadastrada com sucesso.');
   }
-  function checkFirstAccess() {
+  function authenticatedAreaIsVisible() {
+    const login = document.getElementById('tela-login');
+    const dashboard = document.getElementById('sistema-dashboard');
+    const loginHidden = !login || login.classList.contains('hidden');
+    const dashboardVisible = !!dashboard && !dashboard.classList.contains('hidden');
+    return loginHidden && dashboardVisible;
+  }
+  function checkFirstAccess(event) {
     const user = getUser();
-    if (user && user.forcar_troca_senha === true) showPasswordModal();
+    const loginCompleted = event?.detail?.loginConcluido === true;
+    if (!user || user.forcar_troca_senha !== true) return;
+    // Nunca exibir o modal sobre a tela de login. O evento de login é a
+    // autoridade principal; a verificação visual protege restaurações de sessão.
+    if (!loginCompleted && !authenticatedAreaIsVisible()) return;
+    setTimeout(function () {
+      if (authenticatedAreaIsVisible()) showPasswordModal();
+    }, 120);
   }
 
   const api = Object.freeze({
@@ -101,5 +115,6 @@
   window.perfilCanonicoSIGEE = normalizeProfile;
 
   document.addEventListener('sigee:usuario-logado', checkFirstAccess);
-  window.addEventListener('load', function () { setTimeout(checkFirstAccess, 150); });
+  // Em restauração de sessão, só verifica depois que a área autenticada estiver visível.
+  window.addEventListener('load', function () { setTimeout(function () { checkFirstAccess(); }, 400); });
 })(window);
