@@ -58,7 +58,6 @@
 
     async function salvarProcesso(p) {
         try { if (window.SIGEE_Processos && typeof window.SIGEE_Processos.salvar === 'function') return await window.SIGEE_Processos.salvar(p); } catch (e) {}
-        try { if (typeof salvarBancoLocalSIGEE === 'function') salvarBancoLocalSIGEE(); } catch (e) {}
         try {
             const c = supabaseClient(); if (!c || !p) return;
             await c.from((window.SIGEE_SUPABASE_TABELAS && window.SIGEE_SUPABASE_TABELAS.processos) || 'processos').upsert({
