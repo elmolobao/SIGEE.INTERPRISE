@@ -1,11 +1,11 @@
 /**
- * SIGEE RC4.1.13 — Autoridade final de identidade, perfil e permissões.
+ * SIGEE RC4.1.14 — Autoridade final de identidade, perfil e permissões.
  * Deve ser o último script local carregado no index.html.
  */
 (function (window, document) {
   'use strict';
-  if (window.__SIGEE_AUTHORITY_4113__) return;
-  window.__SIGEE_AUTHORITY_4113__ = true;
+  if (window.__SIGEE_AUTHORITY_4114__) return;
+  window.__SIGEE_AUTHORITY_4114__ = true;
 
   function normalize(value) {
     try {
@@ -51,14 +51,11 @@
     merged.perfil = normalize((cadastrado && (cadastrado.perfil || cadastrado.tipo || cadastrado.role)) || base.perfil || base.tipo || base.role);
     if (!merged.perfil) return null;
 
-    const mudou = normalize(base.perfil) !== normalize(merged.perfil)
-      || String(base.nte || base.nte_nome || '') !== String(merged.nte || merged.nte_nome || '')
-      || !sameEmail(base.email || base.login, merged.email || merged.login);
     try {
-      if (mudou && window.SIGEE_SESSION?.setUser) window.SIGEE_SESSION.setUser(merged, { persist: true, emit: false });
-    } catch (_) {}
+      if (window.SIGEE_SESSION?.setUser) window.SIGEE_SESSION.setUser(merged, { persist: true, emit: false });
+      else window.usuarioLogado = merged;
+    } catch (_) { window.usuarioLogado = merged; }
     window.usuarioLogado = merged;
-    try { usuarioLogado = merged; } catch (_) {}
     return merged;
   }
 
@@ -77,15 +74,30 @@
     });
   }
 
+
+
+  function renderEffectiveIdentity() {
+    const user = reconcileUser();
+    if (!user) return null;
+    const perfil = normalize(user.perfil);
+    const nte = user.nte || user.nte_nome || user.grupo || user.territorio || '';
+    const nome = user.nome || user.nome_completo || user.email || '';
+    const nomeEl = document.getElementById('user-nome');
+    const perfilEl = document.getElementById('user-perfil');
+    if (nomeEl && nomeEl.textContent !== nome) nomeEl.textContent = nome;
+    const textoPerfil = `${perfil}${nte ? ' | ' + nte : ''}`;
+    if (perfilEl && perfilEl.textContent !== textoPerfil) perfilEl.textContent = textoPerfil;
+    return user;
+  }
+
   function updateIdentity(user) {
     if (!user) return;
     const perfil = normalize(user.perfil);
     const nte = user.nte || user.nte_nome || user.grupo || user.territorio || '';
 
-    const nomeCard = document.getElementById('user-nome');
-    if (nomeCard) nomeCard.textContent = user.nome || user.email || 'USUÁRIO SIGEE';
     const card = document.getElementById('user-perfil');
-    if (card) card.textContent = `${perfil} | ${nte}`;
+    const texto = `${perfil}${nte ? ' | ' + nte : ''}`;
+    if (card && card.textContent !== texto) card.textContent = texto;
 
     document.querySelectorAll('[data-sigee-user-profile],#perfil-usuario-logado,#usuario-perfil-logado').forEach(el => {
       el.textContent = perfil;
@@ -114,7 +126,7 @@
 
   function guard(name, action, message) {
     const fn = window[name];
-    if (typeof fn !== 'function' || fn.__SIGEE_4112_GUARD__) return;
+    if (typeof fn !== 'function' || fn.__SIGEE_4114_GUARD__) return;
     const wrapped = function () {
       if (!can(action)) {
         alert(message || 'Seu perfil não possui permissão para esta ação.');
@@ -122,30 +134,9 @@
       }
       return fn.apply(this, arguments);
     };
-    wrapped.__SIGEE_4112_GUARD__ = true;
+    wrapped.__SIGEE_4114_GUARD__ = true;
     window[name] = wrapped;
     try { globalThis[name] = wrapped; } catch (_) {}
-  }
-
-
-  function protegerModuloEscolas() {
-    const modulo = window.SIGEE_Escolas;
-    if (!modulo || modulo.__SIGEE_4113_GUARD__) return;
-    const proteger = (nome) => {
-      const original = modulo[nome];
-      if (typeof original !== 'function' || original.__SIGEE_4113_GUARD__) return;
-      const wrapper = function () {
-        if (!can('editarEscola')) {
-          alert('Seu perfil não possui permissão para editar escolas.');
-          return false;
-        }
-        return original.apply(this, arguments);
-      };
-      wrapper.__SIGEE_4113_GUARD__ = true;
-      modulo[nome] = wrapper;
-    };
-    ['abrirNova','abrirEditar','abrirEditarRegistro','salvar'].forEach(proteger);
-    modulo.__SIGEE_4113_GUARD__ = true;
   }
 
   function guards() {
@@ -155,13 +146,12 @@
   }
 
   function enforce() {
-    protegerModuloEscolas();
     guards();
     apply();
   }
 
   function burst() {
-    [0, 100, 500].forEach(ms => setTimeout(enforce, ms));
+    [0, 50, 150, 400, 900, 1800, 3200].forEach(ms => setTimeout(enforce, ms));
   }
 
   document.addEventListener('DOMContentLoaded', burst);
@@ -169,10 +159,9 @@
   document.addEventListener('sigee:login-concluido', burst);
   document.addEventListener('sigee:navegacao-concluida', burst);
   window.addEventListener('load', burst);
-  setInterval(enforce, 2000);
 
   const previousNavigate = window.navegar;
-  if (typeof previousNavigate === 'function' && !previousNavigate.__SIGEE_4112_NAV__) {
+  if (typeof previousNavigate === 'function' && !previousNavigate.__SIGEE_4114_NAV__) {
     const nav = function (aba) {
       if (['usuarios','logs','diagnostico'].includes(aba) && !can('usuarios')) { alert('Acesso permitido apenas ao perfil Master.'); aba = 'painel'; }
       if (aba === 'sala-situacao' && !can('salaSituacao')) { alert('Seu perfil não possui acesso à Sala de Situação.'); aba = 'painel'; }
@@ -181,10 +170,11 @@
       burst();
       return out;
     };
-    nav.__SIGEE_4112_NAV__ = true;
+    nav.__SIGEE_4114_NAV__ = true;
     window.navegar = nav;
     try { globalThis.navegar = nav; } catch (_) {}
   }
 
-  window.SIGEE_AUTORIDADE_FINAL = Object.freeze({ aplicar: enforce, reaplicar: burst, reconciliarUsuario: reconcileUser });
+  window.SIGEE_RENDERIZAR_IDENTIDADE_EFETIVA = renderEffectiveIdentity;
+  window.SIGEE_AUTORIDADE_FINAL = Object.freeze({ aplicar: enforce, reaplicar: burst, reconciliarUsuario: reconcileUser, renderizarIdentidade: renderEffectiveIdentity });
 })(window, document);
