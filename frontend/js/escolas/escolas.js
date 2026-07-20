@@ -875,10 +875,16 @@
         }
       };
 
-      limparEmailPreenchido();
-      setTimeout(limparEmailPreenchido, 50);
-      setTimeout(limparEmailPreenchido, 300);
-      input.addEventListener('focus', limparEmailPreenchido, { passive: true });
+      // Cada campo deve ser preparado apenas uma vez. O observer global era
+      // acionado por toda alteração do DOM e adicionava novos listeners/timers ao
+      // mesmo input, causando crescimento progressivo de memória e forced reflow.
+      if (input.dataset.sigeeAutofillProtegido !== '1') {
+        input.dataset.sigeeAutofillProtegido = '1';
+        limparEmailPreenchido();
+        const timer = setTimeout(limparEmailPreenchido, 120);
+        input.dataset.sigeeAutofillTimer = String(timer);
+        input.addEventListener('focus', limparEmailPreenchido, { passive: true });
+      }
     });
   }
 
@@ -887,10 +893,18 @@
     if (window.__SIGEE_OBSERVER_PESQUISA_ESCOLA__) return;
     window.__SIGEE_OBSERVER_PESQUISA_ESCOLA__ = true;
 
-    const observer = new MutationObserver(() => {
-      protegerCamposPesquisaEscolaContraAutofill();
+    let timerObserver = 0;
+    const observer = new MutationObserver((mutations) => {
+      // Ignora mutações que não adicionaram elementos e agrupa rajadas de DOM.
+      if (!mutations.some(m => m.addedNodes && m.addedNodes.length)) return;
+      clearTimeout(timerObserver);
+      timerObserver = setTimeout(() => {
+        if (document.hidden) return;
+        protegerCamposPesquisaEscolaContraAutofill();
+      }, 180);
     });
-    observer.observe(document.documentElement, { childList: true, subtree: true });
+    observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
+    window.__SIGEE_OBSERVER_PESQUISA_ESCOLA_INSTANCIA__ = observer;
   }
 
   function aplicarModulo() {
