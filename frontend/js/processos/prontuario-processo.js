@@ -372,16 +372,17 @@
     if (e.key === 'Escape' && document.getElementById('sigee-prontuario-overlay')) fechar();
   });
 
-  let renomeacaoAgendada = false;
-  const observadorProntuario = new MutationObserver(() => {
-    if (renomeacaoAgendada) return;
-    renomeacaoAgendada = true;
-    requestAnimationFrame(() => {
-      renomeacaoAgendada = false;
-      renomearBotoes();
-    });
+  let timerRenomeacao = null;
+  const observadorProntuario = new MutationObserver(mudancas => {
+    if (document.hidden) return;
+    const relevante = mudancas.some(m => [...m.addedNodes].some(no =>
+      no.nodeType === 1 && (no.matches?.('button,[id*="prontuario"],[class*="prontuario"]') || no.querySelector?.('button,[id*="prontuario"],[class*="prontuario"]'))
+    ));
+    if (!relevante) return;
+    clearTimeout(timerRenomeacao);
+    timerRenomeacao = setTimeout(() => { timerRenomeacao = null; renomearBotoes(); }, 100);
   });
-  observadorProntuario.observe(document.documentElement, { childList:true, subtree:true });
+  observadorProntuario.observe(document.body || document.documentElement, { childList:true, subtree:true });
   document.readyState === 'loading'
     ? document.addEventListener('DOMContentLoaded', renomearBotoes)
     : renomearBotoes();
