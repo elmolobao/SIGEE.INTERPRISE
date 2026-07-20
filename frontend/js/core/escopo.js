@@ -1,4 +1,4 @@
-/** SIGEE RC4.2 — Escopo territorial único. Somente Master possui visão global. */
+/** SIGEE RC4.2.2 — Escopo territorial único conforme a matriz oficial. */
 (function(window){'use strict';
 function user(t){return t||window.SIGEE_SESSION?.getUser?.()||{};}
 function norm(v){return String(v??'').trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();}
