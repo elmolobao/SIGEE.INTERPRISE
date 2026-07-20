@@ -7822,6 +7822,18 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
       if(u.ativo === false){ alert('Usuário inativo.'); return; }
       const senhaOk = senha === txt(data.senha) || senha === txt(data.senha_hash) || senha === txt(u.senha) || senha === txt(u.senha_hash);
       if(!senhaOk){ alert('Senha inválida.'); return; }
+
+      // RC4.3.11: a senha provisória é um segundo gatilho obrigatório.
+      // Mesmo que o campo forcar_troca_senha tenha sido perdido por algum fluxo legado,
+      // quem entrou com SEC@2026 deve cadastrar uma senha pessoal antes de continuar.
+      const usouSenhaProvisoria = senha === 'SEC@2026';
+      if (usouSenhaProvisoria) {
+        u.forcar_troca_senha = true;
+        u.__senha_provisoria_usada = true;
+        window.__SIGEE_SENHA_PROVISORIA_USADA__ = true;
+      } else {
+        window.__SIGEE_SENHA_PROVISORIA_USADA__ = false;
+      }
       if(!isGlobal(u) && !nteIdUsuario(u)){
         alert('Usuário sem NTE vinculado. Ajuste o cadastro no Supabase.'); return;
       }
@@ -7840,19 +7852,14 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
       // RC4.3.7: marca o login manual desta execução. Sessão antiga armazenada
       // no navegador não pode abrir o recadastramento sobre a tela de login.
       window.__SIGEE_LOGIN_CONCLUIDO__ = true;
-      const detalheLogin = { usuario: u, loginConcluido: true };
       try {
+        const detalheLogin = { usuario: u, loginConcluido: true, senhaProvisoriaUsada: usouSenhaProvisoria };
         document.dispatchEvent(new CustomEvent('sigee:usuario-logado', { detail: detalheLogin }));
-      } catch (_) {}
-      // RC4.3.10: chamada direta e aguardada. O recadastramento não depende mais
-      // da ordem de execução do listener global ou de uma sessão antiga.
-      try {
-        if (window.SIGEE_AUTH && typeof window.SIGEE_AUTH.verificarPrimeiroAcesso === 'function') {
-          await window.SIGEE_AUTH.verificarPrimeiroAcesso({ detail: detalheLogin });
+        // Chamada direta: não depende da ordem dos listeners ou de wrappers legados.
+        if (window.SIGEE_AUTH?.verificarPrimeiroAcesso) {
+          window.SIGEE_AUTH.verificarPrimeiroAcesso({ detail: detalheLogin });
         }
-      } catch (erroRecadastramento) {
-        console.error('[SIGEE RC4.3.10] Falha ao acionar recadastramento:', erroRecadastramento);
-      }
+      } catch (_) {}
     }catch(e){
       console.error('[SIGEE] Erro login', e);
       alert('Erro no login: ' + (e.message || e));
