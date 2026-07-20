@@ -2809,25 +2809,14 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             });
         };
 
-        // Evita alertas de salvamento geral durante sincronização em segundo plano.
+        // RC4.5.1 — salvamentos gerais são somente compatibilidade local.
+        // Processos e solicitações operacionais nunca podem ser reenviados em lote,
+        // pois um objeto incompleto em memória pode sobrescrever escola_id, cod_mec e NTE.
         salvarTodasTabelasSupabaseSIGEE = async function(estado, silencioso = true) {
-            const client = obterSupabaseSIGEE();
-            if (!client || sigEESincronizandoSupabase) return false;
-            sigEESincronizandoSupabase = true;
-            try {
-                const processosPayload = (estado.processos || []).map(processoParaSupabaseSIGEE).filter(p => p.aluno_nome).map(p => { const x = {...p}; if (!x.id) delete x.id; return x; });
-                const solicitacoesPayload = (estado.solicitacoes || []).map(solicitacaoParaSupabaseSIGEE).filter(s => s.nome_solicitante);
-                if (processosPayload.length) await upsertTabelaSupabaseSIGEE(SIGEE_SUPABASE_TABELAS.processos, processosPayload, SIGEE_SUPABASE_CONFLITOS.processos);
-                if (solicitacoesPayload.length) await upsertTabelaSupabaseSIGEE(SIGEE_SUPABASE_TABELAS.solicitacoes, solicitacoesPayload, SIGEE_SUPABASE_CONFLITOS.solicitacoes);
-                sigEESupabaseOnline = true;
-                return true;
-            } catch (erro) {
-                sigEESupabaseOnline = false;
-                console.warn('Sincronização geral em segundo plano não confirmada:', erro);
-                return false;
-            } finally {
-                sigEESincronizandoSupabase = false;
+            if (!silencioso) {
+                console.info('[SIGEE RC4.5.1] Sincronização geral ignorada: tabelas operacionais possuem persistência individual.');
             }
+            return true;
         };
 
     
