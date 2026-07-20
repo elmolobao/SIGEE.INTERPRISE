@@ -375,7 +375,6 @@
             if (typeof processoParaSupabaseSIGEE === 'function') {
                 const payload = processoParaSupabaseSIGEE(p) || {};
                 payload.workflow_instance_id = p.workflow_instance_id || payload.workflow_instance_id || gerarWorkflowInstanceIdSIGEE();
-                if (payload.nte || p.nte || p.nte_id) payload.nte = nteOficial(payload.nte || p.nte_id || p.nte);
                 p.workflow_instance_id = payload.workflow_instance_id;
                 const responsavelAtual = processoResponsavel(p);
                 if (responsavelAtual && responsavelAtual !== 'Não atribuído') {
@@ -402,7 +401,7 @@
             escola_nome: processoEscola(p),
             documento_tipo: processoDocumento(p),
             etapa_atual: processoEtapa(p),
-            nte: nteOficial(p.nte_id || processoNte(p)),
+            nte: processoNte(p),
             cod_mec: p.cod_mec || p.mec || null,
             escola_id: p.escola_id == null || p.escola_id === '' ? null : (Number(p.escola_id) || p.escola_id),
             modalidade: p.modalidade || p.oferta_modalidade || null,
@@ -435,42 +434,14 @@
         };
     }
     async function salvarProcesso(p) {
+        /* RC4.5.3: persistência individual. Nunca sincronizar toda a coleção
+           antes de salvar uma movimentação de workflow. */
         try {
             const c = supabaseClient();
             if (!c || !p) return;
             await garantirWorkflowInstanceIdSIGEE(p, c);
-            const tabela = (window.SIGEE_SUPABASE_TABELAS && window.SIGEE_SUPABASE_TABELAS.processos) || 'processos';
             const payload = processoPayload(p);
-
-            // RC4.5.1 — preserva os vínculos já confirmados no banco.
-            if (p.id) {
-                const { data: atual } = await c.from(tabela)
-                    .select('escola_id,cod_mec,nte')
-                    .eq('id', p.id)
-                    .maybeSingle();
-                if (atual) {
-                    if (!payload.escola_id && atual.escola_id) payload.escola_id = atual.escola_id;
-                    if (!payload.cod_mec && atual.cod_mec) payload.cod_mec = atual.cod_mec;
-                    if ((!payload.nte || !payload.escola_id) && atual.nte) payload.nte = atual.nte;
-                }
-            }
-
-            // O NTE oficial sempre vem da escola vinculada, nunca do usuário da ação.
-            if (payload.escola_id) {
-                const tabelaEscolas = (window.SIGEE_SUPABASE_TABELAS && window.SIGEE_SUPABASE_TABELAS.escolas) || 'escolas_sigee';
-                const { data: escola } = await c.from(tabelaEscolas)
-                    .select('id,cod_mec,nte_id,nte,nome_escola')
-                    .eq('id', payload.escola_id)
-                    .maybeSingle();
-                if (escola) {
-                    payload.cod_mec = escola.cod_mec || payload.cod_mec || null;
-                    payload.nte = nteOficial(escola.nte_id || escola.nte || payload.nte);
-                    payload.escola_nome = escola.nome_escola || payload.escola_nome;
-                    p.escola_id = escola.id; p.cod_mec = payload.cod_mec; p.nte = payload.nte;
-                }
-            }
-
-            const { error } = await c.from(tabela)
+            const { error } = await c.from((window.SIGEE_SUPABASE_TABELAS && window.SIGEE_SUPABASE_TABELAS.processos) || 'processos')
                 .upsert(payload, { onConflict: 'id' });
             if (error) throw error;
             return payload;
@@ -1014,7 +985,7 @@
             if (!novoAluno) return alert('Informe o nome do requerente/aluno.');
 
             const antes = {
-                aluno: processoAluno(p), nte: nteOficial(p.nte_id || processoNte(p)), escola: processoEscola(p),
+                aluno: processoAluno(p), nte: processoNte(p), escola: processoEscola(p),
                 documento: processoDocumento(p), responsavel: processoResponsavel(p)
             };
             btn.disabled = true; btn.textContent = 'Salvando...';
@@ -1692,6 +1663,9 @@
   window.abrirRegistrarPendenciaSIGEE=abrirFormularioPendencia;
   window.abrirIndeferimentoSIGEE=abrirFormularioIndeferimento;
   window.abrirPendenciaSIGEE=abrirTratarPendencia;
+  /* RC4.5.3: autoridade única do fluxo Receber/Tratar Pendência.
+     Sobrescreve as implementações legadas carregadas pelo app.js. */
+  window.abrirModalFluxoPendencia=abrirTratarPendencia;
   window.abrirHistoricoProcessoSIGEE=abrirHistorico;
   window.abrirHistoricoSIGEE=abrirHistorico;
 })();
