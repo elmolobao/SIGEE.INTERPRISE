@@ -40,7 +40,7 @@
   function normalizarNte(usuario) {
     if (!usuario) return 'NÃO INFORMADO';
     const perfil = normalizarPerfil(usuario.perfil);
-    if (perfil === 'MASTER' || perfil === 'SEC') return 'TODOS';
+    if (perfil === 'MASTER') return 'TODOS';
     if (usuario.nte) return String(usuario.nte).replace('NTE-', 'NTE ').trim();
     if (usuario.nte_id) return `NTE ${String(usuario.nte_id).padStart(2, '0')}`;
     return 'NÃO INFORMADO';
