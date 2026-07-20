@@ -707,21 +707,39 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             return `${tabela}${codigo}: ${msg}${detalhe}${dica}`;
         }
 
-        async function carregarTabelaSupabaseSIGEE(nomeTabela, selectCampos = '*', ordenarPor = null) {
+        async function carregarTabelaSupabaseSIGEE(nomeTabela, selectCampos = '*', ordenarPor = null, limiteMaximo = null) {
             const client = obterSupabaseSIGEE();
             if (!client) return [];
+
+            // RC4.3.3: proteção contra download integral de tabelas muito grandes.
+            // O catálogo de escolas é consultado sob demanda por escolas.js e solicitações
+            // históricas não devem ser carregadas integralmente na abertura do SIGEE.
+            const limitesSeguros = {
+                usuarios_sigee: 500,
+                ntes_sigee: 100,
+                processos: 5000,
+                solicitacoes_sigee: 1000,
+                escolas_sigee: 1000,
+                logs_sigee: 1000
+            };
+            const teto = Number.isFinite(Number(limiteMaximo))
+                ? Math.max(0, Number(limiteMaximo))
+                : (limitesSeguros[nomeTabela] || 2000);
+            if (teto === 0) return [];
+
             let todos = [];
             let inicio = 0;
-            const tamanhoPagina = 1000;
-            while (true) {
-                const fim = inicio + tamanhoPagina - 1;
+            const tamanhoPagina = Math.min(1000, teto);
+            while (inicio < teto) {
+                const fim = Math.min(inicio + tamanhoPagina - 1, teto - 1);
                 let query = client.from(nomeTabela).select(selectCampos).range(inicio, fim);
                 if (ordenarPor) query = query.order(ordenarPor, { ascending: true });
                 const { data, error } = await query;
                 if (error) throw error;
-                todos = todos.concat(data || []);
-                if (!data || data.length < tamanhoPagina) break;
-                inicio += tamanhoPagina;
+                const lote = data || [];
+                todos = todos.concat(lote);
+                if (lote.length < (fim - inicio + 1)) break;
+                inicio = fim + 1;
             }
             return todos;
         }
@@ -5946,15 +5964,20 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     }
     return null;
   }
-  async function readAll(table){
+  async function readAll(table, maxRows){
     const c=client(); if(!c) throw new Error('Cliente Supabase não disponível');
-    let out=[], from=0, size=1000;
-    while(true){
-      const {data,error}=await c.from(table).select('*').range(from, from+size-1);
+    const caps={usuarios_sigee:500,ntes_sigee:100,processos:5000,solicitacoes_sigee:1000,escolas_sigee:1000,logs_sigee:1000};
+    const cap=Number.isFinite(Number(maxRows))?Math.max(0,Number(maxRows)):(caps[table]||2000);
+    if(cap===0) return [];
+    let out=[], from=0, size=Math.min(1000,cap);
+    while(from<cap){
+      const to=Math.min(from+size-1,cap-1);
+      const {data,error}=await c.from(table).select('*').range(from,to);
       if(error) throw error;
-      out=out.concat(data||[]);
-      if(!data || data.length<size) break;
-      from += size;
+      const lote=data||[];
+      out=out.concat(lote);
+      if(lote.length<(to-from+1)) break;
+      from=to+1;
     }
     return out;
   }
@@ -6060,7 +6083,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   async function carregarTudoV38(silencioso=true){
     if(carregando) return false; carregando=true; setInfo('Carregando informações do Supabase, aguarde...');
     try{
-      const [us, es, pr, so, nt]=await Promise.allSettled([readAll(T.usuarios),readAll(T.escolas),readAll(T.processos),readAll(T.solicitacoes),readAll(T.ntes)]);
+      const [us, es, pr, so, nt]=await Promise.allSettled([readAll(T.usuarios,500),readAll(T.escolas,1000),readAll(T.processos,5000),Promise.resolve([]),readAll(T.ntes,100)]);
       if(us.status==='fulfilled' && us.value.length){ usuariosDB=us.value.map(mapUsuario).filter(u=>u.email); window.usuariosDB=usuariosDB; }
       if(!usuariosDB.some(u=>txt(u.email).toLowerCase()==='sec@enova.educacao.ba.gov.br')) usuariosDB.push({id:900001,nome:'USUÁRIO SEC',email:'sec@enova.educacao.ba.gov.br',senha:'123',perfil:'SEC',nte:'SEC - TODOS OS NTEs',grupo:'SEC',ativo:true});
       if(es.status==='fulfilled'){ escolasDB=es.value.map(mapEscola).filter(e=>e.cod_mec||e.nome); window.escolasDB=escolasDB; }
@@ -6086,9 +6109,9 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     carregando=true;
     try{
       const [pr, so, nt] = await Promise.allSettled([
-        readAll(T.processos),
-        readAll(T.solicitacoes),
-        readAll(T.ntes)
+        readAll(T.processos,5000),
+        Promise.resolve([]), // RC4.3.3: solicitações históricas não são baixadas na abertura
+        readAll(T.ntes,100)
       ]);
 
       if(pr.status==='fulfilled'){
@@ -6123,6 +6146,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     }
   }
 
+  window.SIGEE_ESTABILIDADE_DADOS='RC4.3.3';
   window.SIGEE_V38_CARREGAR_BANCOS = carregarTudoV38;
   window.SIGEE_CARREGAR_ESSENCIAL = carregarEssencialV38;
   const oldLogin=window.handleLogin;
