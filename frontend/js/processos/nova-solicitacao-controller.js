@@ -1,4 +1,4 @@
-/* SIGEE RC4.5.23 — Controlador único da Nova Solicitação */
+/* SIGEE RC4.5.24 — Controlador único: botão normalizado e bloqueio de acervo */
 (function () {
   'use strict';
 
@@ -182,6 +182,13 @@
     }
   }
 
+  function statusAcervoBloqueiaSolicitacao(valor) {
+    const status = normalizar(valor);
+    return status.includes('NAO RECOLHIDO') ||
+      status.includes('NAO ACOLHIDO') ||
+      status.includes('ACERVO NAO RECOLHIDO');
+  }
+
   function formatarEscola(e) {
     return {
       ...e,
@@ -225,6 +232,18 @@
   function selecionarEscola(escola) {
     const e = formatarEscola(escola);
     if (!e.id || !e.nome) return;
+
+    if (statusAcervoBloqueiaSolicitacao(e.acervo)) {
+      limparIdentidadeEscola();
+      if (botao) {
+        botao.disabled = true;
+        botao.textContent = 'Enviar para Desarquivamento';
+      }
+      alert('Não é permitido abrir solicitação para esta instituição porque o acervo está NÃO RECOLHIDO. Consulte o catálogo de escolas antes de prosseguir.');
+      campo('novo-proc-escola-busca-v23')?.focus();
+      return;
+    }
+
     escolaSelecionada = e;
 
     const input = campo('novo-proc-escola-busca-v23');
@@ -274,6 +293,10 @@
     Object.entries(valores).forEach(([id, valor]) => { const el = campo(id); if (el) el.value = valor || ''; });
     try { window.aplicarClasseStatusAcervoSIGEE?.(); } catch (_) {}
     try { window.aplicarStatusBotaoNovaSolicitacaoV25?.(); } catch (_) {}
+    if (botao) {
+      botao.disabled = false;
+      botao.textContent = 'Enviar para Desarquivamento';
+    }
   }
 
   function resetarFormulario() {
@@ -372,6 +395,10 @@
     window.fecharModalNovaSolicitacao = fechar;
     window.handleSelecaoInstituicaoFluxoAutomatico = () => !!texto(campo('novo-proc-escola-id')?.value);
     window.SIGEE_NOVA_SOLICITACAO_CONTROLLER = { abrir, fechar, limpar: resetarFormulario, selecionarEscola };
+
+    // Garante estado visual neutro mesmo quando o formulário clonado herdou
+    // texto/disabled de uma tentativa anterior executada por código legado.
+    resetarFormulario();
   }
 
   if (document.readyState === 'loading') {
