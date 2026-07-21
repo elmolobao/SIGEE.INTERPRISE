@@ -3149,10 +3149,15 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
 
                 // RC4.5.11: o ID é a única autoridade. Nome, MEC, cache e variáveis
                 // antigas nunca podem decidir qual escola será gravada.
+                const opcaoSelecionada = campoPrincipal?.selectedOptions?.[0] || null;
+                const estadoModulo = window.SIGEE_Escolas?.obterEscolaNovaSolicitacao?.() || null;
                 const idSelecionado = String(
                     idOculto?.value ||
                     campoPrincipal?.dataset?.escolaId ||
+                    opcaoSelecionada?.dataset?.escolaId ||
                     campoBusca?.dataset?.escolaId ||
+                    estadoModulo?.id ||
+                    estadoModulo?.escola_id ||
                     window.SIGEE_ESCOLA_NOVA_SOLICITACAO?.id ||
                     window.SIGEE_ESCOLA_NOVA_SOLICITACAO?.escola_id ||
                     window.SIGEE_NOVA_SOLICITACAO_ESCOLA_ID ||
@@ -3223,7 +3228,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
 
                     return escolaCanonica;
                 } catch (erro) {
-                    console.warn('[SIGEE RC4.5.11] Não foi possível confirmar a escola pelo ID.', erro);
+                    console.warn('[SIGEE RC4.5.20] Não foi possível confirmar a escola pelo ID.', erro);
                     return null;
                 }
             }
