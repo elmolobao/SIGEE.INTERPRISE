@@ -12,7 +12,7 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>SIGEE - Sistema de Gestão de Escolas Extintas (SEC/BA)</title>
-<meta name="sigee-release" content="RC4.5.0">
+<meta name="sigee-release" content="RC4.5.3">
 <meta content="#0B4F8A" name="theme-color"/>
 <meta content="SIGEE" name="application-name"/>
 <link href="assets/sigee-icon.svg?v=2.1.1" rel="icon" type="image/svg+xml"/>
@@ -552,6 +552,7 @@
 </div>
 <div>
 <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Selecione a Instituição de Ensino</label>
+<input id="novo-proc-escola-id" name="escola_id" type="hidden" value=""/>
 <select class="w-full p-2 border rounded-lg text-xs focus:outline-none bg-white font-semibold" id="novo-proc-escola" onchange="handleSelecaoInstituicaoFluxoAutomatico()" required=""></select>
 </div>
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-gray-50 border border-gray-200 rounded-lg">
@@ -720,7 +721,7 @@
 <script src="js/analytics/analytics-engine.js?v=2.4.3C"></script>
 <script src="js/analytics/dashboard.js?v=RC4.2.2"></script>
 <script src="js/escolas/municipios-territorios.js?v=RC4.5.0"></script>
-<script src="js/escolas/escolas.js?v=RC4.5.0"></script>
+<script src="js/escolas/escolas.js?v=RC4.5.3"></script>
 <script src="js/escolas/importacao.js"></script>
 <script src="js/escolas/exportacao.js"></script>
 <script src="js/processos/fluxo-operacional.js"></script>
@@ -778,15 +779,39 @@ if (window.SIGEE_NAVIGATION && typeof window.SIGEE_NAVIGATION.install === 'funct
       return false;
     }
 
-    window.salvarNovaSolicitacao = segura;
-    try { salvarNovaSolicitacao = segura; } catch (_) {}
+    const salvarComIdentidadeDaEscola = async function (event) {
+      if (event && typeof event.preventDefault === 'function') event.preventDefault();
+
+      const select = document.getElementById('novo-proc-escola');
+      const idOculto = document.getElementById('novo-proc-escola-id');
+      const selecionada = window.SIGEE_ESCOLA_NOVA_SOLICITACAO;
+      const escolaId = String(idOculto?.value || select?.dataset.escolaId || selecionada?.id || '').trim();
+      const nomeSelecionado = String(select?.dataset.escolaNome || selecionada?.nome || '').trim();
+      const nomeVisivel = String(select?.value || '').trim();
+
+      if (!escolaId || !selecionada || !nomeSelecionado || nomeVisivel !== nomeSelecionado) {
+        alert('Selecione novamente a escola na lista de resultados. O SIGEE não permite salvar uma solicitação sem o vínculo exato com o cadastro da escola.');
+        return false;
+      }
+
+      // Disponibiliza a identidade completa para todas as rotinas de persistência.
+      select.dataset.escolaId = escolaId;
+      idOculto.value = escolaId;
+      window.SIGEE_NOVA_SOLICITACAO_ESCOLA_ID = escolaId;
+      window.SIGEE_NOVA_SOLICITACAO_ESCOLA_NOME = nomeSelecionado;
+      window.SIGEE_NOVA_SOLICITACAO_COD_MEC = selecionada.cod_mec || select.dataset.codMec || '';
+
+      return await segura.call(this, event);
+    };
+    salvarComIdentidadeDaEscola.__SIGEE_ESCOLA_ID_GUARD__ = true;
+
+    window.salvarNovaSolicitacao = salvarComIdentidadeDaEscola;
+    try { salvarNovaSolicitacao = salvarComIdentidadeDaEscola; } catch (_) {}
 
     const form = document.querySelector('#modal-nova-solicitacao form');
     if (form) {
-      form.onsubmit = function (event) {
-        return window.SIGEE_SALVAR_NOVA_SOLICITACAO_SEGURO(event);
-      };
-      form.setAttribute('onsubmit', 'return SIGEE_SALVAR_NOVA_SOLICITACAO_SEGURO(event)');
+      form.onsubmit = salvarComIdentidadeDaEscola;
+      form.removeAttribute('onsubmit');
     }
 
     const botao = document.getElementById('btn-submeter-nova-solicitacao');
