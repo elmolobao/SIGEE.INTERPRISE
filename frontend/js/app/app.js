@@ -10663,27 +10663,40 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
 
     const nomeNormalizado = normalizar(termo);
     const escolaNormalizada = normalizar(escolaInformada);
+    const campoEscola = el(IDS.escola);
+    const escolaIdSelecionada = texto(
+      campoEscola?.dataset?.escolaId || campoEscola?.dataset?.id ||
+      campoEscola?.options?.[campoEscola.selectedIndex]?.dataset?.escolaId ||
+      campoEscola?.options?.[campoEscola.selectedIndex]?.dataset?.id || ''
+    );
     const c = clienteSupabase();
     let registros = [];
 
     const correspondeNomeEEscola = p => {
       const nomeRegistro = normalizar(p?.aluno_nome || p?.aluno || p?.nome_solicitante);
+      if (!nomeRegistro || nomeRegistro !== nomeNormalizado) return false;
+
+      const escolaIdRegistro = texto(p?.escola_id || p?.id_escola || p?.cod_mec);
+      if (escolaIdSelecionada && escolaIdRegistro) {
+        return escolaIdRegistro === escolaIdSelecionada;
+      }
+
       const escolaRegistro = normalizar(p?.escola_nome || p?.escola || p?.nome_escola);
-      return !!nomeRegistro && !!escolaRegistro &&
-        nomeRegistro === nomeNormalizado && escolaRegistro === escolaNormalizada;
+      return !!escolaRegistro && escolaRegistro === escolaNormalizada;
     };
 
     if (c) {
       try {
-        const safe = termo.replace(/[,%_]/g, ' ').trim();
+        const safe = termo.replace(/[,%_]/g, ' ').replace(/\s+/g, ' ').trim();
         const { data, error } = await c.from(tabelaProcessos())
-          .select('id,codigo_sigee,aluno_nome,nome_solicitante,escola_nome,escola,etapa_atual,etapa,created_at,data_abertura,data_solicitacao,nte')
-          .or(`aluno_nome.ilike.%${safe}%,nome_solicitante.ilike.%${safe}%`)
+          .select('id,aluno_nome,escola_nome,escola_id,etapa_atual,created_at,nte,tecnico_responsavel,status,ativo')
+          .ilike('aluno_nome', `%${safe}%`)
           .order('created_at', { ascending: false })
-          .limit(30);
-        if (!error && Array.isArray(data)) registros = data.filter(correspondeNomeEEscola);
+          .limit(50);
+        if (error) throw error;
+        if (Array.isArray(data)) registros = data.filter(correspondeNomeEEscola);
       } catch (erro) {
-        console.warn('[SIGEE Proteções] Consulta de duplicidade no Supabase falhou:', erro);
+        console.warn('[SIGEE Proteções] Consulta de duplicidade no Supabase falhou; base local será utilizada.', erro);
       }
     }
 
