@@ -8014,150 +8014,62 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     ['novo-proc-aluno','novo-proc-documento','novo-proc-modalidade','novo-proc-ensino','novo-autofill-mec','novo-autofill-nte','novo-autofill-municipio','novo-autofill-dep','novo-autofill-situacao','novo-autofill-acervo','novo-autofill-local-acervo'].forEach(id=>{
       const el=document.getElementById(id); if(!el) return; if(el.tagName==='SELECT') el.selectedIndex=0; else el.value='';
     });
+
+    // RC4.5.10: limpa integralmente a identidade anterior da escola.
+    const selectEscola = document.getElementById('novo-proc-escola');
+    if (selectEscola) {
+      selectEscola.innerHTML = '<option value="">SELECIONE A INSTITUIÇÃO</option>';
+      selectEscola.value = '';
+      delete selectEscola.dataset.escolaId;
+      delete selectEscola.dataset.escolaNome;
+      delete selectEscola.dataset.codMec;
+    }
+    const idOculto = document.getElementById('novo-proc-escola-id');
+    if (idOculto) idOculto.value = '';
+    window.SIGEE_ESCOLA_NOVA_SOLICITACAO = null;
+    window.SIGEE_NOVA_SOLICITACAO_ESCOLA_ID = '';
+    window.SIGEE_NOVA_SOLICITACAO_ESCOLA_NOME = '';
+    window.SIGEE_NOVA_SOLICITACAO_COD_MEC = '';
+
     const chk=document.getElementById('f01-chk-acolhido'); if(chk) chk.checked=false;
     const btn=document.getElementById('btn-submeter-nova-solicitacao'); if(btn) btn.disabled=true;
-    limparIdentidadeEscolaCore();
     document.getElementById('modal-nova-solicitacao')?.classList.remove('hidden');
     instalarAutocompleteEscolaCore();
   };
   try{ abrirFormularioNovaSolicitacao = window.abrirFormularioNovaSolicitacao; }catch(e){}
 
-  function limparIdentidadeEscolaCore(){
-    const campo = document.getElementById('novo-proc-escola');
-    const idOculto = document.getElementById('novo-proc-escola-id');
-    const codOculto = document.getElementById('novo-proc-escola-cod-mec');
-    if(campo){
-      delete campo.dataset.escolaId;
-      delete campo.dataset.escolaNome;
-      delete campo.dataset.codMec;
-    }
-    if(idOculto) idOculto.value = '';
-    if(codOculto) codOculto.value = '';
-    window.SIGEE_ESCOLA_NOVA_SOLICITACAO = null;
-    window.SIGEE_NOVA_SOLICITACAO_ESCOLA_ID = '';
-    window.SIGEE_NOVA_SOLICITACAO_ESCOLA_NOME = '';
-    window.SIGEE_NOVA_SOLICITACAO_COD_MEC = '';
-  }
-
-  function registrarIdentidadeEscolaCore(e, input, hiddenCodMec){
-    const id = String(e?.id || '').trim();
-    const nome = String(e?.nome || e?.nome_escola || '').trim();
-    const codMec = String(e?.cod_mec || '').trim();
-    if(!id || !nome) throw new Error('Escola sem ID ou nome válido.');
-
-    const idOculto = document.getElementById('novo-proc-escola-id');
-    input.value = nome;
-    input.dataset.escolaId = id;
-    input.dataset.escolaNome = nome;
-    input.dataset.codMec = codMec;
-    if(idOculto) idOculto.value = id;
-    if(hiddenCodMec) hiddenCodMec.value = codMec;
-
-    const identidade = { ...e, id, nome, nome_escola: nome, cod_mec: codMec };
-    window.SIGEE_ESCOLA_NOVA_SOLICITACAO = identidade;
-    window.SIGEE_NOVA_SOLICITACAO_ESCOLA_ID = id;
-    window.SIGEE_NOVA_SOLICITACAO_ESCOLA_NOME = nome;
-    window.SIGEE_NOVA_SOLICITACAO_COD_MEC = codMec;
-    preencherAutofillEscolaCore(identidade);
-  }
-
+  /*
+   * RC4.5.10 — AUTORIDADE ÚNICA DA ESCOLA
+   * O app antigo substituía o <select id="novo-proc-escola"> por um <input>
+   * com o mesmo ID. Isso destruía os datasets e o objeto de identidade criados
+   * pelo módulo oficial escolas.js. A partir daqui, app.js não cria autocomplete;
+   * apenas delega ao módulo oficial carregado em js/escolas/escolas.js.
+   */
   function instalarAutocompleteEscolaCore(){
-    let original = document.getElementById('novo-proc-escola');
-    if(!original) return;
-
-    // Se o campo já foi convertido por esta rotina, apenas garante os vínculos.
-    if(original.dataset.autocompleteCore === '1') return;
-
-    const parent = original.parentElement;
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.id = 'novo-proc-escola';
-    input.required = true;
-    input.autocomplete = 'off';
-    input.placeholder = 'Digite pelo menos 2 letras da escola...';
-    input.className = original.className || 'w-full p-2 border rounded-lg text-xs focus:outline-none bg-white font-semibold';
-    input.dataset.autocompleteCore = '1';
-
-    // Reutiliza os campos ocultos oficiais, sem criar identidades paralelas.
-    let hiddenCod = document.getElementById('novo-proc-escola-cod-mec');
-    if(!hiddenCod){
-      hiddenCod = document.createElement('input');
-      hiddenCod.type = 'hidden';
-      hiddenCod.id = 'novo-proc-escola-cod-mec';
-      parent.appendChild(hiddenCod);
+    const oficial = window.SIGEE_Escolas && window.SIGEE_Escolas.autocompleteNovaSolicitacao;
+    if (typeof oficial === 'function') {
+      oficial();
+      return;
     }
-    let hiddenId = document.getElementById('novo-proc-escola-id');
-    if(!hiddenId){
-      hiddenId = document.createElement('input');
-      hiddenId.type = 'hidden';
-      hiddenId.id = 'novo-proc-escola-id';
-      hiddenId.name = 'escola_id';
-      parent.appendChild(hiddenId);
-    }
-
-    let box = document.getElementById('novo-proc-escola-resultados');
-    if(box) box.remove();
-    box = document.createElement('div');
-    box.id = 'novo-proc-escola-resultados';
-    box.className = 'hidden absolute z-[9999] bg-white border rounded-lg shadow-xl max-h-64 overflow-y-auto w-full text-xs';
-    parent.style.position = 'relative';
-    original.replaceWith(input);
-    parent.appendChild(box);
-
-    limparIdentidadeEscolaCore();
-    let timer=null;
-    input.addEventListener('input', ()=>{
-      limparIdentidadeEscolaCore();
-      clearTimeout(timer);
-      timer=setTimeout(()=>buscarSugestoesEscolaCore(input.value, box, input, hiddenCod), 250);
-    });
-    input.addEventListener('focus', ()=>{
-      if(txt(input.value).length>=2 && !input.dataset.escolaId){
-        buscarSugestoesEscolaCore(input.value, box, input, hiddenCod);
-      }
-    });
-    document.addEventListener('click', (ev)=>{
-      if(!parent.contains(ev.target)) box.classList.add('hidden');
-    });
+    console.error('[SIGEE RC4.5.10] Autocomplete oficial de escolas não localizado.');
   }
-
-  async function buscarSugestoesEscolaCore(termo, box, input, hiddenCod){
+  async function buscarSugestoesEscolaCore(termo, box, input, hidden){
     termo = txt(termo);
-    if(termo.length < 2){
-      box.innerHTML='<div class="p-3 text-gray-500">Digite pelo menos 2 letras.</div>';
-      box.classList.remove('hidden');
-      return;
-    }
-    box.innerHTML='<div class="p-3 text-gray-500">Pesquisando...</div>';
-    box.classList.remove('hidden');
+    if(termo.length < 2){ box.innerHTML='<div class="p-3 text-gray-500">Digite pelo menos 2 letras.</div>'; box.classList.remove('hidden'); return; }
+    box.innerHTML='<div class="p-3 text-gray-500">Pesquisando...</div>'; box.classList.remove('hidden');
     const lista = await queryEscolasBase({termo, limit: 30});
-    if(!lista.length){
-      box.innerHTML='<div class="p-3 text-red-600 font-bold">Nenhuma escola encontrada para este NTE.</div>';
-      return;
-    }
+    if(!lista.length){ box.innerHTML='<div class="p-3 text-red-600 font-bold">Nenhuma escola encontrada para este NTE.</div>'; return; }
     box.innerHTML='';
     lista.forEach(e=>{
       const item=document.createElement('button');
-      item.type='button';
-      item.className='block w-full text-left p-2 hover:bg-blue-50 border-b';
+      item.type='button'; item.className='block w-full text-left p-2 hover:bg-blue-50 border-b';
       item.innerHTML=`<div class="font-black text-blue-900">${e.nome}</div><div class="text-[10px] text-gray-600">${e.municipio} | MEC ${e.cod_mec} | ${e.nte}</div>`;
-
-      const selecionar = (ev)=>{
-        ev.preventDefault();
-        ev.stopPropagation();
-        registrarIdentidadeEscolaCore(e, input, hiddenCod);
-        box.classList.add('hidden');
-        if(typeof window.aplicarStatusBotaoNovaSolicitacaoV25 === 'function'){
-          window.aplicarStatusBotaoNovaSolicitacaoV25();
-        }
+      item.onclick=()=>{
+        input.value=e.nome; hidden.value=e.cod_mec; box.classList.add('hidden'); preencherAutofillEscolaCore(e);
       };
-      // pointerdown ocorre antes do blur e garante que a seleção seja registrada.
-      item.addEventListener('pointerdown', selecionar);
-      item.addEventListener('click', selecionar);
       box.appendChild(item);
     });
   }
-
   function preencherAutofillEscolaCore(e){
     const set=(id,v)=>{ const el=document.getElementById(id); if(el) el.value = v || ''; };
     set('novo-autofill-mec', e.cod_mec);
