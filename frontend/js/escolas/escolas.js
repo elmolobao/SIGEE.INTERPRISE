@@ -1,4 +1,4 @@
-/* SIGEE RC4.5.15 — autoridade única da Nova Solicitação */
+/* SIGEE RC4.5.17 — seleção oficial sincronizada com escola_id */
 /* =====================================================================
    SIGEE Enterprise RC4.5.3 — Módulo Oficial de Escolas
    Módulo: Escolas
@@ -1141,6 +1141,10 @@
         window.SIGEE_NOVA_SOLICITACAO_ESCOLA_NOME = escola.nome;
         window.SIGEE_NOVA_SOLICITACAO_COD_MEC = texto(escola.cod_mec);
 
+        // Garante que o campo efetivamente enviado pelo formulário esteja
+        // sincronizado após qualquer recriação visual do componente.
+        if (idOculto) idOculto.value = escolaId;
+
         if (lista) {
             lista.classList.add('hidden');
             lista.innerHTML = '';
@@ -1348,8 +1352,45 @@
         window.abrirFormularioNovaSolicitacao = abrirNovaSolicitacaoOficial;
         try { abrirFormularioNovaSolicitacao = abrirNovaSolicitacaoOficial; } catch (_) {}
         window.handleSelecaoInstituicaoFluxoAutomatico = function () {
-            // O campo select é apenas espelho visual. A seleção oficial ocorre
-            // exclusivamente pelo clique em um resultado da pesquisa digitável.
+            const select = document.getElementById('novo-proc-escola');
+            const input = document.getElementById('novo-proc-escola-busca-v23');
+            const idOculto = document.getElementById('novo-proc-escola-id');
+
+            // Prioriza o ID já associado à opção/seleção oficial.
+            const option = select?.selectedOptions?.[0] || null;
+            const idSelecionado = texto(
+                option?.dataset?.escolaId ||
+                select?.dataset?.escolaId ||
+                input?.dataset?.escolaId ||
+                window.SIGEE_ESCOLA_NOVA_SOLICITACAO?.escola_id ||
+                window.SIGEE_ESCOLA_NOVA_SOLICITACAO?.id ||
+                ''
+            );
+
+            if (idSelecionado) {
+                if (idOculto) idOculto.value = idSelecionado;
+                if (select) select.dataset.escolaId = idSelecionado;
+                if (input) input.dataset.escolaId = idSelecionado;
+                return true;
+            }
+
+            // Compatibilidade controlada: localiza somente uma correspondência
+            // exata já carregada no catálogo local e reutiliza a função oficial.
+            const nomeVisivel = texto(input?.value || select?.value);
+            if (!nomeVisivel) {
+                if (idOculto) idOculto.value = '';
+                return false;
+            }
+
+            const correspondencias = (Array.isArray(window.escolasDB) ? window.escolasDB : [])
+                .filter(e => normalizar(escolaNome(e)) === normalizar(nomeVisivel));
+
+            if (correspondencias.length === 1) {
+                preencherEscolaNovaSolicitacao(escolaFormatada(correspondencias[0]));
+                return true;
+            }
+
+            if (idOculto) idOculto.value = '';
             return false;
         };
     }
