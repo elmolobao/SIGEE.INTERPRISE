@@ -1,4 +1,4 @@
-/* SIGEE RC4.5.24 — Controlador único: botão normalizado e bloqueio de acervo */
+/* SIGEE RC4.5.25 — Controlador único: modal institucional para bloqueio de acervo */
 (function () {
   'use strict';
 
@@ -182,6 +182,105 @@
     }
   }
 
+
+
+  function garantirModalCadastroNaoPermitido() {
+    let modal = campo('sigee-modal-cadastro-nao-permitido');
+    if (modal) return modal;
+
+    const style = document.createElement('style');
+    style.id = 'sigee-modal-cadastro-nao-permitido-style';
+    style.textContent = `
+      #sigee-modal-cadastro-nao-permitido {
+        position: fixed; inset: 0; z-index: 100000;
+        display: flex; align-items: center; justify-content: center;
+        padding: 20px; background: rgba(15, 39, 66, .58);
+        backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
+      }
+      #sigee-modal-cadastro-nao-permitido.sigee-hidden { display: none; }
+      .sigee-cnp-card {
+        width: min(435px, calc(100vw - 32px)); overflow: hidden;
+        background: #fff; border-radius: 12px;
+        box-shadow: 0 24px 70px rgba(0,0,0,.36);
+        border: 1px solid rgba(255,255,255,.55);
+        font-family: inherit;
+      }
+      .sigee-cnp-header {
+        padding: 18px 16px; color: #fff; font-size: 14px; font-weight: 900;
+        background: linear-gradient(135deg, #075b9c, #0b79c9);
+      }
+      .sigee-cnp-body { padding: 18px 16px 15px; color: #334155; }
+      .sigee-cnp-body p { margin: 0 0 13px; font-size: 12px; line-height: 1.55; }
+      .sigee-cnp-body p:first-child { color: #182235; font-weight: 800; }
+      .sigee-cnp-status { color: #b91c1c; font-weight: 950; }
+      .sigee-cnp-unidade {
+        margin-top: 14px; padding: 12px 13px; border-radius: 6px;
+        background: #3d4a5d; color: #fff; font-size: 11px;
+        text-transform: uppercase; overflow-wrap: anywhere;
+      }
+      .sigee-cnp-unidade strong { color: #cbd5e1; font-weight: 800; }
+      .sigee-cnp-footer {
+        display: flex; justify-content: flex-end; padding: 12px 14px;
+        border-top: 1px solid #e2e8f0; background: #f8fafc;
+      }
+      .sigee-cnp-btn {
+        border: 0; border-radius: 10px; padding: 10px 17px;
+        background: linear-gradient(135deg, #dc3545, #c93443);
+        color: #fff; font-weight: 900; font-size: 12px; cursor: pointer;
+        box-shadow: 0 5px 15px rgba(201,52,67,.28);
+      }
+      .sigee-cnp-btn:hover { filter: brightness(.96); }
+      .sigee-cnp-btn:focus-visible { outline: 3px solid rgba(37,99,235,.35); outline-offset: 2px; }
+    `;
+    document.head.appendChild(style);
+
+    modal = document.createElement('div');
+    modal.id = 'sigee-modal-cadastro-nao-permitido';
+    modal.className = 'sigee-hidden';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-labelledby', 'sigee-cnp-titulo');
+    modal.innerHTML = `
+      <section class="sigee-cnp-card">
+        <header class="sigee-cnp-header" id="sigee-cnp-titulo">Cadastro não permitido</header>
+        <div class="sigee-cnp-body">
+          <p>O acervo desta unidade de ensino está registrado como <span class="sigee-cnp-status">NÃO RECOLHIDO</span>.</p>
+          <p>A solicitação não pode ser cadastrada no fluxo de Escolas Extintas enquanto o acervo não estiver oficialmente recolhido ou enquanto a situação cadastral não for regularizada.</p>
+          <p>A escola deverá ter a situação corrigida no Catálogo de Escolas antes de permitir uma nova solicitação.</p>
+          <div class="sigee-cnp-unidade"><strong>Unidade:</strong> <span id="sigee-cnp-unidade-nome"></span></div>
+        </div>
+        <footer class="sigee-cnp-footer">
+          <button type="button" class="sigee-cnp-btn" id="sigee-cnp-entendi">Entendi</button>
+        </footer>
+      </section>`;
+    document.body.appendChild(modal);
+
+    const fechar = () => {
+      modal.classList.add('sigee-hidden');
+      modal.setAttribute('aria-hidden', 'true');
+      setTimeout(() => campo('novo-proc-escola-busca-v23')?.focus(), 0);
+    };
+    campo('sigee-cnp-entendi')?.addEventListener('click', fechar);
+    modal.addEventListener('click', (ev) => { if (ev.target === modal) fechar(); });
+    modal.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') fechar(); });
+    modal.__sigeeFechar = fechar;
+    return modal;
+  }
+
+  function exibirCadastroNaoPermitido(escola) {
+    const lista = campo('novo-proc-escola-lista-v23');
+    if (lista) {
+      lista.innerHTML = '';
+      lista.classList.add('hidden');
+    }
+    const modal = garantirModalCadastroNaoPermitido();
+    const unidade = campo('sigee-cnp-unidade-nome');
+    if (unidade) unidade.textContent = texto(escola?.nome || 'UNIDADE NÃO IDENTIFICADA').toUpperCase();
+    modal.classList.remove('sigee-hidden');
+    modal.removeAttribute('aria-hidden');
+    setTimeout(() => campo('sigee-cnp-entendi')?.focus(), 0);
+  }
+
   function statusAcervoBloqueiaSolicitacao(valor) {
     const status = normalizar(valor);
     return status.includes('NAO RECOLHIDO') ||
@@ -239,8 +338,7 @@
         botao.disabled = true;
         botao.textContent = 'Enviar para Desarquivamento';
       }
-      alert('Não é permitido abrir solicitação para esta instituição porque o acervo está NÃO RECOLHIDO. Consulte o catálogo de escolas antes de prosseguir.');
-      campo('novo-proc-escola-busca-v23')?.focus();
+      exibirCadastroNaoPermitido(e);
       return;
     }
 
