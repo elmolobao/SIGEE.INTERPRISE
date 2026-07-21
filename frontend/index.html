@@ -12,7 +12,7 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>SIGEE - Sistema de Gestão de Escolas Extintas (SEC/BA)</title>
-<meta name="sigee-release" content="RC4.5.17">
+<meta name="sigee-release" content="RC4.5.18">
 <meta content="#0B4F8A" name="theme-color"/>
 <meta content="SIGEE" name="application-name"/>
 <link href="assets/sigee-icon.svg?v=2.1.1" rel="icon" type="image/svg+xml"/>
@@ -721,7 +721,7 @@
 <script src="js/analytics/analytics-engine.js?v=2.4.3C"></script>
 <script src="js/analytics/dashboard.js?v=RC4.2.2"></script>
 <script src="js/escolas/municipios-territorios.js?v=RC4.5.0"></script>
-<script src="js/escolas/escolas.js?v=RC4.5.17"></script>
+<script src="js/escolas/escolas.js?v=RC4.5.18"></script>
 <script src="js/escolas/importacao.js"></script>
 <script src="js/escolas/exportacao.js"></script>
 <script src="js/processos/fluxo-operacional.js"></script>
@@ -768,7 +768,7 @@ if (window.SIGEE_NAVIGATION && typeof window.SIGEE_NAVIGATION.install === 'funct
 </script>
 
 <script>
-/* SIGEE RC4.5.17 — fluxo oficial por escola_id
+/* SIGEE RC4.5.18 — fluxo oficial pelo estado único do módulo de escolas
  * Sem reconsulta ou reconstrução da escola. O módulo oficial de escolas
  * limpa o estado por abertura e fornece o ID selecionado naquela abertura.
  */
@@ -781,7 +781,7 @@ if (window.SIGEE_NAVIGATION && typeof window.SIGEE_NAVIGATION.install === 'funct
     const botao = document.getElementById('btn-submeter-nova-solicitacao');
 
     if (typeof segura !== 'function' || !form) {
-      console.error('[SIGEE RC4.5.17] Rotina oficial de gravação não disponível.');
+      console.error('[SIGEE RC4.5.18] Rotina oficial de gravação não disponível.');
       return false;
     }
     if (form.dataset.sigeeAutoridade4514 === '1') return true;
@@ -801,13 +801,17 @@ if (window.SIGEE_NAVIGATION && typeof window.SIGEE_NAVIGATION.install === 'funct
        * Ele é zerado a cada abertura e em qualquer nova digitação pelo módulo
        * oficial de escolas, e somente recebe valor quando uma escola é escolhida.
        */
+      const estadoEscola = window.SIGEE_Escolas?.obterEscolaNovaSolicitacao?.() || null;
+      const escolaId = String(estadoEscola?.id || estadoEscola?.escola_id || '').trim();
       const idOculto = document.getElementById('novo-proc-escola-id');
-      const escolaId = String(idOculto?.value || '').trim();
 
       if (!escolaId) {
         alert('Selecione a instituição de ensino na lista antes de cadastrar.');
         return false;
       }
+
+      // Compatibilidade com a rotina oficial de gravação existente.
+      if (idOculto) idOculto.value = escolaId;
 
       form.dataset.sigeeEnviando = '1';
       if (botao) {
@@ -818,7 +822,7 @@ if (window.SIGEE_NAVIGATION && typeof window.SIGEE_NAVIGATION.install === 'funct
       try {
         return await segura.call(form, event);
       } catch (erro) {
-        console.error('[SIGEE RC4.5.17] Falha ao cadastrar a solicitação:', erro);
+        console.error('[SIGEE RC4.5.18] Falha ao cadastrar a solicitação:', erro);
         alert('Não foi possível cadastrar a solicitação. ' + (erro?.message || erro));
         return false;
       } finally {
