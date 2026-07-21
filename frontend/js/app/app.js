@@ -10174,16 +10174,36 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     btn.disabled = !(okEscola && okAluno && okTermo);
   }
 
-  function selecionarEscolaNova(e) {
+  async function selecionarEscolaNova(escolaResumo) {
     const input = $(IDS.escola);
     const box = $(IDS.lista);
-    if (!input) return;
+    if (!input || !escolaResumo || !escolaResumo.id) return;
+
+    // RC4.5.7 — confirma novamente pelo ID para preencher todos os dados da mesma escola.
+    let e = mapEscola(escolaResumo);
+    const c = supabaseClient();
+    if (c) {
+      try {
+        const { data, error } = await c
+          .from(TABELA_ESCOLAS)
+          .select('id,cod_mec,nome_escola,nome,municipio,nte_id,nte,dependencia_adm,dependencia,situacao_funcional,situacao,acervo,status_acervo,local_acervo')
+          .eq('id', escolaResumo.id)
+          .maybeSingle();
+        if (error) throw error;
+        if (data) e = mapEscola(data);
+      } catch (erro) {
+        console.warn('[SIGEE RC4.5.7] Falha ao confirmar escola por ID; usando o resultado selecionado.', erro);
+      }
+    }
 
     input.value = e.nome;
     input.dataset.codMec = e.cod_mec || '';
-    input.dataset.escolaId = e.id || '';
-    input.dataset.nteId = e.nte_id || '';
+    input.dataset.escolaId = String(e.id || '');
+    input.dataset.nteId = String(e.nte_id || '');
     input.dataset.escolaSelecionada = '1';
+
+    const idOculto = document.getElementById('novo-proc-escola-id');
+    if (idOculto) idOculto.value = String(e.id || '');
 
     let cod = $(IDS.codMec);
     if (!cod) {
@@ -10203,6 +10223,28 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     }
     nte.value = e.nte_id || '';
 
+    window.SIGEE_ESCOLA_NOVA_SOLICITACAO = {
+      id: e.id,
+      escola_id: e.id,
+      nome: e.nome,
+      nome_escola: e.nome,
+      cod_mec: e.cod_mec || '',
+      municipio: e.municipio || '',
+      nte_id: e.nte_id || null,
+      nte: e.nte || nteTexto(e.nte_id),
+      dependencia: e.dependencia || '',
+      dependencia_adm: e.dependencia || '',
+      situacao: e.situacao || '',
+      situacao_funcional: e.situacao || '',
+      acervo: e.acervo || '',
+      status_acervo: e.acervo || '',
+      local_acervo: e.local_acervo || ''
+    };
+    window.SIGEE_NOVA_SOLICITACAO_ESCOLA_ID = String(e.id || '');
+    window.SIGEE_NOVA_SOLICITACAO_ESCOLA_NOME = e.nome || '';
+    window.SIGEE_NOVA_SOLICITACAO_COD_MEC = e.cod_mec || '';
+    escolaSelecionadaSIGEE_V25 = window.SIGEE_ESCOLA_NOVA_SOLICITACAO;
+
     setValue('novo-autofill-mec', e.cod_mec);
     setValue('novo-autofill-nte', e.nte || nteTexto(e.nte_id));
     setValue('novo-autofill-municipio', e.municipio);
@@ -10214,6 +10256,9 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     if (box) {
       box.classList.add('hidden');
       box.innerHTML = '';
+    }
+    if (typeof aplicarClasseStatusAcervoSIGEE === 'function') {
+      try { aplicarClasseStatusAcervoSIGEE(); } catch (_) {}
     }
     habilitarBotaoNova();
   }
@@ -10250,7 +10295,14 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
           <div class="font-black text-blue-900">${e.nome}</div>
           <div class="text-[10px] text-gray-600">${e.municipio || '-'} | MEC ${e.cod_mec || '-'} | ${e.nte || ''}</div>
         `;
-        item.addEventListener('click', () => selecionarEscolaNova(e));
+        const confirmar = (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          selecionarEscolaNova(e);
+        };
+        item.addEventListener('pointerdown', confirmar);
+        item.addEventListener('mousedown', confirmar);
+        item.addEventListener('click', confirmar);
         box.appendChild(item);
       });
     } catch (err) {
