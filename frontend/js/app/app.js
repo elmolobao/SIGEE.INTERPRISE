@@ -3149,15 +3149,10 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
 
                 // RC4.5.11: o ID é a única autoridade. Nome, MEC, cache e variáveis
                 // antigas nunca podem decidir qual escola será gravada.
-                const opcaoSelecionada = campoPrincipal?.selectedOptions?.[0] || null;
-                const estadoModulo = window.SIGEE_Escolas?.obterEscolaNovaSolicitacao?.() || null;
                 const idSelecionado = String(
                     idOculto?.value ||
                     campoPrincipal?.dataset?.escolaId ||
-                    opcaoSelecionada?.dataset?.escolaId ||
                     campoBusca?.dataset?.escolaId ||
-                    estadoModulo?.id ||
-                    estadoModulo?.escola_id ||
                     window.SIGEE_ESCOLA_NOVA_SOLICITACAO?.id ||
                     window.SIGEE_ESCOLA_NOVA_SOLICITACAO?.escola_id ||
                     window.SIGEE_NOVA_SOLICITACAO_ESCOLA_ID ||
@@ -3228,7 +3223,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
 
                     return escolaCanonica;
                 } catch (erro) {
-                    console.warn('[SIGEE RC4.5.20] Não foi possível confirmar a escola pelo ID.', erro);
+                    console.warn('[SIGEE RC4.5.11] Não foi possível confirmar a escola pelo ID.', erro);
                     return null;
                 }
             }
@@ -10158,6 +10153,35 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     setValue(IDS.nteId, '');
   }
 
+  function limparIdentidadeEscolaNovaSolicitacao() {
+    const escola = $(IDS.escola);
+    if (escola) {
+      escola.value = '';
+      ['codMec','escolaId','nteId','escolaSelecionada','abertura'].forEach(chave => {
+        try { delete escola.dataset[chave]; } catch (_) { escola.dataset[chave] = ''; }
+      });
+    }
+
+    const idOculto = $('novo-proc-escola-id');
+    if (idOculto) {
+      idOculto.value = '';
+      try { delete idOculto.dataset.abertura; } catch (_) {}
+    }
+
+    const select = document.querySelector('#novo-proc-escola option:checked');
+    if (select) {
+      try { delete select.dataset.escolaId; } catch (_) {}
+    }
+
+    window.SIGEE_ESCOLA_NOVA_SOLICITACAO = null;
+    window.SIGEE_NOVA_SOLICITACAO_ESCOLA_ID = '';
+    window.SIGEE_NOVA_SOLICITACAO_ESCOLA_NOME = '';
+    window.SIGEE_NOVA_SOLICITACAO_COD_MEC = '';
+
+    try { window.SIGEE_LIMPAR_ESTADO_NOVA_SOLICITACAO?.(); } catch (_) {}
+    try { window.SIGEE_Escolas?.limparEscolaNovaSolicitacao?.(); } catch (_) {}
+  }
+
   function habilitarBotaoNova() {
     const btn = $(IDS.btnNova);
     if (!btn) return;
@@ -10175,11 +10199,26 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     const box = $(IDS.lista);
     if (!input) return;
 
+    const escolaId = txt(e.id);
     input.value = e.nome;
     input.dataset.codMec = e.cod_mec || '';
-    input.dataset.escolaId = e.id || '';
+    input.dataset.escolaId = escolaId;
     input.dataset.nteId = e.nte_id || '';
     input.dataset.escolaSelecionada = '1';
+
+    const idOculto = $('novo-proc-escola-id');
+    if (idOculto) idOculto.value = escolaId;
+
+    window.SIGEE_ESCOLA_NOVA_SOLICITACAO = {
+      ...e,
+      id: escolaId,
+      escola_id: escolaId,
+      nome: e.nome,
+      nome_escola: e.nome
+    };
+    window.SIGEE_NOVA_SOLICITACAO_ESCOLA_ID = escolaId;
+    window.SIGEE_NOVA_SOLICITACAO_ESCOLA_NOME = e.nome || '';
+    window.SIGEE_NOVA_SOLICITACAO_COD_MEC = e.cod_mec || '';
 
     let cod = $(IDS.codMec);
     if (!cod) {
@@ -10297,8 +10336,7 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     }
 
     input.addEventListener('input', () => {
-      input.dataset.codMec = '';
-      input.dataset.escolaSelecionada = '';
+      limparIdentidadeEscolaNovaSolicitacao();
       limparAutofillNova();
       habilitarBotaoNova();
       clearTimeout(timerNova);
@@ -10310,19 +10348,13 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
   }
 
   function resetarNovaSolicitacao() {
+    limparIdentidadeEscolaNovaSolicitacao();
     ['novo-proc-aluno','novo-proc-documento','novo-proc-modalidade','novo-proc-ensino'].forEach(id => {
       const el = $(id);
       if (!el) return;
       if (el.tagName === 'SELECT') el.selectedIndex = 0;
       else el.value = '';
     });
-    const escola = $(IDS.escola);
-    if (escola) {
-      escola.value = '';
-      escola.dataset.codMec = '';
-      escola.dataset.escolaSelecionada = '';
-      escola.dataset.nteId = '';
-    }
     const chk = $('f01-chk-acolhido');
     if (chk) chk.checked = false;
     const btn = $(IDS.btnNova);
@@ -10332,9 +10364,13 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
 
   function abrirNovaSolicitacaoSprint25() {
     const modal = $(IDS.modalNova);
+    limparIdentidadeEscolaNovaSolicitacao();
+    resetarNovaSolicitacao();
     if (modal) modal.classList.remove('hidden');
-    [0, 80, 200, 500, 900].forEach(ms => setTimeout(instalarCampoNovaSolicitacao, ms));
-    setTimeout(resetarNovaSolicitacao, 120);
+    [0, 80, 200, 500, 900].forEach(ms => setTimeout(() => {
+      instalarCampoNovaSolicitacao();
+      limparIdentidadeEscolaNovaSolicitacao();
+    }, ms));
   }
 
   function instalarNovaSolicitacao() {
@@ -10359,6 +10395,14 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     });
 
     const modal = $(IDS.modalNova);
+    if (modal && modal.dataset.sprint25Fechamento !== '1') {
+      modal.dataset.sprint25Fechamento = '1';
+      modal.addEventListener('click', (ev) => {
+        if (ev.target.closest?.('[onclick*="fecharModalNovaSolicitacao"], [data-fechar-nova-solicitacao]')) {
+          limparIdentidadeEscolaNovaSolicitacao();
+        }
+      }, true);
+    }
     if (modal && modal.dataset.sprint25Observer !== '1') {
       modal.dataset.sprint25Observer = '1';
       const obs = new MutationObserver(() => {
