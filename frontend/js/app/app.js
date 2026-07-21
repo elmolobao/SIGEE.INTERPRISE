@@ -1,3 +1,4 @@
+/* SIGEE RC4.5.22 — campo de escola digitável sem limpeza tardia */
 /* SIGEE RC4.5.11 — identidade canônica da escola por ID */
 /* SIGEE PATCH 2.5.8 — técnico de lançamento responsável pelo Desarquivamento */
 /* SIGEE PATCH 2.5.7C — responsável persistente no conversor principal e V38 */
@@ -10364,12 +10365,25 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
 
   function abrirNovaSolicitacaoSprint25() {
     const modal = $(IDS.modalNova);
-    limparIdentidadeEscolaNovaSolicitacao();
+
+    // RC4.5.22: a limpeza ocorre uma única vez, antes da abertura.
+    // As reinstalações tardias servem apenas para garantir que o campo exista;
+    // nunca podem apagar o texto que o usuário começou a digitar.
     resetarNovaSolicitacao();
     if (modal) modal.classList.remove('hidden');
+
     [0, 80, 200, 500, 900].forEach(ms => setTimeout(() => {
-      instalarCampoNovaSolicitacao();
-      limparIdentidadeEscolaNovaSolicitacao();
+      const instalado = instalarCampoNovaSolicitacao();
+      if (!instalado) return;
+
+      const input = $(IDS.escola);
+      if (input) {
+        input.disabled = false;
+        input.readOnly = false;
+        input.removeAttribute('disabled');
+        input.removeAttribute('readonly');
+        input.style.pointerEvents = 'auto';
+      }
     }, ms));
   }
 
