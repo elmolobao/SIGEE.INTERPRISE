@@ -1,3 +1,4 @@
+/* SIGEE RC4.5.26 — Estabilização do Catálogo de Escolas */
 /* SIGEE RC4.5.18 — Nova Solicitação com estado oficial único */
 /* =====================================================================
    SIGEE Enterprise RC4.5.3 — Módulo Oficial de Escolas
@@ -13,6 +14,7 @@
   let totalAtual = 0;
   let cachePagina = [];
   let ultimaBusca = '';
+  let sequenciaConsultaCatalogo = 0;
 
   function texto(v) { return (v === null || v === undefined) ? '' : String(v).trim(); }
   function normalizar(v) { return texto(v).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/\s+/g, ' ').trim(); }
@@ -373,17 +375,26 @@
   async function renderizarLista() {
     const corpo = document.getElementById('tabela-escolas-corpo');
     if (!corpo) return;
+
+    const minhaSequencia = ++sequenciaConsultaCatalogo;
     const buscaEl = document.getElementById('busca-escola');
     const busca = texto(buscaEl ? buscaEl.value : '');
     ultimaBusca = busca;
+
     corpo.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-blue-100 font-bold">Carregando escolas...</td></tr>`;
+
     try {
       const resp = await buscarEscolas(busca, paginaAtual, porPagina);
+
+      // Uma resposta antiga nunca pode substituir uma pesquisa/página mais recente.
+      if (minhaSequencia !== sequenciaConsultaCatalogo) return;
+
       cachePagina = resp.lista || [];
       totalAtual = resp.total || 0;
       desenharTabela(cachePagina);
       atualizarPaginacao();
     } catch (e) {
+      if (minhaSequencia !== sequenciaConsultaCatalogo) return;
       console.error('[SIGEE Escolas] Falha ao carregar catálogo:', e);
       corpo.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-red-200 font-bold">Erro ao carregar escolas.</td></tr>`;
     }
@@ -909,6 +920,11 @@
     },
     localizarNaPagina: function(id) {
       return (cachePagina || []).find(x => String(x.id ?? '') === String(id ?? '')) || null;
+    },
+    filtrar: filtrar,
+    mudarPagina: mudarPagina,
+    obterEstadoCatalogo: function() {
+      return { paginaAtual, porPagina, totalAtual, ultimaBusca, registrosPagina: cachePagina.slice() };
     },
     salvar: salvarEscola,
   };
