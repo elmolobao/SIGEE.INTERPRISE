@@ -925,3 +925,22 @@ label:has(> #wf-email093) {
 /* Workflow externo: azul-petróleo e sequência institucional */
 .sigee-wfe-panel .sigee-wfe-head{background:#115e59!important}.sigee-wfe-panel .sigee-wfe-head h2{color:#fff!important}
 .sigee-wfe-documento{order:1}.sigee-wfe-actions{order:2}
+
+
+/* =====================================================================
+   SIGEE RC4.3.3 — Auditoria de resolução e enquadramento de janelas
+   Ajuste exclusivamente visual: viewport, rolagem interna e rodapé visível.
+   ===================================================================== */
+body.sigee-modal-open{overflow:hidden!important}
+.sigee-wfe-backdrop,[id^="sigee-modal-workflow"],.sigee-modal33-overlay{box-sizing:border-box!important;padding:clamp(8px,2vh,20px)!important;overflow:hidden!important}
+.sigee-wfe-panel{width:min(820px,calc(100vw - 24px))!important;max-height:calc(100dvh - 24px)!important;display:flex!important;flex-direction:column!important;overflow:hidden!important}
+.sigee-wfe-panel>.sigee-wfe-head{flex:0 0 auto!important;position:sticky!important;top:0!important;z-index:3!important}
+.sigee-wfe-panel>.sigee-wfe-body{flex:1 1 auto!important;min-height:0!important;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain!important;scrollbar-gutter:stable!important}
+.sigee-modal33,.sigee-modal33.workflow093{width:min(1120px,calc(100vw - 24px))!important;max-height:calc(100dvh - 24px)!important;display:flex!important;flex-direction:column!important;overflow:hidden!important}
+.sigee-modal33>.sigee-modal33-header{flex:0 0 auto!important;position:sticky!important;top:0!important;z-index:3!important}
+.sigee-modal33>.sigee-modal33-body{flex:1 1 auto!important;min-height:0!important;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain!important;scrollbar-gutter:stable!important}
+.sigee-modal33 .sigee-acoes33,.sigee-modal33 .sigee-rodape33{flex-wrap:wrap!important}
+.sigee-wam-dialog,.sigee-wfe-panel,.sigee-modal33{box-sizing:border-box!important}
+@media(max-width:900px){.sigee-modal33 .sigee-resumo33,.sigee-modal33.workflow093 .sigee-resumo33{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+@media(max-width:640px){.sigee-wfe-backdrop,[id^="sigee-modal-workflow"],.sigee-modal33-overlay{padding:8px!important}.sigee-wfe-panel,.sigee-modal33,.sigee-modal33.workflow093{width:100%!important;max-height:calc(100dvh - 16px)!important;border-radius:14px!important}.sigee-wfe-panel>.sigee-wfe-body,.sigee-modal33>.sigee-modal33-body{padding:14px!important}.sigee-modal33 .sigee-resumo33,.sigee-modal33.workflow093 .sigee-resumo33{grid-template-columns:1fr!important}.sigee-acoes33,.sigee-rodape33{flex-direction:column!important;align-items:stretch!important}.sigee-acoes33 .btn33,.sigee-rodape33 button{width:100%!important}}
+@media(max-height:760px){.sigee-wfe-panel,.sigee-modal33,.sigee-modal33.workflow093{max-height:calc(100dvh - 16px)!important}.sigee-wfe-panel>.sigee-wfe-head,.sigee-modal33>.sigee-modal33-header{padding-top:12px!important;padding-bottom:12px!important}.sigee-wfe-panel>.sigee-wfe-body,.sigee-modal33>.sigee-modal33-body{padding-top:14px!important;padding-bottom:14px!important}}
