@@ -1,3 +1,4 @@
+/* SIGEE RC4.5.13B — estado oficial e sincronização da Nova Solicitação */
 /* SIGEE RC4.5.11 — seleção oficial da escola sincronizada */
 /* =====================================================================
    SIGEE Enterprise RC4.5.3 — Módulo Oficial de Escolas
@@ -806,6 +807,15 @@
       nte_id: Number(e.nte_id || extrairNteEscola(e.nte) || 0) || null,
       nte: escolaNte(e)
     };
+    // Encaminha qualquer seleção legada para a autoridade reorganizada.
+    if (window.SIGEE_ESCOLAS_NOVA_SOLICITACAO?.selecionar &&
+        window.SIGEE_ESCOLAS_NOVA_SOLICITACAO.selecionar !== preencherAutofillNovaSolicitacao) {
+      window.SIGEE_ESCOLAS_NOVA_SOLICITACAO.selecionar({
+        id: escolaId, nome, cod_mec: texto(e.cod_mec), municipio: texto(e.municipio),
+        nte_id: e.nte_id, nte: escolaNte(e), dependencia: escolaDep(e),
+        situacao: escolaSituacao(e), acervo: escolaAcervo(e), local_acervo: escolaLocal(e)
+      });
+    }
     const btn = document.getElementById('btn-submeter-nova-solicitacao');
     if (btn) btn.disabled = false;
     try { if (typeof aplicarClasseStatusAcervoSIGEE === 'function') aplicarClasseStatusAcervoSIGEE(); } catch (err) {}
@@ -1024,6 +1034,7 @@
 
 (function instalarNovaSolicitacaoDigitavelSIGEE() {
     let timerBuscaEscola = null;
+    let escolaSelecionadaOficial = null;
 
     function campo(id) {
         return document.getElementById(id);
@@ -1057,6 +1068,7 @@
         window.SIGEE_NOVA_SOLICITACAO_ESCOLA_ID = '';
         window.SIGEE_NOVA_SOLICITACAO_ESCOLA_NOME = '';
         window.SIGEE_NOVA_SOLICITACAO_COD_MEC = '';
+        escolaSelecionadaOficial = null;
         limparAutofillNovaSolicitacao();
     }
 
@@ -1163,6 +1175,7 @@
             acervo: texto(escola.acervo || escola.status_acervo),
             local_acervo: texto(escola.local_acervo)
         };
+        escolaSelecionadaOficial = Object.freeze({ ...window.SIGEE_ESCOLA_NOVA_SOLICITACAO });
         window.SIGEE_NOVA_SOLICITACAO_ESCOLA_ID = escolaId;
         window.SIGEE_NOVA_SOLICITACAO_ESCOLA_NOME = escola.nome;
         window.SIGEE_NOVA_SOLICITACAO_COD_MEC = texto(escola.cod_mec);
@@ -1307,7 +1320,8 @@
     window.SIGEE_ESCOLAS_NOVA_SOLICITACAO = Object.freeze({
         limpar: limparIdentidadeEscolaNovaSolicitacao,
         preparar: prepararCampoEscolaNovaSolicitacao,
-        selecionar: preencherEscolaNovaSolicitacao
+        selecionar: preencherEscolaNovaSolicitacao,
+        obterSelecionada: () => escolaSelecionadaOficial ? { ...escolaSelecionadaOficial } : null
     });
 })();
 })();
