@@ -1,3 +1,4 @@
+<!-- SIGEE RC4.5.13B — estado oficial e resolução exata da escola -->
 <!-- SIGEE SPRINT 3.5.0 — Documento Recebido, Retificação e Prontuário institucional -->
 <!-- SIGEE INDEX 2.5.9 — edição de processo por perfil -->
 <!-- SIGEE INDEX 2.5.8B — Clock antes do Timer + remoção escolas-authority + workflow 1.1.1 -->
@@ -721,7 +722,7 @@
 <script src="js/analytics/analytics-engine.js?v=2.4.3C"></script>
 <script src="js/analytics/dashboard.js?v=RC4.2.2"></script>
 <script src="js/escolas/municipios-territorios.js?v=RC4.5.0"></script>
-<script src="js/escolas/escolas.js?v=RC4.5.13"></script>
+<script src="js/escolas/escolas.js?v=RC4.5.13B"></script>
 <script src="js/escolas/importacao.js"></script>
 <script src="js/escolas/exportacao.js"></script>
 <script src="js/processos/fluxo-operacional.js"></script>
@@ -792,14 +793,9 @@ if (window.SIGEE_NAVIGATION && typeof window.SIGEE_NAVIGATION.install === 'funct
        * e a memória global são auxiliares e podem ser recriados pela interface;
        * por isso não podem bloquear uma seleção válida.
        */
-      const escolaId = String(idOculto?.value || '').trim();
-
-      if (!escolaId) {
-        console.warn('[SIGEE RC4.5.13A] Escola sem ID oficial na Nova Solicitação.');
-        window.SIGEE_ESCOLAS_NOVA_SOLICITACAO?.limpar?.();
-        alert('Selecione a instituição de ensino na lista oficial antes de cadastrar a solicitação.');
-        return false;
-      }
+      let escolaId = String(idOculto?.value || '').trim();
+      const estadoOficial = window.SIGEE_ESCOLAS_NOVA_SOLICITACAO?.obterSelecionada?.() || null;
+      if (!escolaId && estadoOficial?.id) escolaId = String(estadoOficial.id).trim();
 
       try {
         const client =
@@ -817,6 +813,51 @@ if (window.SIGEE_NAVIGATION && typeof window.SIGEE_NAVIGATION.install === 'funct
           window.SIGEE_CONFIG?.supabase?.tabelas?.escolas ||
           window.SIGEE_SUPABASE_TABELAS?.escolas ||
           'escolas_sigee';
+
+        /*
+         * RC4.5.13B — recuperação segura de uma seleção visual válida.
+         * O ID só pode ser reconstruído quando nome e código MEC apresentados
+         * no formulário identificarem exatamente um registro do catálogo.
+         * Isso não reaproveita a escola anterior: a abertura limpa estado,
+         * hidden, pesquisa e autofill antes de qualquer nova seleção.
+         */
+        if (!escolaId) {
+          const nomeTela = String(inputBusca?.value || select?.value || '').trim();
+          const codMecTela = String(document.getElementById('novo-autofill-mec')?.value || '').trim();
+
+          if (!nomeTela || !codMecTela) {
+            throw new Error('Selecione a instituição de ensino na lista oficial antes de cadastrar a solicitação.');
+          }
+
+          const { data: candidatas, error: erroResolucao } = await client
+            .from(tabela)
+            .select('id,cod_mec,nome_escola,nome,municipio,nte_id,nte,dependencia_adm,dependencia,situacao_funcional,situacao,status_acervo,acervo,local_acervo,ativo')
+            .eq('cod_mec', codMecTela)
+            .limit(10);
+
+          if (erroResolucao) throw erroResolucao;
+          const normalizarNome = valor => String(valor || '').normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/\s+/g, ' ').trim();
+          const nomeNormalizado = normalizarNome(nomeTela);
+          const correspondentes = (candidatas || []).filter(item =>
+            normalizarNome(item.nome_escola || item.nome) === nomeNormalizado
+          );
+
+          if (correspondentes.length !== 1) {
+            throw new Error('A escola exibida não pôde ser identificada de forma única no catálogo. Selecione-a novamente na lista.');
+          }
+
+          const resolvida = correspondentes[0];
+          escolaId = String(resolvida.id);
+          window.SIGEE_ESCOLAS_NOVA_SOLICITACAO?.selecionar?.({
+            ...resolvida,
+            nome: resolvida.nome_escola || resolvida.nome,
+            dependencia: resolvida.dependencia_adm || resolvida.dependencia,
+            situacao: resolvida.situacao_funcional || resolvida.situacao,
+            acervo: resolvida.status_acervo || resolvida.acervo
+          });
+          if (idOculto) idOculto.value = escolaId;
+        }
 
         const { data: escola, error } = await client
           .from(tabela)
@@ -866,7 +907,7 @@ if (window.SIGEE_NAVIGATION && typeof window.SIGEE_NAVIGATION.install === 'funct
 
         return await segura.call(this, event);
       } catch (erro) {
-        console.error('[SIGEE RC4.5.13] Falha ao validar a escola selecionada:', erro);
+        console.error('[SIGEE RC4.5.13B] Falha ao validar a escola selecionada:', erro);
         alert('Não foi possível confirmar a escola selecionada pelo cadastro oficial. Selecione-a novamente na lista. Detalhe: ' + (erro?.message || erro));
         return false;
       }
