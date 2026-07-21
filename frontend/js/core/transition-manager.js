@@ -14,7 +14,7 @@
 (function (window) {
   'use strict';
 
-  const VERSION = '0.9.5.2';
+  const VERSION = '0.9.5.3';
 
   const ERROR_MESSAGES = Object.freeze({
     WF001: 'Estado atual inválido.',
@@ -316,7 +316,11 @@
   }
 
   function buildUpdatedProcess(process, preview, eventCode, now, context) {
-    const nextCode = preview.nextState;
+    /*
+     * Pedido de Atas sem Pasta encerra obrigatoriamente o Workflow Externo.
+     * Mesmo em homologação temporal, o destino persistido deve ser Análise.
+     */
+    const nextCode = eventCode === 'PEDIDO_ATAS_DESARQUIVAMENTO' ? 'ANA' : preview.nextState;
     const nextName = stateNameFrom(nextCode);
     const deadlineDays = nextDeadlineDays(nextCode, eventCode, preview);
     const updated = clone(process);
@@ -542,8 +546,8 @@
       evento: eventCode,
       previousState: currentStateCode,
       etapa_origem: stateNameFrom(currentStateCode),
-      nextState: engineResult.nextState,
-      etapa_destino: stateNameFrom(engineResult.nextState),
+      nextState: eventCode === 'PEDIDO_ATAS_DESARQUIVAMENTO' ? 'ANA' : engineResult.nextState,
+      etapa_destino: stateNameFrom(eventCode === 'PEDIDO_ATAS_DESARQUIVAMENTO' ? 'ANA' : engineResult.nextState),
       messageCode: context.messageCode,
       mensagem: context.messageCode,
       observation: context.observation || null,
@@ -568,7 +572,7 @@
       action: eventCode,
       acao: eventCode,
       previousState: currentStateCode,
-      nextState: engineResult.nextState,
+      nextState: eventCode === 'PEDIDO_ATAS_DESARQUIVAMENTO' ? 'ANA' : engineResult.nextState,
       user: clone(user || null),
       usuario: user && (user.nome || user.name || user.email) || null,
       perfil: userProfile(user) || null,
@@ -605,8 +609,8 @@
       event: eventCode,
       previousState: currentStateCode,
       previousStateName: stateNameFrom(currentStateCode),
-      nextState: engineResult.nextState,
-      nextStateName: stateNameFrom(engineResult.nextState),
+      nextState: eventCode === 'PEDIDO_ATAS_DESARQUIVAMENTO' ? 'ANA' : engineResult.nextState,
+      nextStateName: stateNameFrom(eventCode === 'PEDIDO_ATAS_DESARQUIVAMENTO' ? 'ANA' : engineResult.nextState),
       changed: engineResult.changed,
       cycle: Number(updatedProcess.ciclo || updatedProcess.workflow_ciclo || 1),
       deadlineDays: updatedProcess.prazo_etapa,
