@@ -1,4 +1,4 @@
-/* SIGEE RC4.5.11 — seleção oficial da escola sincronizada */
+/* SIGEE RC4.5.15 — autoridade única da Nova Solicitação */
 /* =====================================================================
    SIGEE Enterprise RC4.5.3 — Módulo Oficial de Escolas
    Módulo: Escolas
@@ -960,8 +960,8 @@
     window.editarEscolaSIGEEV45 = abrirEditarEscola;
     window.salvarEscolaFormularioSIGEE = salvarEscola;
     window.fecharModalEscola = fecharModal;
-    window.abrirFormularioNovaSolicitacao = abrirFormularioNovaSolicitacaoSIGEE;
-    window.handleSelecaoInstituicaoFluxoAutomatico = handleSelecaoInstituicaoSIGEE;
+    // RC4.5.15: o bloco legado não pode reassumir a Nova Solicitação.
+    // A autoridade exclusiva é instalada pelo módulo reorganizado ao final deste arquivo.
   }
   document.addEventListener('click', function(event) {
     const btn = event.target.closest('.btn-alterar-escola-sigee[data-escola-id]');
@@ -1309,7 +1309,7 @@
 
     window.SIGEE_LIMPAR_ESTADO_NOVA_SOLICITACAO = limparEstadoNovaSolicitacaoDefinitivo;
 
-    window.abrirFormularioNovaSolicitacao = function () {
+    function abrirNovaSolicitacaoOficial() {
         const modal = campo('modal-nova-solicitacao');
         if (!modal) return;
 
@@ -1340,7 +1340,27 @@
         }
 
         modal.classList.remove('hidden');
-    };
+    }
+
+    abrirNovaSolicitacaoOficial.__SIGEE_NOVA_SOLICITACAO_OFICIAL__ = true;
+
+    function instalarAutoridadeOficialNovaSolicitacao() {
+        window.abrirFormularioNovaSolicitacao = abrirNovaSolicitacaoOficial;
+        try { abrirFormularioNovaSolicitacao = abrirNovaSolicitacaoOficial; } catch (_) {}
+        window.handleSelecaoInstituicaoFluxoAutomatico = function () {
+            // O campo select é apenas espelho visual. A seleção oficial ocorre
+            // exclusivamente pelo clique em um resultado da pesquisa digitável.
+            return false;
+        };
+    }
+
+    window.SIGEE_INSTALAR_ESCOLA_NOVA_SOLICITACAO_OFICIAL = instalarAutoridadeOficialNovaSolicitacao;
+    instalarAutoridadeOficialNovaSolicitacao();
+    window.addEventListener('load', () => {
+        instalarAutoridadeOficialNovaSolicitacao();
+        setTimeout(instalarAutoridadeOficialNovaSolicitacao, 0);
+        setTimeout(instalarAutoridadeOficialNovaSolicitacao, 250);
+    });
 })();
 })();
 
