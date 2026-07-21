@@ -721,14 +721,14 @@
 <script src="js/analytics/analytics-engine.js?v=2.4.3C"></script>
 <script src="js/analytics/dashboard.js?v=RC4.2.2"></script>
 <script src="js/escolas/municipios-territorios.js?v=RC4.5.0"></script>
-<script src="js/escolas/escolas.js?v=RC4.5.3"></script>
+<script src="js/escolas/escolas.js?v=RC4.5.11"></script>
 <script src="js/escolas/importacao.js"></script>
 <script src="js/escolas/exportacao.js"></script>
 <script src="js/processos/fluxo-operacional.js"></script>
 <script src="js/core/stability-manager.js?v=RC4.3.1"></script>
 <script src="js/core/app-core.js"></script>
 <script src="js/components/WorkflowActionModal.js?v=RC4.3.3"></script>
-<script src="js/app/app.js?v=RC4.5.10"></script>
+<script src="js/app/app.js?v=RC4.5.11"></script>
 <script src="js/processos/processos.js?v=RC4.5.4"></script>
 <script src="js/migracao/migracao-historica.js?v=M4.2.0"></script>
 <script src="js/migracao/motor-persistencia.js?v=M5.2.2"></script>
@@ -783,28 +783,91 @@ if (window.SIGEE_NAVIGATION && typeof window.SIGEE_NAVIGATION.install === 'funct
       if (event && typeof event.preventDefault === 'function') event.preventDefault();
 
       const select = document.getElementById('novo-proc-escola');
+      const inputBusca = document.getElementById('novo-proc-escola-busca-v23');
       const idOculto = document.getElementById('novo-proc-escola-id');
-      const selecionada = window.SIGEE_ESCOLA_NOVA_SOLICITACAO;
-      const escolaId = String(idOculto?.value || select?.dataset.escolaId || selecionada?.id || '').trim();
-      const nomeSelecionado = String(select?.dataset.escolaNome || selecionada?.nome || selecionada?.nome_escola || '').trim();
-      const campoBusca = document.getElementById('novo-proc-escola-busca-v23');
-      const nomeVisivel = String(campoBusca?.value || select?.value || '').trim();
-      const normalizarNome = (v) => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/\s+/g, ' ').trim();
-      const idsCoerentes = escolaId && String(selecionada?.id || selecionada?.escola_id || '').trim() === escolaId;
+      const escolaId = String(
+        idOculto?.value ||
+        select?.dataset.escolaId ||
+        inputBusca?.dataset.escolaId ||
+        window.SIGEE_ESCOLA_NOVA_SOLICITACAO?.id ||
+        window.SIGEE_ESCOLA_NOVA_SOLICITACAO?.escola_id ||
+        ''
+      ).trim();
 
-      if (!idsCoerentes || !nomeSelecionado || normalizarNome(nomeVisivel) !== normalizarNome(nomeSelecionado)) {
+      if (!escolaId) {
         alert('Selecione novamente a escola na lista de resultados. O SIGEE não permite salvar uma solicitação sem o vínculo exato com o cadastro da escola.');
         return false;
       }
 
-      // Disponibiliza a identidade completa para todas as rotinas de persistência.
-      select.dataset.escolaId = escolaId;
-      idOculto.value = escolaId;
-      window.SIGEE_NOVA_SOLICITACAO_ESCOLA_ID = escolaId;
-      window.SIGEE_NOVA_SOLICITACAO_ESCOLA_NOME = nomeSelecionado;
-      window.SIGEE_NOVA_SOLICITACAO_COD_MEC = selecionada.cod_mec || select.dataset.codMec || '';
+      try {
+        const client =
+          (typeof obterSupabaseSIGEE === 'function' && obterSupabaseSIGEE()) ||
+          (typeof criarClienteSupabaseSIGEE === 'function' && criarClienteSupabaseSIGEE()) ||
+          (window.SIGEE_SUPABASE && typeof window.SIGEE_SUPABASE.criarCliente === 'function'
+            ? window.SIGEE_SUPABASE.criarCliente()
+            : null);
 
-      return await segura.call(this, event);
+        if (!client || typeof client.from !== 'function') {
+          throw new Error('Cliente Supabase indisponível para validar a escola.');
+        }
+
+        const tabela =
+          window.SIGEE_CONFIG?.supabase?.tabelas?.escolas ||
+          window.SIGEE_SUPABASE_TABELAS?.escolas ||
+          'escolas_sigee';
+
+        const { data: escola, error } = await client
+          .from(tabela)
+          .select('id,cod_mec,nome_escola,nome,municipio,nte_id,nte,dependencia_adm,dependencia,situacao_funcional,situacao,status_acervo,acervo,local_acervo,ativo')
+          .eq('id', Number(escolaId) || escolaId)
+          .maybeSingle();
+
+        if (error || !escola) {
+          throw new Error(error?.message || 'Escola selecionada não localizada pelo ID.');
+        }
+
+        const nomeOficial = String(escola.nome_escola || escola.nome || '').trim();
+        if (!nomeOficial) throw new Error('A escola selecionada não possui nome válido no catálogo.');
+
+        // Reconstitui uma única identidade oficial a partir do ID confirmado no banco.
+        window.SIGEE_ESCOLA_NOVA_SOLICITACAO = {
+          ...escola,
+          id: String(escola.id),
+          escola_id: String(escola.id),
+          nome: nomeOficial,
+          nome_escola: nomeOficial
+        };
+
+        if (select) {
+          select.innerHTML = '';
+          const opt = document.createElement('option');
+          opt.value = nomeOficial;
+          opt.textContent = nomeOficial;
+          opt.selected = true;
+          select.appendChild(opt);
+          select.value = nomeOficial;
+          select.dataset.escolaId = String(escola.id);
+          select.dataset.escolaNome = nomeOficial;
+          select.dataset.codMec = String(escola.cod_mec || '');
+        }
+        if (inputBusca) {
+          inputBusca.value = nomeOficial;
+          inputBusca.dataset.escolaId = String(escola.id);
+          inputBusca.dataset.codMec = String(escola.cod_mec || '');
+          inputBusca.dataset.escolaSelecionada = '1';
+        }
+        if (idOculto) idOculto.value = String(escola.id);
+
+        window.SIGEE_NOVA_SOLICITACAO_ESCOLA_ID = String(escola.id);
+        window.SIGEE_NOVA_SOLICITACAO_ESCOLA_NOME = nomeOficial;
+        window.SIGEE_NOVA_SOLICITACAO_COD_MEC = String(escola.cod_mec || '');
+
+        return await segura.call(this, event);
+      } catch (erro) {
+        console.error('[SIGEE RC4.5.11] Falha ao validar a escola selecionada:', erro);
+        alert('Não foi possível confirmar a escola selecionada pelo cadastro oficial. Selecione-a novamente na lista. Detalhe: ' + (erro?.message || erro));
+        return false;
+      }
     };
     salvarComIdentidadeDaEscola.__SIGEE_ESCOLA_ID_GUARD__ = true;
 
