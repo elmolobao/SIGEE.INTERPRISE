@@ -768,7 +768,7 @@ if (window.SIGEE_NAVIGATION && typeof window.SIGEE_NAVIGATION.install === 'funct
 </script>
 
 <script>
-/* SIGEE RC4.5.15 — autoridade única da Nova Solicitação
+/* SIGEE RC4.5.16 — fluxo oficial por escola_id
  * Sem reconsulta ou reconstrução da escola. O módulo oficial de escolas
  * limpa o estado por abertura e fornece o ID selecionado naquela abertura.
  */
@@ -781,7 +781,7 @@ if (window.SIGEE_NAVIGATION && typeof window.SIGEE_NAVIGATION.install === 'funct
     const botao = document.getElementById('btn-submeter-nova-solicitacao');
 
     if (typeof segura !== 'function' || !form) {
-      console.error('[SIGEE RC4.5.15] Rotina oficial de gravação não disponível.');
+      console.error('[SIGEE RC4.5.16] Rotina oficial de gravação não disponível.');
       return false;
     }
     if (form.dataset.sigeeAutoridade4514 === '1') return true;
@@ -797,15 +797,15 @@ if (window.SIGEE_NAVIGATION && typeof window.SIGEE_NAVIGATION.install === 'funct
 
       if (form.dataset.sigeeEnviando === '1') return false;
 
-      const abertura = Number(window.SIGEE_NOVA_SOLICITACAO_ABERTURA_ATUAL || 0);
+      /* RC4.5.16: o campo oculto é a única autoridade de identidade da escola.
+       * Ele é zerado a cada abertura e em qualquer nova digitação pelo módulo
+       * oficial de escolas, e somente recebe valor quando uma escola é escolhida.
+       */
       const idOculto = document.getElementById('novo-proc-escola-id');
-      const input = document.getElementById('novo-proc-escola-busca-v23');
       const escolaId = String(idOculto?.value || '').trim();
-      const aberturaSelecao = Number(idOculto?.dataset.abertura || 0);
-      const selecionadaNaLista = input?.dataset.escolaSelecionada === '1';
 
-      if (!escolaId || !selecionadaNaLista || !abertura || aberturaSelecao !== abertura) {
-        alert('Selecione a instituição de ensino na lista desta solicitação antes de cadastrar.');
+      if (!escolaId) {
+        alert('Selecione a instituição de ensino na lista antes de cadastrar.');
         return false;
       }
 
@@ -818,7 +818,7 @@ if (window.SIGEE_NAVIGATION && typeof window.SIGEE_NAVIGATION.install === 'funct
       try {
         return await segura.call(form, event);
       } catch (erro) {
-        console.error('[SIGEE RC4.5.15] Falha ao cadastrar a solicitação:', erro);
+        console.error('[SIGEE RC4.5.16] Falha ao cadastrar a solicitação:', erro);
         alert('Não foi possível cadastrar a solicitação. ' + (erro?.message || erro));
         return false;
       } finally {
