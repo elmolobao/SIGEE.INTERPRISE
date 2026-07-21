@@ -14,7 +14,7 @@
 (function (window) {
   'use strict';
 
-  const VERSION = '0.9.5.1';
+  const VERSION = '0.9.5.2';
 
   const ERROR_MESSAGES = Object.freeze({
     WF001: 'Estado atual inválido.',
@@ -60,11 +60,23 @@
     DOCUMENTO_RECEBIDO: Object.freeze(['MASTER', 'SEC', 'ADMINISTRADOR', 'TECNICO'])
   });
 
+  /*
+   * Marcos cumulativos do ciclo de Desarquivamento.
+   * A ação disponível acompanha o tempo total do ciclo, mesmo quando um ato
+   * anterior não foi executado. Somente a Retificação reinicia a contagem.
+   */
   const EVENT_DEADLINE_REQUIREMENTS = Object.freeze({
     SEND_REITERACAO: 30,
-    SEND_REITERACAO_URGENTE: 7,
-    CONFIRMAR_DADOS: 7,
-    PEDIDO_ATAS_DESARQUIVAMENTO: 7
+    SEND_REITERACAO_URGENTE: 37,
+    CONFIRMAR_DADOS: 44,
+    PEDIDO_ATAS_DESARQUIVAMENTO: 51
+  });
+
+  const TEMPORAL_EVENT_ORIGIN_STATE = Object.freeze({
+    SEND_REITERACAO: 'DES',
+    SEND_REITERACAO_URGENTE: 'RET',
+    CONFIRMAR_DADOS: 'REU',
+    PEDIDO_ATAS_DESARQUIVAMENTO: 'CFD'
   });
 
   const EVENT_MESSAGE_CODES = Object.freeze({
@@ -226,16 +238,45 @@
     return toISO(date);
   }
 
+  function cycleStartDate(process) {
+    return process && (
+      process.data_inicio_desarquivamento ||
+      process.data_inicio_ciclo ||
+      process.inicio_ciclo ||
+      process.prazo_inicio_ciclo ||
+      inferLegacyCycleStart(process) ||
+      process.prazo_inicio ||
+      process.created_at ||
+      process.criado_em ||
+      stageEntryDate(process)
+    );
+  }
+
+  function temporalEventForElapsed(elapsed) {
+    if (!Number.isFinite(elapsed) || elapsed < 30) return null;
+    if (elapsed < 37) return 'SEND_REITERACAO';
+    if (elapsed < 44) return 'SEND_REITERACAO_URGENTE';
+    if (elapsed < 51) return 'CONFIRMAR_DADOS';
+    return 'PEDIDO_ATAS_DESARQUIVAMENTO';
+  }
+
+  function effectiveStateCode(process, eventCode, now) {
+    const origin = TEMPORAL_EVENT_ORIGIN_STATE[eventCode];
+    if (!origin) return processStateCode(process);
+    const elapsed = elapsedDays(cycleStartDate(process), now);
+    return temporalEventForElapsed(elapsed) === eventCode ? origin : processStateCode(process);
+  }
+
   function validateDeadline(process, eventCode, now) {
     const requiredDays = EVENT_DEADLINE_REQUIREMENTS[eventCode];
     if (!Number.isFinite(requiredDays)) {
       return { valid: true, requiredDays: null, elapsedDays: null };
     }
 
-    const elapsed = elapsedDays(stageEntryDate(process), now);
+    const elapsed = elapsedDays(cycleStartDate(process), now);
     if (elapsed == null) {
       throw error('WF005', {
-        reason: 'DATA_ETAPA_AUSENTE',
+        reason: 'DATA_INICIO_CICLO_AUSENTE',
         event: eventCode
       });
     }
@@ -246,6 +287,16 @@
         requiredDays,
         elapsedDays: elapsed,
         remainingDays: requiredDays - elapsed
+      });
+    }
+
+    const expectedEvent = temporalEventForElapsed(elapsed);
+    if (expectedEvent !== eventCode) {
+      throw error('WF005', {
+        reason: 'ACAO_FORA_DO_MARCO_TEMPORAL',
+        event: eventCode,
+        expectedEvent,
+        elapsedDays: elapsed
       });
     }
 
@@ -404,7 +455,8 @@
     }
 
     const process = await resolveProcess(command);
-    const currentStateCode = processStateCode(process);
+    const now = adapter.now();
+    const currentStateCode = effectiveStateCode(process, eventCode, now);
 
     if (!workflow.stateExists(currentStateCode)) {
       throw error('WF001', {
@@ -445,7 +497,6 @@
       );
     }
 
-    const now = adapter.now();
     const deadline = validateDeadline(process, eventCode, now);
     const context = {
       observation: String(command.observation || '').trim(),
@@ -582,7 +633,8 @@
 
     const eventCode = normalizeEvent(command.event);
     const process = command.process || null;
-    const currentStateCode = processStateCode(process);
+    const now = adapter.now();
+    const currentStateCode = effectiveStateCode(process, eventCode, now);
     const result = workflow.preview(currentStateCode, eventCode);
 
     return Object.assign({}, result, {
