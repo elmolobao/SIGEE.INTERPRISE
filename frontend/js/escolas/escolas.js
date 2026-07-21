@@ -960,8 +960,9 @@
     window.editarEscolaSIGEEV45 = abrirEditarEscola;
     window.salvarEscolaFormularioSIGEE = salvarEscola;
     window.fecharModalEscola = fecharModal;
-    window.abrirFormularioNovaSolicitacao = abrirFormularioNovaSolicitacaoSIGEE;
-    window.handleSelecaoInstituicaoFluxoAutomatico = handleSelecaoInstituicaoSIGEE;
+    // RC4.5.13: a autoridade da Nova Solicitação é instalada exclusivamente
+    // pelo bloco consolidado ao final deste módulo. As rotinas acima permanecem
+    // apenas como compatibilidade interna e não sobrescrevem mais a autoridade.
   }
   document.addEventListener('click', function(event) {
     const btn = event.target.closest('.btn-alterar-escola-sigee[data-escola-id]');
@@ -1026,6 +1027,37 @@
 
     function campo(id) {
         return document.getElementById(id);
+    }
+
+    function limparIdentidadeEscolaNovaSolicitacao() {
+        const input = campo('novo-proc-escola-busca-v23');
+        const select = campo('novo-proc-escola');
+        const idOculto = campo('novo-proc-escola-id');
+
+        if (input) {
+            input.value = '';
+            delete input.dataset.escolaSelecionada;
+            delete input.dataset.escolaId;
+            delete input.dataset.escolaNome;
+            delete input.dataset.codMec;
+            delete input.dataset.nteId;
+        }
+
+        if (select) {
+            select.innerHTML = '<option value="">SELECIONE A INSTITUIÇÃO</option>';
+            select.value = '';
+            delete select.dataset.escolaId;
+            delete select.dataset.escolaNome;
+            delete select.dataset.codMec;
+            delete select.dataset.nteId;
+        }
+
+        if (idOculto) idOculto.value = '';
+        window.SIGEE_ESCOLA_NOVA_SOLICITACAO = null;
+        window.SIGEE_NOVA_SOLICITACAO_ESCOLA_ID = '';
+        window.SIGEE_NOVA_SOLICITACAO_ESCOLA_NOME = '';
+        window.SIGEE_NOVA_SOLICITACAO_COD_MEC = '';
+        limparAutofillNovaSolicitacao();
     }
 
     function limparAutofillNovaSolicitacao() {
@@ -1230,16 +1262,9 @@
         select.required = false;
 
         input.oninput = function () {
-            input.dataset.escolaSelecionada = '';
-            select.innerHTML = '<option value="">SELECIONE A INSTITUIÇÃO</option>';
-            select.value = '';
-            delete select.dataset.escolaId;
-            delete select.dataset.escolaNome;
-            delete select.dataset.codMec;
-            const idOculto = campo('novo-proc-escola-id');
-            if (idOculto) idOculto.value = '';
-            window.SIGEE_ESCOLA_NOVA_SOLICITACAO = null;
-            limparAutofillNovaSolicitacao();
+            const termoDigitado = input.value;
+            limparIdentidadeEscolaNovaSolicitacao();
+            input.value = termoDigitado;
 
             clearTimeout(timerBuscaEscola);
             timerBuscaEscola = setTimeout(() => {
@@ -1261,24 +1286,7 @@
         prepararCampoEscolaNovaSolicitacao();
         protegerCamposPesquisaEscolaContraAutofill();
 
-        const input = campo('novo-proc-escola-busca-v23');
-        const select = campo('novo-proc-escola');
-
-        if (input) {
-            input.value = '';
-            input.dataset.escolaSelecionada = '';
-        }
-
-        if (select) {
-            select.innerHTML = '<option value="">SELECIONE A INSTITUIÇÃO</option>';
-            select.value = '';
-            delete select.dataset.escolaId;
-            delete select.dataset.escolaNome;
-            delete select.dataset.codMec;
-        }
-        const idOculto = campo('novo-proc-escola-id');
-        if (idOculto) idOculto.value = '';
-        window.SIGEE_ESCOLA_NOVA_SOLICITACAO = null;
+        limparIdentidadeEscolaNovaSolicitacao();
 
         const aluno = campo('novo-proc-aluno');
         if (aluno) aluno.value = '';
@@ -1294,8 +1302,13 @@
         const btn = campo('btn-submeter-nova-solicitacao');
         if (btn) btn.disabled = true;
 
-        limparAutofillNovaSolicitacao();
     };
+
+    window.SIGEE_ESCOLAS_NOVA_SOLICITACAO = Object.freeze({
+        limpar: limparIdentidadeEscolaNovaSolicitacao,
+        preparar: prepararCampoEscolaNovaSolicitacao,
+        selecionar: preencherEscolaNovaSolicitacao
+    });
 })();
 })();
 
