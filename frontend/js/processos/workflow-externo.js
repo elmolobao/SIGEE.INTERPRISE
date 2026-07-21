@@ -16,7 +16,7 @@
   if (window.__SIGEE_WORKFLOW_EXTERNO_095__) return;
   window.__SIGEE_WORKFLOW_EXTERNO_095__ = true;
 
-  const VERSION = '1.1.5';
+  const VERSION = '1.1.6';
   const EXTERNAL_STATES = Object.freeze(['DES', 'RET', 'REU', 'CFD']);
 
   const ACTIONS = Object.freeze({
@@ -326,13 +326,43 @@
 
   function actionVisual(eventCode) {
     const map = {
-      SEND_REITERACAO: { className: 'sigee-wfe-action-reiteracao', icon: '✉️' },
-      SEND_REITERACAO_URGENTE: { className: 'sigee-wfe-action-reiteracao-urgente', icon: '🚨' },
-      CONFIRMAR_DADOS: { className: 'sigee-wfe-action-confirmacao', icon: '☑️' },
-      RETIFICAR_DADOS: { className: 'sigee-wfe-action-retificacao', icon: '🔄' },
-      PEDIDO_ATAS_DESARQUIVAMENTO: { className: 'sigee-wfe-action-atas', icon: '📕' }
+      SEND_REITERACAO: {
+        className: 'sigee-wfe-action-reiteracao',
+        buttonClass: 'sigee-wfe-btn-reiteracao',
+        buttonLabel: 'Enviar Reiteração',
+        icon: '✉️'
+      },
+      SEND_REITERACAO_URGENTE: {
+        className: 'sigee-wfe-action-reiteracao-urgente',
+        buttonClass: 'sigee-wfe-btn-reiteracao-urgente',
+        buttonLabel: 'Enviar Urgência',
+        icon: '🚨'
+      },
+      CONFIRMAR_DADOS: {
+        className: 'sigee-wfe-action-confirmacao',
+        buttonClass: 'sigee-wfe-btn-confirmacao',
+        buttonLabel: 'Confirmar Dados',
+        icon: '☑️'
+      },
+      RETIFICAR_DADOS: {
+        className: 'sigee-wfe-action-retificacao',
+        buttonClass: 'sigee-wfe-btn-retificacao',
+        buttonLabel: 'Retificar Dados',
+        icon: '🔄'
+      },
+      PEDIDO_ATAS_DESARQUIVAMENTO: {
+        className: 'sigee-wfe-action-atas',
+        buttonClass: 'sigee-wfe-btn-atas',
+        buttonLabel: 'Solicitar Atas',
+        icon: '📕'
+      }
     };
-    return map[eventCode] || { className: '', icon: '•' };
+    return map[eventCode] || {
+      className: '',
+      buttonClass: 'sigee-wfe-btn-padrao',
+      buttonLabel: 'Executar ação',
+      icon: '•'
+    };
   }
 
   function ensureMenuStyle() {
@@ -348,18 +378,15 @@
       .sigee-wfe-card,.sigee-wfe-action{padding:14px;border:1px solid rgba(255,255,255,.11);border-radius:12px;background:rgba(255,255,255,.045)}
       .sigee-wfe-card span{display:block;color:rgba(255,255,255,.65);font-size:.75rem;font-weight:800;text-transform:uppercase}.sigee-wfe-card strong{display:block;margin-top:5px}
       .sigee-wfe-actions{display:grid;gap:10px}.sigee-wfe-action{display:flex;align-items:center;justify-content:space-between;gap:16px}.sigee-wfe-action-copy{display:flex;align-items:flex-start;gap:12px}.sigee-wfe-action-icon{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;flex:0 0 36px;border-radius:10px;font-size:1.15rem}.sigee-wfe-action p{margin:4px 0 0;color:rgba(255,255,255,.7);font-size:.86rem}
-      .sigee-wfe-btn{min-width:150px;padding:11px 16px;border:1px solid transparent;border-radius:10px;font-weight:900;cursor:pointer;transition:transform .16s ease,box-shadow .16s ease,filter .16s ease;background:#fff;color:#102033;box-shadow:0 8px 18px rgba(15,23,42,.13)}
-      .sigee-wfe-btn:not(:disabled):hover{transform:translateY(-1px);filter:brightness(.97);box-shadow:0 11px 24px rgba(15,23,42,.20)}
-      .sigee-wfe-btn:disabled{opacity:.56;cursor:not-allowed;transform:none;box-shadow:none;filter:saturate(.45)}
-      .sigee-wfe-secondary{background:#16a34a!important;color:#fff!important;border-color:#15803d!important}.sigee-wfe-documento{border-color:#22c55e!important;background:rgba(34,197,94,.09)!important}.sigee-wfe-documento .sigee-wfe-action-icon{background:#dcfce7;color:#166534}
-      .sigee-wfe-action-reiteracao{border-color:#eab308!important;background:rgba(250,204,21,.13)!important}.sigee-wfe-action-reiteracao .sigee-wfe-action-icon{background:#fef9c3;color:#854d0e}.sigee-wfe-action-reiteracao .sigee-wfe-btn{background:#facc15!important;color:#422006!important;border-color:#eab308!important}
-      .sigee-wfe-action-reiteracao-urgente{border-color:#f97316!important;background:rgba(249,115,22,.12)!important}.sigee-wfe-action-reiteracao-urgente .sigee-wfe-action-icon{background:#ffedd5;color:#9a3412}.sigee-wfe-action-reiteracao-urgente .sigee-wfe-btn{background:#f97316!important;color:#fff!important;border-color:#ea580c!important}
-      .sigee-wfe-action-confirmacao{border-color:#dc2626!important;background:rgba(220,38,38,.10)!important}.sigee-wfe-action-confirmacao .sigee-wfe-action-icon{background:#fee2e2;color:#991b1b}.sigee-wfe-action-confirmacao .sigee-wfe-btn{background:#dc2626!important;color:#fff!important;border-color:#b91c1c!important}
-      .sigee-wfe-action-atas{border-color:#1f2937!important;background:rgba(31,41,55,.10)!important}.sigee-wfe-action-atas .sigee-wfe-action-icon{background:#e5e7eb;color:#111827}.sigee-wfe-action-atas .sigee-wfe-btn{background:#1f2937!important;color:#fff!important;border-color:#111827!important}
-      .sigee-wfe-action-retificacao{border-color:#6b7280!important;background:rgba(107,114,128,.10)!important}.sigee-wfe-action-retificacao .sigee-wfe-action-icon{background:#e5e7eb;color:#374151}.sigee-wfe-action-retificacao .sigee-wfe-btn{background:#6b7280!important;color:#fff!important;border-color:#4b5563!important}
-      .sigee-wfe-action .sigee-wfe-btn:disabled{background:#cbd5e1!important;color:#475569!important;border-color:#94a3b8!important}
-      .sigee-wfe-action[data-wfe-executed="1"]{opacity:.78}.sigee-wfe-action[data-wfe-executed="1"] .sigee-wfe-btn{background:#475569!important;color:#fff!important;border-color:#334155!important}
-      .sigee-wfe-note{padding:13px;border-radius:10px;background:rgba(255,193,7,.1)}
+      .sigee-wfe-btn{padding:10px 14px;border:1px solid transparent;border-radius:9px;font-weight:900;cursor:pointer;color:#fff;min-width:168px;transition:transform .16s ease,filter .16s ease,box-shadow .16s ease}.sigee-wfe-btn:not(:disabled):hover{transform:translateY(-1px);filter:brightness(1.06)}
+      #sigee-wfe-menu .sigee-wfe-btn-documento{background:#16a34a!important;border-color:#15803d!important;color:#fff!important;box-shadow:0 9px 20px rgba(22,163,74,.24)!important}
+      #sigee-wfe-menu .sigee-wfe-btn-reiteracao{background:#facc15!important;border-color:#ca8a04!important;color:#1f2937!important;box-shadow:0 9px 20px rgba(250,204,21,.25)!important}
+      #sigee-wfe-menu .sigee-wfe-btn-reiteracao-urgente{background:#f97316!important;border-color:#c2410c!important;color:#fff!important;box-shadow:0 9px 20px rgba(249,115,22,.25)!important}
+      #sigee-wfe-menu .sigee-wfe-btn-confirmacao{background:#dc2626!important;border-color:#991b1b!important;color:#fff!important;box-shadow:0 9px 20px rgba(220,38,38,.25)!important}
+      #sigee-wfe-menu .sigee-wfe-btn-atas{background:#1f2937!important;border-color:#111827!important;color:#fff!important;box-shadow:0 9px 20px rgba(17,24,39,.28)!important}
+      #sigee-wfe-menu .sigee-wfe-btn-retificacao{background:#6b7280!important;border-color:#4b5563!important;color:#fff!important;box-shadow:0 9px 20px rgba(75,85,99,.22)!important}
+      #sigee-wfe-menu .sigee-wfe-btn:disabled{background:#dce4ec!important;border-color:#c7d2de!important;color:#66778a!important;box-shadow:none!important;opacity:1!important;cursor:not-allowed!important;transform:none!important;filter:none!important}
+      .sigee-wfe-documento{border-color:rgba(16,185,129,.38);background:rgba(16,185,129,.09)}.sigee-wfe-note{padding:13px;border-radius:10px;background:rgba(255,193,7,.1)}
       @media(max-width:650px){.sigee-wfe-summary{grid-template-columns:1fr}.sigee-wfe-action{align-items:stretch;flex-direction:column}.sigee-wfe-btn{width:100%}}
     `;
     document.head.appendChild(style);
@@ -683,7 +710,7 @@
           : 'Disponível em ' + entry.remainingDays + ' dia' + (entry.remainingDays === 1 ? '' : 's');
       const visual = actionVisual(entry.action.event);
       return `
-        <div class="sigee-wfe-action ${visual.className}" data-wfe-event="${entry.action.event}" data-wfe-executed="${entry.executed ? '1' : '0'}" data-wfe-enabled="${entry.enabled ? '1' : '0'}">
+        <div class="sigee-wfe-action ${visual.className}">
           <div class="sigee-wfe-action-copy">
             <span class="sigee-wfe-action-icon" aria-hidden="true">${visual.icon}</span>
             <div>
@@ -691,8 +718,8 @@
               <p>${statusText}</p>
             </div>
           </div>
-          <button type="button" class="sigee-wfe-btn" data-wfe-action="${index}" ${entry.enabled ? '' : 'disabled'}>
-            ${entry.executed ? 'Executada' : (entry.enabled ? 'Abrir' : 'Aguardando')}
+          <button type="button" class="sigee-wfe-btn ${visual.buttonClass}" data-wfe-action="${index}" ${entry.enabled ? '' : 'disabled'}>
+            ${entry.executed ? 'Executada' : (entry.enabled ? visual.buttonLabel : 'Aguardando')}
           </button>
         </div>`;
     }).join('');
@@ -712,7 +739,7 @@
           <div class="sigee-wfe-note">Cada comunicação somente será registrada após a confirmação obrigatória de todas as mensagens institucionais vinculadas à ação.</div>
           <div class="sigee-wfe-action sigee-wfe-documento">
             <div class="sigee-wfe-action-copy"><span class="sigee-wfe-action-icon" aria-hidden="true">📁</span><div><strong>Documento Recebido</strong><p>Registre o tipo e o local do arquivo, defina a prioridade e o analista e confirme o envio do E-mail 02. O Desarquivamento será encerrado e o processo seguirá para Análise, sem reiniciar o ciclo.</p></div></div>
-            <button type="button" class="sigee-wfe-btn sigee-wfe-secondary" data-wfe-documento>Receber documento</button>
+            <button type="button" class="sigee-wfe-btn sigee-wfe-btn-documento" data-wfe-documento>Receber documento</button>
           </div>
           <div class="sigee-wfe-actions">${actionsHtml || '<div class="sigee-wfe-card">Nenhuma ação externa disponível.</div>'}</div>
         </div>
