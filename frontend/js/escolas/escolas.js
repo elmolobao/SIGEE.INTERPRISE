@@ -1,5 +1,5 @@
 /* SIGEE RC4.5.13B — estado oficial e sincronização da Nova Solicitação */
-/* SIGEE RC4.5.11 — seleção oficial da escola sincronizada */
+/* SIGEE RC4.5.13C — abertura isolada, seleção por sessão e envio idempotente */
 /* =====================================================================
    SIGEE Enterprise RC4.5.3 — Módulo Oficial de Escolas
    Módulo: Escolas
@@ -1035,6 +1035,8 @@
 (function instalarNovaSolicitacaoDigitavelSIGEE() {
     let timerBuscaEscola = null;
     let escolaSelecionadaOficial = null;
+    let aberturaAtual = 0;
+    let aberturaDaSelecao = 0;
 
     function campo(id) {
         return document.getElementById(id);
@@ -1069,6 +1071,7 @@
         window.SIGEE_NOVA_SOLICITACAO_ESCOLA_NOME = '';
         window.SIGEE_NOVA_SOLICITACAO_COD_MEC = '';
         escolaSelecionadaOficial = null;
+        aberturaDaSelecao = 0;
         limparAutofillNovaSolicitacao();
     }
 
@@ -1175,7 +1178,8 @@
             acervo: texto(escola.acervo || escola.status_acervo),
             local_acervo: texto(escola.local_acervo)
         };
-        escolaSelecionadaOficial = Object.freeze({ ...window.SIGEE_ESCOLA_NOVA_SOLICITACAO });
+        aberturaDaSelecao = aberturaAtual;
+        escolaSelecionadaOficial = Object.freeze({ ...window.SIGEE_ESCOLA_NOVA_SOLICITACAO, __abertura: aberturaAtual });
         window.SIGEE_NOVA_SOLICITACAO_ESCOLA_ID = escolaId;
         window.SIGEE_NOVA_SOLICITACAO_ESCOLA_NOME = escola.nome;
         window.SIGEE_NOVA_SOLICITACAO_COD_MEC = texto(escola.cod_mec);
@@ -1290,16 +1294,17 @@
         };
     }
 
-    window.abrirFormularioNovaSolicitacao = function () {
+    function iniciarNovaAbertura() {
+        aberturaAtual += 1;
         const modal = campo('modal-nova-solicitacao');
-        if (!modal) return;
-
-        modal.classList.remove('hidden');
+        if (!modal) return false;
 
         prepararCampoEscolaNovaSolicitacao();
         protegerCamposPesquisaEscolaContraAutofill();
-
         limparIdentidadeEscolaNovaSolicitacao();
+
+        modal.dataset.sigeeAberturaNovaSolicitacao = String(aberturaAtual);
+        modal.classList.remove('hidden');
 
         const aluno = campo('novo-proc-aluno');
         if (aluno) aluno.value = '';
@@ -1312,16 +1317,27 @@
         const chk = campo('f01-chk-acolhido');
         if (chk) chk.checked = false;
 
+        const form = modal.querySelector('form');
+        if (form) delete form.dataset.sigeeSubmitting;
         const btn = campo('btn-submeter-nova-solicitacao');
-        if (btn) btn.disabled = true;
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = 'Enviar para Desarquivamento';
+        }
+        return true;
+    }
 
-    };
+    window.abrirFormularioNovaSolicitacao = iniciarNovaAbertura;
 
     window.SIGEE_ESCOLAS_NOVA_SOLICITACAO = Object.freeze({
         limpar: limparIdentidadeEscolaNovaSolicitacao,
         preparar: prepararCampoEscolaNovaSolicitacao,
         selecionar: preencherEscolaNovaSolicitacao,
-        obterSelecionada: () => escolaSelecionadaOficial ? { ...escolaSelecionadaOficial } : null
+        iniciarNovaAbertura,
+        obterAberturaAtual: () => aberturaAtual,
+        obterSelecionada: () => (escolaSelecionadaOficial && aberturaDaSelecao === aberturaAtual)
+            ? { ...escolaSelecionadaOficial }
+            : null
     });
 })();
 })();
