@@ -1,4 +1,3 @@
-<!-- SIGEE RC4.5.13B — estado oficial e resolução exata da escola -->
 <!-- SIGEE SPRINT 3.5.0 — Documento Recebido, Retificação e Prontuário institucional -->
 <!-- SIGEE INDEX 2.5.9 — edição de processo por perfil -->
 <!-- SIGEE INDEX 2.5.8B — Clock antes do Timer + remoção escolas-authority + workflow 1.1.1 -->
@@ -13,7 +12,7 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>SIGEE - Sistema de Gestão de Escolas Extintas (SEC/BA)</title>
-<meta name="sigee-release" content="RC4.5.13">
+<meta name="sigee-release" content="RC4.5.14">
 <meta content="#0B4F8A" name="theme-color"/>
 <meta content="SIGEE" name="application-name"/>
 <link href="assets/sigee-icon.svg?v=2.1.1" rel="icon" type="image/svg+xml"/>
@@ -722,7 +721,7 @@
 <script src="js/analytics/analytics-engine.js?v=2.4.3C"></script>
 <script src="js/analytics/dashboard.js?v=RC4.2.2"></script>
 <script src="js/escolas/municipios-territorios.js?v=RC4.5.0"></script>
-<script src="js/escolas/escolas.js?v=RC4.5.13C"></script>
+<script src="js/escolas/escolas.js?v=RC4.5.14"></script>
 <script src="js/escolas/importacao.js"></script>
 <script src="js/escolas/exportacao.js"></script>
 <script src="js/processos/fluxo-operacional.js"></script>
@@ -769,183 +768,83 @@ if (window.SIGEE_NAVIGATION && typeof window.SIGEE_NAVIGATION.install === 'funct
 </script>
 
 <script>
-/* SIGEE RC4.5.13C — autoridade final, abertura isolada e envio único */
+/* SIGEE RC4.5.14 — autoridade única da Nova Solicitação
+ * Sem reconsulta ou reconstrução da escola. O módulo oficial de escolas
+ * limpa o estado por abertura e fornece o ID selecionado naquela abertura.
+ */
 (function () {
   'use strict';
 
   function instalarAutoridadeNovaSolicitacao() {
-    if (window.salvarNovaSolicitacao?.__SIGEE_ESCOLA_ID_GUARD_C__) return true;
     const segura = window.SIGEE_SALVAR_NOVA_SOLICITACAO_SEGURO;
-    if (typeof segura !== 'function') {
-      console.error('[SIGEE 2.5.3] Rotina segura da Nova Solicitação não localizada.');
+    const form = document.querySelector('#modal-nova-solicitacao form');
+    const botao = document.getElementById('btn-submeter-nova-solicitacao');
+
+    if (typeof segura !== 'function' || !form) {
+      console.error('[SIGEE RC4.5.14] Rotina oficial de gravação não disponível.');
       return false;
     }
+    if (form.dataset.sigeeAutoridade4514 === '1') return true;
+    form.dataset.sigeeAutoridade4514 = '1';
 
-    const salvarComIdentidadeDaEscola = async function (event) {
-      if (event && typeof event.preventDefault === 'function') event.preventDefault();
-      if (event && typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+    form.removeAttribute('onsubmit');
+    form.onsubmit = null;
 
-      const formAtual = document.querySelector('#modal-nova-solicitacao form');
-      const botaoAtual = document.getElementById('btn-submeter-nova-solicitacao');
-      if (formAtual?.dataset.sigeeSubmitting === '1') {
-        console.warn('[SIGEE RC4.5.13C] Segundo envio bloqueado.');
+    form.addEventListener('submit', async function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+
+      if (form.dataset.sigeeEnviando === '1') return false;
+
+      const abertura = Number(window.SIGEE_NOVA_SOLICITACAO_ABERTURA_ATUAL || 0);
+      const idOculto = document.getElementById('novo-proc-escola-id');
+      const input = document.getElementById('novo-proc-escola-busca-v23');
+      const escolaId = String(idOculto?.value || '').trim();
+      const aberturaSelecao = Number(idOculto?.dataset.abertura || 0);
+      const selecionadaNaLista = input?.dataset.escolaSelecionada === '1';
+
+      if (!escolaId || !selecionadaNaLista || !abertura || aberturaSelecao !== abertura) {
+        alert('Selecione a instituição de ensino na lista desta solicitação antes de cadastrar.');
         return false;
       }
-      if (formAtual) formAtual.dataset.sigeeSubmitting = '1';
-      if (botaoAtual) {
-        botaoAtual.disabled = true;
-        botaoAtual.textContent = 'Enviando...';
+
+      form.dataset.sigeeEnviando = '1';
+      if (botao) {
+        botao.disabled = true;
+        botao.textContent = 'Enviando...';
       }
-
-      const liberarEnvio = () => {
-        if (formAtual) delete formAtual.dataset.sigeeSubmitting;
-        if (botaoAtual) {
-          botaoAtual.disabled = false;
-          botaoAtual.textContent = 'Enviar para Desarquivamento';
-        }
-      };
-
-      const select = document.getElementById('novo-proc-escola');
-      const inputBusca = document.getElementById('novo-proc-escola-busca-v23');
-      const idOculto = document.getElementById('novo-proc-escola-id');
-      /*
-       * RC4.5.13A — Hotfix de compatibilidade da Nova Solicitação.
-       * A autoridade persistente é o campo oculto novo-proc-escola-id,
-       * preenchido exclusivamente pelo módulo oficial de escolas. Os datasets
-       * e a memória global são auxiliares e podem ser recriados pela interface;
-       * por isso não podem bloquear uma seleção válida.
-       */
-      let escolaId = String(idOculto?.value || '').trim();
-      const estadoOficial = window.SIGEE_ESCOLAS_NOVA_SOLICITACAO?.obterSelecionada?.() || null;
-      if (!escolaId && estadoOficial?.id) escolaId = String(estadoOficial.id).trim();
 
       try {
-        const client =
-          (typeof obterSupabaseSIGEE === 'function' && obterSupabaseSIGEE()) ||
-          (typeof criarClienteSupabaseSIGEE === 'function' && criarClienteSupabaseSIGEE()) ||
-          (window.SIGEE_SUPABASE && typeof window.SIGEE_SUPABASE.criarCliente === 'function'
-            ? window.SIGEE_SUPABASE.criarCliente()
-            : null);
-
-        if (!client || typeof client.from !== 'function') {
-          throw new Error('Cliente Supabase indisponível para validar a escola.');
-        }
-
-        const tabela =
-          window.SIGEE_CONFIG?.supabase?.tabelas?.escolas ||
-          window.SIGEE_SUPABASE_TABELAS?.escolas ||
-          'escolas_sigee';
-
-        /* RC4.5.13C — a seleção deve pertencer à abertura atual. */
-        const aberturaAtual = window.SIGEE_ESCOLAS_NOVA_SOLICITACAO?.obterAberturaAtual?.();
-        const aberturaModal = Number(document.getElementById('modal-nova-solicitacao')?.dataset.sigeeAberturaNovaSolicitacao || 0);
-        if (!estadoOficial || !estadoOficial.id || !escolaId || Number(aberturaAtual) !== aberturaModal || Number(estadoOficial.__abertura) !== aberturaModal) {
-          throw new Error('Selecione a instituição novamente na lista desta solicitação.');
-        }
-        if (String(estadoOficial.id) !== String(escolaId)) {
-          throw new Error('A identificação da escola divergiu durante o preenchimento. Selecione-a novamente.');
-        }
-
-        const { data: escola, error } = await client
-          .from(tabela)
-          .select('id,cod_mec,nome_escola,nome,municipio,nte_id,nte,dependencia_adm,dependencia,situacao_funcional,situacao,status_acervo,acervo,local_acervo,ativo')
-          .eq('id', Number(escolaId) || escolaId)
-          .maybeSingle();
-
-        if (error || !escola) {
-          throw new Error(error?.message || 'Escola selecionada não localizada pelo ID.');
-        }
-
-        const nomeOficial = String(escola.nome_escola || escola.nome || '').trim();
-        if (!nomeOficial) throw new Error('A escola selecionada não possui nome válido no catálogo.');
-
-        // Reconstitui uma única identidade oficial a partir do ID confirmado no banco.
-        window.SIGEE_ESCOLA_NOVA_SOLICITACAO = {
-          ...escola,
-          id: String(escola.id),
-          escola_id: String(escola.id),
-          nome: nomeOficial,
-          nome_escola: nomeOficial
-        };
-
-        if (select) {
-          select.innerHTML = '';
-          const opt = document.createElement('option');
-          opt.value = nomeOficial;
-          opt.textContent = nomeOficial;
-          opt.selected = true;
-          select.appendChild(opt);
-          select.value = nomeOficial;
-          select.dataset.escolaId = String(escola.id);
-          select.dataset.escolaNome = nomeOficial;
-          select.dataset.codMec = String(escola.cod_mec || '');
-        }
-        if (inputBusca) {
-          inputBusca.value = nomeOficial;
-          inputBusca.dataset.escolaId = String(escola.id);
-          inputBusca.dataset.codMec = String(escola.cod_mec || '');
-          inputBusca.dataset.escolaSelecionada = '1';
-        }
-        if (idOculto) idOculto.value = String(escola.id);
-
-        window.SIGEE_NOVA_SOLICITACAO_ESCOLA_ID = String(escola.id);
-        window.SIGEE_NOVA_SOLICITACAO_ESCOLA_NOME = nomeOficial;
-        window.SIGEE_NOVA_SOLICITACAO_COD_MEC = String(escola.cod_mec || '');
-
-        const resultado = await segura.call(this, event);
-        return resultado;
+        return await segura.call(form, event);
       } catch (erro) {
-        liberarEnvio();
-        console.error('[SIGEE RC4.5.13C] Falha ao validar a escola selecionada:', erro);
-        alert('Não foi possível confirmar a escola selecionada pelo cadastro oficial. Selecione-a novamente na lista. Detalhe: ' + (erro?.message || erro));
+        console.error('[SIGEE RC4.5.14] Falha ao cadastrar a solicitação:', erro);
+        alert('Não foi possível cadastrar a solicitação. ' + (erro?.message || erro));
         return false;
+      } finally {
+        delete form.dataset.sigeeEnviando;
+        if (botao && !document.getElementById('modal-nova-solicitacao')?.classList.contains('hidden')) {
+          botao.disabled = false;
+          botao.textContent = 'Enviar para Desarquivamento';
+        }
       }
-    };
-    salvarComIdentidadeDaEscola.__SIGEE_ESCOLA_ID_GUARD__ = true;
-    salvarComIdentidadeDaEscola.__SIGEE_ESCOLA_ID_GUARD_C__ = true;
+    }, true);
 
-    window.salvarNovaSolicitacao = salvarComIdentidadeDaEscola;
-    try { salvarNovaSolicitacao = salvarComIdentidadeDaEscola; } catch (_) {}
-
-    const form = document.querySelector('#modal-nova-solicitacao form');
-    if (form) {
-      form.onsubmit = salvarComIdentidadeDaEscola;
-      form.removeAttribute('onsubmit');
-    }
-
-    const botao = document.getElementById('btn-submeter-nova-solicitacao');
     if (botao) {
       botao.type = 'submit';
       botao.onclick = null;
       botao.removeAttribute('onclick');
     }
-
     return true;
   }
 
-  window.SIGEE_INSTALAR_AUTORIDADE_NOVA_SOLICITACAO =
-    instalarAutoridadeNovaSolicitacao;
-
+  window.SIGEE_INSTALAR_AUTORIDADE_NOVA_SOLICITACAO = instalarAutoridadeNovaSolicitacao;
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', instalarAutoridadeNovaSolicitacao, { once: true });
   } else {
     instalarAutoridadeNovaSolicitacao();
   }
-
-  // Uma reinstalação após load é suficiente; evita tarefas redundantes.
   window.addEventListener('load', instalarAutoridadeNovaSolicitacao, { once: true });
-
-  // Autoridade final de abertura: sempre cria uma nova sessão e limpa a escola anterior.
-  function instalarAberturaFinal() {
-    const modulo = window.SIGEE_ESCOLAS_NOVA_SOLICITACAO;
-    if (!modulo || typeof modulo.iniciarNovaAbertura !== 'function') return false;
-    const abrir = function () { return modulo.iniciarNovaAbertura(); };
-    abrir.__SIGEE_ABERTURA_4513C__ = true;
-    window.abrirFormularioNovaSolicitacao = abrir;
-    try { abrirFormularioNovaSolicitacao = abrir; } catch (_) {}
-    return true;
-  }
-  if (!instalarAberturaFinal()) window.addEventListener('load', instalarAberturaFinal, { once: true });
 })();
 </script>
 
