@@ -12,7 +12,7 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>SIGEE - Sistema de Gestão de Escolas Extintas (SEC/BA)</title>
-<meta name="sigee-release" content="RC4.5.22">
+<meta name="sigee-release" content="RC4.5.23">
 <meta content="#0B4F8A" name="theme-color"/>
 <meta content="SIGEE" name="application-name"/>
 <link href="assets/sigee-icon.svg?v=2.1.1" rel="icon" type="image/svg+xml"/>
@@ -728,7 +728,7 @@
 <script src="js/core/stability-manager.js?v=RC4.3.1"></script>
 <script src="js/core/app-core.js"></script>
 <script src="js/components/WorkflowActionModal.js?v=RC4.3.3"></script>
-<script src="js/app/app.js?v=RC4.5.22"></script>
+<script src="js/app/app.js?v=RC4.5.12"></script>
 <script src="js/processos/processos.js?v=RC4.5.4"></script>
 <script src="js/migracao/migracao-historica.js?v=M4.2.0"></script>
 <script src="js/migracao/motor-persistencia.js?v=M5.2.2"></script>
@@ -767,90 +767,8 @@ if (window.SIGEE_NAVIGATION && typeof window.SIGEE_NAVIGATION.install === 'funct
 }
 </script>
 
-<script>
-/* SIGEE RC4.5.18 — fluxo oficial pelo estado único do módulo de escolas
- * Sem reconsulta ou reconstrução da escola. O módulo oficial de escolas
- * limpa o estado por abertura e fornece o ID selecionado naquela abertura.
- */
-(function () {
-  'use strict';
+<script src="js/processos/nova-solicitacao-controller.js?v=RC4.5.23"></script>
 
-  function instalarAutoridadeNovaSolicitacao() {
-    const segura = window.SIGEE_SALVAR_NOVA_SOLICITACAO_SEGURO;
-    const form = document.querySelector('#modal-nova-solicitacao form');
-    const botao = document.getElementById('btn-submeter-nova-solicitacao');
-
-    if (typeof segura !== 'function' || !form) {
-      console.error('[SIGEE RC4.5.18] Rotina oficial de gravação não disponível.');
-      return false;
-    }
-    if (form.dataset.sigeeAutoridade4514 === '1') return true;
-    form.dataset.sigeeAutoridade4514 = '1';
-
-    form.removeAttribute('onsubmit');
-    form.onsubmit = null;
-
-    form.addEventListener('submit', async function (event) {
-      event.preventDefault();
-      event.stopPropagation();
-      event.stopImmediatePropagation();
-
-      if (form.dataset.sigeeEnviando === '1') return false;
-
-      /* RC4.5.16: o campo oculto é a única autoridade de identidade da escola.
-       * Ele é zerado a cada abertura e em qualquer nova digitação pelo módulo
-       * oficial de escolas, e somente recebe valor quando uma escola é escolhida.
-       */
-      const estadoEscola = window.SIGEE_Escolas?.obterEscolaNovaSolicitacao?.() || null;
-      const escolaId = String(estadoEscola?.id || estadoEscola?.escola_id || '').trim();
-      const idOculto = document.getElementById('novo-proc-escola-id');
-
-      if (!escolaId) {
-        alert('Selecione a instituição de ensino na lista antes de cadastrar.');
-        return false;
-      }
-
-      // Compatibilidade com a rotina oficial de gravação existente.
-      if (idOculto) idOculto.value = escolaId;
-
-      form.dataset.sigeeEnviando = '1';
-      if (botao) {
-        botao.disabled = true;
-        botao.textContent = 'Enviando...';
-      }
-
-      try {
-        return await segura.call(form, event);
-      } catch (erro) {
-        console.error('[SIGEE RC4.5.18] Falha ao cadastrar a solicitação:', erro);
-        alert('Não foi possível cadastrar a solicitação. ' + (erro?.message || erro));
-        return false;
-      } finally {
-        delete form.dataset.sigeeEnviando;
-        if (botao && !document.getElementById('modal-nova-solicitacao')?.classList.contains('hidden')) {
-          botao.disabled = false;
-          botao.textContent = 'Enviar para Desarquivamento';
-        }
-      }
-    }, true);
-
-    if (botao) {
-      botao.type = 'submit';
-      botao.onclick = null;
-      botao.removeAttribute('onclick');
-    }
-    return true;
-  }
-
-  window.SIGEE_INSTALAR_AUTORIDADE_NOVA_SOLICITACAO = instalarAutoridadeNovaSolicitacao;
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', instalarAutoridadeNovaSolicitacao, { once: true });
-  } else {
-    instalarAutoridadeNovaSolicitacao();
-  }
-  window.addEventListener('load', instalarAutoridadeNovaSolicitacao, { once: true });
-})();
-</script>
 
 </body>
 </html>
