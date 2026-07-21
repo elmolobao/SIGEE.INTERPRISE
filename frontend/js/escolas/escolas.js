@@ -1,5 +1,6 @@
+/* SIGEE RC4.5.11 — seleção oficial da escola sincronizada */
 /* =====================================================================
-   SIGEE Enterprise RC4.5.0 — Módulo Oficial de Escolas
+   SIGEE Enterprise RC4.5.3 — Módulo Oficial de Escolas
    Módulo: Escolas
    Produção: catálogo paginado, filtro por NTE e autocomplete da Nova Solicitação.
    Substitui a lógica dependente de listas locais grandes e evita limite de 1000 registros.
@@ -785,10 +786,26 @@
     set('novo-autofill-local-acervo', escolaLocal(e));
     const select = document.getElementById('novo-proc-escola');
     const nome = escolaNome(e);
+    const escolaId = texto(e.id);
     if (select) {
-      select.innerHTML = `<option selected value="${escapeHtml(nome)}">${escapeHtml(nome)}</option>`;
+      select.innerHTML = `<option selected value="${escapeHtml(nome)}" data-escola-id="${escapeHtml(escolaId)}" data-cod-mec="${escapeHtml(e.cod_mec || '')}">${escapeHtml(nome)}</option>`;
       select.value = nome;
+      select.dataset.escolaId = escolaId;
+      select.dataset.escolaNome = nome;
+      select.dataset.codMec = texto(e.cod_mec);
     }
+    const idOculto = document.getElementById('novo-proc-escola-id');
+    if (idOculto) idOculto.value = escolaId;
+    window.SIGEE_ESCOLA_NOVA_SOLICITACAO = {
+      id: escolaId,
+      escola_id: escolaId,
+      nome: nome,
+      nome_escola: nome,
+      cod_mec: texto(e.cod_mec),
+      municipio: texto(e.municipio),
+      nte_id: Number(e.nte_id || extrairNteEscola(e.nte) || 0) || null,
+      nte: escolaNte(e)
+    };
     const btn = document.getElementById('btn-submeter-nova-solicitacao');
     if (btn) btn.disabled = false;
     try { if (typeof aplicarClasseStatusAcervoSIGEE === 'function') aplicarClasseStatusAcervoSIGEE(); } catch (err) {}
@@ -840,6 +857,17 @@
     const aluno = document.getElementById('novo-proc-aluno'); if (aluno) aluno.value = '';
     ['novo-proc-documento','novo-proc-modalidade','novo-proc-ensino'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     ['novo-autofill-mec','novo-autofill-nte','novo-autofill-municipio','novo-autofill-dep','novo-autofill-situacao','novo-autofill-acervo','novo-autofill-local-acervo'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    const select = document.getElementById('novo-proc-escola');
+    if (select) {
+      select.innerHTML = '<option value="">SELECIONE A INSTITUIÇÃO</option>';
+      select.value = '';
+      delete select.dataset.escolaId;
+      delete select.dataset.escolaNome;
+      delete select.dataset.codMec;
+    }
+    const idOculto = document.getElementById('novo-proc-escola-id');
+    if (idOculto) idOculto.value = '';
+    window.SIGEE_ESCOLA_NOVA_SOLICITACAO = null;
     const btn = document.getElementById('btn-submeter-nova-solicitacao'); if (btn) btn.disabled = true;
     modal.classList.remove('hidden');
     setTimeout(garantirAutocompleteNovaSolicitacao, 30);
@@ -1060,41 +1088,52 @@
         const input = campo('novo-proc-escola-busca-v23');
         const lista = campo('novo-proc-escola-lista-v23');
 
-        const escolaId = texto(escola.id);
-        const escolaNome = texto(escola.nome);
-        const escolaMec = texto(escola.cod_mec);
-        const idOculto = campo('novo-proc-escola-id');
-
-        // RC4.5.4: a identidade da escola é atômica. ID, nome e MEC
-        // pertencem sempre ao mesmo registro selecionado.
-        window.SIGEE_ESCOLA_NOVA_SOLICITACAO = { ...escola };
-        window.SIGEE_NOVA_SOLICITACAO_ESCOLA_ID = escolaId;
-        window.SIGEE_NOVA_SOLICITACAO_ESCOLA_NOME = escolaNome;
-        window.SIGEE_NOVA_SOLICITACAO_COD_MEC = escolaMec;
-
-        if (idOculto) idOculto.value = escolaId;
-
         if (input) {
-            input.value = escolaNome;
+            input.value = escola.nome;
             input.dataset.escolaSelecionada = '1';
-            input.dataset.escolaId = escolaId;
-            input.dataset.escolaNome = escolaNome;
-            input.dataset.codMec = escolaMec;
+            input.dataset.escolaId = texto(escola.id);
+            input.dataset.codMec = texto(escola.cod_mec);
         }
 
+        const escolaId = texto(escola.id);
         if (select) {
             select.innerHTML = '';
             const opt = document.createElement('option');
-            opt.value = escolaNome;
-            opt.textContent = escolaNome;
+            opt.value = escola.nome;
+            opt.textContent = escola.nome;
+            opt.dataset.escolaId = escolaId;
+            opt.dataset.codMec = texto(escola.cod_mec);
             opt.selected = true;
             select.appendChild(opt);
-            select.value = escolaNome;
-            select.dataset.escolaSelecionada = '1';
+            select.value = escola.nome;
             select.dataset.escolaId = escolaId;
-            select.dataset.escolaNome = escolaNome;
-            select.dataset.codMec = escolaMec;
+            select.dataset.escolaNome = escola.nome;
+            select.dataset.codMec = texto(escola.cod_mec);
         }
+
+        const idOculto = campo('novo-proc-escola-id');
+        if (idOculto) idOculto.value = escolaId;
+        window.SIGEE_ESCOLA_NOVA_SOLICITACAO = {
+            ...escola,
+            id: escolaId,
+            escola_id: escolaId,
+            nome: escola.nome,
+            nome_escola: escola.nome,
+            cod_mec: texto(escola.cod_mec),
+            municipio: texto(escola.municipio),
+            nte_id: Number(escola.nte_id || extrairNteEscola(escola.nte) || 0) || null,
+            nte: texto(escola.nte),
+            dependencia_adm: texto(escola.dependencia_adm || escola.dependencia),
+            dependencia: texto(escola.dependencia || escola.dependencia_adm),
+            situacao_funcional: texto(escola.situacao_funcional || escola.situacao),
+            situacao: texto(escola.situacao || escola.situacao_funcional),
+            status_acervo: texto(escola.status_acervo || escola.acervo),
+            acervo: texto(escola.acervo || escola.status_acervo),
+            local_acervo: texto(escola.local_acervo)
+        };
+        window.SIGEE_NOVA_SOLICITACAO_ESCOLA_ID = escolaId;
+        window.SIGEE_NOVA_SOLICITACAO_ESCOLA_NOME = escola.nome;
+        window.SIGEE_NOVA_SOLICITACAO_COD_MEC = texto(escola.cod_mec);
 
         if (lista) {
             lista.classList.add('hidden');
@@ -1192,20 +1231,14 @@
 
         input.oninput = function () {
             input.dataset.escolaSelecionada = '';
-            input.dataset.escolaId = '';
-            input.dataset.escolaNome = '';
-            input.dataset.codMec = '';
-            select.dataset.escolaSelecionada = '';
-            select.dataset.escolaId = '';
-            select.dataset.escolaNome = '';
-            select.dataset.codMec = '';
             select.innerHTML = '<option value="">SELECIONE A INSTITUIÇÃO</option>';
+            select.value = '';
+            delete select.dataset.escolaId;
+            delete select.dataset.escolaNome;
+            delete select.dataset.codMec;
             const idOculto = campo('novo-proc-escola-id');
             if (idOculto) idOculto.value = '';
             window.SIGEE_ESCOLA_NOVA_SOLICITACAO = null;
-            window.SIGEE_NOVA_SOLICITACAO_ESCOLA_ID = '';
-            window.SIGEE_NOVA_SOLICITACAO_ESCOLA_NOME = '';
-            window.SIGEE_NOVA_SOLICITACAO_COD_MEC = '';
             limparAutofillNovaSolicitacao();
 
             clearTimeout(timerBuscaEscola);
@@ -1239,17 +1272,13 @@
         if (select) {
             select.innerHTML = '<option value="">SELECIONE A INSTITUIÇÃO</option>';
             select.value = '';
-            select.dataset.escolaSelecionada = '';
-            select.dataset.escolaId = '';
-            select.dataset.escolaNome = '';
-            select.dataset.codMec = '';
+            delete select.dataset.escolaId;
+            delete select.dataset.escolaNome;
+            delete select.dataset.codMec;
         }
         const idOculto = campo('novo-proc-escola-id');
         if (idOculto) idOculto.value = '';
         window.SIGEE_ESCOLA_NOVA_SOLICITACAO = null;
-        window.SIGEE_NOVA_SOLICITACAO_ESCOLA_ID = '';
-        window.SIGEE_NOVA_SOLICITACAO_ESCOLA_NOME = '';
-        window.SIGEE_NOVA_SOLICITACAO_COD_MEC = '';
 
         const aluno = campo('novo-proc-aluno');
         if (aluno) aluno.value = '';
