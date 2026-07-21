@@ -112,6 +112,36 @@
     );
   }
 
+  function stageEntryDate(process) {
+    return process && (
+      process.data_etapa_atual ||
+      process.data_etapa ||
+      process.etapa_iniciada_em ||
+      process.updated_at ||
+      process.created_at ||
+      process.criado_em ||
+      null
+    );
+  }
+
+  function legacyCycleOffset(process) {
+    const state = processState(process);
+    if (state === 'RET') return 30;
+    if (state === 'REU') return 37;
+    if (state === 'CFD') return 44;
+    return 0;
+  }
+
+  function inferLegacyCycleStart(process) {
+    const reference = stageEntryDate(process);
+    const offset = legacyCycleOffset(process);
+    if (!reference || !offset) return null;
+    const date = new Date(reference);
+    if (Number.isNaN(date.getTime())) return null;
+    date.setDate(date.getDate() - offset);
+    return date.toISOString();
+  }
+
   function stageDate(process) {
     return process && (
       process.data_inicio_desarquivamento ||
@@ -120,13 +150,11 @@
       process.data_desarquivamento ||
       process.data_etapa_inicial ||
       process.prazo_inicio_ciclo ||
+      inferLegacyCycleStart(process) ||
+      process.prazo_inicio ||
       process.created_at ||
       process.criado_em ||
-      process.prazo_inicio ||
-      process.data_etapa_atual ||
-      process.data_etapa ||
-      process.etapa_iniciada_em ||
-      process.updated_at
+      stageEntryDate(process)
     );
   }
 
