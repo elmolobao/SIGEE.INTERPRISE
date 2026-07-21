@@ -16,7 +16,7 @@
   if (window.__SIGEE_WORKFLOW_EXTERNO_095__) return;
   window.__SIGEE_WORKFLOW_EXTERNO_095__ = true;
 
-  const VERSION = '1.1.3';
+  const VERSION = '1.1.4';
   const EXTERNAL_STATES = Object.freeze(['DES', 'RET', 'REU', 'CFD']);
 
   const ACTIONS = Object.freeze({
@@ -112,6 +112,36 @@
     );
   }
 
+  function stageEntryDate(process) {
+    return process && (
+      process.data_etapa_atual ||
+      process.data_etapa ||
+      process.etapa_iniciada_em ||
+      process.updated_at ||
+      process.created_at ||
+      process.criado_em ||
+      null
+    );
+  }
+
+  function legacyCycleOffset(process) {
+    const state = processState(process);
+    if (state === 'RET') return 30;
+    if (state === 'REU') return 37;
+    if (state === 'CFD') return 44;
+    return 0;
+  }
+
+  function inferLegacyCycleStart(process) {
+    const reference = stageEntryDate(process);
+    const offset = legacyCycleOffset(process);
+    if (!reference || !offset) return null;
+    const date = new Date(reference);
+    if (Number.isNaN(date.getTime())) return null;
+    date.setDate(date.getDate() - offset);
+    return date.toISOString();
+  }
+
   function stageDate(process) {
     return process && (
       process.data_inicio_desarquivamento ||
@@ -120,13 +150,11 @@
       process.data_desarquivamento ||
       process.data_etapa_inicial ||
       process.prazo_inicio_ciclo ||
+      inferLegacyCycleStart(process) ||
+      process.prazo_inicio ||
       process.created_at ||
       process.criado_em ||
-      process.prazo_inicio ||
-      process.data_etapa_atual ||
-      process.data_etapa ||
-      process.etapa_iniciada_em ||
-      process.updated_at
+      stageEntryDate(process)
     );
   }
 
@@ -175,6 +203,24 @@
     if (stateCode === 'REU') return ACTIONS.CONFIRMAR_DADOS;
     if (stateCode === 'CFD') return ACTIONS.PEDIDO_ATAS_DESARQUIVAMENTO;
     return null;
+  }
+
+  function temporalPrimaryAction(elapsed) {
+    if (!Number.isFinite(elapsed) || elapsed < 30) return ACTIONS.SEND_REITERACAO;
+    if (elapsed < 37) return ACTIONS.SEND_REITERACAO;
+    if (elapsed < 44) return ACTIONS.SEND_REITERACAO_URGENTE;
+    if (elapsed < 51) return ACTIONS.CONFIRMAR_DADOS;
+    return ACTIONS.PEDIDO_ATAS_DESARQUIVAMENTO;
+  }
+
+  function temporalRequiredDays(action) {
+    const map = {
+      SEND_REITERACAO: 30,
+      SEND_REITERACAO_URGENTE: 37,
+      CONFIRMAR_DADOS: 44,
+      PEDIDO_ATAS_DESARQUIVAMENTO: 51
+    };
+    return map[action && action.event] ?? 0;
   }
 
   function currentCycle(process) {
@@ -239,16 +285,16 @@
   function availableActions(process) {
     const stateCode = processState(process);
     const elapsed = elapsedDays(process);
-    const deadline = deadlineForState(stateCode);
     const result = [];
-    const primary = primaryAction(stateCode);
+    const primary = temporalPrimaryAction(elapsed) || primaryAction(stateCode);
+    const requiredDays = temporalRequiredDays(primary);
 
     if (primary) {
       result.push({
         action: primary,
-        enabled: (deadline == null || elapsed >= deadline) && !wasExecuted(process, primary.event),
+        enabled: elapsed >= requiredDays && !wasExecuted(process, primary.event),
         executed: wasExecuted(process, primary.event),
-        remainingDays: deadline == null ? 0 : Math.max(0, deadline - elapsed),
+        remainingDays: Math.max(0, requiredDays - elapsed),
         primary: true
       });
     }
@@ -636,8 +682,8 @@
         <div class="sigee-wfe-body">
           <div class="sigee-wfe-summary">
             <div class="sigee-wfe-card"><span>Etapa atual</span><strong>${state.name}</strong></div>
-            <div class="sigee-wfe-card"><span>Dias na etapa</span><strong>${elapsed}</strong></div>
-            <div class="sigee-wfe-card"><span>Prazo da etapa</span><strong>${state.deadline == null ? 'Sem prazo' : state.deadline + ' dias'}</strong></div>
+            <div class="sigee-wfe-card"><span>Dias do ciclo</span><strong>${elapsed}</strong></div>
+            <div class="sigee-wfe-card"><span>Ato temporal vigente</span><strong>${temporalPrimaryAction(elapsed).title}</strong></div>
           </div>
           <div class="sigee-wfe-note">Cada comunicação somente será registrada após a confirmação obrigatória de todas as mensagens institucionais vinculadas à ação.</div>
           <div class="sigee-wfe-action sigee-wfe-documento">
