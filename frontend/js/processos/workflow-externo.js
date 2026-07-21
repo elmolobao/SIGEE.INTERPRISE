@@ -16,7 +16,7 @@
   if (window.__SIGEE_WORKFLOW_EXTERNO_095__) return;
   window.__SIGEE_WORKFLOW_EXTERNO_095__ = true;
 
-  const VERSION = '1.1.4';
+  const VERSION = '1.1.5';
   const EXTERNAL_STATES = Object.freeze(['DES', 'RET', 'REU', 'CFD']);
 
   const ACTIONS = Object.freeze({
@@ -578,7 +578,21 @@
           messageCode: message.code
         });
 
-        const atualizado = findProcess(process.id) || process;
+        /*
+         * Usa obrigatoriamente o processo devolvido pelo TransitionManager.
+         * Buscar novamente na lista local podia recuperar a versão anterior
+         * ainda em Desarquivamento e sobrescrever a transição recém-gravada.
+         */
+        const atualizado = Object.assign({}, process, result.process || {});
+
+        if (action.event === 'PEDIDO_ATAS_DESARQUIVAMENTO') {
+          atualizado.etapa_codigo = 'ANA';
+          atualizado.etapa = 'Análise';
+          atualizado.etapa_atual = 'Análise';
+          atualizado.fase_atual = 'Análise';
+          atualizado.contexto_analise = 'DESARQUIVAMENTO_ATAS_SEM_PASTA';
+        }
+
         const agora = window.SIGEE_WORKFLOW_CLOCK && typeof window.SIGEE_WORKFLOW_CLOCK.now === 'function'
           ? window.SIGEE_WORKFLOW_CLOCK.now().toISOString()
           : new Date().toISOString();
