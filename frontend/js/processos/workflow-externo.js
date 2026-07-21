@@ -348,8 +348,18 @@
       .sigee-wfe-card,.sigee-wfe-action{padding:14px;border:1px solid rgba(255,255,255,.11);border-radius:12px;background:rgba(255,255,255,.045)}
       .sigee-wfe-card span{display:block;color:rgba(255,255,255,.65);font-size:.75rem;font-weight:800;text-transform:uppercase}.sigee-wfe-card strong{display:block;margin-top:5px}
       .sigee-wfe-actions{display:grid;gap:10px}.sigee-wfe-action{display:flex;align-items:center;justify-content:space-between;gap:16px}.sigee-wfe-action-copy{display:flex;align-items:flex-start;gap:12px}.sigee-wfe-action-icon{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;flex:0 0 36px;border-radius:10px;font-size:1.15rem}.sigee-wfe-action p{margin:4px 0 0;color:rgba(255,255,255,.7);font-size:.86rem}
-      .sigee-wfe-btn{padding:10px 14px;border:0;border-radius:9px;font-weight:800;cursor:pointer;background:#fff;color:#102033}.sigee-wfe-btn:disabled{opacity:.45;cursor:not-allowed}
-      .sigee-wfe-secondary{background:#16835d;color:#fff}.sigee-wfe-documento{border-color:rgba(16,185,129,.38);background:rgba(16,185,129,.09)}.sigee-wfe-note{padding:13px;border-radius:10px;background:rgba(255,193,7,.1)}
+      .sigee-wfe-btn{min-width:150px;padding:11px 16px;border:1px solid transparent;border-radius:10px;font-weight:900;cursor:pointer;transition:transform .16s ease,box-shadow .16s ease,filter .16s ease;background:#fff;color:#102033;box-shadow:0 8px 18px rgba(15,23,42,.13)}
+      .sigee-wfe-btn:not(:disabled):hover{transform:translateY(-1px);filter:brightness(.97);box-shadow:0 11px 24px rgba(15,23,42,.20)}
+      .sigee-wfe-btn:disabled{opacity:.56;cursor:not-allowed;transform:none;box-shadow:none;filter:saturate(.45)}
+      .sigee-wfe-secondary{background:#16a34a!important;color:#fff!important;border-color:#15803d!important}.sigee-wfe-documento{border-color:#22c55e!important;background:rgba(34,197,94,.09)!important}.sigee-wfe-documento .sigee-wfe-action-icon{background:#dcfce7;color:#166534}
+      .sigee-wfe-action-reiteracao{border-color:#eab308!important;background:rgba(250,204,21,.13)!important}.sigee-wfe-action-reiteracao .sigee-wfe-action-icon{background:#fef9c3;color:#854d0e}.sigee-wfe-action-reiteracao .sigee-wfe-btn{background:#facc15!important;color:#422006!important;border-color:#eab308!important}
+      .sigee-wfe-action-reiteracao-urgente{border-color:#f97316!important;background:rgba(249,115,22,.12)!important}.sigee-wfe-action-reiteracao-urgente .sigee-wfe-action-icon{background:#ffedd5;color:#9a3412}.sigee-wfe-action-reiteracao-urgente .sigee-wfe-btn{background:#f97316!important;color:#fff!important;border-color:#ea580c!important}
+      .sigee-wfe-action-confirmacao{border-color:#dc2626!important;background:rgba(220,38,38,.10)!important}.sigee-wfe-action-confirmacao .sigee-wfe-action-icon{background:#fee2e2;color:#991b1b}.sigee-wfe-action-confirmacao .sigee-wfe-btn{background:#dc2626!important;color:#fff!important;border-color:#b91c1c!important}
+      .sigee-wfe-action-atas{border-color:#1f2937!important;background:rgba(31,41,55,.10)!important}.sigee-wfe-action-atas .sigee-wfe-action-icon{background:#e5e7eb;color:#111827}.sigee-wfe-action-atas .sigee-wfe-btn{background:#1f2937!important;color:#fff!important;border-color:#111827!important}
+      .sigee-wfe-action-retificacao{border-color:#6b7280!important;background:rgba(107,114,128,.10)!important}.sigee-wfe-action-retificacao .sigee-wfe-action-icon{background:#e5e7eb;color:#374151}.sigee-wfe-action-retificacao .sigee-wfe-btn{background:#6b7280!important;color:#fff!important;border-color:#4b5563!important}
+      .sigee-wfe-action .sigee-wfe-btn:disabled{background:#cbd5e1!important;color:#475569!important;border-color:#94a3b8!important}
+      .sigee-wfe-action[data-wfe-executed="1"]{opacity:.78}.sigee-wfe-action[data-wfe-executed="1"] .sigee-wfe-btn{background:#475569!important;color:#fff!important;border-color:#334155!important}
+      .sigee-wfe-note{padding:13px;border-radius:10px;background:rgba(255,193,7,.1)}
       @media(max-width:650px){.sigee-wfe-summary{grid-template-columns:1fr}.sigee-wfe-action{align-items:stretch;flex-direction:column}.sigee-wfe-btn{width:100%}}
     `;
     document.head.appendChild(style);
@@ -673,7 +683,7 @@
           : 'Disponível em ' + entry.remainingDays + ' dia' + (entry.remainingDays === 1 ? '' : 's');
       const visual = actionVisual(entry.action.event);
       return `
-        <div class="sigee-wfe-action ${visual.className}">
+        <div class="sigee-wfe-action ${visual.className}" data-wfe-event="${entry.action.event}" data-wfe-executed="${entry.executed ? '1' : '0'}" data-wfe-enabled="${entry.enabled ? '1' : '0'}">
           <div class="sigee-wfe-action-copy">
             <span class="sigee-wfe-action-icon" aria-hidden="true">${visual.icon}</span>
             <div>
