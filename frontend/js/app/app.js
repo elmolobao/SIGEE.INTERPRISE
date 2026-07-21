@@ -3088,11 +3088,18 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
 
             const antigoSelecionarV25 = window.selecionarInstituicaoSIGEE_V23;
             window.selecionarInstituicaoSIGEE_V23 = function(item){
-                escolaSelecionadaSIGEE_V25 = item && item.escola ? item.escola : null;
                 if(typeof antigoSelecionarV25 === 'function') antigoSelecionarV25(item);
-                // Garante que o select técnico tenha value válido, mesmo usando busca rápida.
+
+                const escola = item && item.escola ? item.escola : null;
+                escolaSelecionadaSIGEE_V25 = escola;
+
+                // RC4.5.5: a seleção só é válida quando contém o ID real da escola.
                 const select = document.getElementById('novo-proc-escola');
-                const nome = item?.nome || item?.escola?.nome || item?.escola?.nome_escola || '';
+                const busca = document.getElementById('novo-proc-escola-busca-v23') || document.getElementById('novo-proc-escola-busca-sigee');
+                const nome = item?.nome || escola?.nome || escola?.nome_escola || '';
+                const id = escola?.id == null ? '' : String(escola.id);
+                const mec = String(escola?.cod_mec || '');
+
                 if(select && nome){
                     select.innerHTML = '';
                     const opt = document.createElement('option');
@@ -3101,7 +3108,19 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                     opt.selected = true;
                     select.appendChild(opt);
                     select.value = nome;
+                    select.dataset.escolaId = id;
+                    select.dataset.codMec = mec;
+                    select.dataset.escolaSelecionada = id ? '1' : '0';
                 }
+                if(busca){
+                    busca.value = nome || busca.value;
+                    busca.dataset.escolaId = id;
+                    busca.dataset.codMec = mec;
+                    busca.dataset.escolaSelecionada = id ? '1' : '0';
+                }
+                const mecEl = document.getElementById('novo-autofill-mec');
+                if(mecEl) mecEl.value = mec;
+
                 setTimeout(aplicarStatusBotaoNovaSolicitacaoV25, 0);
             };
 
@@ -3165,32 +3184,19 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                     ''
                 );
 
-                const identidadeAtual = window.SIGEE_ESCOLA_NOVA_SOLICITACAO || null;
-                const idAutoritativo = String(
-                    window.SIGEE_NOVA_SOLICITACAO_ESCOLA_ID ||
-                    document.getElementById('novo-proc-escola-id')?.value ||
-                    idSelecionado || ''
-                ).trim();
-
-                // RC4.5.4: nunca reutiliza escolaSelecionadaSIGEE_V25 sem conferir
-                // se ela corresponde ao ID atualmente selecionado no formulário.
+                // RC4.5.5: nunca reutiliza a variável antiga nem resolve por nome/MEC.
+                // A única autoridade é o ID real gravado no elemento pelo clique da lista.
                 let escola = null;
-                if (identidadeAtual && idAutoritativo && String(identidadeAtual.id || '') === idAutoritativo) {
-                    escola = identidadeAtual;
-                }
-                if (!escola && Array.isArray(escolasDB) && idAutoritativo) {
-                    escola = escolasDB.find(e => String(e.id || '') === idAutoritativo) || null;
-                }
-                if (!escola && escolaSelecionadaSIGEE_V25 && idAutoritativo &&
-                    String(escolaSelecionadaSIGEE_V25.id || '') === idAutoritativo) {
-                    escola = escolaSelecionadaSIGEE_V25;
+                if (idSelecionado && Array.isArray(escolasDB)) {
+                    escola = escolasDB.find(e => String(e.id || '') === idSelecionado) || null;
                 }
 
                 if (escola) {
-                    const nomeResolvido = upperV25(escola.nome || escola.nome_escola || escola.instituicao || '');
-                    if (nomeSelecionado && nomeResolvido && nomeSelecionado !== nomeResolvido) return null;
+                    escolaSelecionadaSIGEE_V25 = escola;
                     return escola;
                 }
+
+                if (!idSelecionado) return null;
 
                 /*
                  * O autocomplete pode vir de um módulo posterior e preencher
@@ -3212,24 +3218,12 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                             .select('id,cod_mec,nome_escola,nome,municipio,nte_id,nte,dependencia_adm,dependencia,situacao_funcional,situacao,status_acervo,acervo,local_acervo')
                             .limit(1);
 
-                        if (idAutoritativo) {
-                            query = query.eq('id', Number(idAutoritativo) || idAutoritativo);
-                        } else {
-                            // O salvamento não resolve escola por nome ou MEC, pois ambos
-                            // podem ser repetidos ou permanecer em cache de seleção anterior.
-                            return null;
-                        }
+                        query = query.eq('id', Number(idSelecionado) || idSelecionado);
 
                         const resposta = await query.maybeSingle();
                         if (!resposta.error && resposta.data) {
                             escola = resposta.data;
-                            const nomeBanco = upperV25(escola.nome_escola || escola.nome || escola.instituicao || '');
-                            if (nomeSelecionado && nomeBanco && nomeSelecionado !== nomeBanco) return null;
                             escolaSelecionadaSIGEE_V25 = escola;
-                            window.SIGEE_ESCOLA_NOVA_SOLICITACAO = escola;
-                            window.SIGEE_NOVA_SOLICITACAO_ESCOLA_ID = String(escola.id || '');
-                            window.SIGEE_NOVA_SOLICITACAO_ESCOLA_NOME = escola.nome_escola || escola.nome || '';
-                            window.SIGEE_NOVA_SOLICITACAO_COD_MEC = escola.cod_mec || '';
 
                             if (campoPrincipal) {
                                 campoPrincipal.dataset.escolaId = escola.id || '';
@@ -3274,17 +3268,19 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                     if(!docTipo || !modalidade || !ensino){ alert('Selecione tipo de documento, modalidade e ensino.'); return; }
                     if(chk && !chk.checked){ alert('Confirme o envio do e-mail 01 - Aluno acolhido.'); return; }
 
-                    const idFormulario = String(
-                        window.SIGEE_NOVA_SOLICITACAO_ESCOLA_ID ||
-                        document.getElementById('novo-proc-escola-id')?.value ||
-                        document.getElementById('novo-proc-escola')?.dataset?.escolaId || ''
+                    const nomeEscola = upperV25(escola.nome || escola.nome_escola || escola.instituicao || buscaNome);
+                    const mec = String(escola.cod_mec || mecCampo || '').trim();
+                    const idConfirmado = String(escola.id == null ? '' : escola.id).trim();
+                    const idNoFormulario = String(
+                        document.getElementById('novo-proc-escola')?.dataset?.escolaId ||
+                        document.getElementById('novo-proc-escola-busca-v23')?.dataset?.escolaId ||
+                        document.getElementById('novo-proc-escola-busca-sigee')?.dataset?.escolaId ||
+                        ''
                     ).trim();
-                    if (!idFormulario || String(escola.id || '') !== idFormulario) {
-                        throw new Error('A escola confirmada não corresponde ao ID selecionado no formulário. Selecione novamente a escola.');
+                    if (!idConfirmado || idConfirmado !== idNoFormulario) {
+                        throw new Error('A escola selecionada perdeu o vínculo com o ID do catálogo. Selecione novamente.');
                     }
 
-                    const nomeEscola = upperV25(escola.nome_escola || escola.nome || escola.instituicao || buscaNome);
-                    const mec = String(escola.cod_mec || '').trim();
                     const municipio = upperV25(escola.municipio || obterTextoV25('novo-autofill-municipio'));
                     const nteVinculo = escola.nte || (typeof obterNomeNtePorIdSIGEE_V19 === 'function' ? obterNomeNtePorIdSIGEE_V19(escola.nte_id) : '') || obterTextoV25('novo-autofill-nte') || usuarioLogado?.nte || '';
                     const dataHoje = obterDataAtualFormatada();
@@ -3295,7 +3291,9 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                      */
                     const novoProcesso = {
                         aluno: aluno,
+                        aluno_nome: aluno,
                         escola: nomeEscola,
+                        escola_nome: nomeEscola,
                         documento: docTipo,
                         modalidade: modalidade,
                         ensino: ensino,
