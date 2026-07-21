@@ -722,7 +722,7 @@
 <script src="js/analytics/analytics-engine.js?v=2.4.3C"></script>
 <script src="js/analytics/dashboard.js?v=RC4.2.2"></script>
 <script src="js/escolas/municipios-territorios.js?v=RC4.5.0"></script>
-<script src="js/escolas/escolas.js?v=RC4.5.13B"></script>
+<script src="js/escolas/escolas.js?v=RC4.5.13C"></script>
 <script src="js/escolas/importacao.js"></script>
 <script src="js/escolas/exportacao.js"></script>
 <script src="js/processos/fluxo-operacional.js"></script>
@@ -769,11 +769,12 @@ if (window.SIGEE_NAVIGATION && typeof window.SIGEE_NAVIGATION.install === 'funct
 </script>
 
 <script>
-/* SIGEE Patch 2.5.3 — autoridade final da Nova Solicitação */
+/* SIGEE RC4.5.13C — autoridade final, abertura isolada e envio único */
 (function () {
   'use strict';
 
   function instalarAutoridadeNovaSolicitacao() {
+    if (window.salvarNovaSolicitacao?.__SIGEE_ESCOLA_ID_GUARD_C__) return true;
     const segura = window.SIGEE_SALVAR_NOVA_SOLICITACAO_SEGURO;
     if (typeof segura !== 'function') {
       console.error('[SIGEE 2.5.3] Rotina segura da Nova Solicitação não localizada.');
@@ -782,6 +783,27 @@ if (window.SIGEE_NAVIGATION && typeof window.SIGEE_NAVIGATION.install === 'funct
 
     const salvarComIdentidadeDaEscola = async function (event) {
       if (event && typeof event.preventDefault === 'function') event.preventDefault();
+      if (event && typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+
+      const formAtual = document.querySelector('#modal-nova-solicitacao form');
+      const botaoAtual = document.getElementById('btn-submeter-nova-solicitacao');
+      if (formAtual?.dataset.sigeeSubmitting === '1') {
+        console.warn('[SIGEE RC4.5.13C] Segundo envio bloqueado.');
+        return false;
+      }
+      if (formAtual) formAtual.dataset.sigeeSubmitting = '1';
+      if (botaoAtual) {
+        botaoAtual.disabled = true;
+        botaoAtual.textContent = 'Enviando...';
+      }
+
+      const liberarEnvio = () => {
+        if (formAtual) delete formAtual.dataset.sigeeSubmitting;
+        if (botaoAtual) {
+          botaoAtual.disabled = false;
+          botaoAtual.textContent = 'Enviar para Desarquivamento';
+        }
+      };
 
       const select = document.getElementById('novo-proc-escola');
       const inputBusca = document.getElementById('novo-proc-escola-busca-v23');
@@ -814,49 +836,14 @@ if (window.SIGEE_NAVIGATION && typeof window.SIGEE_NAVIGATION.install === 'funct
           window.SIGEE_SUPABASE_TABELAS?.escolas ||
           'escolas_sigee';
 
-        /*
-         * RC4.5.13B — recuperação segura de uma seleção visual válida.
-         * O ID só pode ser reconstruído quando nome e código MEC apresentados
-         * no formulário identificarem exatamente um registro do catálogo.
-         * Isso não reaproveita a escola anterior: a abertura limpa estado,
-         * hidden, pesquisa e autofill antes de qualquer nova seleção.
-         */
-        if (!escolaId) {
-          const nomeTela = String(inputBusca?.value || select?.value || '').trim();
-          const codMecTela = String(document.getElementById('novo-autofill-mec')?.value || '').trim();
-
-          if (!nomeTela || !codMecTela) {
-            throw new Error('Selecione a instituição de ensino na lista oficial antes de cadastrar a solicitação.');
-          }
-
-          const { data: candidatas, error: erroResolucao } = await client
-            .from(tabela)
-            .select('id,cod_mec,nome_escola,nome,municipio,nte_id,nte,dependencia_adm,dependencia,situacao_funcional,situacao,status_acervo,acervo,local_acervo,ativo')
-            .eq('cod_mec', codMecTela)
-            .limit(10);
-
-          if (erroResolucao) throw erroResolucao;
-          const normalizarNome = valor => String(valor || '').normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/\s+/g, ' ').trim();
-          const nomeNormalizado = normalizarNome(nomeTela);
-          const correspondentes = (candidatas || []).filter(item =>
-            normalizarNome(item.nome_escola || item.nome) === nomeNormalizado
-          );
-
-          if (correspondentes.length !== 1) {
-            throw new Error('A escola exibida não pôde ser identificada de forma única no catálogo. Selecione-a novamente na lista.');
-          }
-
-          const resolvida = correspondentes[0];
-          escolaId = String(resolvida.id);
-          window.SIGEE_ESCOLAS_NOVA_SOLICITACAO?.selecionar?.({
-            ...resolvida,
-            nome: resolvida.nome_escola || resolvida.nome,
-            dependencia: resolvida.dependencia_adm || resolvida.dependencia,
-            situacao: resolvida.situacao_funcional || resolvida.situacao,
-            acervo: resolvida.status_acervo || resolvida.acervo
-          });
-          if (idOculto) idOculto.value = escolaId;
+        /* RC4.5.13C — a seleção deve pertencer à abertura atual. */
+        const aberturaAtual = window.SIGEE_ESCOLAS_NOVA_SOLICITACAO?.obterAberturaAtual?.();
+        const aberturaModal = Number(document.getElementById('modal-nova-solicitacao')?.dataset.sigeeAberturaNovaSolicitacao || 0);
+        if (!estadoOficial || !estadoOficial.id || !escolaId || Number(aberturaAtual) !== aberturaModal || Number(estadoOficial.__abertura) !== aberturaModal) {
+          throw new Error('Selecione a instituição novamente na lista desta solicitação.');
+        }
+        if (String(estadoOficial.id) !== String(escolaId)) {
+          throw new Error('A identificação da escola divergiu durante o preenchimento. Selecione-a novamente.');
         }
 
         const { data: escola, error } = await client
@@ -905,14 +892,17 @@ if (window.SIGEE_NAVIGATION && typeof window.SIGEE_NAVIGATION.install === 'funct
         window.SIGEE_NOVA_SOLICITACAO_ESCOLA_NOME = nomeOficial;
         window.SIGEE_NOVA_SOLICITACAO_COD_MEC = String(escola.cod_mec || '');
 
-        return await segura.call(this, event);
+        const resultado = await segura.call(this, event);
+        return resultado;
       } catch (erro) {
-        console.error('[SIGEE RC4.5.13B] Falha ao validar a escola selecionada:', erro);
+        liberarEnvio();
+        console.error('[SIGEE RC4.5.13C] Falha ao validar a escola selecionada:', erro);
         alert('Não foi possível confirmar a escola selecionada pelo cadastro oficial. Selecione-a novamente na lista. Detalhe: ' + (erro?.message || erro));
         return false;
       }
     };
     salvarComIdentidadeDaEscola.__SIGEE_ESCOLA_ID_GUARD__ = true;
+    salvarComIdentidadeDaEscola.__SIGEE_ESCOLA_ID_GUARD_C__ = true;
 
     window.salvarNovaSolicitacao = salvarComIdentidadeDaEscola;
     try { salvarNovaSolicitacao = salvarComIdentidadeDaEscola; } catch (_) {}
@@ -944,6 +934,18 @@ if (window.SIGEE_NAVIGATION && typeof window.SIGEE_NAVIGATION.install === 'funct
 
   // Uma reinstalação após load é suficiente; evita tarefas redundantes.
   window.addEventListener('load', instalarAutoridadeNovaSolicitacao, { once: true });
+
+  // Autoridade final de abertura: sempre cria uma nova sessão e limpa a escola anterior.
+  function instalarAberturaFinal() {
+    const modulo = window.SIGEE_ESCOLAS_NOVA_SOLICITACAO;
+    if (!modulo || typeof modulo.iniciarNovaAbertura !== 'function') return false;
+    const abrir = function () { return modulo.iniciarNovaAbertura(); };
+    abrir.__SIGEE_ABERTURA_4513C__ = true;
+    window.abrirFormularioNovaSolicitacao = abrir;
+    try { abrirFormularioNovaSolicitacao = abrir; } catch (_) {}
+    return true;
+  }
+  if (!instalarAberturaFinal()) window.addEventListener('load', instalarAberturaFinal, { once: true });
 })();
 </script>
 
