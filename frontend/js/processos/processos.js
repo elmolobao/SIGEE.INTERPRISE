@@ -1,3 +1,4 @@
+/* SIGEE RC4.5.27 — estabilidade e desempenho da Central de Processos */
 /* SIGEE RC4.5.2 — Edição de processo: NTE herdado do registro e bloqueado */
 /* SIGEE PROCESSOS PATCH 2.5.4 — edição por perfil, escola e responsável persistentes */
 /* SIGEE PROCESSOS PATCH 2.5.1A — responsável persistente */
@@ -595,59 +596,69 @@
     function renderizarProcessos() {
         const corpo = document.getElementById('tabela-processos-corpo');
         if (!corpo) return;
-        corpo.innerHTML = '';
+
         const lista = processosVisiveis();
+        let html = '';
+
         if (!lista.length) {
-            corpo.innerHTML = '<tr><td colspan="8" class="p-8 text-center text-gray-400 font-bold">Nenhum processo encontrado.</td></tr>';
-            return;
+            html = '<tr><td colspan="8" class="p-8 text-center text-gray-400 font-bold">Nenhum processo encontrado.</td></tr>';
+        } else {
+            html = lista.map(p => {
+                const etapa = processoEtapa(p);
+                const codigo = codigoSIGEE(p);
+                if (!p.codigo_sigee) p.codigo_sigee = codigo;
+                const uAtual = usuario();
+                let botoesAdministrativos = '';
+                if (isMaster(uAtual)) {
+                    botoesAdministrativos = `
+                    <div class="mt-1 flex flex-wrap justify-center gap-1">
+                        <button onclick="editarProcessoMasterSIGEE(${p.id})" class="bg-blue-600 text-white text-[9px] px-2 py-0.5 rounded font-bold">Editar</button>
+                        <button onclick="regredirProcessoMasterSIGEE(${p.id})" class="bg-amber-700 text-white text-[9px] px-2 py-0.5 rounded font-bold">Regredir</button>
+                        <button onclick="avancarProcessoMasterSIGEE(${p.id})" class="bg-emerald-700 text-white text-[9px] px-2 py-0.5 rounded font-bold">Avançar</button>
+                        <button onclick="excluirProcessoMasterSIGEE(${p.id})" class="bg-red-700 text-white text-[9px] px-2 py-0.5 rounded font-bold">Excluir</button>
+                    </div>`;
+                } else if (isAdmin(uAtual) && mesmoNte(nteUsuario(uAtual), processoNte(p))) {
+                    botoesAdministrativos = `
+                    <div class="mt-1 flex flex-wrap justify-center gap-1">
+                        <button onclick="editarProcessoMasterSIGEE(${p.id})" class="bg-blue-600 text-white text-[9px] px-2 py-0.5 rounded font-bold">Corrigir Cadastro</button>
+                    </div>`;
+                }
+                return `
+                    <tr class="hover:bg-blue-950/70 text-white transition-colors">
+                        <td class="p-2.5">
+                            <span class="sigee-aluno-nome" title="${processoAluno(p)}">${processoAluno(p)}</span>
+                            <span class="sigee-codigo-linha">
+                                <button type="button" data-sigee-codigo="${codigo}" class="sigee-codigo-copiavel font-black text-cyan-200 hover:text-white tracking-wide" title="Clique para copiar">${codigo} <span aria-hidden="true">📋</span></button>
+                            </span>
+                        </td>
+                        <td class="p-2.5">
+                            <span class="sigee-escola-nome" title="${processoEscola(p)}">${processoEscola(p)}</span>
+                            <span class="sigee-escola-meta">${processoNte(p) || '-'}${processoCodigoSec(p) ? ` - Cód. SEC ${processoCodigoSec(p)}` : ''}</span>
+                        </td>
+                        <td class="p-2.5 text-center text-[10px] font-semibold">${processoModalidade(p) || '-'}</td>
+                        <td class="p-2.5 text-center">${prioridadeBadge(processoPrioridade(p))}</td>
+                        <td class="p-2.5 text-center">${prazoVisual(p)}${alertaPrazo(p)}</td>
+                        <td class="p-2.5 text-center text-[10px] font-semibold">${processoResponsavel(p)}</td>
+                        <td class="p-2.5 text-center"><span class="sigee-etapa-badge ${corEtapa(etapa)} ${normalizar(p.contexto_analise).includes("DESARQUIVAMENTO") ? "sigee-etapa-analise-desarquivamento" : ""}">${etapa}</span></td>
+                        <td class="p-2.5 text-center">${acaoFluxo(p)}<button onclick="abrirHistoricoSIGEE(${p.id})" class="ml-1 bg-slate-700 hover:bg-slate-600 text-white font-bold px-2 py-1 rounded text-[10px]">Histórico</button>${botoesAdministrativos}</td>
+                    </tr>`;
+            }).join('');
         }
-        lista.forEach(p => {
-            const etapa = processoEtapa(p);
-            const codigo = codigoSIGEE(p);
-            if (!p.codigo_sigee) p.codigo_sigee = codigo;
-            const uAtual = usuario();
-            let botoesAdministrativos = '';
-            if (isMaster(uAtual)) {
-                botoesAdministrativos = `
-                <div class="mt-1 flex flex-wrap justify-center gap-1">
-                    <button onclick="editarProcessoMasterSIGEE(${p.id})" class="bg-blue-600 text-white text-[9px] px-2 py-0.5 rounded font-bold">Editar</button>
-                    <button onclick="regredirProcessoMasterSIGEE(${p.id})" class="bg-amber-700 text-white text-[9px] px-2 py-0.5 rounded font-bold">Regredir</button>
-                    <button onclick="avancarProcessoMasterSIGEE(${p.id})" class="bg-emerald-700 text-white text-[9px] px-2 py-0.5 rounded font-bold">Avançar</button>
-                    <button onclick="excluirProcessoMasterSIGEE(${p.id})" class="bg-red-700 text-white text-[9px] px-2 py-0.5 rounded font-bold">Excluir</button>
-                </div>`;
-            } else if (isAdmin(uAtual) && mesmoNte(nteUsuario(uAtual), processoNte(p))) {
-                botoesAdministrativos = `
-                <div class="mt-1 flex flex-wrap justify-center gap-1">
-                    <button onclick="editarProcessoMasterSIGEE(${p.id})" class="bg-blue-600 text-white text-[9px] px-2 py-0.5 rounded font-bold">Corrigir Cadastro</button>
-                </div>`;
-            }
-            corpo.insertAdjacentHTML('beforeend', `
-                <tr class="hover:bg-blue-950/70 text-white transition-colors">
-                    <td class="p-2.5">
-                        <span class="sigee-aluno-nome" title="${processoAluno(p)}">${processoAluno(p)}</span>
-                        <span class="sigee-codigo-linha">
-                            <button type="button" data-sigee-codigo="${codigo}" class="sigee-codigo-copiavel font-black text-cyan-200 hover:text-white tracking-wide" title="Clique para copiar">${codigo} <span aria-hidden="true">📋</span></button>
-                        </span>
-                    </td>
-                    <td class="p-2.5">
-                        <span class="sigee-escola-nome" title="${processoEscola(p)}">${processoEscola(p)}</span>
-                        <span class="sigee-escola-meta">${processoNte(p) || '-'}${processoCodigoSec(p) ? ` - Cód. SEC ${processoCodigoSec(p)}` : ''}</span>
-                    </td>
-                    <td class="p-2.5 text-center text-[10px] font-semibold">${processoModalidade(p) || '-'}</td>
-                    <td class="p-2.5 text-center">${prioridadeBadge(processoPrioridade(p))}</td>
-                    <td class="p-2.5 text-center">${prazoVisual(p)}${alertaPrazo(p)}</td>
-                    <td class="p-2.5 text-center text-[10px] font-semibold">${processoResponsavel(p)}</td>
-                    <td class="p-2.5 text-center"><span class="sigee-etapa-badge ${corEtapa(etapa)} ${normalizar(p.contexto_analise).includes("DESARQUIVAMENTO") ? "sigee-etapa-analise-desarquivamento" : ""}">${etapa}</span></td>
-                    <td class="p-2.5 text-center">${acaoFluxo(p)}<button onclick="abrirHistoricoSIGEE(${p.id})" class="ml-1 bg-slate-700 hover:bg-slate-600 text-white font-bold px-2 py-1 rounded text-[10px]">Histórico</button>${botoesAdministrativos}</td>
-                </tr>`);
-        });
+
+        /* RC4.5.27: não reconstrói o DOM quando o conteúdo visual não mudou.
+         * Isso preserva foco, hover e estado dos botões, eliminando o “piscar”
+         * provocado por contadores, realtime e reinstalações de autoridade.
+         */
+        if (corpo.__sigeeHtmlProcessos === html) return;
+        corpo.__sigeeHtmlProcessos = html;
+        corpo.innerHTML = html;
     }
 
     function atualizarContadoresProcessos() {
         const u = usuario();
         let lista = listaProcessos().slice();
         if (!isGlobal(u)) lista = lista.filter(p => mesmoNte(nteUsuario(u), processoNte(p)));
-        const set = (id, valor) => { const el = document.getElementById(id); if (el) el.innerText = valor; };
+        const set = (id, valor) => { const el = document.getElementById(id); if (el && el.innerText !== String(valor)) el.innerText = valor; };
         set('count-horiz-todos', lista.length);
         const mapa = {
             'count-horiz-desarquivamento': 'Desarquivamento',
