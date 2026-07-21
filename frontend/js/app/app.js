@@ -1,3 +1,4 @@
+/* SIGEE RC4.5.11 — identidade canônica da escola por ID */
 /* SIGEE PATCH 2.5.8 — técnico de lançamento responsável pelo Desarquivamento */
 /* SIGEE PATCH 2.5.7C — responsável persistente no conversor principal e V38 */
 /* SIGEE PATCH 2.5.7B — responsável persistente na Central */
@@ -3144,43 +3145,22 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 const campoBusca =
                     document.getElementById('novo-proc-escola-busca-v23') ||
                     document.getElementById('novo-proc-escola-busca-sigee');
+                const idOculto = document.getElementById('novo-proc-escola-id');
 
+                // RC4.5.11: o ID é a única autoridade. Nome, MEC, cache e variáveis
+                // antigas nunca podem decidir qual escola será gravada.
                 const idSelecionado = String(
+                    idOculto?.value ||
                     campoPrincipal?.dataset?.escolaId ||
                     campoBusca?.dataset?.escolaId ||
+                    window.SIGEE_ESCOLA_NOVA_SOLICITACAO?.id ||
+                    window.SIGEE_ESCOLA_NOVA_SOLICITACAO?.escola_id ||
+                    window.SIGEE_NOVA_SOLICITACAO_ESCOLA_ID ||
                     ''
                 ).trim();
 
-                const mecSelecionado = String(
-                    campoPrincipal?.dataset?.codMec ||
-                    campoBusca?.dataset?.codMec ||
-                    document.getElementById('novo-proc-escola-cod-mec')?.value ||
-                    document.getElementById('novo-autofill-mec')?.value ||
-                    ''
-                ).trim();
+                if (!idSelecionado) return null;
 
-                const nomeSelecionado = upperV25(
-                    campoPrincipal?.value ||
-                    campoBusca?.value ||
-                    ''
-                );
-
-                let escola =
-                    escolaSelecionadaSIGEE_V25 ||
-                    (Array.isArray(escolasDB) ? escolasDB.find(e =>
-                        (idSelecionado && String(e.id || '') === idSelecionado) ||
-                        (mecSelecionado && String(e.cod_mec || '') === mecSelecionado) ||
-                        upperV25(e.nome || e.nome_escola || e.instituicao || '') === nomeSelecionado
-                    ) : null);
-
-                if (escola) return escola;
-
-                /*
-                 * O autocomplete pode vir de um módulo posterior e preencher
-                 * somente o nome/MEC no DOM, sem atualizar escolasDB nem a
-                 * variável interna escolaSelecionadaSIGEE_V25. Nesse caso,
-                 * confirma a escola diretamente no Supabase.
-                 */
                 try {
                     const client =
                         (typeof obterSupabaseSIGEE === 'function' && obterSupabaseSIGEE()) ||
@@ -3189,46 +3169,63 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                             ? window.SIGEE_SUPABASE.criarCliente()
                             : null);
 
-                    if (client && typeof client.from === 'function') {
-                        let query = client
-                            .from((window.SIGEE_SUPABASE_TABELAS && window.SIGEE_SUPABASE_TABELAS.escolas) || 'escolas_sigee')
-                            .select('id,cod_mec,nome_escola,nome,municipio,nte_id,nte,dependencia_adm,dependencia,situacao_funcional,situacao,status_acervo,acervo,local_acervo')
-                            .limit(1);
+                    if (!client || typeof client.from !== 'function') return null;
 
-                        if (idSelecionado) {
-                            query = query.eq('id', Number(idSelecionado) || idSelecionado);
-                        } else if (mecSelecionado) {
-                            query = query.eq('cod_mec', mecSelecionado);
-                        } else if (nomeSelecionado) {
-                            const nomeSeguro = nomeSelecionado.replace(/[,%]/g, ' ').trim();
-                            query = query.or(`nome_escola.ilike.${nomeSeguro},nome.ilike.${nomeSeguro}`);
-                        } else {
-                            return null;
+                    const tabela =
+                        window.SIGEE_CONFIG?.supabase?.tabelas?.escolas ||
+                        (window.SIGEE_SUPABASE_TABELAS && window.SIGEE_SUPABASE_TABELAS.escolas) ||
+                        'escolas_sigee';
+
+                    const { data: escola, error } = await client
+                        .from(tabela)
+                        .select('id,cod_mec,nome_escola,nome,municipio,nte_id,nte,dependencia_adm,dependencia,situacao_funcional,situacao,status_acervo,acervo,local_acervo,ativo')
+                        .eq('id', Number(idSelecionado) || idSelecionado)
+                        .maybeSingle();
+
+                    if (error || !escola) return null;
+
+                    const nomeOficial = String(escola.nome_escola || escola.nome || '').trim();
+                    const escolaCanonica = {
+                        ...escola,
+                        id: String(escola.id),
+                        escola_id: String(escola.id),
+                        nome: nomeOficial,
+                        nome_escola: nomeOficial
+                    };
+
+                    escolaSelecionadaSIGEE_V25 = escolaCanonica;
+                    window.SIGEE_ESCOLA_NOVA_SOLICITACAO = escolaCanonica;
+                    window.SIGEE_NOVA_SOLICITACAO_ESCOLA_ID = String(escola.id);
+                    window.SIGEE_NOVA_SOLICITACAO_ESCOLA_NOME = nomeOficial;
+                    window.SIGEE_NOVA_SOLICITACAO_COD_MEC = String(escola.cod_mec || '');
+
+                    if (idOculto) idOculto.value = String(escola.id);
+                    if (campoPrincipal) {
+                        campoPrincipal.dataset.escolaId = String(escola.id);
+                        campoPrincipal.dataset.escolaNome = nomeOficial;
+                        campoPrincipal.dataset.codMec = String(escola.cod_mec || '');
+                        if (campoPrincipal.tagName === 'SELECT') {
+                            campoPrincipal.innerHTML = '';
+                            const opt = document.createElement('option');
+                            opt.value = nomeOficial;
+                            opt.textContent = nomeOficial;
+                            opt.selected = true;
+                            campoPrincipal.appendChild(opt);
                         }
-
-                        const resposta = await query.maybeSingle();
-                        if (!resposta.error && resposta.data) {
-                            escola = resposta.data;
-                            escolaSelecionadaSIGEE_V25 = escola;
-
-                            if (campoPrincipal) {
-                                campoPrincipal.dataset.escolaId = escola.id || '';
-                                campoPrincipal.dataset.codMec = escola.cod_mec || '';
-                            }
-                            if (campoBusca) {
-                                campoBusca.dataset.escolaId = escola.id || '';
-                                campoBusca.dataset.codMec = escola.cod_mec || '';
-                                campoBusca.dataset.escolaSelecionada = '1';
-                            }
-
-                            return escola;
-                        }
+                        campoPrincipal.value = nomeOficial;
                     }
-                } catch (erro) {
-                    console.warn('[SIGEE 2.5.4] Não foi possível confirmar a escola selecionada.', erro);
-                }
+                    if (campoBusca) {
+                        campoBusca.value = nomeOficial;
+                        campoBusca.dataset.escolaId = String(escola.id);
+                        campoBusca.dataset.codMec = String(escola.cod_mec || '');
+                        campoBusca.dataset.escolaSelecionada = '1';
+                    }
 
-                return null;
+                    return escolaCanonica;
+                } catch (erro) {
+                    console.warn('[SIGEE RC4.5.11] Não foi possível confirmar a escola pelo ID.', erro);
+                    return null;
+                }
             }
 
             window.salvarNovaSolicitacao = async function(event){
@@ -8014,23 +8011,6 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     ['novo-proc-aluno','novo-proc-documento','novo-proc-modalidade','novo-proc-ensino','novo-autofill-mec','novo-autofill-nte','novo-autofill-municipio','novo-autofill-dep','novo-autofill-situacao','novo-autofill-acervo','novo-autofill-local-acervo'].forEach(id=>{
       const el=document.getElementById(id); if(!el) return; if(el.tagName==='SELECT') el.selectedIndex=0; else el.value='';
     });
-
-    // RC4.5.10: limpa integralmente a identidade anterior da escola.
-    const selectEscola = document.getElementById('novo-proc-escola');
-    if (selectEscola) {
-      selectEscola.innerHTML = '<option value="">SELECIONE A INSTITUIÇÃO</option>';
-      selectEscola.value = '';
-      delete selectEscola.dataset.escolaId;
-      delete selectEscola.dataset.escolaNome;
-      delete selectEscola.dataset.codMec;
-    }
-    const idOculto = document.getElementById('novo-proc-escola-id');
-    if (idOculto) idOculto.value = '';
-    window.SIGEE_ESCOLA_NOVA_SOLICITACAO = null;
-    window.SIGEE_NOVA_SOLICITACAO_ESCOLA_ID = '';
-    window.SIGEE_NOVA_SOLICITACAO_ESCOLA_NOME = '';
-    window.SIGEE_NOVA_SOLICITACAO_COD_MEC = '';
-
     const chk=document.getElementById('f01-chk-acolhido'); if(chk) chk.checked=false;
     const btn=document.getElementById('btn-submeter-nova-solicitacao'); if(btn) btn.disabled=true;
     document.getElementById('modal-nova-solicitacao')?.classList.remove('hidden');
@@ -8038,20 +8018,34 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   };
   try{ abrirFormularioNovaSolicitacao = window.abrirFormularioNovaSolicitacao; }catch(e){}
 
-  /*
-   * RC4.5.10 — AUTORIDADE ÚNICA DA ESCOLA
-   * O app antigo substituía o <select id="novo-proc-escola"> por um <input>
-   * com o mesmo ID. Isso destruía os datasets e o objeto de identidade criados
-   * pelo módulo oficial escolas.js. A partir daqui, app.js não cria autocomplete;
-   * apenas delega ao módulo oficial carregado em js/escolas/escolas.js.
-   */
   function instalarAutocompleteEscolaCore(){
-    const oficial = window.SIGEE_Escolas && window.SIGEE_Escolas.autocompleteNovaSolicitacao;
-    if (typeof oficial === 'function') {
-      oficial();
-      return;
-    }
-    console.error('[SIGEE RC4.5.10] Autocomplete oficial de escolas não localizado.');
+    const original = document.getElementById('novo-proc-escola'); if(!original) return;
+    if(original.dataset.autocompleteCore === '1') return;
+    const parent = original.parentElement;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.id = 'novo-proc-escola';
+    input.required = true;
+    input.autocomplete = 'off';
+    input.placeholder = 'Digite pelo menos 2 letras da escola...';
+    input.className = original.className || 'w-full p-2 border rounded-lg text-xs focus:outline-none bg-white font-semibold';
+    input.dataset.autocompleteCore = '1';
+    const hidden = document.createElement('input');
+    hidden.type = 'hidden'; hidden.id = 'novo-proc-escola-cod-mec';
+    const box = document.createElement('div');
+    box.id = 'novo-proc-escola-resultados';
+    box.className = 'hidden absolute z-[9999] bg-white border rounded-lg shadow-xl max-h-64 overflow-y-auto w-full text-xs';
+    parent.style.position = 'relative';
+    original.replaceWith(input);
+    parent.appendChild(hidden);
+    parent.appendChild(box);
+    let timer=null;
+    input.addEventListener('input', ()=>{
+      clearTimeout(timer);
+      timer=setTimeout(()=>buscarSugestoesEscolaCore(input.value, box, input, hidden), 250);
+    });
+    input.addEventListener('focus', ()=>{ if(txt(input.value).length>=2) buscarSugestoesEscolaCore(input.value, box, input, hidden); });
+    document.addEventListener('click', (ev)=>{ if(!parent.contains(ev.target)) box.classList.add('hidden'); });
   }
   async function buscarSugestoesEscolaCore(termo, box, input, hidden){
     termo = txt(termo);
