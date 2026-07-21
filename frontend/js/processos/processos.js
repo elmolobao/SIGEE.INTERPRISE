@@ -434,8 +434,7 @@
         };
     }
     async function salvarProcesso(p) {
-        /* RC4.5.3: persistência individual. Nunca sincronizar toda a coleção
-           antes de salvar uma movimentação de workflow. */
+        try { if (typeof salvarBancoLocalSIGEE === 'function') salvarBancoLocalSIGEE(); } catch (e) {}
         try {
             const c = supabaseClient();
             if (!c || !p) return;
@@ -1506,16 +1505,30 @@
     const {error}=await c.from('processo_pendencias').insert(linhas);if(error)throw error;
   }
   async function marcarRecebidas(ids,ator){
-    if(!ids.length)return;
+    const unicos=[...new Set((ids||[]).map(Number).filter(Number.isFinite))];
+    if(!unicos.length)throw new Error('Marque ao menos um item recebido.');
     const c=cliente();if(!c)throw new Error('Cliente Supabase indisponível');
     const identidade=ator||identidadeSessao();
-    const {error}=await c.from('processo_pendencias').update({
+
+    /*
+     * RC4.5.4 — idempotência do recebimento de pendência.
+     * Somente itens ainda pendentes podem ser alterados. A resposta do banco
+     * confirma exatamente quais linhas foram recebidas, impedindo clique duplo,
+     * reenvio do formulário ou repetição após atualização da tela.
+     */
+    const {data,error}=await c.from('processo_pendencias').update({
       status:'recebido',
       recebido_em:agoraISO(),
       recebido_por:identidade.nome,
       recebido_por_email:identidade.email
-    }).in('id',ids);
+    }).in('id',unicos).eq('status','pendente').select('id');
     if(error)throw error;
+
+    const confirmados=(data||[]).map(r=>Number(r.id));
+    if(confirmados.length!==unicos.length){
+      throw new Error('Um ou mais documentos já haviam sido recebidos. Atualize o processo antes de registrar novamente.');
+    }
+    return confirmados;
   }
 
   function retornarAnaliseConsolidada(id){
@@ -1591,7 +1604,7 @@
     const validar=()=>{if(btn)btn.disabled=!(chkEmail?.checked&&el.querySelector('input[name="receb331"]:checked'));};
     chkEmail?.addEventListener('change',validar);el.querySelectorAll('input[name="receb331"]').forEach(x=>x.addEventListener('change',validar));
     el.querySelector('[data-hist33]')?.addEventListener('click',()=>abrirHistorico(id,()=>abrirTratarPendencia(id)));
-    btn?.addEventListener('click',async()=>{const ids=[...el.querySelectorAll('input[name="receb331"]:checked')].map(x=>Number(x.value));if(!ids.length)return alert('Marque ao menos um item recebido.');if(!chkEmail?.checked)return alert('Confirme o envio da mensagem institucional.');try{btn.disabled=true;await marcarRecebidas(ids,ator);const restantes=pendentes.filter(x=>!ids.includes(Number(x.id)));const completo=restantes.length===0;p.pendencia_aberta=!completo;p.etapa=p.etapa_atual='Pendência';p.data_etapa_atual=agoraISO();p.tecnico_responsavel=ator.nome;p.pendencia_aluno_itens=restantes.filter(x=>x.grupo==='aluno').map(x=>x.item);p.pendencia_instituicao_itens=restantes.filter(x=>x.grupo==='instituicao').map(x=>x.item);await salvar(p);const recebidosAgora=pendentes.filter(x=>ids.includes(Number(x.id))).map(x=>x.item);await registrarHistorico(p,'Pendência',completo?'Pendência resolvida':'Recebimento parcial',`Recebido: ${recebidosAgora.join(', ')} | Mensagem confirmada: ${msg}`,{itens_recebidos:recebidosAgora,pendencia_resolvida:completo,mensagem_confirmada:msg},ator);if(completo){fecharModal();toast('Pendência totalmente resolvida. Selecione o digitador e confirme a mensagem obrigatória.');setTimeout(()=>{const wf=window.SIGEE_WORKFLOW_093; if(wf?.abrirEncaminharDigitacaoPendencia) wf.abrirEncaminharDigitacaoPendencia(id); else window.abrirEncaminharDigitacaoPendenciaSIGEE?.(id);},0);}else{toast('Recebimento parcial registrado.');await abrirTratarPendencia(id);}}catch(e){console.error(e);btn.disabled=false;alert('Não foi possível registrar o recebimento: '+(e.message||e));}});
+    btn?.addEventListener('click',async()=>{const ids=[...el.querySelectorAll('input[name="receb331"]:checked')].map(x=>Number(x.value));if(!ids.length)return alert('Marque ao menos um item recebido.');if(!chkEmail?.checked)return alert('Confirme o envio da mensagem institucional.');try{btn.disabled=true;await marcarRecebidas(ids,ator);const restantes=pendentes.filter(x=>!ids.includes(Number(x.id)));const completo=restantes.length===0;p.pendencia_aberta=!completo;p.etapa=p.etapa_atual='Pendência';p.data_etapa_atual=agoraISO();p.tecnico_responsavel=ator.nome;p.pendencia_aluno_itens=restantes.filter(x=>x.grupo==='aluno').map(x=>x.item);p.pendencia_instituicao_itens=restantes.filter(x=>x.grupo==='instituicao').map(x=>x.item);Object.defineProperty(p,'__sigee_operacao_pendencia',{value:'recebimento',configurable:true,enumerable:false,writable:true});try{await salvar(p);}finally{try{delete p.__sigee_operacao_pendencia;}catch(_){p.__sigee_operacao_pendencia=null;}}const recebidosAgora=pendentes.filter(x=>ids.includes(Number(x.id))).map(x=>x.item);await registrarHistorico(p,'Pendência',completo?'Pendência resolvida':'Recebimento parcial',`Recebido: ${recebidosAgora.join(', ')} | Mensagem confirmada: ${msg}`,{itens_recebidos:recebidosAgora,pendencia_resolvida:completo,mensagem_confirmada:msg},ator);if(completo){fecharModal();toast('Pendência totalmente resolvida. Selecione o digitador e confirme a mensagem obrigatória.');setTimeout(()=>{const wf=window.SIGEE_WORKFLOW_093; if(wf?.abrirEncaminharDigitacaoPendencia) wf.abrirEncaminharDigitacaoPendencia(id); else window.abrirEncaminharDigitacaoPendenciaSIGEE?.(id);},0);}else{toast('Recebimento parcial registrado.');await abrirTratarPendencia(id);}}catch(e){console.error(e);btn.disabled=false;alert('Não foi possível registrar o recebimento: '+(e.message||e));}});
   }
 
   function formatarSEI(v){const d=txt(v).replace(/\D/g,'').slice(0,20);let o='';if(d.length)o+=d.slice(0,3);if(d.length>3)o+='.'+d.slice(3,7);if(d.length>7)o+='.'+d.slice(7,11);if(d.length>11)o+='.'+d.slice(11,18);if(d.length>18)o+='-'+d.slice(18,20);return o;}
@@ -1663,9 +1676,6 @@
   window.abrirRegistrarPendenciaSIGEE=abrirFormularioPendencia;
   window.abrirIndeferimentoSIGEE=abrirFormularioIndeferimento;
   window.abrirPendenciaSIGEE=abrirTratarPendencia;
-  /* RC4.5.3: autoridade única do fluxo Receber/Tratar Pendência.
-     Sobrescreve as implementações legadas carregadas pelo app.js. */
-  window.abrirModalFluxoPendencia=abrirTratarPendencia;
   window.abrirHistoricoProcessoSIGEE=abrirHistorico;
   window.abrirHistoricoSIGEE=abrirHistorico;
 })();
@@ -2250,7 +2260,12 @@
     }
     if (e === 'PENDENCIA') {
       const itens = [...(p.pendencia_aluno_itens || []), ...(p.pendencia_instituicao_itens || [])];
-      if (!itens.length || !p.pendencia_aberta) throw new Error('Para registrar Pendência, selecione ao menos um item e confirme a abertura da pendência.');
+      const recebendoDocumento = p && p.__sigee_operacao_pendencia === 'recebimento';
+      /* A validação de abertura não pode bloquear o encerramento/recebimento
+         de uma pendência já existente. */
+      if (!recebendoDocumento && (!itens.length || !p.pendencia_aberta)) {
+        throw new Error('Para registrar Pendência, selecione ao menos um item e confirme a abertura da pendência.');
+      }
     }
     if (e === 'DIGITACAO') {
       if (!texto(p.digitador || p.digitador_nome || p.tecnico_responsavel)) throw new Error('Selecione o responsável pela Digitação.');
