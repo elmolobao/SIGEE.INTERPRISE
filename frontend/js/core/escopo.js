@@ -6,7 +6,7 @@
 if(window.__SIGEE_ESCOPO_RC470__)return;window.__SIGEE_ESCOPO_RC470__=true;
 function user(t){return t||window.SIGEE_SESSION?.getUser?.()||{};}
 function norm(v){return String(v??'').trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();}
-function number(v){if(v===0||v==='0')return 0;const m=String(v??'').match(/(?:NTE\s*[-–— ]?)?(\d{1,2})/i);return m?Number(m[1]):null;}
+function number(v){if(v===0||v==='0')return 0;if(typeof v==='number'&&Number.isFinite(v))return v;const m=String(v??'').match(/(?:NTE\s*[-–— ]?)?(\d{1,2})/i);return m?Number(m[1]):null;}
 function profile(t){return window.SIGEE_PERFIS?.normalizar?.(user(t)?.perfil)||'';}
 function isGlobal(t){return window.SIGEE_PERFIS?.ehGlobal?.(profile(t))===true;}
 function userNteId(t){const u=user(t);const direct=u.nte_id??u.id_nte??u.territorio_id;const n=number(direct);if(n!==null)return n;return number(u.nte??u.nte_nome??u.nte_vinculado??u.grupo??u.territorio);}
