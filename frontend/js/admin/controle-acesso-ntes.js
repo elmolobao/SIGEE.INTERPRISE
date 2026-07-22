@@ -18,7 +18,14 @@
     return m?`NTE ${String(Number(m[1])).padStart(2,'0')}`:t;
   };
   function cliente(){return window.SIGEE_SUPABASE?.criarCliente?.()||window.criarClienteSupabaseSIGEE?.()||window.SIGEE_SUPABASE_CLIENT||window.supabaseClient||null;}
-  function usuarioAtual(){return window.usuarioLogado||window.SIGEE_SESSION?.getUser?.()||null;}
+  function usuarioAtual(){
+    const direto=window.usuarioLogado||window.usuarioAtual||window.currentUser||window.SIGEE_USUARIO_ATUAL||window.SIGEE_SESSION?.getUser?.();
+    if(direto) return direto;
+    for(const chave of ['sigee_usuario','usuarioLogado','usuario_sigee','sigee_user']){
+      try{const valor=localStorage.getItem(chave)||sessionStorage.getItem(chave); if(valor){const obj=JSON.parse(valor); if(obj) return obj;}}catch(_){ }
+    }
+    return null;
+  }
   function esconderAbas(){document.querySelectorAll('#sistema-dashboard main > section[id^="aba-"]').forEach(s=>s.classList.add('hidden'));}
   function mensagemRegistro(r){return texto(r?.mensagem)||`O acesso ao SIGEE encontra-se temporariamente suspenso para ${nteCanonico(r?.nte)}. Procure a Coordenação de Legalização Escolar — CLO.`;}
 
@@ -98,10 +105,27 @@
   }
 
   function garantirItemMenu(){
-    if(!perfilMaster(usuarioAtual())) return;
-    const sub=document.getElementById('submenu-administracao'); if(!sub||sub.querySelector('[data-admin="controle-ntes"]')) return;
-    const b=document.createElement('button'); b.type='button'; b.dataset.admin='controle-ntes'; b.textContent='⛔ Controle de Acesso dos NTEs';
-    b.addEventListener('click',abrirPainel); sub.appendChild(b);
+    const u=usuarioAtual();
+    if(!perfilMaster(u)) return false;
+    if(document.getElementById('menu-controle-acesso-ntes')) return true;
+
+    const referencia=document.getElementById('menu-usuarios')||document.getElementById('menu-logs');
+    const container=document.getElementById('submenu-administracao')||referencia?.parentElement;
+    if(!container) return false;
+
+    const b=document.createElement('button');
+    b.id='menu-controle-acesso-ntes';
+    b.type='button';
+    b.dataset.admin='controle-ntes';
+    b.className=referencia?.className||'sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer';
+    b.classList.remove('hidden');
+    b.innerHTML='⛔ Controle de Acesso dos NTEs';
+    b.addEventListener('click',function(ev){ev.preventDefault(); abrirPainel();});
+
+    if(document.getElementById('submenu-administracao')) container.appendChild(b);
+    else if(document.getElementById('menu-usuarios')) document.getElementById('menu-usuarios').insertAdjacentElement('afterend',b);
+    else container.appendChild(b);
+    return true;
   }
 
   function abrirPainel(){
@@ -151,6 +175,7 @@
     clearInterval(timerSessao); timerSessao=setInterval(validarSessaoAtual,INTERVALO_VALIDACAO);
   }
   document.addEventListener('DOMContentLoaded',()=>setTimeout(iniciar,200));
+  let tentativasMenu=0; const retryMenu=setInterval(()=>{tentativasMenu++; if(garantirItemMenu()||tentativasMenu>=30) clearInterval(retryMenu);},500);
   window.addEventListener('load',()=>setTimeout(iniciar,600));
   document.addEventListener('sigee:usuario-logado',()=>setTimeout(()=>{garantirItemMenu();validarSessaoAtual();},200));
   window.addEventListener('sigee:login-concluido',()=>setTimeout(()=>{garantirItemMenu();validarSessaoAtual();},200));
