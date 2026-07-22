@@ -944,3 +944,185 @@ body.sigee-modal-open{overflow:hidden!important}
 @media(max-width:900px){.sigee-modal33 .sigee-resumo33,.sigee-modal33.workflow093 .sigee-resumo33{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
 @media(max-width:640px){.sigee-wfe-backdrop,[id^="sigee-modal-workflow"],.sigee-modal33-overlay{padding:8px!important}.sigee-wfe-panel,.sigee-modal33,.sigee-modal33.workflow093{width:100%!important;max-height:calc(100dvh - 16px)!important;border-radius:14px!important}.sigee-wfe-panel>.sigee-wfe-body,.sigee-modal33>.sigee-modal33-body{padding:14px!important}.sigee-modal33 .sigee-resumo33,.sigee-modal33.workflow093 .sigee-resumo33{grid-template-columns:1fr!important}.sigee-acoes33,.sigee-rodape33{flex-direction:column!important;align-items:stretch!important}.sigee-acoes33 .btn33,.sigee-rodape33 button{width:100%!important}}
 @media(max-height:760px){.sigee-wfe-panel,.sigee-modal33,.sigee-modal33.workflow093{max-height:calc(100dvh - 16px)!important}.sigee-wfe-panel>.sigee-wfe-head,.sigee-modal33>.sigee-modal33-header{padding-top:12px!important;padding-bottom:12px!important}.sigee-wfe-panel>.sigee-wfe-body,.sigee-modal33>.sigee-modal33-body{padding-top:14px!important;padding-bottom:14px!important}}
+
+/* =====================================================================
+   SIGEE RC4.5.32 — Autoridade cromática uniforme do Workflow
+   Alinha etapa/cartão, ícone e botão e consolida ações da Análise.
+   ===================================================================== */
+:root {
+  --sigee-wf-documento: #16a34a;
+  --sigee-wf-documento-hover: #15803d;
+  --sigee-wf-reiteracao: #facc15;
+  --sigee-wf-reiteracao-hover: #eab308;
+  --sigee-wf-urgencia: #f97316;
+  --sigee-wf-urgencia-hover: #ea580c;
+  --sigee-wf-confirmacao: #dc2626;
+  --sigee-wf-confirmacao-hover: #b91c1c;
+  --sigee-wf-atas: #1f2937;
+  --sigee-wf-atas-hover: #111827;
+  --sigee-wf-retificacao: #6b7280;
+  --sigee-wf-retificacao-hover: #4b5563;
+  --sigee-wf-executada: #94a3b8;
+  --sigee-wf-bloqueada: #cbd5e1;
+}
+
+/* Cartão, título e ícone usam exatamente a mesma família cromática. */
+#sigee-wfe-menu .sigee-wfe-documento {
+  border-color: var(--sigee-wf-documento) !important;
+  background: rgba(22, 163, 74, .09) !important;
+}
+#sigee-wfe-menu .sigee-wfe-documento .sigee-wfe-action-icon {
+  background: rgba(22, 163, 74, .14) !important;
+  color: var(--sigee-wf-documento) !important;
+}
+#sigee-wfe-menu .sigee-wfe-documento strong { color: #166534 !important; }
+
+#sigee-wfe-menu .sigee-wfe-action-reiteracao {
+  border-color: var(--sigee-wf-reiteracao) !important;
+  background: rgba(250, 204, 21, .10) !important;
+}
+#sigee-wfe-menu .sigee-wfe-action-reiteracao .sigee-wfe-action-icon {
+  background: rgba(250, 204, 21, .19) !important;
+  color: #a16207 !important;
+}
+#sigee-wfe-menu .sigee-wfe-action-reiteracao strong { color: #a16207 !important; }
+
+#sigee-wfe-menu .sigee-wfe-action-reiteracao-urgente {
+  border-color: var(--sigee-wf-urgencia) !important;
+  background: rgba(249, 115, 22, .10) !important;
+}
+#sigee-wfe-menu .sigee-wfe-action-reiteracao-urgente .sigee-wfe-action-icon {
+  background: rgba(249, 115, 22, .17) !important;
+  color: #c2410c !important;
+}
+#sigee-wfe-menu .sigee-wfe-action-reiteracao-urgente strong { color: #c2410c !important; }
+
+#sigee-wfe-menu .sigee-wfe-action-confirmacao {
+  border-color: var(--sigee-wf-confirmacao) !important;
+  background: rgba(220, 38, 38, .09) !important;
+}
+#sigee-wfe-menu .sigee-wfe-action-confirmacao .sigee-wfe-action-icon {
+  background: rgba(220, 38, 38, .14) !important;
+  color: var(--sigee-wf-confirmacao) !important;
+}
+#sigee-wfe-menu .sigee-wfe-action-confirmacao strong { color: #b91c1c !important; }
+
+#sigee-wfe-menu .sigee-wfe-action-atas {
+  border-color: var(--sigee-wf-atas) !important;
+  background: rgba(31, 41, 55, .08) !important;
+}
+#sigee-wfe-menu .sigee-wfe-action-atas .sigee-wfe-action-icon {
+  background: rgba(31, 41, 55, .14) !important;
+  color: var(--sigee-wf-atas) !important;
+}
+#sigee-wfe-menu .sigee-wfe-action-atas strong { color: var(--sigee-wf-atas) !important; }
+
+#sigee-wfe-menu .sigee-wfe-action-retificacao {
+  border-color: var(--sigee-wf-retificacao) !important;
+  background: rgba(107, 114, 128, .09) !important;
+}
+#sigee-wfe-menu .sigee-wfe-action-retificacao .sigee-wfe-action-icon {
+  background: rgba(107, 114, 128, .15) !important;
+  color: var(--sigee-wf-retificacao) !important;
+}
+#sigee-wfe-menu .sigee-wfe-action-retificacao strong { color: #4b5563 !important; }
+
+/* Botões do Workflow: mesma cor principal e hover da ação correspondente. */
+#sigee-wfe-menu .sigee-wfe-btn-documento {
+  background: var(--sigee-wf-documento) !important;
+  border-color: var(--sigee-wf-documento-hover) !important;
+}
+#sigee-wfe-menu .sigee-wfe-btn-documento:not(:disabled):hover { background: var(--sigee-wf-documento-hover) !important; }
+#sigee-wfe-menu .sigee-wfe-btn-reiteracao {
+  background: var(--sigee-wf-reiteracao) !important;
+  border-color: #ca8a04 !important;
+  color: #1f2937 !important;
+}
+#sigee-wfe-menu .sigee-wfe-btn-reiteracao:not(:disabled):hover { background: var(--sigee-wf-reiteracao-hover) !important; }
+#sigee-wfe-menu .sigee-wfe-btn-reiteracao-urgente {
+  background: var(--sigee-wf-urgencia) !important;
+  border-color: #c2410c !important;
+}
+#sigee-wfe-menu .sigee-wfe-btn-reiteracao-urgente:not(:disabled):hover { background: var(--sigee-wf-urgencia-hover) !important; }
+#sigee-wfe-menu .sigee-wfe-btn-confirmacao {
+  background: var(--sigee-wf-confirmacao) !important;
+  border-color: #991b1b !important;
+}
+#sigee-wfe-menu .sigee-wfe-btn-confirmacao:not(:disabled):hover { background: var(--sigee-wf-confirmacao-hover) !important; }
+#sigee-wfe-menu .sigee-wfe-btn-atas {
+  background: var(--sigee-wf-atas) !important;
+  border-color: #111827 !important;
+}
+#sigee-wfe-menu .sigee-wfe-btn-atas:not(:disabled):hover { background: var(--sigee-wf-atas-hover) !important; }
+#sigee-wfe-menu .sigee-wfe-btn-retificacao {
+  background: var(--sigee-wf-retificacao) !important;
+  border-color: #4b5563 !important;
+}
+#sigee-wfe-menu .sigee-wfe-btn-retificacao:not(:disabled):hover { background: var(--sigee-wf-retificacao-hover) !important; }
+
+/* Estados não operacionais permanecem neutros, independentemente da ação. */
+#sigee-wfe-menu .sigee-wfe-action:has(.sigee-wfe-btn:disabled) {
+  border-color: var(--sigee-wf-bloqueada) !important;
+  background: rgba(203, 213, 225, .22) !important;
+}
+#sigee-wfe-menu .sigee-wfe-btn:disabled {
+  background: var(--sigee-wf-bloqueada) !important;
+  border-color: #94a3b8 !important;
+  color: #475569 !important;
+}
+
+/* Janela de Análise: uma única semântica visual em qualquer implementação. */
+.sigee-modal33 .btn33[data-dig093],
+.sigee-modal33 .btn33[data-prosseguir33] {
+  background: #15803d !important;
+  border-color: #166534 !important;
+  color: #fff !important;
+  box-shadow: 0 7px 18px rgba(21, 128, 61, .24) !important;
+}
+.sigee-modal33 .btn33[data-dig093]:hover,
+.sigee-modal33 .btn33[data-prosseguir33]:hover { background: #166534 !important; }
+
+.sigee-modal33 .btn33[data-pend093],
+.sigee-modal33 .btn33[data-pendencia33] {
+  background: #facc15 !important;
+  border-color: #ca8a04 !important;
+  color: #172033 !important;
+  box-shadow: 0 7px 18px rgba(250, 204, 21, .24) !important;
+}
+.sigee-modal33 .btn33[data-pend093]:hover,
+.sigee-modal33 .btn33[data-pendencia33]:hover { background: #eab308 !important; }
+
+.sigee-modal33 .btn33[data-ind093],
+.sigee-modal33 .btn33[data-indeferir33],
+.sigee-modal33 .btn33[data-confirmar-ind33],
+.sigee-modal33.analise .btn33-vermelho,
+.sigee-modal33.indeferimento .btn33-vermelho {
+  background: #dc2626 !important;
+  background-image: none !important;
+  border: 1px solid #991b1b !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+  box-shadow: 0 8px 20px rgba(220, 38, 38, .27) !important;
+}
+.sigee-modal33 .btn33[data-ind093]:hover,
+.sigee-modal33 .btn33[data-indeferir33]:hover,
+.sigee-modal33 .btn33[data-confirmar-ind33]:hover,
+.sigee-modal33.analise .btn33-vermelho:hover,
+.sigee-modal33.indeferimento .btn33-vermelho:hover {
+  background: #b91c1c !important;
+  border-color: #7f1d1d !important;
+}
+.sigee-modal33 .btn33[data-ind093]:active,
+.sigee-modal33 .btn33[data-indeferir33]:active,
+.sigee-modal33 .btn33[data-confirmar-ind33]:active {
+  background: #991b1b !important;
+}
+
+/* Corrige a associação indevida entre botão cinza e ação crítica. */
+.btn33-cinza {
+  background: #64748b !important;
+  background-image: none !important;
+  border-color: #475569 !important;
+  color: #fff !important;
+}
+.btn33-cinza:hover { background: #475569 !important; }
