@@ -1,10 +1,11 @@
-/* SIGEE RC4.6.0 — Controle territorial de acesso dos NTEs */
+/* SIGEE RC4.6.2 — Controle territorial de acesso dos NTEs */
 (function(window, document){
   'use strict';
-  if(window.__SIGEE_CONTROLE_ACESSO_NTES_RC460__) return;
-  window.__SIGEE_CONTROLE_ACESSO_NTES_RC460__=true;
+  if(window.__SIGEE_CONTROLE_ACESSO_NTES_RC462__) return;
+  window.__SIGEE_CONTROLE_ACESSO_NTES_RC462__=true;
 
   const TABELA='controle_acesso_ntes';
+  const TABELA_NTES='ntes_sigee';
   const INTERVALO_VALIDACAO=60000;
   let controleCache=[];
   let timerSessao=null;
@@ -62,7 +63,7 @@
       }
       return original?.call(window,event);
     }catch(erro){
-      console.error('[SIGEE RC4.6.0] Validação territorial falhou.',erro);
+      console.error('[SIGEE RC4.6.2] Validação territorial falhou.',erro);
       alert(erro.message||'Não foi possível validar a autorização territorial.');
       return false;
     }
@@ -79,7 +80,7 @@
         alert(`Sua sessão foi encerrada.\n\n${mensagemRegistro(r)}`);
         return false;
       }
-    }catch(e){console.warn('[SIGEE RC4.6.0] Verificação periódica não concluída.',e);}
+    }catch(e){console.warn('[SIGEE RC4.6.2] Verificação periódica não concluída.',e);}
     return true;
   }
 
@@ -136,19 +137,50 @@
     const corpo=document.getElementById('controle-acesso-ntes-corpo'); if(corpo) corpo.innerHTML='<tr><td colspan="5" class="p-6 text-center">Carregando...</td></tr>';
     try{
       const c=cliente(); if(!c) throw new Error('Cliente Supabase indisponível.');
-      const {data,error}=await c.from(TABELA).select('*').order('nte'); if(error) throw error;
-      controleCache=data||[]; renderizarTabela();
-    }catch(e){if(corpo) corpo.innerHTML=`<tr><td colspan="5" class="p-6 text-center text-red-700">${texto(e.message)||'Erro ao carregar.'}</td></tr>`;}
+
+      const [resNtes,resControle]=await Promise.all([
+        c.from(TABELA_NTES).select('id,numero,nome,email_institucional,ativo').order('numero'),
+        c.from(TABELA).select('*')
+      ]);
+
+      if(resNtes.error) throw resNtes.error;
+      if(resControle.error){
+        if(String(resControle.error.code||'')==='42P01'||/does not exist|não existe/i.test(resControle.error.message||'')){
+          throw new Error('A infraestrutura do Controle de Acesso ainda não foi instalada no Supabase.');
+        }
+        throw resControle.error;
+      }
+
+      const mapaControle=new Map((resControle.data||[]).map(r=>[nteCanonico(r.nte),r]));
+      controleCache=(resNtes.data||[]).map(n=>{
+        const chave=nteCanonico(n.numero);
+        const controle=mapaControle.get(chave)||{};
+        return {
+          ...controle,
+          nte:chave,
+          nte_id:n.id,
+          numero:n.numero,
+          nome_nte:n.nome,
+          email_institucional:n.email_institucional,
+          cadastro_ativo:n.ativo,
+          acesso_ativo:controle.acesso_ativo!==false
+        };
+      });
+      renderizarTabela();
+    }catch(e){
+      console.error('[SIGEE RC4.6.2] Falha ao carregar controle dos NTEs.',e);
+      if(corpo) corpo.innerHTML=`<tr><td colspan="5" class="p-6 text-center text-red-700">${texto(e.message)||'Erro ao carregar.'}</td></tr>`;
+    }
   }
 
   function renderizarTabela(){
     const corpo=document.getElementById('controle-acesso-ntes-corpo'); if(!corpo) return;
     const q=token(document.getElementById('busca-controle-nte')?.value);
-    const lista=controleCache.filter(r=>!q||token(`${r.nte} ${r.motivo} ${r.mensagem}`).includes(q));
+    const lista=controleCache.filter(r=>!q||token(`${r.nte} ${r.nome_nte} ${r.email_institucional} ${r.motivo} ${r.mensagem}`).includes(q));
     corpo.innerHTML=lista.map(r=>{
       const ativo=r.acesso_ativo!==false;
       const alteracao=r.alterado_em?new Date(r.alterado_em).toLocaleString('pt-BR'):'—';
-      return `<tr class="border-t"><td class="p-3 font-bold">${r.nte}</td><td class="p-3"><span class="px-2 py-1 rounded-full text-xs font-bold ${ativo?'bg-emerald-100 text-emerald-800':'bg-red-100 text-red-800'}">${ativo?'ATIVO':'SUSPENSO'}</span></td><td class="p-3"><strong>${texto(r.motivo)||'—'}</strong><br><small>${texto(r.mensagem)||'Mensagem institucional padrão'}</small></td><td class="p-3 text-xs">${alteracao}<br>${texto(r.alterado_por)||''}</td><td class="p-3 text-center"><button class="px-3 py-2 rounded-lg text-white text-xs font-bold ${ativo?'bg-red-600':'bg-emerald-600'}" data-nte="${r.nte}" data-ativo="${ativo}">${ativo?'Suspender acesso':'Reativar acesso'}</button></td></tr>`;
+      return `<tr class="border-t"><td class="p-3 font-bold">${r.nte}<br><small class="font-normal text-gray-500">${texto(r.nome_nte)}</small></td><td class="p-3"><span class="px-2 py-1 rounded-full text-xs font-bold ${ativo?'bg-emerald-100 text-emerald-800':'bg-red-100 text-red-800'}">${ativo?'ATIVO':'SUSPENSO'}</span></td><td class="p-3"><strong>${texto(r.motivo)||'—'}</strong><br><small>${texto(r.mensagem)||'Mensagem institucional padrão'}</small></td><td class="p-3 text-xs">${alteracao}<br>${texto(r.alterado_por)||''}</td><td class="p-3 text-center"><button class="px-3 py-2 rounded-lg text-white text-xs font-bold ${ativo?'bg-red-600':'bg-emerald-600'}" data-nte="${r.nte}" data-ativo="${ativo}">${ativo?'Suspender acesso':'Reativar acesso'}</button></td></tr>`;
     }).join('')||'<tr><td colspan="5" class="p-6 text-center">Nenhum NTE encontrado.</td></tr>';
     corpo.querySelectorAll('button[data-nte]').forEach(b=>b.addEventListener('click',()=>alterarStatus(b.dataset.nte,b.dataset.ativo==='true')));
   }
@@ -164,7 +196,7 @@
     }else if(!confirm(`Confirma a reativação do acesso para ${nte}?`)) return;
     const c=cliente(); if(!c) return alert('Cliente Supabase indisponível.');
     const payload={acesso_ativo:!estaAtivo,motivo:estaAtivo?motivo:null,mensagem:estaAtivo?mensagem:null,alterado_em:new Date().toISOString(),alterado_por:texto(u?.email||u?.nome)};
-    const {error}=await c.from(TABELA).update(payload).eq('nte',nte);
+    const {error}=await c.from(TABELA).upsert({nte,...payload},{onConflict:'nte'});
     if(error) return alert(`Não foi possível concluir: ${error.message}`);
     try{window.registrarLog?.(`${estaAtivo?'Suspendeu':'Reativou'} o acesso territorial do ${nte}. ${motivo?`Motivo: ${motivo}`:''}`);}catch(_){ }
     alert(`Acesso do ${nte} ${estaAtivo?'suspenso':'reativado'} com sucesso.`); carregarPainel();
