@@ -17,7 +17,7 @@
   let restaurandoDashboard=false;
   let observadorDashboard=null;
 
-  function usuario(){ return window.usuarioLogado||null; }
+  function usuario(){ return window.SIGEE_SESSION?.getUser?.()||window.usuarioLogado||window.usuarioAtual||window.currentUser||null; }
   function perfil(){
     const p=normalizar(usuario()?.perfil);
     if(p.includes('MASTER'))return 'Master';
@@ -599,9 +599,9 @@
   const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v};
 
   function alvoNte(){
-    const perfil=norm(window.usuarioLogado?.perfil);
-    const global=perfil.includes('MASTER')||perfil==='SEC'||perfil.includes('SECRETARIA');
-    if(!global)return nteId(window.usuarioLogado);
+    const u=window.SIGEE_SESSION?.getUser?.()||window.usuarioLogado||window.usuarioAtual||window.currentUser||null;
+    const global=window.SIGEE_ESCOPO?.ehGlobal?.(u)===true;
+    if(!global)return window.SIGEE_ESCOPO?.nteIdUsuario?.(u)??nteId(u);
     const v=txt(document.getElementById('filtro-dashboard-nte')?.value||'TODOS');
     if(!v||['TODOS','GLOBAL'].includes(norm(v)))return null;
     const m=v.match(/\d{1,2}/);return m?Number(m[0]):null;

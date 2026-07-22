@@ -66,7 +66,7 @@
     section.className = 'sigee-exec';
     section.innerHTML = `
       <header class="sigee-exec-head">
-        <div><span>VISÃO ESTADUAL CONSOLIDADA</span><h2>Dashboard Executivo CLO / SEC</h2><p>Indicadores operacionais, produtividade territorial e pontos críticos do atendimento.</p></div>
+        <div><span id="sigee-exec-contexto">VISÃO GERENCIAL</span><h2>Dashboard Executivo CLO / SEC</h2><p>Indicadores operacionais, produtividade territorial e pontos críticos do atendimento.</p></div>
         <div class="sigee-exec-actions">
           <select id="sigee-exec-periodo"><option value="todos">Todo o período</option><option value="30">Últimos 30 dias</option><option value="90">Últimos 90 dias</option><option value="365">Últimos 12 meses</option></select>
           <button type="button" id="sigee-exec-atualizar">↻ Atualizar</button>
@@ -87,7 +87,8 @@
 
   function filteredProcesses() {
     const origem = arr('processosDB','processos');
-    const all = window.SIGEE_PERMISSOES?.filtrarTerritorio ? window.SIGEE_PERMISSOES.filtrarTerritorio(origem) : origem;
+    const u=window.SIGEE_SESSION?.getUser?.()||window.usuarioLogado||window.usuarioAtual||window.currentUser||null;
+    const all = window.SIGEE_ESCOPO?.filtrar ? window.SIGEE_ESCOPO.filtrar(origem,u) : (window.SIGEE_PERMISSOES?.filtrarTerritorio ? window.SIGEE_PERMISSOES.filtrarTerritorio(origem,u) : origem);
     const days = Number(document.getElementById('sigee-exec-periodo')?.value || 0);
     if (!days) return all.slice();
     const min = new Date(); min.setDate(min.getDate()-days);
@@ -102,6 +103,12 @@
   function render() {
     ensureUI();
     const ps = filteredProcesses();
+    const u=window.SIGEE_SESSION?.getUser?.()||window.usuarioLogado||window.usuarioAtual||window.currentUser||null;
+    const global=window.SIGEE_ESCOPO?.ehGlobal?.(u)===true;
+    const contexto=document.getElementById('sigee-exec-contexto');
+    if(contexto) contexto.textContent=global?'VISÃO ESTADUAL CONSOLIDADA':`VISÃO TERRITORIAL — NTE ${String(window.SIGEE_ESCOPO?.nteIdUsuario?.(u)??'').padStart(2,'0')}`;
+    const titulo=document.querySelector('#sigee-dashboard-executivo h2');
+    if(titulo) titulo.textContent=global?'Dashboard Executivo CLO / SEC':'Dashboard Gerencial do NTE';
     const ativos = ps.filter(p=>!concluido(p));
     const concl = ps.filter(concluido);
     const venc = ps.filter(atrasado);
