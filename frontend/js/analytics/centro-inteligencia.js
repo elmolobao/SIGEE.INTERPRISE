@@ -10,8 +10,8 @@
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
   const val = (o, ...keys) => { for (const k of keys) if (o && o[k] !== undefined && o[k] !== null && text(o[k])) return o[k]; return ''; };
   const arr = (...names) => { for (const n of names) { try { if (Array.isArray(window[n])) return window[n]; } catch (_) {} } return []; };
-  const profile = () => norm(val(window.usuarioLogado || {}, 'perfil', 'role') || 'TECNICO');
-  const userNte = () => text(val(window.usuarioLogado || {}, 'nte', 'nte_nome', 'grupo'));
+  const profile = () => norm(val(window.SIGEE_AUTORIZACAO?.usuario?.() || {}, 'perfil', 'role') || 'TECNICO');
+  const userNte = () => text(window.SIGEE_ESCOPO?.nteUsuario?.(window.SIGEE_AUTORIZACAO?.usuario?.())||'');
   const nteOf = o => text(val(o, 'nte', 'nte_nome', 'grupo', 'NTE', 'nte_id', 'id_nte', 'territorio_id'));
   const stableId = o => text(val(o,'id','uuid','codigo_sigee'));
   const uniqueById = list => {
@@ -31,7 +31,7 @@
   };
   const globalAccess = () => Boolean(window.SIGEE_PERMISSOES?.ehGlobal?.());
   const canAccess = () => Boolean(window.SIGEE_PERMISSOES?.pode?.('inteligencia'));
-  const scoped = list => window.SIGEE_PERMISSOES?.filtrarTerritorio ? window.SIGEE_PERMISSOES.filtrarTerritorio(list) : (globalAccess() ? list.slice() : list.filter(x => sameNte(nteOf(x), userNte())));
+  const scoped = list => window.SIGEE_DADOS?.escopar?.(list)||window.SIGEE_ESCOPO?.filtrar?.(list)||[];
   const idOf = o => text(val(o,'id','codigo_sigee','cod_mec','codigo_mec','email')) || '—';
   const schoolName = o => text(val(o,'nome_escola','escola_nome','nome','escola','instituicao'));
   const processSchool = o => text(val(o,'escola_nome','escola','nome_escola','instituicao'));

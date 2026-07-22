@@ -86,9 +86,9 @@
   }
 
   function filteredProcesses() {
-    const origem = arr('processosDB','processos');
+    const origem = window.SIGEE_DADOS?.processos?.()||arr('processosDB','processos');
     const u=window.SIGEE_SESSION?.getUser?.()||window.usuarioLogado||window.usuarioAtual||window.currentUser||null;
-    const all = window.SIGEE_ESCOPO?.filtrar ? window.SIGEE_ESCOPO.filtrar(origem,u) : (window.SIGEE_PERMISSOES?.filtrarTerritorio ? window.SIGEE_PERMISSOES.filtrarTerritorio(origem,u) : origem);
+    const all = window.SIGEE_DADOS?.escopar?.(origem,u)||window.SIGEE_ESCOPO?.filtrar?.(origem,u)||[];
     const days = Number(document.getElementById('sigee-exec-periodo')?.value || 0);
     if (!days) return all.slice();
     const min = new Date(); min.setDate(min.getDate()-days);

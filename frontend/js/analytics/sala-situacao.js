@@ -11,6 +11,7 @@
   function txt(v) { return v == null ? '' : String(v).trim(); }
   function norm(v) { return txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/\s+/g, ' '); }
   function lista() {
+    if (window.SIGEE_DADOS?.processos) return window.SIGEE_DADOS.processos();
     if (Array.isArray(window.processosDB)) return window.processosDB;
     if (Array.isArray(window.processos)) return window.processos;
     try { if (typeof processosDB !== 'undefined' && Array.isArray(processosDB)) return processosDB; } catch (e) {}
@@ -37,8 +38,8 @@
   }
   function etapa(p) { return txt(p && (p.etapa_atual || p.etapa || p.fase_atual)) || 'Desarquivamento'; }
   function procNte(p) { return nte(p && (p.nte || p.nte_nome || p.grupo || p.territorio || p.nte_id)); }
-  function podeGlobal(){ return Boolean(window.SIGEE_PERMISSOES?.ehGlobal?.()); }
-  function nteUsuario(){ return nte(window.SIGEE_PERMISSOES?.nteAtual?.() || (window.usuarioLogado && (window.usuarioLogado.nte || window.usuarioLogado.nte_nome || window.usuarioLogado.grupo))); }
+  function podeGlobal(){ return window.SIGEE_ESCOPO?.ehGlobal?.(window.SIGEE_AUTORIZACAO?.usuario?.())===true; }
+  function nteUsuario(){ const u=window.SIGEE_AUTORIZACAO?.usuario?.(); return nte(window.SIGEE_ESCOPO?.nteUsuario?.(u)||window.SIGEE_ESCOPO?.nteIdUsuario?.(u)); }
   function escopo(lista){ return window.SIGEE_PERMISSOES?.filtrarTerritorio ? window.SIGEE_PERMISSOES.filtrarTerritorio(lista) : (podeGlobal() ? lista.slice() : lista.filter(function(p){ return procNte(p)===nteUsuario(); })); }
   function inicio(p) { return p && (p.data_etapa_atual || p.prazo_inicio || p.created_at || p.criado_em || p.data_solicitacao); }
   function finalizado(p) { var e = norm(etapa(p)); return e.indexOf('RETIR') >= 0 || e.indexOf('INDEFER') >= 0; }

@@ -17,7 +17,7 @@
   let restaurandoDashboard=false;
   let observadorDashboard=null;
 
-  function usuario(){ return window.SIGEE_SESSION?.getUser?.()||window.usuarioLogado||window.usuarioAtual||window.currentUser||null; }
+  function usuario(){ return window.SIGEE_AUTORIZACAO?.usuario?.()||window.SIGEE_SESSION?.getUser?.()||null; }
   function perfil(){
     const p=normalizar(usuario()?.perfil);
     if(p.includes('MASTER'))return 'Master';
@@ -28,7 +28,7 @@
     if(p.includes('ESTAG'))return 'Estagiario';
     return 'Tecnico';
   }
-  function global(){ return window.SIGEE_PERMISSOES?.ehGlobal?.(usuario())===true; }
+  function global(){ return window.SIGEE_ESCOPO?.ehGlobal?.(usuario())===true; }
   function nteId(obj){
     if(!obj)return null;
     const direto=obj.nte_id??obj.nteId;
@@ -322,7 +322,7 @@
     configurarFiltroNte();
     const alvo=filtroNte();
     const escolas=porNte(window.escolasDB||[],alvo);
-    const processos=porNte(window.processosDB||[],alvo);
+    const processos=porNte(window.SIGEE_DADOS?.processos?.()||window.processosDB||[],alvo);
     let metricasEscolas;
     try{
       metricasEscolas=await obterMetricasEscolas(alvo);
@@ -703,7 +703,7 @@
       try{processos=await paginar('processos')}catch(e){console.warn('[SIGEE Indicadores] processos indisponíveis:',e)}
       try{historico=await paginar('historico_processos')}catch(e){console.warn('[SIGEE Indicadores] histórico indisponível:',e)}
       try{logs=await paginar('logs_sigee')}catch(e){console.warn('[SIGEE Indicadores] logs indisponíveis:',e)}
-      if(!processos.length&&Array.isArray(window.processosDB))processos=window.processosDB.slice();
+      if(!processos.length)processos=(window.SIGEE_DADOS?.processos?.()||[]).slice();
 
       const processosAlvo=alvo?processos.filter(x=>nteId(x)===alvo):processos;
       const abertos=processosAlvo.filter(x=>noPeriodo(data(x.data_solicitacao||x.data_abertura||x.created_at||x.criado_em),p));

@@ -64,7 +64,7 @@
     return `${arr.length}|${soma}|${recente}`;
   }
   function sincronizar(){
-    const arr=Array.isArray(window.processosDB)?window.processosDB:[];
+    const arr=window.SIGEE_DADOS?.processos?.()||(Array.isArray(window.processosDB)?window.processosDB:[]);
     const sig=assinatura(arr);
     if(sig!==assinaturaAtual){
       assinaturaAtual=sig;
@@ -116,7 +116,7 @@
 
   function calcular(filtro={}){
     const origem=sincronizar();
-    const todos=window.SIGEE_PERMISSOES?.filtrarTerritorio?window.SIGEE_PERMISSOES.filtrarTerritorio(origem):origem.slice();
+    const todos=window.SIGEE_DADOS?.escopar?.(origem)||window.SIGEE_ESCOPO?.filtrar?.(origem)||origem.slice();
     const alvo=filtro.nte&&filtro.nte!=='TODOS'&&filtro.nte!=='GLOBAL'?Number(filtro.nte):null;
     const periodo=criarPeriodo(filtro.tipo||'ACUMULADO',filtro.ini||null,filtro.fim||null);
     const chave=`${assinaturaAtual}|${alvo||'GLOBAL'}|${periodo.tipo}|${periodo.ini?.toISOString()||''}|${periodo.fim?.toISOString()||''}`;
