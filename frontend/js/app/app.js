@@ -3802,6 +3802,24 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         proc.forEach(p => { const k=p.escola || p.escola_nome || 'NÃO INFORMADA'; mapa[k] = mapa[k] || { Escola:k, NTE:p.nte||'', Quantidade:0 }; mapa[k].Quantidade++; });
         return Object.values(mapa).sort((a,b)=>b.Quantidade-a.Quantidade).slice(0,10);
     }
+    function dadosAtrasosPorEtapaSIGEE(){
+        const comp = window.__SIGEE_DASHBOARD_COMPLEMENTO__ || {};
+        const lista = Array.isArray(comp.atrasos_por_etapa) ? comp.atrasos_por_etapa : [];
+        return lista.map(x => ({
+            'Etapa': x.nome || x.etapa || 'Não informado',
+            'Total na Etapa': Number(x.total || 0),
+            'Em Atraso': Number(x.em_atraso || x.vencidos || 0),
+            '% em Atraso': Number(x.percentual_atraso || 0)
+        }));
+    }
+    function dadosTemposFluxoSIGEE(){
+        const proc = filtrarNteExportacaoSIGEE(processosDB || [], 'nte');
+        return proc.filter(p=>p.deferido_em||p.retirado_em).map(p=>{
+            const inicio=new Date(p.created_at||p.data_inicio||0), def=p.deferido_em?new Date(p.deferido_em):null, ret=p.retirado_em?new Date(p.retirado_em):null;
+            const dias=(a,b)=>a&&b&&!isNaN(a)&&!isNaN(b)?Math.max(0,Math.round((b-a)/86400000)):'';
+            return {'Código SIGEE':p.codigo_sigee||'', 'Aluno':p.aluno_nome||p.aluno||'', 'NTE':p.nte||'', 'Dias até Deferimento':dias(inicio,def), 'Dias do Deferimento à Retirada':dias(def,ret)};
+        });
+    }
     function dadosIndicadoresNteSIGEE(){
         return LISTA_OFICIAL_27_NTES.map(nte => {
             const escolas = (escolasDB || []).filter(e => (typeof nteIgualSIGEE === 'function' ? nteIgualSIGEE(e.nte, nte) : e.nte === nte));
@@ -3819,16 +3837,23 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         const etapas = dadosProcessosPorEtapaSIGEE();
         const tecnicas = dadosInformacoesTecnicasSIGEE();
         const ntes = dadosIndicadoresNteSIGEE();
+        const atrasos = dadosAtrasosPorEtapaSIGEE();
+        const temposFluxo = dadosTemposFluxoSIGEE();
         registrarLog(`Exportou Relatório Geral do Dashboard (${formato.toUpperCase()}).`);
         if (formato === 'pdf') {
             const linhas = executivo.map(x => [x.Indicador, x.Valor]);
+            linhas.push(['ATRASOS POR ETAPA','']);
+            atrasos.forEach(x=>linhas.push([`${x.Etapa}: ${x['Em Atraso']} de ${x['Total na Etapa']}`,`${x['% em Atraso']}%`]));
+            linhas.push(['TEMPOS DO FLUXO','Deferimento encerra o fluxo principal; retirada é contada separadamente.']);
             return exportarPDFSIGEE('Relatório Geral do Dashboard', ['Indicador','Valor'], linhas, 'SIGEE_Dashboard_Geral');
         }
         exportarXLSXSIGEE('SIGEE_Relatorio_Geral_Dashboard', [
             { nome:'Dashboard Executivo', dados: executivo },
             { nome:'Processos por Etapa', dados: etapas },
             { nome:'Informações Técnicas', dados: tecnicas.length ? tecnicas : [{ Escola:'Sem dados', NTE:'', Quantidade:0 }] },
-            { nome:'Indicadores por NTE', dados: ntes }
+            { nome:'Indicadores por NTE', dados: ntes },
+            { nome:'Atrasos por Etapa', dados: atrasos.length ? atrasos : [{ Etapa:'Sem atrasos', 'Total na Etapa':0, 'Em Atraso':0, '% em Atraso':0 }] },
+            { nome:'Tempos do Fluxo', dados: temposFluxo.length ? temposFluxo : [{ 'Código SIGEE':'Sem dados', Aluno:'', NTE:'', 'Dias até Deferimento':'', 'Dias do Deferimento à Retirada':'' }] }
         ]);
     };
 
