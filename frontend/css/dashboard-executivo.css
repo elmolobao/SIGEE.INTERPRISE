@@ -47,3 +47,13 @@
   #sigee-dashboard-executivo .sigee-exec-grid { grid-template-columns: repeat(3,minmax(0,1fr)); }
   #sigee-dashboard-executivo .sigee-exec-wide { grid-column: 1 / -1; }
 }
+
+
+/* RC5.1.0 — Inteligência Gerencial */
+.sigee-kpi-trend{display:inline-flex!important;width:max-content;margin-top:.35rem;padding:.12rem .38rem;border-radius:999px;font-size:.58rem!important;font-style:normal;font-weight:900}
+.sigee-kpi-trend.favoravel{background:#dcfce7;color:#15803d!important}.sigee-kpi-trend.desfavoravel{background:#fee2e2;color:#b91c1c!important}
+.sigee-intel-trends{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.65rem}.sigee-intel-trend{padding:.8rem;border-radius:14px;border:1px solid #e2e8f0;background:#f8fafc}.sigee-intel-trend span,.sigee-intel-trend small,.sigee-intel-trend em{display:block}.sigee-intel-trend span{font-size:.65rem;font-weight:900;color:#475569}.sigee-intel-trend strong{display:block;margin:.18rem 0;font-size:1.15rem;color:#0f172a}.sigee-intel-trend small{font-size:.66rem;font-weight:900}.sigee-intel-trend em{margin-top:.14rem;font-size:.58rem;font-style:normal;font-weight:700;color:#64748b}.sigee-intel-trend.favoravel small{color:#15803d}.sigee-intel-trend.desfavoravel small{color:#b91c1c}
+.sigee-status{display:inline-flex;margin-left:.35rem;padding:.1rem .35rem;border-radius:999px;font-size:.55rem;font-weight:900;vertical-align:middle}.sigee-status.bom{background:#dcfce7;color:#15803d}.sigee-status.atencao{background:#fef3c7;color:#a16207}.sigee-status.critico{background:#fee2e2;color:#b91c1c}
+.sigee-cig-rank-item.semaforo-bom{border-left:4px solid #22c55e;padding-left:.45rem}.sigee-cig-rank-item.semaforo-atencao{border-left:4px solid #f59e0b;padding-left:.45rem}.sigee-cig-rank-item.semaforo-critico{border-left:4px solid #ef4444;padding-left:.45rem}.sigee-cig-rank-item.semaforo-bom>i>em{background:linear-gradient(90deg,#16a34a,#4ade80)}.sigee-cig-rank-item.semaforo-atencao>i>em{background:linear-gradient(90deg,#d97706,#fbbf24)}.sigee-cig-rank-item.semaforo-critico>i>em{background:linear-gradient(90deg,#dc2626,#fb7185)}
+.sigee-cig-alertas{display:flex!important;flex-wrap:wrap;gap:.45rem}.sigee-cig-alertas>div{display:inline-flex;align-items:center;gap:.35rem;padding:.38rem .58rem;border-radius:999px;font-size:.67rem;font-weight:800}.sigee-cig-alertas .atencao{background:#fef3c7;color:#92400e}
+@media(max-width:900px){.sigee-intel-trends{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:520px){.sigee-intel-trends{grid-template-columns:1fr}}
