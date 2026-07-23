@@ -100,7 +100,6 @@
       <div class="sigee-exec-kpis" id="sigee-exec-kpis"></div>
       <div class="sigee-exec-grid">
         <article class="sigee-exec-card sigee-exec-wide"><header><span>PRODUTIVIDADE TERRITORIAL</span><h3>Desempenho por NTE</h3></header><div id="sigee-exec-ntes"></div></article>
-        <article class="sigee-exec-card"><header><span>GARGALOS</span><h3>Pendências por etapa</h3></header><div id="sigee-exec-etapas"></div></article>
         <article class="sigee-exec-card"><header><span>DEMANDA</span><h3>Escolas mais solicitadas</h3></header><div id="sigee-exec-escolas"></div></article>
         <article class="sigee-exec-card"><header><span>PERFIL DO PEDIDO</span><h3>Tipos de documento</h3></header><div id="sigee-exec-documentos"></div></article>
         <article class="sigee-exec-card"><header><span>PRODUTIVIDADE</span><h3>Técnicos com mais conclusões</h3></header><div id="sigee-exec-tecnicos"></div></article>
@@ -165,10 +164,8 @@
     const ntes=normalizarRanking(r.por_nte);
     const nteBox=document.getElementById('sigee-exec-ntes');
     if(nteBox) nteBox.innerHTML=ntes.length?`<div class="sigee-exec-table"><div class="head"><b>NTE</b><b>Total</b><b>Concluídos</b><b>Em atraso</b><b>Eficiência</b></div>${ntes.slice(0,27).map(x=>`<div><span>${esc(x[0])}</span><span>${Number(x[1]||0).toLocaleString('pt-BR')}</span><span>—</span><span>—</span><span>—</span></div>`).join('')}</div>`:'<p class="sigee-exec-empty">Sem dados por NTE.</p>';
-    const etapas=normalizarRanking(r.por_etapa);
     const escolas=normalizarRanking(r.por_escola);
     const tecnicos=normalizarRanking(r.por_tecnico);
-    document.getElementById('sigee-exec-etapas').innerHTML=bars(etapas,Math.max(ativos,1),8,{classeExtra:'sigee-exec-gargalos'});
     document.getElementById('sigee-exec-escolas').innerHTML=bars(escolas,Math.max(total,1),10,{mostrarNte:true});
     document.getElementById('sigee-exec-tecnicos').innerHTML=bars(tecnicos,Math.max(total,1),10);
     const documentos=normalizarRanking(r.por_documento);
@@ -233,7 +230,6 @@
     const nteBox=document.getElementById('sigee-exec-ntes');
     if(nteBox) nteBox.innerHTML = ntes.length ? `<div class="sigee-exec-table"><div class="head"><b>NTE</b><b>Total</b><b>Concluídos</b><b>Em atraso</b><b>Eficiência</b></div>${ntes.slice(0,27).map(r=>`<div><span>${esc(r[0])}</span><span>${r[1]}</span><span>${r[2]}</span><span class="${r[3]?'bad':'ok'}">${r[3]}</span><span>${pct(r[2],r[1])}%</span></div>`).join('')}</div>` : '<p class="sigee-exec-empty">Sem dados por NTE.</p>';
 
-    const etapas=countBy(ativos,etapa); document.getElementById('sigee-exec-etapas').innerHTML=bars(etapas,ativos.length);
     const escolas=countBy(ps,p=>`${escola(p)}|||${nte(p)}`).map(([chave,total])=>{const [nome,nteEscola]=chave.split('|||');return [nome,total,nteEscola]}); document.getElementById('sigee-exec-escolas').innerHTML=bars(escolas,ps.length,10,{mostrarNte:true});
     const docs=countBy(ps,documento); document.getElementById('sigee-exec-documentos').innerHTML=bars(docs,ps.length);
     const tech=countBy(concl,tecnico); document.getElementById('sigee-exec-tecnicos').innerHTML=bars(tech,concl.length,10);
@@ -242,5 +238,5 @@
   function boot(){ ensureUI(); atualizarExecutivo(false); }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
   window.addEventListener('sigee:dashboard-rpc-atualizado',e=>{ if(e.detail) renderRpc(e.detail); });
-  window.SIGEE_DASHBOARD_EXECUTIVO={render,renderRpc,atualizar:atualizarExecutivo,versao:'RC4.6.10'};
+  window.SIGEE_DASHBOARD_EXECUTIVO={render,renderRpc,atualizar:atualizarExecutivo,versao:'RC4.6.12'};
 })();
