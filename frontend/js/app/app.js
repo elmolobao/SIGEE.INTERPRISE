@@ -513,7 +513,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 nivel_oferta: normalizarTextoSIGEE(p.nivel_oferta || p.ensino || null) || null,
                 modalidade: normalizarTextoSIGEE(p.modalidade || null) || null,
                 etapa_atual: normalizarTextoSIGEE(p.etapa || p.etapa_atual || 'Desarquivamento'),
-                nte: normalizarTextoSIGEE(p.nte || 'NTE-26 Salvador'),
+                nte: window.normalizarNteSIGEE ? window.normalizarNteSIGEE(p.nte || 'NTE-26') : normalizarTextoSIGEE(p.nte || 'NTE-26'),
                 cod_mec: normalizarTextoSIGEE(p.cod_mec || p.mec || null) || null,
                 escola_id: p.escola_id == null || p.escola_id === '' ? null : (Number(p.escola_id) || p.escola_id),
                 workflow_instance_id: p.workflow_instance_id || null,
@@ -535,6 +535,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         const processoParaSupabaseSIGEEOriginal = processoParaSupabaseSIGEE;
         processoParaSupabaseSIGEE = function(p) {
             const payload = processoParaSupabaseSIGEEOriginal(p);
+            if (window.SIGEE_NORMALIZACAO_NTE) window.SIGEE_NORMALIZACAO_NTE.aplicarPayload(payload);
             return limparDatasPayloadSupabaseSIGEE(payload);
         };
 
@@ -546,7 +547,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 documento: normalizarTextoSIGEE(p.documento_tipo || p.documento || p.tipo_documento || 'HISTÓRICO'),
                 etapa: normalizarTextoSIGEE(p.etapa_atual || p.etapa || p.status || 'Desarquivamento'),
                 data_etapa_atual: normalizarTextoSIGEE(p.data_etapa_atual || p.created_at || obterDataAtualFormatada()),
-                nte: normalizarTextoSIGEE(p.nte || p.nte_vinculado || 'NTE-26 Salvador'),
+                nte: window.normalizarNteSIGEE ? window.normalizarNteSIGEE(p.nte || p.nte_vinculado || 'NTE-26') : normalizarTextoSIGEE(p.nte || p.nte_vinculado || 'NTE-26'),
                 municipio: normalizarMaiusculoSIGEE(p.municipio || p.cidade || ''),
 
                 /*
@@ -7455,7 +7456,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   }
   function processoPayloadV45(p){
     try{ if(typeof processoParaSupabaseSIGEE==='function') return processoParaSupabaseSIGEE(p); }catch(e){}
-    return { id:p.id, aluno_nome:p.aluno||p.aluno_nome, escola_nome:p.escola||p.escola_nome, documento_tipo:p.documento||p.documento_tipo, etapa_atual:p.etapa||p.etapa_atual, nte:p.nte, modalidade:p.modalidade||null, nivel_oferta:p.ensino||p.nivel_oferta||null };
+    return { id:p.id, aluno_nome:p.aluno||p.aluno_nome, escola_nome:p.escola||p.escola_nome, documento_tipo:p.documento||p.documento_tipo, etapa_atual:p.etapa||p.etapa_atual, nte:(window.normalizarNteSIGEE?window.normalizarNteSIGEE(p.nte):p.nte), modalidade:p.modalidade||null, nivel_oferta:p.ensino||p.nivel_oferta||null };
   }
   async function salvarProcessoV45(p){
     try{ if(typeof salvarBancoLocalSIGEE==='function') salvarBancoLocalSIGEE(); }catch(e){}
