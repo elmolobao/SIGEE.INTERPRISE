@@ -1,8 +1,9 @@
-/* SIGEE RC4.6.2 — Dashboard de baixo consumo por RPC */
+/* SIGEE RC4.6.3 — Autoridade única do Dashboard por RPC */
 (function(){
   'use strict';
-  if(window.__SIGEE_DASHBOARD_RPC_462__) return;
-  window.__SIGEE_DASHBOARD_RPC_462__=true;
+  if(window.__SIGEE_DASHBOARD_RPC_463__) return;
+  window.__SIGEE_DASHBOARD_RPC_463__=true;
+  window.SIGEE_DASHBOARD_AUTORIDADE='RPC_RC4.6.3';
 
   const CACHE_MS=180000;
   const cache=new Map();
@@ -88,6 +89,6 @@
   document.addEventListener('change',e=>{if(['filtro-dashboard-nte','filtro-dashboard-periodo','dashboard-data-inicial','dashboard-data-final'].includes(e.target?.id))agendar(true)},true);
   document.addEventListener('sigee:navegacao-concluida',e=>{if((e.detail?.rota||e.detail?.aba)==='painel')agendar(false)});
   document.addEventListener('sigee:usuario-logado',()=>agendar(true));
-  window.carregarDadosDashboardReal=()=>agendar(true);window.carregarDadosDashboardRealImediato=()=>carregar(true);window.SIGEE_DASHBOARD_RPC={carregar,limparCache:()=>cache.clear(),versao:'RC4.6.2'};
+  window.carregarDadosDashboardReal=()=>agendar(true);window.carregarDadosDashboardRealImediato=()=>carregar(true);window.SIGEE_DASHBOARD_RPC={carregar,limparCache:()=>cache.clear(),versao:'RC4.6.3'};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>agendar(false));else agendar(false);
 })();
