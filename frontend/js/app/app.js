@@ -7899,25 +7899,23 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   async function carregarBaseUsuarioCore(){
     const c = client(); if(!c) return;
     const u = usuario();
+    // RC4.6: carregamento inicial mínimo. Escolas e processos são buscados
+    // somente quando os respectivos módulos forem abertos.
     try{
-      const [escolas, processos, usuarios] = await Promise.all([
-        queryEscolasBase({limit: isGlobal(u) ? 500 : 1000}),
-        (async()=>{
-          let q = c.from(T.processos).select('*').order('created_at', { ascending: false }).limit(1000);
-          if(!isGlobal(u)) q = q.eq('nte', nteTexto(nteIdUsuario(u)));
-          const {data,error} = await q; if(error) throw error; return (data||[]).map(normalizarProcesso);
-        })(),
-        (async()=>{
-          let q = c.from(T.usuarios).select('*').order('nome', { ascending: true });
-          if(!isGlobal(u)){ const id = nteIdUsuario(u); if(id) q = q.eq('nte_id', id); }
-          const {data,error} = await q; if(error) throw error; return (data||[]).map(normalizarUsuario);
-        })()
-      ]);
-      window.escolasDB = escolas;
-      window.processosDB = processos;
+      let q = c.from(T.usuarios)
+        .select('id,nome,email,perfil,nte_id,nte,grupo,ativo,status,primeiro_acesso')
+        .order('nome', { ascending: true })
+        .limit(isGlobal(u) ? 300 : 80);
+      if(!isGlobal(u)){ const id = nteIdUsuario(u); if(id) q = q.eq('nte_id', id); }
+      const {data,error} = await q;
+      if(error) throw error;
+      const usuarios = (data||[]).map(normalizarUsuario);
+      window.escolasDB = Array.isArray(window.escolasDB) ? window.escolasDB : [];
+      window.processosDB = Array.isArray(window.processosDB) ? window.processosDB : [];
       window.usuariosDB = usuarios;
-      try{ escolasDB = escolas; processosDB = processos; usuariosDB = usuarios; }catch(e){}
-    }catch(e){ console.error('[SIGEE] carregar base', e); }
+      try{ escolasDB = window.escolasDB; processosDB = window.processosDB; usuariosDB = usuarios; }catch(e){}
+      console.info('[SIGEE RC4.6] Base inicial enxuta carregada; módulos pesados sob demanda.');
+    }catch(e){ console.error('[SIGEE] carregar base mínima', e); }
   }
 
   async function countTabela(tabela, filtroFn){
