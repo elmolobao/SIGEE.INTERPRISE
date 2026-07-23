@@ -810,9 +810,5 @@
     const rota=event?.detail?.rota||event?.detail?.aba||'';
     if(rota==='painel')agendar();
   });
-  // Atualização periódica reduzida e apenas quando o painel estiver visível.
-  setInterval(()=>{
-    if(document.visibilityState==='visible' &&
-       !document.getElementById('aba-painel')?.classList.contains('hidden')) atualizar();
-  },60000);
+  // RC4.6: sem polling periódico; atualização somente por abertura, filtros e eventos.
 })();
