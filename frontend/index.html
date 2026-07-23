@@ -222,7 +222,18 @@
 </div>
 <div class="space-y-2 sigee-central-conteudo">
 <div class="bg-white p-2 border rounded-xl shadow-xs sigee-central-pesquisa">
+<div class="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_220px] gap-2 items-end">
+<div>
+<label class="block text-[10px] font-black text-gray-500 uppercase mb-1" for="filtro-processos-nte">Pesquisar</label>
 <input class="w-full p-2 bg-gray-50 text-xs border rounded-lg focus:outline-none font-medium" id="busca-proc-nome" oninput="renderizarProcessosFlutuantes()" placeholder="🔎 Pesquisar por Código SIGEE, aluno ou escola..." type="text"/>
+</div>
+<div>
+<label class="block text-[10px] font-black text-gray-500 uppercase mb-1" for="filtro-processos-nte">NTE</label>
+<select class="w-full p-2 bg-gray-50 text-xs border rounded-lg focus:outline-none font-bold" id="filtro-processos-nte" onchange="renderizarProcessosFlutuantes()">
+<option value="TODOS">Todos os NTEs</option>
+</select>
+</div>
+</div>
 </div>
 <div class="bg-white rounded-xl border shadow-sm overflow-hidden sigee-central-lista">
 <table class="w-full text-left border-collapse table-fixed text-[11px]">
