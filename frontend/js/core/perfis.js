@@ -1,11 +1,11 @@
 /**
- * SIGEE Enterprise RC5.3.5 — Catálogo oficial de perfis.
+ * SIGEE Enterprise RC5.3.6 — Catálogo oficial de perfis.
  * Autoridade única para nomenclatura, apresentação, natureza e rota inicial.
  */
 (function (window) {
   'use strict';
-  if (window.__SIGEE_PERFIS_RC535__) return;
-  window.__SIGEE_PERFIS_RC535__ = true;
+  if (window.__SIGEE_PERFIS_RC536__) return;
+  window.__SIGEE_PERFIS_RC536__ = true;
 
   const PERFIS = Object.freeze([
     Object.freeze({ key:'MASTER', value:'Master', label:'Master', titulo:'MASTER DO SISTEMA', subtitulo:'Administração global', escopo:'GLOBAL', natureza:'ADMINISTRACAO_GLOBAL', rotaInicial:'painel' }),
@@ -13,7 +13,8 @@
     Object.freeze({ key:'GESTOR', value:'Gestor', label:'Gestor', titulo:'GESTOR TERRITORIAL', subtitulo:'NTE vinculado', escopo:'NTE', natureza:'GESTAO_TERRITORIAL', rotaInicial:'painel' }),
     Object.freeze({ key:'ADMINISTRADOR', value:'Administrador', label:'Administrador', titulo:'ADMINISTRADOR TERRITORIAL', subtitulo:'NTE vinculado', escopo:'NTE', natureza:'ADMINISTRACAO_TERRITORIAL', rotaInicial:'processos' }),
     Object.freeze({ key:'TECNICO', value:'Técnico', label:'Técnico', titulo:'TÉCNICO DO NTE', subtitulo:'NTE vinculado', escopo:'NTE', natureza:'OPERACAO_TECNICA', rotaInicial:'processos' }),
-    Object.freeze({ key:'ESTAGIARIO', value:'Estagiário', label:'Estagiário', titulo:'APOIO OPERACIONAL', subtitulo:'NTE vinculado', escopo:'NTE', natureza:'APOIO_PROTOCOLO', rotaInicial:'nova-solicitacao' }),
+    Object.freeze({ key:'ATENDIMENTO', value:'Atendimento', label:'Atendimento', titulo:'ATENDIMENTO TERRITORIAL', subtitulo:'NTE vinculado', escopo:'NTE', natureza:'ATENDIMENTO_PROTOCOLO', rotaInicial:'processos' }),
+    Object.freeze({ key:'ESTAGIARIO', value:'Estagiário', label:'Estagiário', titulo:'APOIO OPERACIONAL', subtitulo:'NTE vinculado', escopo:'NTE', natureza:'APOIO_PROTOCOLO', rotaInicial:'processos' }),
     Object.freeze({ key:'CONSULTA', value:'Consulta', label:'Consulta', titulo:'CONSULTA TERRITORIAL', subtitulo:'NTE vinculado', escopo:'NTE', natureza:'LEITURA_TERRITORIAL', rotaInicial:'processos' })
   ]);
 
@@ -27,6 +28,7 @@
     if(t.includes('MASTER'))return 'Master';
     if(t.includes('GESTOR')||t.includes('DIRIGENTE'))return 'Gestor';
     if(t.includes('ADMIN'))return 'Administrador';
+    if(t.includes('ATEND'))return 'Atendimento';
     if(t.includes('ESTAG'))return 'Estagiário';
     if(t.includes('CONSULT'))return 'Consulta';
     if(t.includes('TECNIC'))return 'Técnico';

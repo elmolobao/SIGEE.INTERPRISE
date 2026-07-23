@@ -1,17 +1,18 @@
 /**
- * SIGEE Enterprise RC5.3.5 — Matriz oficial de capacidades.
+ * SIGEE Enterprise RC5.3.6 — Matriz oficial de capacidades.
  * Capacidades definem o que o perfil faz; SIGEE_ESCOPO define onde a ação vale.
  */
 (function(window){
 'use strict';
-if(window.__SIGEE_PERMISSOES_RC535__)return;
-window.__SIGEE_PERMISSOES_RC535__=true;
+if(window.__SIGEE_PERMISSOES_RC536__)return;
+window.__SIGEE_PERMISSOES_RC536__=true;
 
 const C=Object.freeze({
   Master:Object.freeze({
-    'escopo.global':1,'processos.visualizar':1,'processos.criar':1,'processos.movimentar':1,'processos.editar_administrativo':1,'processos.editar_estrutural':1,'processos.reatribuir':1,'processos.regredir':1,'processos.excluir':1,
+    'escopo.global':1,
+    'processos.visualizar':1,'processos.criar':1,'processos.movimentar':1,'processos.editar_administrativo':1,'processos.editar_estrutural':1,'processos.reatribuir':1,'processos.regredir':1,'processos.excluir':1,
     'indicadores.visualizar':1,'relatorios.visualizar':1,'relatorios.exportar':1,'produtividade.visualizar':1,
-    'escolas.visualizar':1,'escolas.editar_operacional':1,'escolas.editar_cadastral':1,'escolas.importar':1,
+    'escolas.visualizar':1,'escolas.editar_operacional':1,'escolas.editar_cadastral':1,'escolas.importar':1,'escolas.exportar':1,
     'usuarios.visualizar':1,'usuarios.visualizar_nte':1,'usuarios.gerenciar_nte':1,'usuarios.gerenciar_global':1,
     'logs.visualizar':1,'migracao.executar':1,'sistema.suspender_nte':1
   }),
@@ -27,15 +28,23 @@ const C=Object.freeze({
     'escolas.visualizar':1,'escolas.editar_operacional':1,'usuarios.visualizar_nte':1,'usuarios.gerenciar_nte':1
   }),
   'Técnico':Object.freeze({
-    'processos.visualizar':1,'processos.criar':1,'processos.movimentar':1,'escolas.visualizar':1,'escolas.editar_operacional':1
+    'processos.visualizar':1,'processos.criar':1,'processos.movimentar':1,
+    'relatorios.visualizar':1,'escolas.visualizar':1,'escolas.editar_operacional':1
   }),
-  'Estagiário':Object.freeze({'processos.criar':1,'escolas.visualizar':1}),
-  Consulta:Object.freeze({'processos.visualizar':1,'escolas.visualizar':1})
+  Atendimento:Object.freeze({
+    'processos.visualizar':1,'processos.criar':1,'relatorios.visualizar':1,'escolas.visualizar':1
+  }),
+  'Estagiário':Object.freeze({
+    'processos.visualizar':1,'processos.criar':1,'relatorios.visualizar':1,'escolas.visualizar':1
+  }),
+  Consulta:Object.freeze({
+    'processos.visualizar':1,'relatorios.visualizar':1,'escolas.visualizar':1
+  })
 });
 
 const LEGADO=Object.freeze({
  global:'escopo.global',usuarios:'usuarios.gerenciar_global',logs:'logs.visualizar',salaSituacao:'indicadores.visualizar',inteligencia:'indicadores.visualizar',relatorios:'relatorios.visualizar',
- importarEscola:'escolas.importar',exportar:'relatorios.exportar',abrirSolicitacao:'processos.criar',visualizarProcesso:'processos.visualizar',moverProcesso:'processos.movimentar',
+ importarEscola:'escolas.importar',exportarEscola:'escolas.exportar',exportar:'relatorios.exportar',abrirSolicitacao:'processos.criar',visualizarProcesso:'processos.visualizar',moverProcesso:'processos.movimentar',
  editarProcesso:'processos.editar_administrativo',excluirProcesso:'processos.excluir',regredirProcesso:'processos.regredir',cadastrarEscola:'escolas.editar_cadastral',editarEscola:'escolas.editar_operacional'
 });
 function user(target){return target||window.SIGEE_SESSION?.getUser?.()||null;}

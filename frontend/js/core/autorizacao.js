@@ -1,11 +1,11 @@
 /**
- * SIGEE Enterprise RC5.3.5 — Menu dinâmico e navegação única por perfil.
+ * SIGEE Enterprise RC5.3.6 — Menu dinâmico e navegação única por perfil.
  * Autoridade exclusiva para menus, rotas e destino pós-login.
  */
 (function(window, document){
 'use strict';
-if (window.__SIGEE_AUTORIZACAO_RC535__) return;
-window.__SIGEE_AUTORIZACAO_RC535__ = true;
+if (window.__SIGEE_AUTORIZACAO_RC536__) return;
+window.__SIGEE_AUTORIZACAO_RC536__ = true;
 
 const ROTAS = Object.freeze({
   painel: 'indicadores.visualizar',
@@ -15,17 +15,18 @@ const ROTAS = Object.freeze({
   logs: 'logs.visualizar',
   'sala-situacao': 'indicadores.visualizar',
   'centro-inteligencia': 'indicadores.visualizar',
-  'nova-solicitacao': 'processos.criar'
+  'nova-solicitacao': 'processos.criar',
+  relatorios: 'relatorios.visualizar'
 });
 
 const MENU = Object.freeze([
   { id:'menu-painel', rota:'painel', icone:'📊', rotulo:'Painel Gerencial', capacidade:'indicadores.visualizar', perfis:['Master','SEC','Gestor','Administrador'] },
   { id:'menu-central-processos', rota:'processos', icone:'📋', rotulo:'Central de Processos', capacidade:'processos.visualizar', perfis:['Master','SEC','Gestor','Administrador','Técnico','Consulta'] },
-  { id:'menu-nova-solicitacao', rota:'nova-solicitacao', icone:'➕', rotulo:'Nova Solicitação', capacidade:'processos.criar', perfis:['Master','Administrador','Técnico','Estagiário'] },
   { id:'menu-catalogo-escolas', rota:'escolas', icone:'🏫', rotulo:'Catálogo de Escolas', capacidade:'escolas.visualizar' },
+  { id:'menu-relatorios', rota:'relatorios', icone:'📑', rotulo:'Relatórios', capacidade:'relatorios.visualizar', perfis:['Master','SEC','Gestor','Administrador','Técnico','Atendimento','Estagiário','Consulta'] },
   { id:'menu-usuarios', rota:'usuarios', icone:'👥', rotulo:'Usuários do NTE', capacidade:['usuarios.gerenciar_global','usuarios.gerenciar_nte'], perfis:['Master','Administrador'] },
   { id:'menu-centro-inteligencia', rota:'centro-inteligencia', icone:'🧠', rotulo:'Centro de Inteligência', capacidade:'indicadores.visualizar', perfis:['Master','SEC'] },
-  { id:'menu-sala-situacao', rota:'sala-situacao', icone:'📡', rotulo:'Sala de Situação', capacidade:'indicadores.visualizar', perfis:['Master','SEC'] },
+  { id:'menu-sala-situacao', rota:'sala-situacao', icone:'📡', rotulo:'Sala de Situação', capacidade:'indicadores.visualizar', perfis:['Master','SEC','Gestor'] },
   { id:'menu-logs', rota:'logs', icone:'⚙️', rotulo:'Configurações', capacidade:'logs.visualizar', perfis:['Master'] }
 ]);
 
@@ -80,6 +81,45 @@ function criarBotao(item){
   botao.addEventListener('click', () => navegarPara(item.rota, { manual:true }));
   return botao;
 }
+function mostrarElemento(el, visivel){
+  if(!el)return;
+  el.classList.toggle('hidden', !visivel);
+  el.hidden = !visivel;
+  el.setAttribute('aria-hidden', visivel ? 'false' : 'true');
+  el.style.setProperty('display', visivel ? '' : 'none', 'important');
+  if('disabled' in el) el.disabled = !visivel;
+}
+function aplicarControlesCatalogo(){
+  const podeCadastrar = pode('escolas.editar_cadastral');
+  const podeImportar = pode('escolas.importar');
+  const podeExportar = pode('escolas.exportar');
+  document.querySelectorAll('#aba-escolas button[onclick*="abrirModalNovaEscola"], [data-sigee-acao="cadastrar-escola"]').forEach(el=>mostrarElemento(el,podeCadastrar));
+  document.querySelectorAll('#btn-importar-dados-master, #input-importar-excel').forEach(el=>mostrarElemento(el,podeImportar));
+  document.querySelectorAll('#aba-escolas .export-only, #aba-escolas button[onclick*="exportarEscolasSIGEE"]').forEach(el=>mostrarElemento(el,podeExportar));
+}
+function garantirNovaSolicitacaoNaCentral(){
+  const central = document.getElementById('aba-processos');
+  if(!central)return;
+  let botao = document.getElementById('btn-nova-solicitacao-central');
+  if(!pode('processos.criar')){
+    botao?.remove();
+    return;
+  }
+  if(!botao){
+    botao=document.createElement('button');
+    botao.id='btn-nova-solicitacao-central';
+    botao.type='button';
+    botao.className='bg-blue-900 text-white text-xs font-bold px-4 py-2.5 rounded-lg shadow-sm hover:bg-blue-950 transition cursor-pointer';
+    botao.textContent='➕ Nova Solicitação';
+    botao.addEventListener('click',()=>navegarPara('nova-solicitacao',{manual:true}));
+    const alvo=central.querySelector('.sigee-central-cabecalho, .sigee-modulo-cabecalho, header, .flex')||central;
+    alvo.prepend(botao);
+  }
+}
+function aplicarControlesDaInterface(){
+  aplicarControlesCatalogo();
+  garantirNovaSolicitacaoNaCentral();
+}
 function renderizarMenu(){
   const u = usuario();
   const nav = containerMenu();
@@ -92,6 +132,7 @@ function renderizarMenu(){
   nav.dataset.sigeeMenuAssinatura = assinatura;
   instalando = false;
   atualizarIdentidade();
+  aplicarControlesDaInterface();
   return true;
 }
 function atualizarIdentidade(){
