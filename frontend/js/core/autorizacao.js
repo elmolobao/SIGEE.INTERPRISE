@@ -1,11 +1,11 @@
 /**
- * SIGEE Enterprise RC5.3.9 — Menu dinâmico e navegação única por perfil.
+ * SIGEE Enterprise RC5.4.0 — Menu dinâmico e navegação única por perfil.
  * Autoridade exclusiva para menus, rotas e destino pós-login.
  */
 (function(window, document){
 'use strict';
-if (window.__SIGEE_AUTORIZACAO_RC539__) return;
-window.__SIGEE_AUTORIZACAO_RC539__ = true;
+if (window.__SIGEE_AUTORIZACAO_RC540__) return;
+window.__SIGEE_AUTORIZACAO_RC540__ = true;
 
 const ROTAS = Object.freeze({
   painel: 'indicadores.visualizar',
@@ -20,7 +20,7 @@ const ROTAS = Object.freeze({
 });
 
 const MENU = Object.freeze([
-  { id:'menu-painel', rota:'painel', icone:'📊', rotulo:'Painel Gerencial', capacidade:'indicadores.visualizar', perfis:['Master','SEC','Gestor','Administrador'] },
+  { id:'menu-painel', rota:'painel', icone:'📊', rotulo:'Painel Gerencial', capacidade:'indicadores.visualizar', perfis:['Gestor'] },
   { id:'menu-central-processos', rota:'processos', icone:'📋', rotulo:'Central de Processos', capacidade:'processos.visualizar', perfis:['Master','SEC','Gestor','Administrador','Técnico','Atendimento','Estagiário','Consulta'] },
   { id:'menu-catalogo-escolas', rota:'escolas', icone:'🏫', rotulo:'Catálogo de Escolas', capacidade:'escolas.visualizar' },
   { id:'menu-relatorios', rota:'relatorios', icone:'📑', rotulo:'Relatórios', capacidade:'relatorios.visualizar', perfis:['Master','SEC','Gestor','Administrador','Técnico','Atendimento','Estagiário','Consulta'] },
@@ -52,8 +52,14 @@ function rotaCanonica(rota){
 }
 function capacidadeRota(rota){ return ROTAS[String(rota || '').trim()] || null; }
 function autorizarRota(rota, silencioso=false){
-  const cap = capacidadeRota(rota);
-  if (!cap || pode(cap)) return true;
+  const chave = String(rota || '').trim();
+  const u = usuario();
+  if (chave === 'painel' && perfil(u) !== 'Gestor') {
+    if (!silencioso) alert('O Painel Gerencial é exclusivo do perfil Gestor.');
+    return false;
+  }
+  const cap = capacidadeRota(chave);
+  if (!cap || pode(cap,u)) return true;
   if (!silencioso) alert('Seu perfil não possui permissão para acessar esta área.');
   return false;
 }
@@ -76,12 +82,7 @@ function criarBotao(item){
   botao.dataset.sigeeCapacidade = Array.isArray(item.capacidade) ? item.capacidade.join('|') : item.capacidade;
   const p = perfil();
   let rotulo = item.rotulo;
-  if (item.rota === 'painel') {
-    if (p === 'Master') rotulo = 'Painel Global';
-    else if (p === 'SEC') rotulo = 'Painel Estadual';
-    else if (p === 'Gestor') rotulo = 'Painel Gerencial';
-    else if (p === 'Administrador') rotulo = 'Painel Territorial';
-  }
+  if (item.rota === 'painel') rotulo = 'Painel Gerencial';
   if (item.rota === 'usuarios' && p === 'Master') rotulo = 'Usuários';
   botao.textContent = `${item.icone} ${rotulo}`;
   botao.addEventListener('click', () => navegarPara(item.rota, { manual:true }));
@@ -224,12 +225,10 @@ function garantirRotaVisivel(rota){
 }
 function primeiraRota(u=usuario()){
   const p = perfil(u);
-  const preferida = window.SIGEE_PERFIS?.obter?.(p)?.rotaInicial || '';
-  if (preferida && autorizarRota(preferida, true)) return preferida;
-  if (pode('processos.visualizar', u)) return 'processos';
-  if (pode('processos.criar', u)) return 'nova-solicitacao';
-  if (pode('indicadores.visualizar', u)) return 'painel';
-  if (pode('escolas.visualizar', u)) return 'escolas';
+  if (p === 'Gestor' && pode('indicadores.visualizar',u)) return 'painel';
+  if (pode('processos.visualizar',u)) return 'processos';
+  if (pode('relatorios.visualizar',u)) return 'relatorios';
+  if (pode('escolas.visualizar',u)) return 'escolas';
   return '';
 }
 function navegarOriginal(){
