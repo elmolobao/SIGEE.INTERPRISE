@@ -1,3 +1,4 @@
+/* SIGEE RC4.6.6 — normalização territorial da Central de Processos */
 /* SIGEE RC4.5.27 — estabilidade e desempenho da Central de Processos */
 /* SIGEE RC4.5.2 — Edição de processo: NTE herdado do registro e bloqueado */
 /* SIGEE PROCESSOS PATCH 2.5.4 — edição por perfil, escola e responsável persistentes */
@@ -1396,6 +1397,28 @@
     const p=n.padStart(2,'0');
     return [...new Set([bruto,`NTE-${p}`,`NTE ${p}`,`NTE${p}`,`NTE-${n}`,`NTE ${n}`,`NTE${n}`])];
   }
+  function aplicarFiltroNteRemoto(query, valor){
+    const bruto=String(valor||'').trim();
+    const m=bruto.match(/(?:NTE\s*[- ]?\s*)?(\d{1,2})/i);
+    if(!m) return bruto ? query.eq('nte',bruto) : query;
+    const n=String(Number(m[1]));
+    const p=n.padStart(2,'0');
+    const filtros=[
+      `nte.eq.NTE-${p}`,
+      `nte.eq.NTE ${p}`,
+      `nte.eq.NTE${p}`,
+      `nte.eq.NTE-${n}`,
+      `nte.eq.NTE ${n}`,
+      `nte.eq.NTE${n}`,
+      `nte.ilike.NTE-${p}%`,
+      `nte.ilike.NTE ${p}%`,
+      `nte.ilike.NTE${p}%`,
+      `nte.ilike.NTE-${n}%`,
+      `nte.ilike.NTE ${n}%`,
+      `nte.ilike.NTE${n}%`
+    ];
+    return query.or([...new Set(filtros)].join(','));
+  }
   function termoSeguroBusca(valor){
     return String(valor || '').replace(/[,%_]/g, ' ').replace(/\s+/g, ' ').trim();
   }
@@ -1437,11 +1460,9 @@
       const filtroNte=String(document.getElementById('filtro-processos-nte')?.value||'').trim();
       if(!['MASTER','SEC'].includes(perfil)){
         const nteTxt=String(u.nte||u.nte_nome||u.grupo||'').trim();
-        const variantes=nteVariantes(nteTxt);
-        if(variantes.length) q=q.in('nte',variantes);
+        if(nteTxt) q=aplicarFiltroNteRemoto(q,nteTxt);
       } else if(filtroNte && filtroNte!=='TODOS') {
-        const variantes=nteVariantes(filtroNte);
-        if(variantes.length) q=q.in('nte',variantes);
+        q=aplicarFiltroNteRemoto(q,filtroNte);
       }
       const busca=termoSeguroBusca(document.getElementById('busca-proc-nome')?.value);
       if(busca) q=q.or(`codigo_sigee.ilike.%${busca}%,aluno_nome.ilike.%${busca}%,escola_nome.ilike.%${busca}%`);
