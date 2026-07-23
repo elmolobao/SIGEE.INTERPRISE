@@ -9026,7 +9026,7 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
       if (aba === 'processos' && typeof window.carregarEContarProcessosHorizontais === 'function') window.carregarEContarProcessosHorizontais();
       if (aba === 'escolas' && typeof window.renderizarListaEscolasBufferMemoria === 'function') window.renderizarListaEscolasBufferMemoria();
       if (aba === 'usuarios' && typeof window.carregarListaUsuarios === 'function') window.carregarListaUsuarios();
-      if (aba === 'logs' && typeof window.carregarLogs === 'function') window.carregarLogs();
+      if (aba === 'logs' && typeof window.iniciarMonitoramentoLogsSIGEE === 'function') window.iniciarMonitoramentoLogsSIGEE();
       if (aba === 'sala-situacao' && window.SIGEE_SALA_SITUACAO && typeof window.SIGEE_SALA_SITUACAO.render === 'function') window.SIGEE_SALA_SITUACAO.render();
       if ((aba === 'inteligencia' || aba === 'centro-inteligencia') && window.SIGEE_CENTRO_INTELIGENCIA && typeof window.SIGEE_CENTRO_INTELIGENCIA.render === 'function') window.SIGEE_CENTRO_INTELIGENCIA.render();
     } catch (erro) {
@@ -9060,7 +9060,9 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     }
 
     executarPosNavegacao(chave);
-    setTimeout(function () { executarPosNavegacao(chave); }, 80);
+    document.dispatchEvent(new CustomEvent('sigee:navegacao-concluida', {
+      detail: { rota: chave, aba: chave, elementoId: id }
+    }));
     return true;
   }
 
@@ -9075,7 +9077,7 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     install: instalar,
     navegar: navegarCentral,
     ocultarTodas: ocultarTodas,
-    version: '3.2.7'
+    version: '3.2.8-CONSUMO-OTIMIZADO'
   };
   instalar();
 })();
