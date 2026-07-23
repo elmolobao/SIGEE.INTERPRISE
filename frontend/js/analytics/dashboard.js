@@ -1,11 +1,11 @@
+/* SIGEE RC4.7.3 — correção de colunas reais em consultas analíticas */
 /* ================================================================
-   SIGEE Enterprise RC4.7.1 — Correção de colunas do histórico Dashboard — Colunas Reais da Tabela Processos
+   SIGEE Enterprise 1.0.2 — PATCH 001F1 Dashboard — Colunas Reais da Tabela Processos
    Fonte autoritativa do Dashboard. Este arquivo deve carregar depois
    de app.js e logs.js para impedir sobrescritas por rotinas legadas.
    ================================================================ */
 (function(){
   'use strict';
-  window.SIGEE_DASHBOARD_PERFORMANCE_VERSION='RC4.7-F1';
 
   const texto=v=>v===null||v===undefined?'':String(v).trim();
   const normalizar=v=>texto(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/\s+/g,' ').trim();
@@ -575,15 +575,15 @@
 
 
 /* =====================================================================
-   SIGEE Enterprise 3.2.15 — Indicadores Operacionais Autoritativos
+   SIGEE Enterprise 3.2.14 — Indicadores Operacionais Autoritativos
    - Pedidos Abertos: total de novas solicitações no período (não média)
    - Arquivos Recebidos: total de execuções de Documento Recebido
    - Tempo médio: abertura até o primeiro arquivo recebido
    ===================================================================== */
 (function(){
   'use strict';
-  if(window.__SIGEE_INDICADORES_OPERACIONAIS_3215__) return;
-  window.__SIGEE_INDICADORES_OPERACIONAIS_3215__=true;
+  if(window.__SIGEE_INDICADORES_OPERACIONAIS_3214__) return;
+  window.__SIGEE_INDICADORES_OPERACIONAIS_3214__=true;
 
   const txt=v=>v==null?'':String(v).trim();
   const norm=v=>txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/\s+/g,' ');
@@ -633,24 +633,22 @@
   }
   function noPeriodo(d,p){if(p.tipo==='ACUMULADO')return true;if(!d)return false;return (!p.inicio||d>=p.inicio)&&(!p.fim||d<=p.fim)}
 
-  const cacheIndicadores=new Map();
-  async function paginar(tabela,colunas,configurar,ttl=60000){
+  async function paginar(tabela){
     const c=cliente();if(!c)return [];
-    const alvo=alvoNte()||'GLOBAL';
-    const chave=`${tabela}|${alvo}|${colunas}`;
-    const salvo=cacheIndicadores.get(chave);
-    if(salvo&&Date.now()-salvo.em<ttl)return salvo.dados;
+    const colunasPorTabela={
+      processos:'id,codigo_sigee,aluno_nome,escola_nome,etapa_atual,nte,prazo_inicio,created_at',
+      historico_processos:'processo_id,nte,etapa,acao,created_at',
+      logs_sigee:'created_at,acao,detalhes,processo_id,codigo_sigee,nte'
+    };
+    const colunas=colunasPorTabela[tabela]||'*';
     let todos=[],ini=0;
     while(true){
-      let q=c.from(tabela).select(colunas).range(ini,ini+999);
-      if(typeof configurar==='function')q=configurar(q);
-      const {data:linhas,error}=await q;
+      const {data:linhas,error}=await c.from(tabela).select(colunas).range(ini,ini+999);
       if(error)throw error;
       todos.push(...(linhas||[]));
       if(!linhas||linhas.length<1000)break;
       ini+=1000;if(ini>=20000)break;
     }
-    cacheIndicadores.set(chave,{dados:todos,em:Date.now()});
     return todos;
   }
 
@@ -708,18 +706,14 @@
   let observadorIndicadores=null;
   let restaurando=false;
   async function atualizar(){
-    const painel=document.getElementById('aba-painel');
-    if(document.visibilityState!=='visible'||!painel||painel.classList.contains('hidden'))return;
     if(executando)return;executando=true;
     try{
       rotulos();
       const p=periodo(),alvo=alvoNte();
       let processos=[],historico=[],logs=[];
-      const nte=alvoNte();
-      const filtrarNte=q=>nte?q.eq('nte',`NTE-${String(nte).padStart(2,'0')}`):q;
-      try{processos=await paginar('processos','id,aluno_nome,nte,etapa_atual,data_solicitacao,data_abertura,created_at,prazo_inicio',null,60000)}catch(e){console.warn('[SIGEE Indicadores] processos indisponíveis:',e)}
-      try{historico=await paginar('historico_processos','processo_id,nte,etapa,acao,created_at',filtrarNte,60000)}catch(e){console.warn('[SIGEE Indicadores] histórico indisponível:',e)}
-      try{logs=await paginar('logs_sigee','created_at,acao,detalhes,nte',filtrarNte,60000)}catch(e){console.warn('[SIGEE Indicadores] logs indisponíveis:',e)}
+      try{processos=await paginar('processos')}catch(e){console.warn('[SIGEE Indicadores] processos indisponíveis:',e)}
+      try{historico=await paginar('historico_processos')}catch(e){console.warn('[SIGEE Indicadores] histórico indisponível:',e)}
+      try{logs=await paginar('logs_sigee')}catch(e){console.warn('[SIGEE Indicadores] logs indisponíveis:',e)}
       if(!processos.length)processos=(window.SIGEE_DADOS?.processos?.()||[]).slice();
 
       const processosAlvo=alvo?processos.filter(x=>nteId(x)===alvo):processos;
@@ -807,14 +801,11 @@
     elementos.forEach(el=>observadorIndicadores.observe(el,{childList:true,characterData:true,subtree:true}));
   }
 
-  let timerIndicadores=null;
-  function agendar(){clearTimeout(timerIndicadores);timerIndicadores=setTimeout(atualizar,350)}
+  function agendar(){setTimeout(atualizar,350)}
   document.addEventListener('change',e=>{if(['filtro-dashboard-nte','filtro-dashboard-periodo','dashboard-data-inicial','dashboard-data-final'].includes(e.target?.id))agendar()},true);
   window.addEventListener('sigee:arquivo-recebido',agendar);
   window.addEventListener('sigee:analytics-dados-alterados',agendar);
-  window.addEventListener('load',()=>setTimeout(()=>{
-    if(document.visibilityState==='visible' && !document.getElementById('aba-painel')?.classList.contains('hidden')) atualizar();
-  },900));
+  window.addEventListener('load',()=>setTimeout(atualizar,900));
   document.addEventListener('sigee:navegacao-concluida',event=>{
     const rota=event?.detail?.rota||event?.detail?.aba||'';
     if(rota==='painel')agendar();
@@ -823,5 +814,5 @@
   setInterval(()=>{
     if(document.visibilityState==='visible' &&
        !document.getElementById('aba-painel')?.classList.contains('hidden')) atualizar();
-  },300000);
+  },60000);
 })();
