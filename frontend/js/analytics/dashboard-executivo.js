@@ -1,4 +1,4 @@
-/* SIGEE RC5.0.0 — Perfil Executivo consolidado
+/* SIGEE RC5.1.0 — Perfil Executivo com Inteligência Gerencial
  * Atualização manual real, com baixo consumo e sem depender da página local de processos.
  */
 (function () {
@@ -103,6 +103,7 @@
       <div class="sigee-exec-kpis" id="sigee-exec-kpis"></div>
       <div class="sigee-exec-grid">
         <article class="sigee-exec-card sigee-exec-wide"><header><span>PRODUTIVIDADE TERRITORIAL</span><h3>Desempenho por NTE</h3></header><div id="sigee-exec-ntes"></div></article>
+        <article class="sigee-exec-card sigee-exec-wide"><header><span>LEITURA GERENCIAL</span><h3>Tendências do período</h3></header><div id="sigee-exec-tendencias"></div></article>
         <article class="sigee-exec-card"><header><span>PERFIL DO PEDIDO</span><h3>Tipos de documento</h3></header><div id="sigee-exec-documentos"></div></article>
         <article class="sigee-exec-card"><header><span>MODALIDADE</span><h3>Distribuição por modalidade</h3></header><div id="sigee-exec-modalidades"></div></article>
         <article class="sigee-exec-card"><header><span>TIPO DE ENSINO</span><h3>Fundamental / Médio</h3></header><div id="sigee-exec-ensino"></div></article>
@@ -139,6 +140,22 @@
     }).join('')}</div>`;
   }
 
+  function tendenciaHtml(nome,dado,{inverter=false,sufixo=''}={}) {
+    const atual=Number(dado?.atual ?? 0);
+    const anterior=Number(dado?.anterior ?? 0);
+    const variacao=dado?.variacao==null?null:Number(dado.variacao);
+    const direcao=variacao==null?'neutra':variacao>0?'alta':variacao<0?'baixa':'neutra';
+    const favoravel=variacao==null?true:(inverter?variacao<=0:variacao>=0);
+    const seta=direcao==='alta'?'↑':direcao==='baixa'?'↓':'→';
+    const texto=variacao==null?'Sem base anterior':`${seta} ${Math.abs(variacao).toLocaleString('pt-BR',{maximumFractionDigits:1})}%`;
+    return `<div class="sigee-intel-trend ${favoravel?'favoravel':'desfavoravel'}"><span>${esc(nome)}</span><strong>${atual.toLocaleString('pt-BR',{maximumFractionDigits:1})}${sufixo}</strong><small>${texto} <em>anterior: ${anterior.toLocaleString('pt-BR',{maximumFractionDigits:1})}${sufixo}</em></small></div>`;
+  }
+  function statusTerritorial(x) {
+    const status=String(x?.status||'').toLowerCase();
+    const rotulo=status==='critico'?'Crítico':status==='bom'?'Bom':'Atenção';
+    return `<small class="sigee-status ${status||'atencao'}">${rotulo}</small>`;
+  }
+
   function renderRpc(r) {
     ensureUI();
     ultimoResumoRPC = r || {};
@@ -162,13 +179,20 @@
       ['Tempo médio',`${media.toLocaleString('pt-BR',{maximumFractionDigits:1})} d`,'Até conclusão']
     ];
     const box=document.getElementById('sigee-exec-kpis');
-    if(box) box.innerHTML=kpis.map((k,i)=>`<article class="k${i}"><span>${k[0]}</span><strong>${k[1]}</strong><small>${k[2]}</small></article>`).join('');
+    if(box) {
+      const tend=(ultimoComplementoRPC||{}).tendencias||{};
+      const mapa=[tend.solicitacoes,null,null,null,tend.concluidos,tend.tempo_arquivo];
+      box.innerHTML=kpis.map((k,i)=>{const t=mapa[i];const v=t?.variacao==null?'':Number(t.variacao);const classe=t?(i===5?(v<=0?'favoravel':'desfavoravel'):(v>=0?'favoravel':'desfavoravel')):'';const seta=t?(v>0?'↑':v<0?'↓':'→'):'';return `<article class="k${i}"><span>${k[0]}</span><strong>${k[1]}</strong><small>${k[2]}</small>${t?`<em class="sigee-kpi-trend ${classe}">${t.variacao==null?'Sem comparação':`${seta} ${Math.abs(v).toLocaleString('pt-BR',{maximumFractionDigits:1})}%`}</em>`:''}</article>`;}).join('');
+    }
 
     const complemento=ultimoComplementoRPC||{};
     const territorial=Array.isArray(complemento.produtividade_territorial)?complemento.produtividade_territorial:[];
     const ntes=territorial.length?territorial:normalizarRanking(r.por_nte).map(x=>({nte:x[0],total:x[1],concluidos:null,em_atraso:null,eficiencia:null}));
     const nteBox=document.getElementById('sigee-exec-ntes');
-    if(nteBox) nteBox.innerHTML=ntes.length?`<div class="sigee-exec-table"><div class="head"><b>NTE</b><b>Total</b><b>Concluídos</b><b>Em atraso</b><b>Eficiência</b></div>${ntes.slice(0,27).map(x=>`<div><span>${esc(x.nte||x.nome||x[0]||'')}</span><span>${Number(x.total??x[1]??0).toLocaleString('pt-BR')}</span><span>${x.concluidos==null?'—':Number(x.concluidos).toLocaleString('pt-BR')}</span><span>${x.em_atraso==null?'—':Number(x.em_atraso).toLocaleString('pt-BR')}</span><span>${x.eficiencia==null?'—':Number(x.eficiencia).toLocaleString('pt-BR',{maximumFractionDigits:1})+'%'}</span></div>`).join('')}</div>`:'<p class="sigee-exec-empty">Sem dados por NTE.</p>';
+    if(nteBox) nteBox.innerHTML=ntes.length?`<div class="sigee-exec-table"><div class="head"><b>NTE</b><b>Total</b><b>Concluídos</b><b>Em atraso</b><b>Eficiência</b></div>${ntes.slice(0,27).map(x=>`<div><span>${esc(x.nte||x.nome||x[0]||'')}</span><span>${Number(x.total??x[1]??0).toLocaleString('pt-BR')}</span><span>${x.concluidos==null?'—':Number(x.concluidos).toLocaleString('pt-BR')}</span><span>${x.em_atraso==null?'—':Number(x.em_atraso).toLocaleString('pt-BR')}</span><span>${x.eficiencia==null?'—':Number(x.eficiencia).toLocaleString('pt-BR',{maximumFractionDigits:1})+'%'} ${statusTerritorial(x)}</span></div>`).join('')}</div>`:'<p class="sigee-exec-empty">Sem dados por NTE.</p>';
+    const tendencias=complemento.tendencias||{};
+    const trendBox=document.getElementById('sigee-exec-tendencias');
+    if(trendBox) trendBox.innerHTML=`<div class="sigee-intel-trends">${tendenciaHtml('Solicitações',tendencias.solicitacoes)}${tendenciaHtml('Concluídos',tendencias.concluidos)}${tendenciaHtml('Arquivos recebidos',tendencias.arquivos_recebidos)}${tendenciaHtml('Tempo até arquivo',tendencias.tempo_arquivo,{inverter:true,sufixo:' d'})}</div>`;
     const documentos=normalizarRanking(r.por_documento);
     document.getElementById('sigee-exec-documentos').innerHTML=bars(documentos,Math.max(total,1),8);
     document.getElementById('sigee-exec-modalidades').innerHTML=bars(complemento.por_modalidade||[],Math.max(total,1),8);
@@ -246,5 +270,5 @@
   function boot(){ ensureUI(); atualizarExecutivo(false); }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
   window.addEventListener('sigee:dashboard-rpc-atualizado',e=>{ if(e.detail) renderRpc(e.detail); });
-  window.SIGEE_DASHBOARD_EXECUTIVO={render,renderRpc,atualizar:atualizarExecutivo,versao:'RC5.0.0'};
+  window.SIGEE_DASHBOARD_EXECUTIVO={render,renderRpc,atualizar:atualizarExecutivo,versao:'RC5.1.0'};
 })();

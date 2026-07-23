@@ -1,9 +1,9 @@
-/* SIGEE RC5.0.0 — Dashboard Operacional consolidado */
+/* SIGEE RC5.1.0 — Dashboard Operacional com semáforo de gargalos */
 (function(){
   'use strict';
-  if(window.__SIGEE_DASHBOARD_RPC_500__) return;
-  window.__SIGEE_DASHBOARD_RPC_500__=true;
-  window.SIGEE_DASHBOARD_AUTORIDADE='RPC_RC5.0.0';
+  if(window.__SIGEE_DASHBOARD_RPC_510__) return;
+  window.__SIGEE_DASHBOARD_RPC_510__=true;
+  window.SIGEE_DASHBOARD_AUTORIDADE='RPC_RC5.1.0';
 
   const CACHE_MS=180000;
   const cache=new Map();
@@ -60,13 +60,14 @@
       nte: txt(item?.nte_escola || item?.nte || item?.territorio)
     };
   }
-  function ranking(id,dados,{limite=10,mostrarNte=false,totalBase=0}={}){
+  function ranking(id,dados,{limite=10,mostrarNte=false,totalBase=0,statusMap=null}={}){
     const itens=(Array.isArray(dados)?dados:[]).map(itemRanking).filter(x=>x.total>=0).slice(0,limite);
     const base=Number(totalBase)||itens.reduce((a,x)=>a+x.total,0)||1;
     html(id,itens.map((x,i)=>{
       const percentual=Math.max(0,Math.min(100,(x.total/base)*100));
       const meta=mostrarNte&&x.nte?`<small class="sigee-cig-nte">${esc(window.normalizarNteSIGEE?.(x.nte)||x.nte)}</small>`:'';
-      return `<div class="sigee-cig-rank-item"><div class="sigee-cig-rank-head"><span class="sigee-cig-rank-label" title="${esc(x.nome)}"><b>${i+1}. ${esc(x.nome)}</b>${meta}</span><strong>${x.total.toLocaleString('pt-BR')} <small>${percentual.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%</small></strong></div><i role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percentual.toFixed(1)}"><em style="width:${Math.max(percentual,2).toFixed(1)}%"></em></i></div>`;
+      const status=statusMap?.get(norm(x.nome))||'';
+      return `<div class="sigee-cig-rank-item ${status?`semaforo-${status}`:''}"><div class="sigee-cig-rank-head"><span class="sigee-cig-rank-label" title="${esc(x.nome)}"><b>${i+1}. ${esc(x.nome)}</b>${meta}</span><strong>${x.total.toLocaleString('pt-BR')} <small>${percentual.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%</small></strong></div><i role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percentual.toFixed(1)}"><em style="width:${Math.max(percentual,2).toFixed(1)}%"></em></i></div>`;
     }).join('')||'<p class="sigee-cig-vazio">Sem dados</p>');
   }
   function garantirCig(){
@@ -89,8 +90,16 @@
     ranking('dash-tec-top-escolas',r.por_escola,{mostrarNte:true,totalBase:r.total_processos});ranking('dash-ger-escola-demanda',r.por_escola,{mostrarNte:true,totalBase:r.total_processos});ranking('dash-ger-territorio-demanda',r.por_nte,{totalBase:r.total_processos});ranking('dash-ger-pendencias-escolas',[]);
     set('dashboard-ultima-atualizacao',new Date(r.atualizado_em||Date.now()).toLocaleString('pt-BR'));
     garantirCig();set('cig-total-ativos',`${Number(r.ativos||0).toLocaleString('pt-BR')} ativos`);set('cig-atualizado',`Atualizado em ${new Date(r.atualizado_em||Date.now()).toLocaleString('pt-BR')}`);
-    ranking('cig-gargalos',r.por_etapa,{totalBase:r.ativos});ranking('cig-tecnicos',r.por_tecnico);ranking('cig-ntes',r.por_nte,{totalBase:r.total_processos});ranking('cig-escolas',r.por_escola,{mostrarNte:true,totalBase:r.total_processos});
-    html('cig-alertas',r.vencidos?`<div class="critico"><b>⚠</b><span>${r.vencidos} processo(s) fora do prazo</span></div>`:'<div class="ok"><b>✓</b><span>Operação dentro dos parâmetros atuais</span></div>');
+    const semaforos=Array.isArray(comp.semaforo_etapas)?comp.semaforo_etapas:[];
+    const statusMap=new Map(semaforos.map(x=>[norm(x.nome),String(x.status||'')]));
+    ranking('cig-gargalos',r.por_etapa,{totalBase:r.ativos,statusMap});ranking('cig-tecnicos',r.por_tecnico);ranking('cig-ntes',r.por_nte,{totalBase:r.total_processos});ranking('cig-escolas',r.por_escola,{mostrarNte:true,totalBase:r.total_processos});
+    const criticos=semaforos.filter(x=>x.status==='critico').slice(0,4);
+    const atencao=semaforos.filter(x=>x.status==='atencao').slice(0,3);
+    const alertas=[];
+    if(Number(r.vencidos||0)>0) alertas.push(`<div class="critico"><b>⚠</b><span>${Number(r.vencidos).toLocaleString('pt-BR')} processo(s) fora do prazo</span></div>`);
+    criticos.forEach(x=>alertas.push(`<div class="critico"><b>●</b><span>${esc(x.nome)}: ${Number(x.total||0).toLocaleString('pt-BR')} processo(s), ${Number(x.percentual||0).toLocaleString('pt-BR',{maximumFractionDigits:1})}% do ativo</span></div>`));
+    atencao.forEach(x=>alertas.push(`<div class="atencao"><b>●</b><span>${esc(x.nome)} exige acompanhamento</span></div>`));
+    html('cig-alertas',alertas.join('')||'<div class="ok"><b>✓</b><span>Operação dentro dos parâmetros atuais</span></div>');
     window.dispatchEvent(new CustomEvent('sigee:dashboard-rpc-atualizado',{detail:r}));
   }
   async function carregar(forcar=false){
@@ -116,6 +125,6 @@
   document.addEventListener('change',e=>{if(['filtro-dashboard-nte','filtro-dashboard-periodo','dashboard-data-inicial','dashboard-data-final'].includes(e.target?.id))agendar(true)},true);
   document.addEventListener('sigee:navegacao-concluida',e=>{if((e.detail?.rota||e.detail?.aba)==='painel')agendar(false)});
   document.addEventListener('sigee:usuario-logado',()=>agendar(true));
-  window.carregarDadosDashboardReal=()=>agendar(true);window.carregarDadosDashboardRealImediato=()=>carregar(true);window.SIGEE_DASHBOARD_RPC={carregar,limparCache:()=>cache.clear(),versao:'RC5.0.0'};
+  window.carregarDadosDashboardReal=()=>agendar(true);window.carregarDadosDashboardRealImediato=()=>carregar(true);window.SIGEE_DASHBOARD_RPC={carregar,limparCache:()=>cache.clear(),versao:'RC5.1.0'};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>agendar(false));else agendar(false);
 })();
