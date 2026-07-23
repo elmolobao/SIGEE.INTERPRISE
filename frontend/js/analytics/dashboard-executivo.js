@@ -1,4 +1,4 @@
-/* SIGEE RC4.7.0 — Perfil Executivo sem indicadores operacionais duplicados
+/* SIGEE RC5.0.0 — Perfil Executivo consolidado
  * Atualização manual real, com baixo consumo e sem depender da página local de processos.
  */
 (function () {
@@ -35,6 +35,9 @@
   const escola = p => String(val(p,'escola_nome','escola','nome_escola','instituicao') || 'Sem escola');
   const municipio = p => String(val(p,'municipio','escola_municipio','municipio_escola') || 'Não informado');
   const documento = p => String(val(p,'documento_tipo','documento','documento_solicitado') || 'Não informado');
+  const modalidade = p => String(val(p,'modalidade') || 'Não informado');
+  const tipoEnsino = p => { const v=String(val(p,'nivel_oferta','tipo_ensino','nivel_ensino')||'Não informado'); const n=norm(v); if(n.includes('FUND')) return 'Fundamental'; if(n.includes('MED')) return 'Médio'; return v; };
+  let ultimoComplementoRPC = null;
   const dias = p => {
     const explicit = Number(val(p,'dias_decorridos'));
     if (Number.isFinite(explicit) && explicit >= 0) return explicit;
@@ -102,7 +105,7 @@
         <article class="sigee-exec-card sigee-exec-wide"><header><span>PRODUTIVIDADE TERRITORIAL</span><h3>Desempenho por NTE</h3></header><div id="sigee-exec-ntes"></div></article>
         <article class="sigee-exec-card"><header><span>PERFIL DO PEDIDO</span><h3>Tipos de documento</h3></header><div id="sigee-exec-documentos"></div></article>
         <article class="sigee-exec-card"><header><span>MODALIDADE</span><h3>Distribuição por modalidade</h3></header><div id="sigee-exec-modalidades"></div></article>
-        <article class="sigee-exec-card sigee-exec-wide"><header><span>TIPO DE ENSINO</span><h3>Fundamental / Médio</h3></header><div id="sigee-exec-ensino"></div></article>
+        <article class="sigee-exec-card"><header><span>TIPO DE ENSINO</span><h3>Fundamental / Médio</h3></header><div id="sigee-exec-ensino"></div></article>
       </div>`;
     anchor.insertAdjacentElement('afterend', section);
     document.getElementById('sigee-exec-atualizar').addEventListener('click', () => atualizarExecutivo(true));
@@ -161,15 +164,15 @@
     const box=document.getElementById('sigee-exec-kpis');
     if(box) box.innerHTML=kpis.map((k,i)=>`<article class="k${i}"><span>${k[0]}</span><strong>${k[1]}</strong><small>${k[2]}</small></article>`).join('');
 
-    const ntes=normalizarRanking(r.por_nte);
+    const complemento=ultimoComplementoRPC||{};
+    const territorial=Array.isArray(complemento.produtividade_territorial)?complemento.produtividade_territorial:[];
+    const ntes=territorial.length?territorial:normalizarRanking(r.por_nte).map(x=>({nte:x[0],total:x[1],concluidos:null,em_atraso:null,eficiencia:null}));
     const nteBox=document.getElementById('sigee-exec-ntes');
-    if(nteBox) nteBox.innerHTML=ntes.length?`<div class="sigee-exec-table"><div class="head"><b>NTE</b><b>Total</b><b>Concluídos</b><b>Em atraso</b><b>Eficiência</b></div>${ntes.slice(0,27).map(x=>`<div><span>${esc(x[0])}</span><span>${Number(x[1]||0).toLocaleString('pt-BR')}</span><span>—</span><span>—</span><span>—</span></div>`).join('')}</div>`:'<p class="sigee-exec-empty">Sem dados por NTE.</p>';
+    if(nteBox) nteBox.innerHTML=ntes.length?`<div class="sigee-exec-table"><div class="head"><b>NTE</b><b>Total</b><b>Concluídos</b><b>Em atraso</b><b>Eficiência</b></div>${ntes.slice(0,27).map(x=>`<div><span>${esc(x.nte||x.nome||x[0]||'')}</span><span>${Number(x.total??x[1]??0).toLocaleString('pt-BR')}</span><span>${x.concluidos==null?'—':Number(x.concluidos).toLocaleString('pt-BR')}</span><span>${x.em_atraso==null?'—':Number(x.em_atraso).toLocaleString('pt-BR')}</span><span>${x.eficiencia==null?'—':Number(x.eficiencia).toLocaleString('pt-BR',{maximumFractionDigits:1})+'%'}</span></div>`).join('')}</div>`:'<p class="sigee-exec-empty">Sem dados por NTE.</p>';
     const documentos=normalizarRanking(r.por_documento);
-    const modalidades=normalizarRanking(r.por_modalidade);
-    const ensino=normalizarRanking(r.por_ensino);
     document.getElementById('sigee-exec-documentos').innerHTML=bars(documentos,Math.max(total,1),8);
-    document.getElementById('sigee-exec-modalidades').innerHTML=bars(modalidades,Math.max(total,1),8);
-    document.getElementById('sigee-exec-ensino').innerHTML=bars(ensino,Math.max(total,1),6);
+    document.getElementById('sigee-exec-modalidades').innerHTML=bars(complemento.por_modalidade||[],Math.max(total,1),8);
+    document.getElementById('sigee-exec-ensino').innerHTML=bars(complemento.por_ensino||[],Math.max(total,1),8);
   }
 
   async function atualizarExecutivo(forcar=false) {
@@ -183,9 +186,14 @@
       const c=cliente();
       if(!c) throw new Error('Conexão com o Supabase indisponível.');
       const p=periodoRpc();
-      const {data,error}=await c.rpc('sigee_dashboard_resumo',{p_nte:nteRpc(),p_data_inicio:p.inicio,p_data_fim:p.fim});
-      if(error) throw error;
-      const resumo=typeof data==='string'?JSON.parse(data):data;
+      const [resumoResp,complementoResp]=await Promise.all([
+        c.rpc('sigee_dashboard_resumo',{p_nte:nteRpc(),p_data_inicio:p.inicio,p_data_fim:p.fim}),
+        c.rpc('sigee_dashboard_complemento',{p_nte:nteRpc(),p_data_inicio:p.inicio,p_data_fim:p.fim})
+      ]);
+      if(resumoResp.error) throw resumoResp.error;
+      if(complementoResp.error) console.warn('[SIGEE Perfil Executivo] Complemento indisponível:',complementoResp.error);
+      const resumo=typeof resumoResp.data==='string'?JSON.parse(resumoResp.data):resumoResp.data;
+      ultimoComplementoRPC=typeof complementoResp.data==='string'?JSON.parse(complementoResp.data):complementoResp.data;
       renderRpc(resumo||{});
       try {
         window.SIGEE_DASHBOARD_RPC?.limparCache?.();
@@ -231,12 +239,12 @@
     if(nteBox) nteBox.innerHTML = ntes.length ? `<div class="sigee-exec-table"><div class="head"><b>NTE</b><b>Total</b><b>Concluídos</b><b>Em atraso</b><b>Eficiência</b></div>${ntes.slice(0,27).map(r=>`<div><span>${esc(r[0])}</span><span>${r[1]}</span><span>${r[2]}</span><span class="${r[3]?'bad':'ok'}">${r[3]}</span><span>${pct(r[2],r[1])}%</span></div>`).join('')}</div>` : '<p class="sigee-exec-empty">Sem dados por NTE.</p>';
 
     const docs=countBy(ps,documento); document.getElementById('sigee-exec-documentos').innerHTML=bars(docs,ps.length);
-    const modalidades=countBy(ps,p=>String(val(p,'modalidade')||'Não informado')); document.getElementById('sigee-exec-modalidades').innerHTML=bars(modalidades,ps.length);
-    const ensinos=countBy(ps,p=>String(val(p,'nivel_oferta','ensino')||'Não informado')); document.getElementById('sigee-exec-ensino').innerHTML=bars(ensinos,ps.length);
+    document.getElementById('sigee-exec-modalidades').innerHTML=bars(countBy(ps,modalidade),ps.length);
+    document.getElementById('sigee-exec-ensino').innerHTML=bars(countBy(ps,tipoEnsino),ps.length);
   }
 
   function boot(){ ensureUI(); atualizarExecutivo(false); }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
   window.addEventListener('sigee:dashboard-rpc-atualizado',e=>{ if(e.detail) renderRpc(e.detail); });
-  window.SIGEE_DASHBOARD_EXECUTIVO={render,renderRpc,atualizar:atualizarExecutivo,versao:'RC4.7.0'};
+  window.SIGEE_DASHBOARD_EXECUTIVO={render,renderRpc,atualizar:atualizarExecutivo,versao:'RC5.0.0'};
 })();
