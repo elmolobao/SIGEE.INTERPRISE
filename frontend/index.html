@@ -27,7 +27,7 @@
 <link href="css/administracao.css?v=2.4.4A" rel="stylesheet"/>
 <link href="css/controle-acesso-ntes.css?v=RC4.6.0" rel="stylesheet"/>
 <link href="css/workflow-design-system.css?v=RC4.5.32" rel="stylesheet"/>
-<link href="css/dashboard-executivo.css?v=RC5.1.0" rel="stylesheet"/>
+<link href="css/dashboard-executivo.css?v=RC5.2.0" rel="stylesheet"/>
 <link href="css/centro-inteligencia.css?v=RC5.1.2" rel="stylesheet"/><link href="css/migracao/migracao-historica.css?v=M4.2.0" rel="stylesheet"/><link href="css/migracao/importacao-oficial.css?v=M5.1.0" rel="stylesheet"/>
 <link href="css/migracao/migracao-importacao-oficial.css?v=M5.2.0" rel="stylesheet"/>
 </head>
@@ -136,6 +136,14 @@
 <div class="bg-white p-4 rounded-xl shadow-sm border-t-4 border-cyan-500 text-center"><p class="text-[10px] text-gray-500 font-bold uppercase">Tempo Médio até Arquivo Recebido</p><p class="text-xl font-bold mt-1" id="dash-tec-media-arquivo-tempo">Sem dados</p></div>
 </div>
 </div>
+<section class="sigee-rel-atrasos" id="sigee-relatorio-atrasos-etapa" aria-labelledby="sigee-relatorio-atrasos-titulo">
+  <header>
+    <div><span>RELATÓRIO OPERACIONAL</span><h2 id="sigee-relatorio-atrasos-titulo">Atrasos e pendências por etapa</h2><p>Processos cujo prazo da etapa atual já foi ultrapassado, conforme a abrangência selecionada.</p></div>
+    <strong id="sigee-relatorio-atrasos-total">0 em atraso</strong>
+  </header>
+  <div class="sigee-rel-atraso-cabecalho"><span>Etapa</span><b>Total</b><b>Em atraso</b><b>No prazo</b><b>% atraso</b><span>Indicador</span></div>
+  <div id="sigee-relatorio-atrasos-corpo"><p class="sigee-cig-vazio">Aguardando indicadores...</p></div>
+</section>
 </section>
 <section class="hidden sigee-sala" id="aba-sala-situacao">
 <header class="sigee-sala-topo">
@@ -733,8 +741,8 @@
 <script src="js/core/stability-manager.js?v=RC4.3.1"></script>
 <script src="js/core/app-core.js"></script>
 <script src="js/components/WorkflowActionModal.js?v=RC4.3.3"></script>
-<script src="js/core/normalizacao-nte.js?v=RC4.6.8"></script>
-<script src="js/app/app.js?v=RC5.1.1"></script>
+<script src="js/core/normalizacao-nte.js?v=RC5.2.0"></script>
+<script src="js/app/app.js?v=RC5.2.0"></script>
 <script src="js/core/login-controller.js?v=RC5.3.0"></script>
 <script src="js/processos/processos.js?v=RC5.1.1"></script>
 <script src="js/migracao/migracao-historica.js?v=M4.2.0"></script>
@@ -762,7 +770,7 @@ window.filtrarTabelaUsuariosSIGEE = function (termo) {
 <script src="js/ui/workflow-design-system.js?v=RC4.3.2"></script>
 <script src="js/ui/workflow-components.js?v=RC4.3.2"></script>
 <!-- escolas-authority.js removido: arquivo inexistente no projeto -->
-<script src="js/analytics/dashboard-executivo.js?v=RC5.1.1"></script>
+<script src="js/analytics/dashboard-executivo.js?v=RC5.2.0"></script>
 <script src="js/analytics/centro-inteligencia.js?v=RC5.1.2"></script>
 <script src="js/core/credenciais.js?v=RC4.5.0"></script>
 <!-- RC4.5.29: arquitetura única da Nova Solicitação. Serviço primeiro; controlador único depois. -->
@@ -773,6 +781,6 @@ window.filtrarTabelaUsuariosSIGEE = function (termo) {
 <script src="js/admin/controle-acesso-ntes.js?v=RC4.6.0"></script>
 
 <script src="js/core/autorizacao.js?v=RC5.3.0"></script>
-<script src="js/analytics/dashboard.js?v=RC5.1.1"></script>
+<script src="js/analytics/dashboard.js?v=RC5.2.0"></script>
 </body>
 </html>
