@@ -379,10 +379,9 @@
     envolverLogout();
     observarLogin();
     if (usuarioAtual()) iniciarHeartbeat();
-    setInterval(() => {
-      envolverLogout();
-      if (telaLogsVisivel()) carregarLogsSIGEE(true);
-    }, 30000);
+    // RC4.7: sem varredura paralela. A tela de Logs é atualizada exclusivamente
+    // pelo monitor iniciado na entrada da rota e encerrado ao sair dela.
+    envolverLogout();
     instalando = false;
   }
 
