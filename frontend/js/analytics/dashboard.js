@@ -1,5 +1,5 @@
 /* ================================================================
-   SIGEE Enterprise 1.0.2 — PATCH 001F1 Dashboard — Colunas Reais da Tabela Processos
+   SIGEE Enterprise RC4.7.1 — Correção de colunas do histórico Dashboard — Colunas Reais da Tabela Processos
    Fonte autoritativa do Dashboard. Este arquivo deve carregar depois
    de app.js e logs.js para impedir sobrescritas por rotinas legadas.
    ================================================================ */
@@ -718,8 +718,8 @@
       const nte=alvoNte();
       const filtrarNte=q=>nte?q.eq('nte',`NTE-${String(nte).padStart(2,'0')}`):q;
       try{processos=await paginar('processos','id,aluno_nome,nome_solicitante,nte,nte_id,etapa_atual,etapa,fase_atual,etapa_codigo,data_solicitacao,data_abertura,created_at,criado_em,data_inicio_desarquivamento,data_inicio_ciclo,prazo_inicio_ciclo,prazo_inicio,data_arquivo_recebido,arquivo_recebido_em,data_documento_recebido,documento_recebido_em,data_recebimento_arquivo,recebido_em,data_inicio_analise,analise_iniciada_em,data_etapa_atual',null,60000)}catch(e){console.warn('[SIGEE Indicadores] processos indisponíveis:',e)}
-      try{historico=await paginar('historico_processos','processo_id,nte,etapa,acao,observacao,dados,created_at,data',filtrarNte,60000)}catch(e){console.warn('[SIGEE Indicadores] histórico indisponível:',e)}
-      try{logs=await paginar('logs_sigee','created_at,data_hora,data,criado_em,acao,detalhes,nte',filtrarNte,60000)}catch(e){console.warn('[SIGEE Indicadores] logs indisponíveis:',e)}
+      try{historico=await paginar('historico_processos','processo_id,nte,etapa,acao,observacao,dados,created_at',filtrarNte,60000)}catch(e){console.warn('[SIGEE Indicadores] histórico indisponível:',e)}
+      try{logs=await paginar('logs_sigee','created_at,acao,detalhes,nte',filtrarNte,60000)}catch(e){console.warn('[SIGEE Indicadores] logs indisponíveis:',e)}
       if(!processos.length)processos=(window.SIGEE_DADOS?.processos?.()||[]).slice();
 
       const processosAlvo=alvo?processos.filter(x=>nteId(x)===alvo):processos;
