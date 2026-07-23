@@ -1,21 +1,22 @@
 /**
- * SIGEE Enterprise RC4.7.0 — Catálogo oficial de perfis.
- * Autoridade única para nomenclatura, natureza do perfil e escopo padrão.
+ * SIGEE Enterprise RC5.3.5 — Catálogo oficial de perfis.
+ * Autoridade única para nomenclatura, apresentação, natureza e rota inicial.
  */
 (function (window) {
   'use strict';
-  if (window.__SIGEE_PERFIS_RC470__) return;
-  window.__SIGEE_PERFIS_RC470__ = true;
+  if (window.__SIGEE_PERFIS_RC535__) return;
+  window.__SIGEE_PERFIS_RC535__ = true;
 
   const PERFIS = Object.freeze([
-    Object.freeze({ key:'MASTER', value:'Master', label:'Master', escopo:'GLOBAL', natureza:'ADMINISTRACAO_GLOBAL' }),
-    Object.freeze({ key:'SEC', value:'SEC', label:'SEC', escopo:'GLOBAL', natureza:'ACOMPANHAMENTO_ESTADUAL' }),
-    Object.freeze({ key:'GESTOR', value:'Gestor', label:'Gestor', escopo:'NTE', natureza:'GESTAO_TERRITORIAL' }),
-    Object.freeze({ key:'ADMINISTRADOR', value:'Administrador', label:'Administrador', escopo:'NTE', natureza:'ADMINISTRACAO_TERRITORIAL' }),
-    Object.freeze({ key:'TECNICO', value:'Técnico', label:'Técnico', escopo:'NTE', natureza:'OPERACAO_TECNICA' }),
-    Object.freeze({ key:'ESTAGIARIO', value:'Estagiário', label:'Estagiário', escopo:'NTE', natureza:'APOIO_PROTOCOLO' }),
-    Object.freeze({ key:'CONSULTA', value:'Consulta', label:'Consulta', escopo:'NTE', natureza:'LEITURA_TERRITORIAL' })
+    Object.freeze({ key:'MASTER', value:'Master', label:'Master', titulo:'MASTER DO SISTEMA', subtitulo:'Administração global', escopo:'GLOBAL', natureza:'ADMINISTRACAO_GLOBAL', rotaInicial:'painel' }),
+    Object.freeze({ key:'SEC', value:'SEC', label:'SEC', titulo:'VISÃO ESTADUAL', subtitulo:'SEC / BA', escopo:'GLOBAL', natureza:'ACOMPANHAMENTO_ESTADUAL', rotaInicial:'painel' }),
+    Object.freeze({ key:'GESTOR', value:'Gestor', label:'Gestor', titulo:'GESTOR TERRITORIAL', subtitulo:'NTE vinculado', escopo:'NTE', natureza:'GESTAO_TERRITORIAL', rotaInicial:'painel' }),
+    Object.freeze({ key:'ADMINISTRADOR', value:'Administrador', label:'Administrador', titulo:'ADMINISTRADOR TERRITORIAL', subtitulo:'NTE vinculado', escopo:'NTE', natureza:'ADMINISTRACAO_TERRITORIAL', rotaInicial:'processos' }),
+    Object.freeze({ key:'TECNICO', value:'Técnico', label:'Técnico', titulo:'TÉCNICO DO NTE', subtitulo:'NTE vinculado', escopo:'NTE', natureza:'OPERACAO_TECNICA', rotaInicial:'processos' }),
+    Object.freeze({ key:'ESTAGIARIO', value:'Estagiário', label:'Estagiário', titulo:'APOIO OPERACIONAL', subtitulo:'NTE vinculado', escopo:'NTE', natureza:'APOIO_PROTOCOLO', rotaInicial:'nova-solicitacao' }),
+    Object.freeze({ key:'CONSULTA', value:'Consulta', label:'Consulta', titulo:'CONSULTA TERRITORIAL', subtitulo:'NTE vinculado', escopo:'NTE', natureza:'LEITURA_TERRITORIAL', rotaInicial:'processos' })
   ]);
+
   const POR_CHAVE=Object.freeze(PERFIS.reduce((a,p)=>(a[p.key]=p,a),{}));
   const POR_VALOR=Object.freeze(PERFIS.reduce((a,p)=>(a[p.value]=p,a),{}));
 
@@ -38,16 +39,20 @@
   function ehGlobal(value){return escopo(value)==='GLOBAL';}
   function listar(){return PERFIS.slice();}
   function preencherSelect(select,valorAtual,incluirPlaceholder){
-    if(!select)return false; const atual=normalizar(valorAtual??select.value);
+    if(!select)return false;
+    const atual=normalizar(valorAtual??select.value);
     select.innerHTML=(incluirPlaceholder?'<option value="">Selecione o Perfil</option>':'')+PERFIS.map(p=>`<option value="${p.value}">${p.label}</option>`).join('');
-    if(atual)select.value=atual; return true;
+    if(atual)select.value=atual;
+    return true;
   }
   function garantirSelects(root){
     const base=root?.querySelectorAll?root:document, vistos=new Set();
     ['#user-form-perfil','#usuario-perfil','#perfil-usuario','select[name="perfil"]','select[data-sigee-perfis]'].forEach(sel=>base.querySelectorAll(sel).forEach(select=>{
       if(vistos.has(select))return; vistos.add(select); const atual=select.value;
       preencherSelect(select,atual,Array.from(select.options||[]).some(o=>!o.value));
-    })); return vistos.size;
+    }));
+    return vistos.size;
   }
+
   window.SIGEE_PERFIS=Object.freeze({LISTA:PERFIS,POR_CHAVE,POR_VALOR,normalizar,chave,obter,escopo,ehTerritorial,ehGlobal,listar,preencherSelect,garantirSelects});
 })(window);

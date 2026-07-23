@@ -1,11 +1,11 @@
 /**
- * SIGEE Enterprise RC5.2.0 — Menu dinâmico e navegação única por perfil.
+ * SIGEE Enterprise RC5.3.5 — Menu dinâmico e navegação única por perfil.
  * Autoridade exclusiva para menus, rotas e destino pós-login.
  */
 (function(window, document){
 'use strict';
-if (window.__SIGEE_AUTORIZACAO_RC520__) return;
-window.__SIGEE_AUTORIZACAO_RC520__ = true;
+if (window.__SIGEE_AUTORIZACAO_RC535__) return;
+window.__SIGEE_AUTORIZACAO_RC535__ = true;
 
 const ROTAS = Object.freeze({
   painel: 'indicadores.visualizar',
@@ -19,13 +19,14 @@ const ROTAS = Object.freeze({
 });
 
 const MENU = Object.freeze([
-  { id:'menu-painel', rota:'painel', icone:'📊', rotulo:'Painel Gerencial', capacidade:'indicadores.visualizar' },
-  { id:'menu-central-processos', rota:'processos', icone:'📋', rotulo:'Central de Processos', capacidade:'processos.visualizar' },
-  { id:'menu-nova-solicitacao', rota:'nova-solicitacao', icone:'➕', rotulo:'Nova Solicitação', capacidade:'processos.criar' },
+  { id:'menu-painel', rota:'painel', icone:'📊', rotulo:'Painel Gerencial', capacidade:'indicadores.visualizar', perfis:['Master','SEC','Gestor','Administrador'] },
+  { id:'menu-central-processos', rota:'processos', icone:'📋', rotulo:'Central de Processos', capacidade:'processos.visualizar', perfis:['Master','SEC','Gestor','Administrador','Técnico','Consulta'] },
+  { id:'menu-nova-solicitacao', rota:'nova-solicitacao', icone:'➕', rotulo:'Nova Solicitação', capacidade:'processos.criar', perfis:['Master','Administrador','Técnico','Estagiário'] },
   { id:'menu-catalogo-escolas', rota:'escolas', icone:'🏫', rotulo:'Catálogo de Escolas', capacidade:'escolas.visualizar' },
-  { id:'menu-usuarios', rota:'usuarios', icone:'👥', rotulo:'Usuários', capacidade:['usuarios.gerenciar_global','usuarios.gerenciar_nte'] },
+  { id:'menu-usuarios', rota:'usuarios', icone:'👥', rotulo:'Usuários do NTE', capacidade:['usuarios.gerenciar_global','usuarios.gerenciar_nte'], perfis:['Master','Administrador'] },
+  { id:'menu-centro-inteligencia', rota:'centro-inteligencia', icone:'🧠', rotulo:'Centro de Inteligência', capacidade:'indicadores.visualizar', perfis:['Master','SEC'] },
   { id:'menu-sala-situacao', rota:'sala-situacao', icone:'📡', rotulo:'Sala de Situação', capacidade:'indicadores.visualizar', perfis:['Master','SEC'] },
-  { id:'menu-logs', rota:'logs', icone:'⚙️', rotulo:'Configurações', capacidade:'logs.visualizar' }
+  { id:'menu-logs', rota:'logs', icone:'⚙️', rotulo:'Configurações', capacidade:'logs.visualizar', perfis:['Master'] }
 ]);
 
 let navegacaoAutomatica = false;
@@ -66,7 +67,16 @@ function criarBotao(item){
   botao.className = classeMenu();
   botao.dataset.sigeeRota = item.rota;
   botao.dataset.sigeeCapacidade = Array.isArray(item.capacidade) ? item.capacidade.join('|') : item.capacidade;
-  botao.textContent = `${item.icone} ${item.rotulo}`;
+  const p = perfil();
+  let rotulo = item.rotulo;
+  if (item.rota === 'painel') {
+    if (p === 'Master') rotulo = 'Painel Global';
+    else if (p === 'SEC') rotulo = 'Painel Estadual';
+    else if (p === 'Gestor') rotulo = 'Painel Gerencial';
+    else if (p === 'Administrador') rotulo = 'Painel Territorial';
+  }
+  if (item.rota === 'usuarios' && p === 'Master') rotulo = 'Usuários';
+  botao.textContent = `${item.icone} ${rotulo}`;
   botao.addEventListener('click', () => navegarPara(item.rota, { manual:true }));
   return botao;
 }
@@ -87,31 +97,31 @@ function renderizarMenu(){
 function atualizarIdentidade(){
   const u = usuario(); if (!u) return;
   const p = perfil(u);
+  const meta = window.SIGEE_PERFIS?.obter?.(p) || null;
   const global = window.SIGEE_ESCOPO?.ehGlobal?.(u) === true;
   const nte = window.SIGEE_ESCOPO?.nteUsuario?.(u) || u.nte || '';
   const titulo = document.getElementById('sigee-escopo-titulo');
   const subtitulo = document.getElementById('sigee-escopo-subtitulo');
-  if (titulo) {
-    titulo.textContent = global
-      ? (p === 'Master' ? 'ADMINISTRAÇÃO GLOBAL' : 'VISÃO ESTADUAL')
-      : (p === 'Gestor' ? 'GESTOR TERRITORIAL' : (nte || 'GESTÃO TERRITORIAL'));
-  }
+
+  if (titulo) titulo.textContent = meta?.titulo || (global ? 'VISÃO ESTADUAL' : 'GESTÃO TERRITORIAL');
   if (subtitulo) {
     subtitulo.textContent = global
-      ? 'SEC / BA'
-      : (p === 'Gestor' ? (nte || 'NTE vinculado') : `${p} territorial`);
+      ? (meta?.subtitulo || 'SEC / BA')
+      : (nte || meta?.subtitulo || 'NTE vinculado');
   }
+
   document.body.dataset.sigeePerfil = p;
   document.body.dataset.sigeeEscopo = global ? 'GLOBAL' : 'NTE';
+  document.body.dataset.sigeeNatureza = meta?.natureza || '';
 }
 function primeiraRota(u=usuario()){
   const p = perfil(u);
-  if (p === 'Estagiário' && pode('processos.criar', u)) return 'nova-solicitacao';
-  if (['Master','SEC','Gestor'].includes(p) && pode('indicadores.visualizar', u)) return 'painel';
+  const preferida = window.SIGEE_PERFIS?.obter?.(p)?.rotaInicial || '';
+  if (preferida && autorizarRota(preferida, true)) return preferida;
   if (pode('processos.visualizar', u)) return 'processos';
   if (pode('processos.criar', u)) return 'nova-solicitacao';
-  if (pode('escolas.visualizar', u)) return 'escolas';
   if (pode('indicadores.visualizar', u)) return 'painel';
+  if (pode('escolas.visualizar', u)) return 'escolas';
   return '';
 }
 function navegarOriginal(){
