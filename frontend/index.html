@@ -12,7 +12,7 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>SIGEE - Sistema de Gestão de Escolas Extintas (SEC/BA)</title>
-<meta name="sigee-release" content="RC4.5.32">
+<meta name="sigee-release" content="RC5.1.0">
 <meta content="#0B4F8A" name="theme-color"/>
 <meta content="SIGEE" name="application-name"/>
 <link href="assets/sigee-icon.svg?v=2.1.1" rel="icon" type="image/svg+xml"/>
@@ -71,7 +71,7 @@
 </div>
 <nav aria-label="Menu principal do SIGEE" class="flex-1 p-4 space-y-2 sigee-sidebar-nav">
 <button class="sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer" id="menu-central-processos" onclick="navegar('processos')">📋 Central de Processos</button>
-<button class="sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer" onclick="navegar('escolas')">🏫 Catálogo de Escolas</button>
+<button class="sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer" id="menu-catalogo-escolas" onclick="navegar('escolas')">🏫 Catálogo de Escolas</button>
 <button class="hidden sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer" id="menu-usuarios" onclick="navegar('usuarios')">👥 Usuários</button>
 <button class="sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer" id="menu-relatorios" onclick="navegar('painel')">📊 Relatórios</button>
 <button class="sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer" id="menu-sala-situacao" onclick="navegar('sala-situacao')">📡 Sala de Situação</button>
@@ -773,6 +773,6 @@ if (window.SIGEE_NAVIGATION && typeof window.SIGEE_NAVIGATION.install === 'funct
 
 <script src="js/admin/controle-acesso-ntes.js?v=RC4.6.0"></script>
 
-<script src="js/core/autorizacao.js?v=RC5.0.0"></script>
+<script src="js/core/autorizacao.js?v=RC5.1.0"></script>
 </body>
 </html>
