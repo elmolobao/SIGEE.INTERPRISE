@@ -450,6 +450,8 @@
             justificativa_indeferimento: p.justificativa_indeferimento || null,
             processo_sei_indeferimento: p.processo_sei_indeferimento || null,
             finalizado_em: p.finalizado_em || null,
+            deferido_em: p.deferido_em || null,
+            retirado_em: p.retirado_em || null,
             etapa_codigo: p.etapa_codigo || null,
             data_etapa_atual: p.data_etapa_atual || null,
             prazo_etapa: p.prazo_etapa == null ? null : Number(p.prazo_etapa),
@@ -690,6 +692,17 @@
         let lista = listaProcessos().slice();
         if (!isGlobal(u)) lista = lista.filter(p => mesmoNte(nteUsuario(u), processoNte(p)));
         const set = (id, valor) => { const el = document.getElementById(id); if (el && el.innerText !== String(valor)) el.innerText = valor; };
+        const remotos = window.__SIGEE_CONTADORES_PROCESSOS_REMOTOS__;
+        if (remotos && typeof remotos === 'object') {
+            const ids = {
+              'count-horiz-todos':'todos','count-horiz-desarquivamento':'desarquivamento','count-horiz-analise':'analise',
+              'count-horiz-pendencia':'pendencia','count-horiz-digitacao':'digitacao','count-horiz-conferencia':'conferencia',
+              'count-horiz-assinatura':'assinatura','count-horiz-aguardando':'aguardando_retirada','count-horiz-retirado':'retirado','count-horiz-indeferido':'indeferido'
+            };
+            Object.entries(ids).forEach(([id,chave])=>set(id,Number(remotos[chave]||0)));
+            renderizarProcessos();
+            return;
+        }
         set('count-horiz-todos', lista.length);
         const mapa = {
             'count-horiz-desarquivamento': 'Desarquivamento',
@@ -713,7 +726,9 @@
 
     function filtrarProcessosPorEtapa(etapa) {
         filtroEtapaModulo = etapa || 'TODOS';
+        window.__SIGEE_ETAPA_FILTRO_ATUAL__ = filtroEtapaModulo;
         try { etapaFiltroAtual = filtroEtapaModulo; } catch (e) {}
+        if (typeof window.recarregarCentralProcessosSIGEE === 'function') return window.recarregarCentralProcessosSIGEE(false,true);
         renderizarProcessos();
     }
 
@@ -1381,6 +1396,8 @@
       justificativa_indeferimento: r.justificativa_indeferimento || '',
       processo_sei_indeferimento: r.processo_sei_indeferimento || '',
       finalizado_em: r.finalizado_em || null,
+      deferido_em: r.deferido_em || null,
+      retirado_em: r.retirado_em || null,
       data_etapa_atual: r.data_etapa_atual || r.updated_at || r.created_at,
       created_at: r.created_at
     };
@@ -1423,6 +1440,16 @@
   function termoSeguroBusca(valor){
     return String(valor || '').replace(/[,%_]/g, ' ').replace(/\s+/g, ' ').trim();
   }
+  function etapaFiltroRemoto(){
+    return String(window.__SIGEE_ETAPA_FILTRO_ATUAL__||'TODOS').trim();
+  }
+  async function carregarContadoresGlobais(c, nteValor, busca){
+    const {data,error}=await c.rpc('sigee_processos_contadores',{p_nte:nteValor||null,p_busca:busca||null});
+    if(error) throw error;
+    const obj=typeof data==='string'?JSON.parse(data):data||{};
+    window.__SIGEE_CONTADORES_PROCESSOS_REMOTOS__=obj;
+    return obj;
+  }
   function renderizarPaginacaoRemota(){
     const aba=document.getElementById('aba-processos');
     if(!aba) return;
@@ -1453,21 +1480,25 @@
       const inicio=(paginaAtualRemota-1)*processosPorPagina;
       const fim=inicio+processosPorPagina-1;
       let q=c.from(tabelaProcessos())
-        .select('id,codigo_sigee,aluno_nome,escola_id,escola_nome,cod_mec,documento_tipo,nivel_oferta,modalidade,etapa_atual,etapa_codigo,dias_decorridos,prioridade,nte,tecnico_responsavel,data_etapa,data_etapa_atual,prazo_etapa,prazo_inicio,prazo_fim,status,ativo,created_at,updated_at,workflow_instance_id,workflow_ciclo,ciclo,ultima_mensagem_workflow,pendencia_aberta,finalizado_em,processo_migrado', {count:'exact'})
+        .select('id,codigo_sigee,aluno_nome,escola_id,escola_nome,cod_mec,documento_tipo,nivel_oferta,modalidade,etapa_atual,etapa_codigo,dias_decorridos,prioridade,nte,tecnico_responsavel,data_etapa,data_etapa_atual,prazo_etapa,prazo_inicio,prazo_fim,status,ativo,created_at,updated_at,workflow_instance_id,workflow_ciclo,ciclo,ultima_mensagem_workflow,pendencia_aberta,finalizado_em,deferido_em,retirado_em,processo_migrado', {count:'exact'})
         .order('created_at',{ascending:false})
         .range(inicio,fim);
       const u=window.SIGEE_SESSION?.getUser?.()||window.usuarioLogado||{};
       const perfil=String(u.perfil||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
       const filtroNte=String(document.getElementById('filtro-processos-nte')?.value||'').trim();
+      let nteConsulta='';
       if(!['MASTER','SEC'].includes(perfil)){
-        const nteTxt=String(u.nte||u.nte_nome||u.grupo||'').trim();
-        if(nteTxt) q=aplicarFiltroNteRemoto(q,nteTxt);
+        nteConsulta=String(u.nte||u.nte_nome||u.grupo||'').trim();
+        if(nteConsulta) q=aplicarFiltroNteRemoto(q,nteConsulta);
       } else if(filtroNte && filtroNte!=='TODOS') {
+        nteConsulta=filtroNte;
         q=aplicarFiltroNteRemoto(q,filtroNte);
       }
       const busca=termoSeguroBusca(document.getElementById('busca-proc-nome')?.value);
       if(busca) q=q.or(`codigo_sigee.ilike.%${busca}%,aluno_nome.ilike.%${busca}%,escola_nome.ilike.%${busca}%`);
-      const {data,error,count}=await q;
+      const etapaAtual=etapaFiltroRemoto();
+      if(etapaAtual && etapaAtual.toUpperCase()!=='TODOS') q=q.eq('etapa_atual',etapaAtual);
+      const [{data,error,count}]=await Promise.all([q,carregarContadoresGlobais(c,nteConsulta,busca)]);
       if(error) throw error;
       const lista=(data||[]).map(mapear).filter(Boolean);
       totalProcessosRemotos=Number(count||0);
@@ -2137,7 +2168,7 @@
     const el=modal(`🖋️ Documento Assinado — ${esc(p.codigo_sigee||p.id)}`,`${cabecalho(p)}<p class="sigee-aviso33">Confirme somente após o retorno do documento assinado pelo Diretor do NTE.</p>${tarefa(msg)}<div class="sigee-acoes33"><button class="btn33 btn33-vermelho" data-cancelar093>Cancelar</button><button class="btn33 btn33-verde" data-confirmar093 disabled>Deferido</button></div>`,'assinatura');
     const chk=el.querySelector('#wf-email093'),btn=el.querySelector('[data-confirmar093]'); chk.addEventListener('change',()=>btn.disabled=!chk.checked);
     el.querySelector('[data-cancelar093]').addEventListener('click',fechar);
-    btn.addEventListener('click',async()=>{btn.disabled=true;p.etapa=p.etapa_atual='Aguardando Retirada';p.data_etapa_atual=agora();p.tecnico_responsavel=nomeUsuario();p.deferido_em=agora();await salvar(p);await historico(p,'Aguardando Retirada','Processo deferido',`Documento retornou assinado e está disponível para retirada. Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}.`,{mensagem:msg,tarefa_confirmada:true});fechar();if(window.filtrarProcessosPorEtapa)window.filtrarProcessosPorEtapa('Aguardando Retirada');toast('Processo deferido e disponível para retirada.');});
+    btn.addEventListener('click',async()=>{btn.disabled=true;p.etapa=p.etapa_atual='Aguardando Retirada';p.data_etapa_atual=agora();p.tecnico_responsavel=nomeUsuario();p.deferido_em=agora();p.finalizado_em=p.deferido_em;await salvar(p);await historico(p,'Aguardando Retirada','Processo deferido',`Documento retornou assinado e está disponível para retirada. Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}.`,{mensagem:msg,tarefa_confirmada:true});fechar();if(window.filtrarProcessosPorEtapa)window.filtrarProcessosPorEtapa('Aguardando Retirada');toast('Processo deferido e disponível para retirada.');});
   }
 
   function abrirRetirada(id){
@@ -2148,7 +2179,7 @@
     el.querySelectorAll('input[name="wf-retirada093"]').forEach(r=>r.addEventListener('change',()=>{box.classList.toggle('hidden',r.value!=='Terceiro'||!r.checked);validar();}));
     ['#wf-terceiro-nome093','#wf-terceiro-rg093','#wf-terceiro-telefone093'].forEach(s=>el.querySelector(s).addEventListener('input',validar));
     el.querySelector('[data-cancelar093]').addEventListener('click',fechar);
-    btn.addEventListener('click',async()=>{const tipo=el.querySelector('input[name="wf-retirada093"]:checked')?.value;if(!tipo)return;const terceiro=tipo==='Terceiro'?{nome:txt(el.querySelector('#wf-terceiro-nome093').value),rg:txt(el.querySelector('#wf-terceiro-rg093').value),telefone:txt(el.querySelector('#wf-terceiro-telefone093').value)}:null;btn.disabled=true;p.etapa=p.etapa_atual='Retirado';p.data_etapa_atual=agora();p.finalizado_em=agora();p.tecnico_responsavel=nomeUsuario();await salvar(p);await historico(p,'Retirado','Documento retirado',tipo==='Terceiro'?`Retirada por terceiro. Nome: ${terceiro.nome} | RG: ${terceiro.rg} | Telefone: ${terceiro.telefone}`:'Retirada pelo titular/requerente.',{tipo,terceiro,entregue_por:nomeUsuario()});fechar();if(window.filtrarProcessosPorEtapa)window.filtrarProcessosPorEtapa('Retirado');toast('Retirada registrada. Processo concluído.');});
+    btn.addEventListener('click',async()=>{const tipo=el.querySelector('input[name="wf-retirada093"]:checked')?.value;if(!tipo)return;const terceiro=tipo==='Terceiro'?{nome:txt(el.querySelector('#wf-terceiro-nome093').value),rg:txt(el.querySelector('#wf-terceiro-rg093').value),telefone:txt(el.querySelector('#wf-terceiro-telefone093').value)}:null;btn.disabled=true;p.etapa=p.etapa_atual='Retirado';p.data_etapa_atual=agora();p.retirado_em=p.data_etapa_atual;p.finalizado_em=p.finalizado_em||p.deferido_em||p.data_etapa_atual;p.tecnico_responsavel=nomeUsuario();await salvar(p);await historico(p,'Retirado','Documento retirado',tipo==='Terceiro'?`Retirada por terceiro. Nome: ${terceiro.nome} | RG: ${terceiro.rg} | Telefone: ${terceiro.telefone}`:'Retirada pelo titular/requerente.',{tipo,terceiro,entregue_por:nomeUsuario()});fechar();if(window.filtrarProcessosPorEtapa)window.filtrarProcessosPorEtapa('Retirado');toast('Retirada registrada. Processo concluído.');});
   }
 
   /* Sobrescreve somente as entradas públicas do fluxo legado. */
