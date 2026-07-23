@@ -1,11 +1,11 @@
 /**
- * SIGEE Enterprise RC5.3.7 — Matriz oficial de capacidades.
+ * SIGEE Enterprise RC5.3.8 — Matriz oficial de capacidades.
  * Capacidades definem o que o perfil faz; SIGEE_ESCOPO define onde a ação vale.
  */
 (function(window){
 'use strict';
-if(window.__SIGEE_PERMISSOES_RC537__)return;
-window.__SIGEE_PERMISSOES_RC537__=true;
+if(window.__SIGEE_PERMISSOES_RC538__)return;
+window.__SIGEE_PERMISSOES_RC538__=true;
 
 const C=Object.freeze({
   Master:Object.freeze({
@@ -24,7 +24,7 @@ const C=Object.freeze({
   }),
   Administrador:Object.freeze({
     'processos.visualizar':1,'processos.criar':1,'processos.movimentar':1,'processos.editar_administrativo':1,'processos.reatribuir':1,
-    'indicadores.visualizar':1,'relatorios.visualizar':1,'relatorios.exportar':1,'produtividade.visualizar':1,
+    'indicadores.visualizar':1,'relatorios.visualizar':1,'produtividade.visualizar':1,
     'escolas.visualizar':1,'escolas.editar_operacional':1,'usuarios.visualizar_nte':1,'usuarios.gerenciar_nte':1
   }),
   'Técnico':Object.freeze({

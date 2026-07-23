@@ -1,11 +1,11 @@
 /**
- * SIGEE Enterprise RC5.3.7 — Menu dinâmico e navegação única por perfil.
+ * SIGEE Enterprise RC5.3.8 — Menu dinâmico e navegação única por perfil.
  * Autoridade exclusiva para menus, rotas e destino pós-login.
  */
 (function(window, document){
 'use strict';
-if (window.__SIGEE_AUTORIZACAO_RC537__) return;
-window.__SIGEE_AUTORIZACAO_RC537__ = true;
+if (window.__SIGEE_AUTORIZACAO_RC538__) return;
+window.__SIGEE_AUTORIZACAO_RC538__ = true;
 
 const ROTAS = Object.freeze({
   painel: 'indicadores.visualizar',
@@ -43,6 +43,12 @@ function perfil(u=usuario()){
 function pode(cap, u=usuario()){
   if (Array.isArray(cap)) return cap.some(item => pode(item, u));
   return window.SIGEE_PERMISSOES?.pode?.(cap, u) === true;
+}
+function rotaCanonica(rota){
+  const chave = String(rota || '').trim();
+  // A base atual não possui uma seção #aba-relatorios. O relatório institucional
+  // é o painel analítico territorial/estadual já existente em #aba-painel.
+  return chave === 'relatorios' ? 'painel' : chave;
 }
 function capacidadeRota(rota){ return ROTAS[String(rota || '').trim()] || null; }
 function autorizarRota(rota, silencioso=false){
@@ -101,16 +107,39 @@ function garantirNovaSolicitacaoNaCentral(){
   const central = document.getElementById('aba-processos');
   if(!central)return;
 
-  // Remove o botão adicional criado por versões anteriores.
-  document.getElementById('btn-nova-solicitacao-central')?.remove();
+  // Remove cópias criadas por patches anteriores e preserva apenas um botão oficial.
+  central.querySelectorAll('#btn-nova-solicitacao-central').forEach(el=>el.remove());
 
-  // Mantém somente o botão institucional já existente no cabeçalho da Central.
-  const botao = central.querySelector('#btn-nova-solicitacao, [data-acao="nova-solicitacao"]');
-  if(botao) mostrarElemento(botao, pode('processos.criar'));
+  let botao = central.querySelector('#btn-nova-solicitacao, [data-acao="nova-solicitacao"]');
+  const autorizado = pode('processos.criar');
+
+  // Alguns módulos legados removem o botão do DOM. Recria somente quando autorizado.
+  if(!botao && autorizado){
+    const cabecalho = central.querySelector('.sigee-central-cabecalho, .sigee-modulo-cabecalho, header, .bg-white');
+    if(cabecalho){
+      botao = document.createElement('button');
+      botao.type = 'button';
+      botao.id = 'btn-nova-solicitacao';
+      botao.dataset.acao = 'nova-solicitacao';
+      botao.className = 'bg-amber-500 hover:bg-amber-600 text-white font-bold px-4 py-2.5 rounded-lg text-xs flex items-center gap-1.5 shadow-md cursor-pointer transition';
+      botao.textContent = '➕ Nova Solicitação';
+      botao.addEventListener('click', ()=>window.abrirFormularioNovaSolicitacao?.());
+      cabecalho.appendChild(botao);
+    }
+  }
+  if(botao) mostrarElemento(botao, autorizado);
+}
+function aplicarControlesExportacao(){
+  const podeExportar = pode('relatorios.exportar');
+  document.querySelectorAll(
+    '#aba-processos .export-only, #aba-processos button[onclick*="exportar"], ' +
+    '#aba-processos [data-sigee-acao="exportar"], #aba-processos [id*="exportar"]'
+  ).forEach(el=>mostrarElemento(el,podeExportar));
 }
 function aplicarControlesDaInterface(){
   aplicarControlesCatalogo();
   garantirNovaSolicitacaoNaCentral();
+  aplicarControlesExportacao();
 }
 function renderizarMenu(){
   const u = usuario();
@@ -164,14 +193,16 @@ function rotuloPerfil(p){
 function atualizarRotuloPerfilUsuario(){
   const u=usuario(); if(!u)return;
   const p=perfil(u), nte=window.SIGEE_ESCOPO?.nteUsuario?.(u)||u.nte||'';
+  const textoPerfil = `${rotuloPerfil(p)}${nte?` | ${nte}`:''}`;
   const el=document.getElementById('user-perfil');
-  if(el) el.textContent=`${rotuloPerfil(p)}${nte?` | ${nte}`:''}`;
-  document.querySelectorAll('[data-sigee-perfil-usuario]').forEach(x=>x.textContent=rotuloPerfil(p));
+  if(el) el.textContent=textoPerfil;
+  document.querySelectorAll('[data-sigee-perfil-usuario], #footer-perfil, #rodape-perfil')
+    .forEach(x=>x.textContent=rotuloPerfil(p));
 }
 function garantirRotaVisivel(rota){
   const mapa={
     painel:'aba-painel', processos:'aba-processos', escolas:'aba-escolas',
-    usuarios:'aba-usuarios', logs:'aba-logs', relatorios:'aba-relatorios',
+    usuarios:'aba-usuarios', logs:'aba-logs', relatorios:'aba-painel',
     'sala-situacao':'aba-sala-situacao', 'centro-inteligencia':'aba-centro-inteligencia'
   };
   const id=mapa[rota];
@@ -210,15 +241,21 @@ function navegarPara(rota, opcoes={}){
   const silencioso = opcoes.silencioso === true || navegacaoAutomatica === true || opcoes.manual !== true;
   if (!autorizarRota(rota, silencioso)) return false;
   const original = navegarOriginal();
+
   if (rota === 'nova-solicitacao') {
-    if (typeof original === 'function' && pode('escolas.visualizar')) original.call(window, 'escolas');
+    if (typeof original === 'function') original.call(window, 'processos');
     setTimeout(() => window.abrirFormularioNovaSolicitacao?.(), 30);
     renderizarMenu();
     return true;
   }
-  const resultado = typeof original === 'function' ? original.call(window, rota) : undefined;
+
+  const destino = rotaCanonica(rota);
+  const resultado = typeof original === 'function' ? original.call(window, destino) : undefined;
   queueMicrotask(renderizarMenu);
-  setTimeout(()=>garantirRotaVisivel(rota), 60);
+  setTimeout(()=>{
+    garantirRotaVisivel(rota);
+    aplicarControlesDaInterface();
+  }, 60);
   return resultado;
 }
 function instalarNavegacao(){
@@ -229,9 +266,14 @@ function instalarNavegacao(){
   const protegida = function(rota){
     const silencioso = navegacaoAutomatica === true;
     if (!autorizarRota(rota, silencioso)) return false;
-    const resultado = original.apply(this, arguments);
+    const args = Array.from(arguments);
+    args[0] = rotaCanonica(rota);
+    const resultado = original.apply(this, args);
     queueMicrotask(renderizarMenu);
-    setTimeout(()=>garantirRotaVisivel(rota), 60);
+    setTimeout(()=>{
+      garantirRotaVisivel(rota);
+      aplicarControlesDaInterface();
+    }, 60);
     return resultado;
   };
   protegida.__sigeeRc520 = true;
@@ -292,7 +334,7 @@ window.addEventListener('sigee:login-concluido', () => setTimeout(iniciar, 0));
 window.addEventListener('load', () => setTimeout(iniciar, 50));
 
 window.SIGEE_AUTORIZACAO = Object.freeze({
-  usuario, perfil, pode, capacidadeRota, autorizarRota,
+  usuario, perfil, pode, rotaCanonica, capacidadeRota, autorizarRota,
   aplicarMenus:renderizarMenu, renderizarMenu, primeiraRota,
   navegarPara, garantirRotaVisivel, protegerNavegacao:instalarNavegacao, instalarLogin,
   exigir:(cap,mensagem)=>pode(cap)||((mensagem!==false)&&alert(mensagem||'Ação não autorizada.'),false)
