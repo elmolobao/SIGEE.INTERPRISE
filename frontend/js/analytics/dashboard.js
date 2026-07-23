@@ -404,9 +404,12 @@
   }
   publicarFuncoesAutoritativas();
 
-  const navAnterior=window.navegar;
-  window.navegar=function(aba){const r=typeof navAnterior==='function'?navAnterior.apply(this,arguments):undefined;if(aba==='painel')agendar();return r;};
-  try{navegar=window.navegar}catch(e){}
+  // RC5.3.1: o Dashboard não redefine mais window.navegar.
+  // Atualiza somente após o evento emitido pela navegação central.
+  document.addEventListener('sigee:navegacao-concluida',event=>{
+    const rota=event?.detail?.rota||event?.detail?.aba||'';
+    if(rota==='painel')agendar();
+  });
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{
     publicarFuncoesAutoritativas();
@@ -418,7 +421,8 @@
     configurarPeriodo();
     agendar();
   }
-  setInterval(publicarFuncoesAutoritativas,2000);
+  // Publicação única; novos módulos devem consumir os eventos centrais.
+  document.addEventListener('sigee:usuario-logado',publicarFuncoesAutoritativas);
 })();
 
 
@@ -795,7 +799,13 @@
   window.addEventListener('sigee:arquivo-recebido',agendar);
   window.addEventListener('sigee:analytics-dados-alterados',agendar);
   window.addEventListener('load',()=>setTimeout(atualizar,900));
-  const nav=window.navegar;
-  window.navegar=function(aba){const r=typeof nav==='function'?nav.apply(this,arguments):undefined;if(aba==='painel')agendar();return r};
-  setInterval(()=>{if(!document.getElementById('aba-painel')?.classList.contains('hidden'))atualizar()},15000);
+  document.addEventListener('sigee:navegacao-concluida',event=>{
+    const rota=event?.detail?.rota||event?.detail?.aba||'';
+    if(rota==='painel')agendar();
+  });
+  // Atualização periódica reduzida e apenas quando o painel estiver visível.
+  setInterval(()=>{
+    if(document.visibilityState==='visible' &&
+       !document.getElementById('aba-painel')?.classList.contains('hidden')) atualizar();
+  },60000);
 })();
