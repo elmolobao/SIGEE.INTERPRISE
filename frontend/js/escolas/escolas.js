@@ -1,3 +1,4 @@
+/* SIGEE RC5.4.4 — Correção da alteração de município pelo Master */
 /* SIGEE RC5.4.3 — Master: edição completa, desativação e exclusão segura de escolas */
 /* SIGEE RC4.5.26 — Estabilização do Catálogo de Escolas */
 /* SIGEE RC4.5.18 — Nova Solicitação com estado oficial único */
@@ -670,18 +671,35 @@
     const municipioEl = campo('escola-form-municipio');
     const municipioAjuda = campo('escola-form-municipio-ajuda');
 
-    if (municipioEl) {
-      municipioEl.innerHTML = '';
-      const option = document.createElement('option');
-      option.value = municipioAtual;
-      option.textContent = municipioAtual || 'MUNICÍPIO NÃO INFORMADO';
-      municipioEl.appendChild(option);
-      municipioEl.value = municipioAtual;
-      municipioEl.disabled = true;
-    }
-
-    if (municipioAjuda) {
-      municipioAjuda.textContent = 'Município do cadastro original — campo bloqueado na alteração.';
+    if (podeEditarCompleto()) {
+      const nteAtual = Number(e.nte_id || extrairNteEscola(escolaNte(e)) || 0);
+      if (municipioEl) {
+        municipioEl.disabled = true;
+        municipioEl.innerHTML = '<option value="">CARREGANDO MUNICÍPIOS...</option>';
+      }
+      if (municipioAjuda) municipioAjuda.textContent = 'Carregando municípios do NTE selecionado...';
+      preencherSelectMunicipio(nteAtual, municipioAtual).then(() => {
+        const selectMunicipio = campo('escola-form-municipio');
+        if (selectMunicipio) {
+          selectMunicipio.disabled = false;
+          selectMunicipio.removeAttribute('disabled');
+        }
+        const ajudaMunicipio = campo('escola-form-municipio-ajuda');
+        if (ajudaMunicipio) ajudaMunicipio.textContent = 'Master: município disponível para alteração conforme o NTE selecionado.';
+      });
+    } else {
+      if (municipioEl) {
+        municipioEl.innerHTML = '';
+        const option = document.createElement('option');
+        option.value = municipioAtual;
+        option.textContent = municipioAtual || 'MUNICÍPIO NÃO INFORMADO';
+        municipioEl.appendChild(option);
+        municipioEl.value = municipioAtual;
+        municipioEl.disabled = true;
+      }
+      if (municipioAjuda) {
+        municipioAjuda.textContent = 'Município do cadastro original — campo bloqueado para este perfil.';
+      }
     }
 
     definir(
@@ -697,7 +715,7 @@
       podeEditarLimitado()
     );
     const municipioElPermissao = campo('escola-form-municipio');
-    if (municipioElPermissao) municipioElPermissao.disabled = true;
+    if (municipioElPermissao && !podeEditarCompleto()) municipioElPermissao.disabled = true;
 
     const localSelect = campo('escola-form-local');
     const localOutro = campo('escola-form-local-outro');
