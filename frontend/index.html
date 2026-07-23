@@ -12,7 +12,7 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>SIGEE - Sistema de Gestão de Escolas Extintas (SEC/BA)</title>
-<meta name="sigee-release" content="RC5.3.0">
+<meta name="sigee-release" content="RC4.5.29">
 <meta content="#0B4F8A" name="theme-color"/>
 <meta content="SIGEE" name="application-name"/>
 <link href="assets/sigee-icon.svg?v=2.1.1" rel="icon" type="image/svg+xml"/>
@@ -734,9 +734,9 @@
 <script src="js/core/stability-manager.js?v=RC4.3.1"></script>
 <script src="js/core/app-core.js"></script>
 <script src="js/components/WorkflowActionModal.js?v=RC4.3.3"></script>
-<script src="js/app/app.js?v=RC4.5.28"></script>
+<script src="js/app/app.js?v=RC4.5.29"></script>
 <script src="js/core/login-controller.js?v=RC5.3.0"></script>
-<script src="js/processos/processos.js?v=RC4.5.27"></script>
+<script src="js/processos/processos.js?v=RC4.5.29"></script>
 <script src="js/migracao/migracao-historica.js?v=M4.2.0"></script>
 <script src="js/migracao/motor-persistencia.js?v=M5.2.2"></script>
 <script src="js/migracao/importacao-oficial.js?v=M5.2.2"></script>
@@ -765,9 +765,10 @@ window.filtrarTabelaUsuariosSIGEE = function (termo) {
 <script src="js/analytics/dashboard-executivo.js?v=RC4.2.2"></script>
 <script src="js/analytics/centro-inteligencia.js?v=RC4.2.2"></script>
 <script src="js/core/credenciais.js?v=RC4.5.0"></script>
-<!-- RC4.5.12: rotina externa de duplicidade desativada; proteção consolidada em js/app/app.js -->
-<script src="js/processos/nova-solicitacao-controller.js?v=RC4.5.28"></script>
-<script src="js/processos/central-processos-controller.js?v=RC4.5.27"></script>
+<!-- RC4.5.29: arquitetura única da Nova Solicitação. Serviço primeiro; controlador único depois. -->
+<script src="js/processos/duplicidade-nova-solicitacao.js?v=RC4.5.29"></script>
+<script src="js/processos/nova-solicitacao-controller.js?v=RC4.5.29"></script>
+<script src="js/processos/central-processos-controller.js?v=RC4.5.29"></script>
 
 <script src="js/admin/controle-acesso-ntes.js?v=RC4.6.0"></script>
 
