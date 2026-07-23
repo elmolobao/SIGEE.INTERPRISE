@@ -1,5 +1,5 @@
 /**
- * SIGEE Enterprise RC5.4.2 — Matriz oficial de capacidades.
+ * SIGEE Enterprise RC5.4.3 — Matriz oficial de capacidades.
  * Capacidades definem o que o perfil faz; SIGEE_ESCOPO define onde a ação vale.
  */
 (function(window){
@@ -12,7 +12,7 @@ const C=Object.freeze({
     'escopo.global':1,
     'processos.visualizar':1,'processos.criar':1,'processos.movimentar':1,'processos.editar_administrativo':1,'processos.editar_estrutural':1,'processos.reatribuir':1,'processos.regredir':1,'processos.excluir':1,
     'indicadores.visualizar':1,'relatorios.visualizar':1,'relatorios.exportar':1,'produtividade.visualizar':1,
-    'escolas.visualizar':1,'escolas.editar_operacional':1,'escolas.editar_cadastral':1,'escolas.importar':1,'escolas.exportar':1,
+    'escolas.visualizar':1,'escolas.editar_operacional':1,'escolas.editar_cadastral':1,'escolas.excluir':1,'escolas.importar':1,'escolas.exportar':1,
     'usuarios.visualizar':1,'usuarios.visualizar_nte':1,'usuarios.gerenciar_nte':1,'usuarios.gerenciar_global':1,
     'logs.visualizar':1,'migracao.executar':1,'sistema.suspender_nte':1
   }),
@@ -45,7 +45,7 @@ const C=Object.freeze({
 const LEGADO=Object.freeze({
  global:'escopo.global',usuarios:'usuarios.gerenciar_global',logs:'logs.visualizar',salaSituacao:'indicadores.visualizar',inteligencia:'indicadores.visualizar',relatorios:'relatorios.visualizar',
  importarEscola:'escolas.importar',exportarEscola:'escolas.exportar',exportar:'relatorios.exportar',abrirSolicitacao:'processos.criar',visualizarProcesso:'processos.visualizar',moverProcesso:'processos.movimentar',
- editarProcesso:'processos.editar_administrativo',excluirProcesso:'processos.excluir',regredirProcesso:'processos.regredir',cadastrarEscola:'escolas.editar_cadastral',editarEscola:'escolas.editar_operacional'
+ editarProcesso:'processos.editar_administrativo',excluirProcesso:'processos.excluir',regredirProcesso:'processos.regredir',cadastrarEscola:'escolas.editar_cadastral',editarEscola:'escolas.editar_operacional',excluirEscola:'escolas.excluir'
 });
 function user(target){return target||window.SIGEE_SESSION?.getUser?.()||null;}
 function profile(target){return window.SIGEE_PERFIS?.normalizar?.(user(target)?.perfil)||window.SIGEE_SESSION?.normalizarPerfil?.(user(target)?.perfil)||'';}
