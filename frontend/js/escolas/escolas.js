@@ -1,3 +1,4 @@
+/* SIGEE RC5.4.3 — Master: edição completa, desativação e exclusão segura de escolas */
 /* SIGEE RC4.5.26 — Estabilização do Catálogo de Escolas */
 /* SIGEE RC4.5.18 — Nova Solicitação com estado oficial único */
 /* =====================================================================
@@ -46,7 +47,15 @@
   function podeEditarCompleto() { return perfilAtual() === 'MASTER'; }
   function podeEditarLimitado() {
     const p = perfilAtual();
-    return p === 'SEC' || p === 'TECNICO' || p === 'ADMINISTRADOR';
+    return p === 'TECNICO' || p === 'ADMINISTRADOR';
+  }
+  function podeExcluir() {
+    try {
+      if (window.SIGEE_PERMISSOES && typeof window.SIGEE_PERMISSOES.pode === 'function') {
+        return !!window.SIGEE_PERMISSOES.pode('escolas.excluir');
+      }
+    } catch (_) {}
+    return perfilAtual() === 'MASTER';
   }
   function nteIdUsuario() {
     const u = window.usuarioLogado || {};
@@ -317,6 +326,7 @@
     let query = client
       .from(tabelaEscolas())
       .select('id,cod_mec,nome_escola,nome,municipio,nte_id,nte,dependencia_adm,dependencia,situacao_funcional,situacao,status_acervo,acervo,local_acervo,ativo', { count: 'exact' });
+    if (perfilAtual() !== 'MASTER') query = query.or('ativo.is.null,ativo.eq.true');
     query = aplicarFiltrosQuery(query, termo);
     query = query.order('nome_escola', { ascending: true, nullsFirst: false }).range(inicio, inicio + limit - 1);
     const { data, error, count } = await query;
@@ -327,6 +337,7 @@
   }
   function buscarEscolasLocal(termo = '', page = paginaAtual, limit = porPagina) {
     let lista = Array.isArray(window.escolasDB) ? window.escolasDB.slice() : [];
+    if (perfilAtual() !== 'MASTER') lista = lista.filter(e => e.ativo !== false);
     if (!isGlobal()) {
       const nteId = nteIdUsuario();
       const nt = normalizar(nteTextoUsuario()).replace(/\s/g, '');
@@ -344,12 +355,20 @@
     if (!corpo) return;
     corpo.innerHTML = (lista || []).map(e => {
       const idReal = texto(e.id);
-      const botao = podeEditar() && idReal
-        ? `<button type="button" data-escola-id="${escapeHtml(idReal)}" class="btn-alterar-escola-sigee bg-blue-700 hover:bg-blue-800 text-white px-2 py-1 rounded text-[10px] font-bold">Alterar</button>`
-        : `<span class="text-gray-400 text-[10px] font-bold">Consulta</span>`;
-      return `<tr class="hover:bg-white/10 text-[11px] text-white border-b border-white/10">
+      const acoes = [];
+      if (podeEditar() && idReal) {
+        acoes.push(`<button type="button" data-escola-id="${escapeHtml(idReal)}" class="btn-alterar-escola-sigee bg-blue-700 hover:bg-blue-800 text-white px-2 py-1 rounded text-[10px] font-bold">Alterar</button>`);
+      }
+      if (podeExcluir() && idReal) {
+        const estaAtiva = e.ativo !== false;
+        acoes.push(`<button type="button" data-escola-id="${escapeHtml(idReal)}" data-novo-status="${estaAtiva ? 'false' : 'true'}" class="btn-status-escola-sigee ${estaAtiva ? 'bg-amber-600 hover:bg-amber-700' : 'bg-emerald-600 hover:bg-emerald-700'} text-white px-2 py-1 rounded text-[10px] font-bold">${estaAtiva ? 'Desativar' : 'Ativar'}</button>`);
+        acoes.push(`<button type="button" data-escola-id="${escapeHtml(idReal)}" class="btn-excluir-escola-sigee bg-red-800 hover:bg-red-900 text-white px-2 py-1 rounded text-[10px] font-bold">Excluir</button>`);
+      }
+      const botao = acoes.length ? `<div class="flex flex-wrap justify-center gap-1">${acoes.join('')}</div>` : `<span class="text-gray-400 text-[10px] font-bold">Consulta</span>`;
+      const inativa = e.ativo === false;
+      return `<tr class="hover:bg-white/10 text-[11px] text-white border-b border-white/10 ${inativa ? 'opacity-60' : ''}">
         <td class="p-3 font-mono font-bold">${escapeHtml(e.cod_mec)}</td>
-        <td class="p-3 font-bold uppercase">${escapeHtml(escolaNome(e))}</td>
+        <td class="p-3 font-bold uppercase">${escapeHtml(escolaNome(e))}${e.ativo === false ? '<br><span class="inline-block mt-1 px-2 py-0.5 rounded bg-gray-700 text-white text-[9px]">INATIVA</span>' : ''}</td>
         <td class="p-3 uppercase font-medium">${escapeHtml(texto(e.municipio).toUpperCase())}</td>
         <td class="p-3 font-semibold text-blue-100">${escapeHtml(escolaNte(e))}<br><span class="text-[9px] bg-white/10 font-bold px-1 rounded">${escapeHtml(escolaDep(e))}</span></td>
         <td class="p-3">${badge(escolaSituacao(e), 'situacao')}</td>
@@ -782,6 +801,101 @@
       alert('Não foi possível salvar a escola. Verifique o console.');
     }
   }
+  async function alterarStatusEscola(id, novoStatus) {
+    if (!podeExcluir()) return alert('Apenas o perfil Master pode ativar ou desativar escolas.');
+    const escola = await obterEscolaPorId(id);
+    if (!escola) return alert('Escola não localizada.');
+    const ativa = novoStatus === true || String(novoStatus) === 'true';
+    const acao = ativa ? 'ativar' : 'desativar';
+    if (!confirm(`Confirma ${acao} a escola “${escolaNome(escola)}”?`)) return;
+    const client = supabaseClient();
+    if (!client) return alert('Cliente Supabase indisponível.');
+    try {
+      const { data, error } = await client.from(tabelaEscolas())
+        .update({ ativo: ativa })
+        .eq('id', escola.id)
+        .select('id,ativo')
+        .limit(1);
+      if (error) throw error;
+      escola.ativo = data?.[0]?.ativo ?? ativa;
+      upsertCacheLocal(escola);
+      if (typeof registrarLog === 'function') registrarLog(`${ativa ? 'Ativou' : 'Desativou'} escola: ${escolaNome(escola)}`);
+      await renderizarLista();
+    } catch (erro) {
+      console.error('[SIGEE Escolas] Falha ao alterar status da escola:', erro);
+      alert('Não foi possível alterar o status da escola.');
+    }
+  }
+
+  function processosLocaisVinculados(escola) {
+    const fontes = [
+      window.processosDB,
+      window.SIGEE_DADOS?.processos?.(),
+      window.solicitacoesDB,
+      window.solicitacoesSigeeDB
+    ];
+    const nome = normalizar(escolaNome(escola));
+    const id = String(escola.id ?? '');
+    return fontes.some(fonte => Array.isArray(fonte) && fonte.some(item => {
+      const itemId = String(item?.escola_id ?? item?.id_escola ?? '');
+      const itemNome = normalizar(item?.escola_nome ?? item?.escola ?? item?.nome_escola ?? '');
+      return (id && itemId === id) || (nome && itemNome === nome);
+    }));
+  }
+
+  async function existeProcessoRemotoVinculado(escola) {
+    const client = supabaseClient();
+    if (!client) return processosLocaisVinculados(escola);
+    const nome = escolaNome(escola);
+    if (!nome) return processosLocaisVinculados(escola);
+    try {
+      const consultas = [
+        client.from('processos').select('id', { count: 'exact', head: true }).eq('escola_nome', nome),
+        client.from('processos').select('id', { count: 'exact', head: true }).eq('escola', nome)
+      ];
+      const resultados = await Promise.all(consultas);
+      return resultados.some(r => !r.error && Number(r.count || 0) > 0) || processosLocaisVinculados(escola);
+    } catch (_) {
+      return processosLocaisVinculados(escola);
+    }
+  }
+
+  async function excluirEscolaDefinitivamente(id) {
+    if (!podeExcluir()) return alert('A exclusão de escolas é exclusiva do perfil Master.');
+    const escola = await obterEscolaPorId(id);
+    if (!escola) return alert('Escola não localizada.');
+
+    if (await existeProcessoRemotoVinculado(escola)) {
+      return alert('Não é possível excluir definitivamente esta escola porque existem processos ou solicitações vinculados. Use a opção Desativar.');
+    }
+
+    const nome = escolaNome(escola);
+    if (!confirm(`ATENÇÃO: excluir definitivamente “${nome}”?
+
+Esta ação não pode ser desfeita.`)) return;
+    const confirmacao = prompt(`Digite EXCLUIR para confirmar a remoção definitiva de “${nome}”.`);
+    if (normalizar(confirmacao) !== 'EXCLUIR') return alert('Exclusão cancelada.');
+
+    const client = supabaseClient();
+    if (!client) return alert('Cliente Supabase indisponível.');
+    try {
+      const { error } = await client.from(tabelaEscolas()).delete().eq('id', escola.id);
+      if (error) throw error;
+      window.escolasDB = (Array.isArray(window.escolasDB) ? window.escolasDB : [])
+        .filter(item => String(item.id ?? '') !== String(escola.id ?? ''));
+      cachePagina = (cachePagina || []).filter(item => String(item.id ?? '') !== String(escola.id ?? ''));
+      if (typeof registrarLog === 'function') registrarLog(`Excluiu definitivamente escola: ${nome}`);
+      await renderizarLista();
+      if (typeof window.carregarDadosDashboardReal === 'function') window.carregarDadosDashboardReal();
+    } catch (erro) {
+      console.error('[SIGEE Escolas] Falha ao excluir escola:', erro);
+      const vinculada = String(erro?.code || '') === '23503';
+      alert(vinculada
+        ? 'A escola possui vínculos no banco e não pode ser excluída. Use a opção Desativar.'
+        : 'Não foi possível excluir a escola. Verifique o console.');
+    }
+  }
+
   function fecharModal() { const m = document.getElementById('modal-cadastro-escola'); if (m) m.classList.add('hidden'); }
 
   /* RC4.5.18 — bloco legado da Nova Solicitação removido.
@@ -869,9 +983,28 @@
     window.editarEscolaSIGEEV45 = abrirEditarEscola;
     window.salvarEscolaFormularioSIGEE = salvarEscola;
     window.fecharModalEscola = fecharModal;
+    window.alterarStatusEscolaSIGEE = alterarStatusEscola;
+    window.excluirEscolaDefinitivamenteSIGEE = excluirEscolaDefinitivamente;
     // RC4.5.15: o bloco legado não pode reassumir a Nova Solicitação.
     // A autoridade exclusiva é instalada pelo módulo reorganizado ao final deste arquivo.
   }
+  document.addEventListener('click', function(event) {
+    const statusBtn = event.target.closest('.btn-status-escola-sigee[data-escola-id]');
+    if (statusBtn) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      alterarStatusEscola(statusBtn.dataset.escolaId, statusBtn.dataset.novoStatus);
+      return;
+    }
+    const excluirBtn = event.target.closest('.btn-excluir-escola-sigee[data-escola-id]');
+    if (excluirBtn) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      excluirEscolaDefinitivamente(excluirBtn.dataset.escolaId);
+      return;
+    }
+  }, true);
+
   document.addEventListener('click', function(event) {
     const btn = event.target.closest('.btn-alterar-escola-sigee[data-escola-id]');
     if (!btn) return;
@@ -905,6 +1038,8 @@
     buscar: buscarEscolas,
     abrirNova: abrirNovaEscola,
     abrirEditar: abrirEditarEscola,
+    alterarStatus: alterarStatusEscola,
+    excluirDefinitivamente: excluirEscolaDefinitivamente,
     abrirEditarRegistro: function(registro) {
       if (!podeEditar()) return alert('Seu perfil não possui permissão para alterar escola.');
       garantirModalEscola();
