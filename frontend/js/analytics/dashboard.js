@@ -632,16 +632,24 @@
   }
   function noPeriodo(d,p){if(p.tipo==='ACUMULADO')return true;if(!d)return false;return (!p.inicio||d>=p.inicio)&&(!p.fim||d<=p.fim)}
 
-  async function paginar(tabela){
+  const cacheIndicadores=new Map();
+  async function paginar(tabela,colunas,configurar,ttl=60000){
     const c=cliente();if(!c)return [];
+    const alvo=alvoNte()||'GLOBAL';
+    const chave=`${tabela}|${alvo}|${colunas}`;
+    const salvo=cacheIndicadores.get(chave);
+    if(salvo&&Date.now()-salvo.em<ttl)return salvo.dados;
     let todos=[],ini=0;
     while(true){
-      const {data:linhas,error}=await c.from(tabela).select('*').range(ini,ini+999);
+      let q=c.from(tabela).select(colunas).range(ini,ini+999);
+      if(typeof configurar==='function')q=configurar(q);
+      const {data:linhas,error}=await q;
       if(error)throw error;
       todos.push(...(linhas||[]));
       if(!linhas||linhas.length<1000)break;
-      ini+=1000;if(ini>=100000)break;
+      ini+=1000;if(ini>=20000)break;
     }
+    cacheIndicadores.set(chave,{dados:todos,em:Date.now()});
     return todos;
   }
 
@@ -699,14 +707,18 @@
   let observadorIndicadores=null;
   let restaurando=false;
   async function atualizar(){
+    const painel=document.getElementById('aba-painel');
+    if(document.visibilityState!=='visible'||!painel||painel.classList.contains('hidden'))return;
     if(executando)return;executando=true;
     try{
       rotulos();
       const p=periodo(),alvo=alvoNte();
       let processos=[],historico=[],logs=[];
-      try{processos=await paginar('processos')}catch(e){console.warn('[SIGEE Indicadores] processos indisponíveis:',e)}
-      try{historico=await paginar('historico_processos')}catch(e){console.warn('[SIGEE Indicadores] histórico indisponível:',e)}
-      try{logs=await paginar('logs_sigee')}catch(e){console.warn('[SIGEE Indicadores] logs indisponíveis:',e)}
+      const nte=alvoNte();
+      const filtrarNte=q=>nte?q.eq('nte',`NTE-${String(nte).padStart(2,'0')}`):q;
+      try{processos=await paginar('processos','id,aluno_nome,nome_solicitante,nte,nte_id,etapa_atual,etapa,fase_atual,etapa_codigo,data_solicitacao,data_abertura,created_at,criado_em,data_inicio_desarquivamento,data_inicio_ciclo,prazo_inicio_ciclo,prazo_inicio,data_arquivo_recebido,arquivo_recebido_em,data_documento_recebido,documento_recebido_em,data_recebimento_arquivo,recebido_em,data_inicio_analise,analise_iniciada_em,data_etapa_atual',null,60000)}catch(e){console.warn('[SIGEE Indicadores] processos indisponíveis:',e)}
+      try{historico=await paginar('historico_processos','processo_id,nte,etapa,acao,observacao,dados,created_at,data',filtrarNte,60000)}catch(e){console.warn('[SIGEE Indicadores] histórico indisponível:',e)}
+      try{logs=await paginar('logs_sigee','created_at,data_hora,data,criado_em,acao,detalhes,nte',filtrarNte,60000)}catch(e){console.warn('[SIGEE Indicadores] logs indisponíveis:',e)}
       if(!processos.length)processos=(window.SIGEE_DADOS?.processos?.()||[]).slice();
 
       const processosAlvo=alvo?processos.filter(x=>nteId(x)===alvo):processos;
@@ -794,7 +806,8 @@
     elementos.forEach(el=>observadorIndicadores.observe(el,{childList:true,characterData:true,subtree:true}));
   }
 
-  function agendar(){setTimeout(atualizar,350)}
+  let timerIndicadores=null;
+  function agendar(){clearTimeout(timerIndicadores);timerIndicadores=setTimeout(atualizar,350)}
   document.addEventListener('change',e=>{if(['filtro-dashboard-nte','filtro-dashboard-periodo','dashboard-data-inicial','dashboard-data-final'].includes(e.target?.id))agendar()},true);
   window.addEventListener('sigee:arquivo-recebido',agendar);
   window.addEventListener('sigee:analytics-dados-alterados',agendar);
