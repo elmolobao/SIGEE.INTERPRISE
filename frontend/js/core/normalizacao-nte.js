@@ -13,6 +13,26 @@
     return `NTE-${String(numero).padStart(2, '0')}`;
   }
 
+
+  const NOMES_OFICIAIS_NTE = Object.freeze({
+    1:'Irecê',2:'Bom Jesus da Lapa',3:'Seabra',4:'Serrinha',5:'Itabuna',
+    6:'Valença',7:'Teixeira de Freitas',8:'Itapetinga',9:'Amargosa',10:'Juazeiro',
+    11:'Barreiras',12:'Macaúbas',13:'Caetité',14:'Itaberaba',15:'Ipirá',
+    16:'Jacobina',17:'Ribeira do Pombal',18:'Alagoinhas',19:'Feira de Santana',
+    20:'Vitória da Conquista',21:'Santo Antônio de Jesus',22:'Jequié',
+    23:'Santa Maria da Vitória',24:'Paulo Afonso',25:'Senhor do Bonfim',
+    26:'Salvador',27:'Eunápolis'
+  });
+
+  function rotuloNte(valor) {
+    const normalizado = normalizarNte(valor);
+    const match = String(normalizado || '').match(/NTE-(\d{2})/i);
+    if (!match) return normalizado || String(valor || '').trim();
+    const numero = Number(match[1]);
+    const sede = NOMES_OFICIAIS_NTE[numero];
+    return sede ? `${normalizado} (${sede})` : normalizado;
+  }
+
   function localizarEscola(processo) {
     const id = processo && (processo.escola_id || processo.escolaId);
     const nome = String(processo && (processo.escola_nome || processo.escola || processo.nome_escola) || '').trim().toUpperCase();
@@ -47,7 +67,10 @@
     normalizar: normalizarNte,
     aplicarPayload: normalizarPayload,
     localizarEscola,
-    nteDoProcesso
+    nteDoProcesso,
+    rotulo: rotuloNte,
+    nomes: NOMES_OFICIAIS_NTE
   });
   window.normalizarNteSIGEE = normalizarNte;
+  window.rotuloNteSIGEE = rotuloNte;
 })(window);
