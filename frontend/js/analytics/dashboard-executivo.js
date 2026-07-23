@@ -1,5 +1,5 @@
-/* SIGEE Enterprise 3.0 — Dashboard Executivo CLO/SEC
- * Camada não invasiva: lê as bases globais já carregadas e não altera workflow nem Supabase.
+/* SIGEE RC4.6.4 — Dashboard Executivo integrado à RPC consolidada
+ * Atualização manual real, com baixo consumo e sem depender da página local de processos.
  */
 (function () {
   'use strict';
@@ -57,6 +57,31 @@
     return [...m.entries()].sort((a,b)=>b[1]-a[1]);
   };
   const pct = (n,d) => d ? Math.round((n/d)*100) : 0;
+  let ultimoResumoRPC = null;
+  let atualizandoRPC = false;
+  const cliente = () => {
+    try {
+      return window.obterSupabaseSIGEE?.() || window.SIGEE_SUPABASE?.criarCliente?.() || window.SIGEE_SUPABASE_CLIENT || null;
+    } catch (_) { return null; }
+  };
+  const usuarioAtual = () => window.SIGEE_SESSION?.getUser?.() || window.usuarioLogado || null;
+  const ehGlobal = () => window.SIGEE_ESCOPO?.ehGlobal?.(usuarioAtual()) === true;
+  const numeroNte = v => String(v ?? '').match(/\d{1,2}/)?.[0] || '';
+  function nteRpc() {
+    if (ehGlobal()) return null;
+    const u = usuarioAtual() || {};
+    return numeroNte(u.nte || u.nte_nome || u.grupo) || null;
+  }
+  function periodoRpc() {
+    const valor = Number(document.getElementById('sigee-exec-periodo')?.value || 0);
+    if (!valor) return { inicio: null, fim: null };
+    const fim = new Date();
+    fim.setHours(23,59,59,999);
+    const inicio = new Date();
+    inicio.setDate(inicio.getDate() - valor);
+    inicio.setHours(0,0,0,0);
+    return { inicio: inicio.toISOString(), fim: fim.toISOString() };
+  }
 
   function ensureUI() {
     const anchor = document.querySelector('#aba-painel .space-y-2.pt-2:last-of-type') || document.getElementById('aba-painel');
@@ -81,8 +106,8 @@
         <article class="sigee-exec-card"><header><span>PRODUTIVIDADE</span><h3>Técnicos com mais conclusões</h3></header><div id="sigee-exec-tecnicos"></div></article>
       </div>`;
     anchor.insertAdjacentElement('afterend', section);
-    document.getElementById('sigee-exec-atualizar').addEventListener('click', render);
-    document.getElementById('sigee-exec-periodo').addEventListener('change', render);
+    document.getElementById('sigee-exec-atualizar').addEventListener('click', () => atualizarExecutivo(true));
+    document.getElementById('sigee-exec-periodo').addEventListener('change', () => atualizarExecutivo(true));
   }
 
   function filteredProcesses() {
@@ -98,6 +123,77 @@
   function bars(items,total,limit=8) {
     if (!items.length) return '<p class="sigee-exec-empty">Sem dados disponíveis.</p>';
     return `<div class="sigee-exec-bars">${items.slice(0,limit).map(([name,value],i)=>`<div class="sigee-exec-row"><div><b>${i+1}. ${esc(name)}</b><span>${value}</span></div><i><em style="width:${Math.max(3,pct(value,total))}%"></em></i></div>`).join('')}</div>`;
+  }
+
+  function normalizarRanking(lista) {
+    return Array.isArray(lista) ? lista.map(item => Array.isArray(item) ? item : [item?.nome || item?.label || item?.nte || 'Não informado', Number(item?.total || item?.quantidade || item?.valor || 0)]) : [];
+  }
+
+  function renderRpc(r) {
+    ensureUI();
+    ultimoResumoRPC = r || {};
+    const total = Number(r.total_processos ?? r.total ?? normalizarRanking(r.por_etapa).reduce((a,x)=>a+Number(x[1]||0),0));
+    const ativos = Number(r.ativos || 0);
+    const concl = Number(r.concluidos || 0);
+    const venc = Number(r.vencidos || 0);
+    const prazo = Math.max(0, ativos - venc);
+    const media = Number(r.media_atendimento || 0);
+    const sla = pct(prazo, ativos);
+    const contexto=document.getElementById('sigee-exec-contexto');
+    if(contexto) contexto.textContent=ehGlobal()?'VISÃO ESTADUAL CONSOLIDADA':`VISÃO TERRITORIAL — NTE ${String(nteRpc()||'').padStart(2,'0')}`;
+    const titulo=document.querySelector('#sigee-dashboard-executivo h2');
+    if(titulo) titulo.textContent=ehGlobal()?'Dashboard Executivo CLO / SEC':'Dashboard Gerencial do NTE';
+    const kpis = [
+      ['Solicitações',total.toLocaleString('pt-BR'),'Base consolidada'],
+      ['Em andamento',ativos.toLocaleString('pt-BR'),'Processos ativos'],
+      ['Em atraso',venc.toLocaleString('pt-BR'),'Exigem atenção'],
+      ['No prazo',prazo.toLocaleString('pt-BR'),`${sla}% do ativo`],
+      ['Concluídos',concl.toLocaleString('pt-BR'),'Retirados/indeferidos'],
+      ['Tempo médio',`${media.toLocaleString('pt-BR',{maximumFractionDigits:1})} d`,'Até conclusão']
+    ];
+    const box=document.getElementById('sigee-exec-kpis');
+    if(box) box.innerHTML=kpis.map((k,i)=>`<article class="k${i}"><span>${k[0]}</span><strong>${k[1]}</strong><small>${k[2]}</small></article>`).join('');
+
+    const ntes=normalizarRanking(r.por_nte);
+    const nteBox=document.getElementById('sigee-exec-ntes');
+    if(nteBox) nteBox.innerHTML=ntes.length?`<div class="sigee-exec-table"><div class="head"><b>NTE</b><b>Total</b><b>Concluídos</b><b>Em atraso</b><b>Eficiência</b></div>${ntes.slice(0,27).map(x=>`<div><span>${esc(x[0])}</span><span>${Number(x[1]||0).toLocaleString('pt-BR')}</span><span>—</span><span>—</span><span>—</span></div>`).join('')}</div>`:'<p class="sigee-exec-empty">Sem dados por NTE.</p>';
+    const etapas=normalizarRanking(r.por_etapa);
+    const escolas=normalizarRanking(r.por_escola);
+    const tecnicos=normalizarRanking(r.por_tecnico);
+    document.getElementById('sigee-exec-etapas').innerHTML=bars(etapas,Math.max(ativos,1));
+    document.getElementById('sigee-exec-escolas').innerHTML=bars(escolas,Math.max(total,1),10);
+    document.getElementById('sigee-exec-tecnicos').innerHTML=bars(tecnicos,Math.max(total,1),10);
+    document.getElementById('sigee-exec-documentos').innerHTML='<p class="sigee-exec-empty">Indicador não disponível na consulta consolidada atual.</p>';
+  }
+
+  async function atualizarExecutivo(forcar=false) {
+    if (atualizandoRPC) return;
+    ensureUI();
+    const botao=document.getElementById('sigee-exec-atualizar');
+    const textoOriginal=botao?.textContent || '↻ Atualizar';
+    atualizandoRPC=true;
+    if(botao){botao.disabled=true;botao.textContent='↻ Atualizando...';}
+    try {
+      const c=cliente();
+      if(!c) throw new Error('Conexão com o Supabase indisponível.');
+      const p=periodoRpc();
+      const {data,error}=await c.rpc('sigee_dashboard_resumo',{p_nte:nteRpc(),p_data_inicio:p.inicio,p_data_fim:p.fim});
+      if(error) throw error;
+      const resumo=typeof data==='string'?JSON.parse(data):data;
+      renderRpc(resumo||{});
+      try {
+        window.SIGEE_DASHBOARD_RPC?.limparCache?.();
+        window.dispatchEvent(new CustomEvent('sigee:dashboard-executivo-atualizado',{detail:resumo||{}}));
+      } catch(_) {}
+    } catch(erro) {
+      console.error('[SIGEE Dashboard Executivo] Falha ao atualizar:',erro);
+      if(botao) botao.textContent='Falha — tentar novamente';
+      setTimeout(()=>{if(botao)botao.textContent=textoOriginal;},2200);
+      return;
+    } finally {
+      atualizandoRPC=false;
+      if(botao){botao.disabled=false;if(botao.textContent==='↻ Atualizando...')botao.textContent=textoOriginal;}
+    }
   }
 
   function render() {
@@ -134,7 +230,8 @@
     const tech=countBy(concl,tecnico); document.getElementById('sigee-exec-tecnicos').innerHTML=bars(tech,concl.length,10);
   }
 
-  function boot(){ ensureUI(); render(); setTimeout(render,1200); setTimeout(render,3500); }
+  function boot(){ ensureUI(); atualizarExecutivo(false); }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
-  window.SIGEE_DASHBOARD_EXECUTIVO={render};
+  window.addEventListener('sigee:dashboard-rpc-atualizado',e=>{ if(e.detail) renderRpc(e.detail); });
+  window.SIGEE_DASHBOARD_EXECUTIVO={render,renderRpc,atualizar:atualizarExecutivo,versao:'RC4.6.4'};
 })();
