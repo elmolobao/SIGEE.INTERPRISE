@@ -477,12 +477,22 @@
     // Substitui o formulário para remover todos os listeners legados acumulados.
     const novoForm = original.cloneNode(true);
     novoForm.removeAttribute('onsubmit');
+    // O clone remove os listeners do formulário original. Também é necessário
+    // remover as marcas herdadas para que as proteções de duplicidade e acervo
+    // sejam vinculadas novamente ao formulário efetivamente ativo.
+    novoForm.removeAttribute('data-sigee-protecoes-bound');
+    novoForm.removeAttribute('data-sigee-protecoes-liberado');
     original.replaceWith(novoForm);
     form = novoForm;
     botao = campo('btn-submeter-nova-solicitacao');
 
     garantirCampoPesquisa();
     form.addEventListener('submit', enviar, true);
+    // Reinstala imediatamente o aviso de duplicidade no formulário clonado,
+    // preservando o mesmo modal, os mesmos botões e o mesmo fluxo já homologado.
+    try { window.SIGEE_NOVA_SOLICITACAO_PROTECOES?.reinstalar?.(); } catch (erro) {
+      console.warn('[SIGEE RC4.5.28] Não foi possível reinstalar imediatamente as proteções:', erro);
+    }
     if (botao) {
       botao.type = 'submit';
       botao.onclick = null;
