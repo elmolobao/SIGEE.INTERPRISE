@@ -1,11 +1,11 @@
 /**
- * SIGEE Enterprise RC5.3.8 — Matriz oficial de capacidades.
+ * SIGEE Enterprise RC5.3.9 — Matriz oficial de capacidades.
  * Capacidades definem o que o perfil faz; SIGEE_ESCOPO define onde a ação vale.
  */
 (function(window){
 'use strict';
-if(window.__SIGEE_PERMISSOES_RC538__)return;
-window.__SIGEE_PERMISSOES_RC538__=true;
+if(window.__SIGEE_PERMISSOES_RC539__)return;
+window.__SIGEE_PERMISSOES_RC539__=true;
 
 const C=Object.freeze({
   Master:Object.freeze({
@@ -29,16 +29,16 @@ const C=Object.freeze({
   }),
   'Técnico':Object.freeze({
     'processos.visualizar':1,'processos.criar':1,'processos.movimentar':1,
-    'relatorios.visualizar':1,'escolas.visualizar':1,'escolas.editar_operacional':1
+    'indicadores.visualizar':1,'relatorios.visualizar':1,'escolas.visualizar':1,'escolas.editar_operacional':1
   }),
   Atendimento:Object.freeze({
-    'processos.visualizar':1,'processos.criar':1,'relatorios.visualizar':1,'escolas.visualizar':1
+    'processos.visualizar':1,'processos.criar':1,'indicadores.visualizar':1,'relatorios.visualizar':1,'escolas.visualizar':1
   }),
   'Estagiário':Object.freeze({
-    'processos.visualizar':1,'processos.criar':1,'relatorios.visualizar':1,'escolas.visualizar':1
+    'processos.visualizar':1,'processos.criar':1,'indicadores.visualizar':1,'relatorios.visualizar':1,'escolas.visualizar':1
   }),
   Consulta:Object.freeze({
-    'processos.visualizar':1,'relatorios.visualizar':1,'escolas.visualizar':1
+    'processos.visualizar':1,'indicadores.visualizar':1,'relatorios.visualizar':1,'escolas.visualizar':1
   })
 });
 

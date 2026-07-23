@@ -1,11 +1,11 @@
 /**
- * SIGEE Enterprise RC5.3.8 — Menu dinâmico e navegação única por perfil.
+ * SIGEE Enterprise RC5.3.9 — Menu dinâmico e navegação única por perfil.
  * Autoridade exclusiva para menus, rotas e destino pós-login.
  */
 (function(window, document){
 'use strict';
-if (window.__SIGEE_AUTORIZACAO_RC538__) return;
-window.__SIGEE_AUTORIZACAO_RC538__ = true;
+if (window.__SIGEE_AUTORIZACAO_RC539__) return;
+window.__SIGEE_AUTORIZACAO_RC539__ = true;
 
 const ROTAS = Object.freeze({
   painel: 'indicadores.visualizar',
@@ -220,7 +220,7 @@ function garantirRotaVisivel(rota){
     window.carregarDadosDashboardReal?.();
     window.atualizarDashboardPeloMotorSIGEE?.();
   }
-  document.dispatchEvent(new CustomEvent('sigee:navegacao-concluida',{detail:{rota,origem:'autorizacao-rc537'}}));
+  document.dispatchEvent(new CustomEvent('sigee:navegacao-concluida',{detail:{rota,origem:'autorizacao-rc539'}}));
 }
 function primeiraRota(u=usuario()){
   const p = perfil(u);
