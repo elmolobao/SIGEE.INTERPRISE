@@ -3,7 +3,7 @@
   'use strict';
 
   var VERSION = '3.2.9';
-  var REFRESH_MS = 60000;
+  var REFRESH_MS = 300000;
   var filtroNte = 'GLOBAL';
   var timer = null;
   var retries = 0;
@@ -294,6 +294,6 @@
 
   window.SIGEE_SALA_SITUACAO = {
     render: render,
-    version: '3.2.9'
+    version: 'RC4.6.2'
   };
 })();
