@@ -19,3 +19,14 @@
 .sigee-exec-gargalo>i{height:9px;margin-top:.32rem;background:#dfe7f0}
 .sigee-exec-gargalo>i>em{background:linear-gradient(90deg,#0284c7,#06b6d4);transition:width .35s ease}
 @media(max-width:560px){.sigee-exec-gargalo>div{align-items:flex-start}.sigee-exec-gargalo-valores{min-width:92px;gap:.35rem}.sigee-exec-gargalo-valores small{min-width:42px}}
+
+
+/* RC4.6.8 — Percentuais, barras e identificação territorial */
+.sigee-exec-rank-label{min-width:0;display:flex;flex-direction:column;gap:.08rem;overflow:hidden}
+.sigee-exec-nte-escola,.sigee-cig-nte{display:block;color:#64748b!important;font-size:.61rem!important;font-weight:800;letter-spacing:.03em;margin-top:.1rem}
+.sigee-cig-rank-item{padding:.38rem 0;border-bottom:1px solid #eef2f7}.sigee-cig-rank-item:last-child{border-bottom:0}
+.sigee-cig-rank-head{display:flex;justify-content:space-between;gap:.7rem;align-items:flex-start;font-size:.72rem;color:#334155}
+.sigee-cig-rank-head>span{min-width:0;overflow:hidden}.sigee-cig-rank-head b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sigee-cig-rank-head>strong{display:flex;align-items:center;gap:.4rem;white-space:nowrap;color:#0f172a}.sigee-cig-rank-head>strong small{color:#0369a1;font-size:.65rem}
+.sigee-cig-rank-item>i{display:block;height:7px;margin-top:.28rem;background:#e2e8f0;border-radius:999px;overflow:hidden}.sigee-cig-rank-item>i>em{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#0284c7,#06b6d4);transition:width .35s ease}
+.sigee-cig-vazio{padding:.75rem;text-align:center;color:#94a3b8!important;font-size:.72rem}
