@@ -5,6 +5,7 @@
    ================================================================ */
 (function(){
   'use strict';
+  window.SIGEE_DASHBOARD_PERFORMANCE_VERSION='RC4.7-F1';
 
   const texto=v=>v===null||v===undefined?'':String(v).trim();
   const normalizar=v=>texto(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/\s+/g,' ').trim();
@@ -811,7 +812,9 @@
   document.addEventListener('change',e=>{if(['filtro-dashboard-nte','filtro-dashboard-periodo','dashboard-data-inicial','dashboard-data-final'].includes(e.target?.id))agendar()},true);
   window.addEventListener('sigee:arquivo-recebido',agendar);
   window.addEventListener('sigee:analytics-dados-alterados',agendar);
-  window.addEventListener('load',()=>setTimeout(atualizar,900));
+  window.addEventListener('load',()=>setTimeout(()=>{
+    if(document.visibilityState==='visible' && !document.getElementById('aba-painel')?.classList.contains('hidden')) atualizar();
+  },900));
   document.addEventListener('sigee:navegacao-concluida',event=>{
     const rota=event?.detail?.rota||event?.detail?.aba||'';
     if(rota==='painel')agendar();
@@ -820,5 +823,5 @@
   setInterval(()=>{
     if(document.visibilityState==='visible' &&
        !document.getElementById('aba-painel')?.classList.contains('hidden')) atualizar();
-  },60000);
+  },300000);
 })();
