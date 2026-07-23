@@ -8,3 +8,14 @@
 .sigee-exec-bars{display:grid;gap:.55rem}.sigee-exec-row>div{display:flex;justify-content:space-between;gap:.7rem;font-size:.72rem;color:#334155}.sigee-exec-row b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sigee-exec-row>i{display:block;height:7px;margin-top:.25rem;background:#e2e8f0;border-radius:99px;overflow:hidden}.sigee-exec-row>i>em{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#0284c7,#06b6d4)}
 .sigee-exec-table{overflow:auto}.sigee-exec-table>div{display:grid;grid-template-columns:minmax(150px,2fr) repeat(4,minmax(80px,1fr));gap:.5rem;align-items:center;padding:.5rem;border-bottom:1px solid #eef2f7;font-size:.72rem;color:#334155}.sigee-exec-table .head{position:sticky;top:0;background:#f8fafc;color:#0f172a;font-weight:900}.sigee-exec-table .bad{color:#b91c1c;font-weight:900}.sigee-exec-table .ok{color:#15803d;font-weight:900}.sigee-exec-empty{padding:1rem;text-align:center;color:#94a3b8!important;font-size:.75rem}
 @media(max-width:1050px){.sigee-exec-kpis{grid-template-columns:repeat(3,1fr)}}@media(max-width:720px){.sigee-exec-head{flex-direction:column}.sigee-exec-kpis{grid-template-columns:repeat(2,1fr)}.sigee-exec-grid{grid-template-columns:1fr}.sigee-exec-wide{grid-column:auto}}
+
+
+/* RC4.6.5 — Gargalos com quantidade, percentual e barra proporcional */
+.sigee-exec-gargalos{gap:.72rem}
+.sigee-exec-gargalo>div{align-items:center}
+.sigee-exec-gargalo-valores{display:flex;align-items:center;justify-content:flex-end;gap:.55rem;min-width:105px;white-space:nowrap}
+.sigee-exec-gargalo-valores strong{font-size:.78rem;color:#0f172a;font-weight:900}
+.sigee-exec-gargalo-valores small{min-width:48px;text-align:right;font-size:.68rem;color:#0369a1;font-weight:900}
+.sigee-exec-gargalo>i{height:9px;margin-top:.32rem;background:#dfe7f0}
+.sigee-exec-gargalo>i>em{background:linear-gradient(90deg,#0284c7,#06b6d4);transition:width .35s ease}
+@media(max-width:560px){.sigee-exec-gargalo>div{align-items:flex-start}.sigee-exec-gargalo-valores{min-width:92px;gap:.35rem}.sigee-exec-gargalo-valores small{min-width:42px}}
