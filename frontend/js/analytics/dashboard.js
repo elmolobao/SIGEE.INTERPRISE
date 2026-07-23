@@ -1,9 +1,9 @@
-/* SIGEE RC4.6.10 — Dashboard RPC com abrangência global normalizada */
+/* SIGEE RC4.7.0 — Dashboard Operacional + RPCs agregadas sem duplicidade */
 (function(){
   'use strict';
-  if(window.__SIGEE_DASHBOARD_RPC_4610__) return;
-  window.__SIGEE_DASHBOARD_RPC_4610__=true;
-  window.SIGEE_DASHBOARD_AUTORIDADE='RPC_RC4.6.10';
+  if(window.__SIGEE_DASHBOARD_RPC_470__) return;
+  window.__SIGEE_DASHBOARD_RPC_470__=true;
+  window.SIGEE_DASHBOARD_AUTORIDADE='RPC_RC4.7.0';
 
   const CACHE_MS=180000;
   const cache=new Map();
@@ -73,13 +73,16 @@
     if(document.getElementById('sigee-cig'))return;
     const aba=document.getElementById('aba-painel'); if(!aba)return;
     const s=document.createElement('section');s.id='sigee-cig';s.className='sigee-cig';
-    s.innerHTML='<div class="sigee-cig-head"><div><span>CENTRO DE INTELIGÊNCIA GERENCIAL</span><h2>Visão Executiva do SIGEE</h2><p>Indicadores consolidados por consulta agregada.</p></div><div class="sigee-cig-status"><i></i><div><strong>Dados sincronizados</strong><span id="cig-atualizado">Aguardando...</span></div></div></div><div class="sigee-cig-alertas" id="cig-alertas"></div><div class="sigee-cig-grid"><article class="sigee-cig-card"><header><h3>Gargalos por etapa</h3><b id="cig-total-ativos">0 ativos</b></header><div id="cig-gargalos"></div></article><article class="sigee-cig-card"><header><h3>Produtividade técnica</h3></header><div id="cig-tecnicos" class="sigee-cig-ranking"></div></article><article class="sigee-cig-card"><header><h3>Demanda por NTE</h3></header><div id="cig-ntes" class="sigee-cig-ranking"></div></article><article class="sigee-cig-card"><header><h3>Escolas mais solicitadas</h3></header><div id="cig-escolas" class="sigee-cig-ranking"></div></article></div>';
+    s.innerHTML='<div class="sigee-cig-head"><div><span>DASHBOARD OPERACIONAL</span><h2>Monitoramento da operação</h2><p>Gargalos, produtividade, demanda territorial e entrada de arquivos.</p></div><div class="sigee-cig-status"><i></i><div><strong>Dados sincronizados</strong><span id="cig-atualizado">Aguardando...</span></div></div></div><div class="sigee-cig-alertas" id="cig-alertas"></div><div class="sigee-cig-grid"><article class="sigee-cig-card"><header><h3>Gargalos por etapa</h3><b id="cig-total-ativos">0 ativos</b></header><div id="cig-gargalos"></div></article><article class="sigee-cig-card"><header><h3>Produtividade técnica</h3></header><div id="cig-tecnicos" class="sigee-cig-ranking"></div></article><article class="sigee-cig-card"><header><h3>Demanda por NTE</h3></header><div id="cig-ntes" class="sigee-cig-ranking"></div></article><article class="sigee-cig-card"><header><h3>Escolas mais solicitadas</h3></header><div id="cig-escolas" class="sigee-cig-ranking"></div></article></div>';
     aba.querySelector('.sigee-welcome-strip')?.insertAdjacentElement('afterend',s);
   }
   function render(r){
     set('dash-escolas',Number(r.escolas_total||0).toLocaleString('pt-BR'));set('dash-acervos',Number(r.acervos_recolhidos||0).toLocaleString('pt-BR'));set('dash-estaduais',Number(r.escolas_estaduais||0).toLocaleString('pt-BR'));
     set('dash-proc-desarquivamento',r.desarquivamento||0);set('dash-proc-analise',r.analise||0);set('dash-proc-pendencia',r.pendencia||0);set('dash-proc-digitacao',r.digitacao||0);set('dash-proc-conferencia',r.conferencia||0);set('dash-proc-assinatura',r.assinatura||0);set('dash-proc-aguardando',r.aguardando_retirada||0);set('dash-proc-retirado',r.retirado||0);
     set('dash-tec-media-entrega',`${Number(r.media_atendimento||0).toLocaleString('pt-BR',{maximumFractionDigits:1})} dias`);set('dash-ger-media-atendimento',`${Number(r.media_atendimento||0).toLocaleString('pt-BR',{maximumFractionDigits:1})} dias`);set('dash-ger-processos-concluidos',r.concluidos||0);
+    set('dash-tec-media-pedidos-dia',Number(r.pedidos_abertos_periodo||0).toLocaleString('pt-BR'));
+    set('dash-tec-media-pasta-dia',Number(r.arquivos_recebidos_periodo||0).toLocaleString('pt-BR'));
+    set('dash-tec-media-arquivo-tempo',r.tempo_medio_arquivo_recebido==null?'Sem dados':`${Number(r.tempo_medio_arquivo_recebido).toLocaleString('pt-BR',{maximumFractionDigits:1})} dias`);
     ranking('dash-tec-top-escolas',r.por_escola,{mostrarNte:true,totalBase:r.total_processos});ranking('dash-ger-escola-demanda',r.por_escola,{mostrarNte:true,totalBase:r.total_processos});ranking('dash-ger-territorio-demanda',r.por_nte,{totalBase:r.total_processos});ranking('dash-ger-pendencias-escolas',[]);
     set('dashboard-ultima-atualizacao',new Date(r.atualizado_em||Date.now()).toLocaleString('pt-BR'));
     garantirCig();set('cig-total-ativos',`${Number(r.ativos||0).toLocaleString('pt-BR')} ativos`);set('cig-atualizado',`Atualizado em ${new Date(r.atualizado_em||Date.now()).toLocaleString('pt-BR')}`);
@@ -94,8 +97,16 @@
     const c=cliente();if(!c){console.warn('[SIGEE Dashboard] Supabase indisponível.');return}
     carregando=true;
     try{
-      const {data,error}=await c.rpc('sigee_dashboard_resumo',{p_nte:nte||null,p_data_inicio:p.inicioIso,p_data_fim:p.fimIso});
-      if(error)throw error;const r=typeof data==='string'?JSON.parse(data):data;cache.set(chave,{dados:r,em:Date.now()});render(r||{});
+      const [resumoResp, complementoResp]=await Promise.all([
+        c.rpc('sigee_dashboard_resumo',{p_nte:nte||null,p_data_inicio:p.inicioIso,p_data_fim:p.fimIso}),
+        c.rpc('sigee_dashboard_complemento',{p_nte:nte||null,p_data_inicio:p.inicioIso,p_data_fim:p.fimIso})
+      ]);
+      if(resumoResp.error)throw resumoResp.error;
+      if(complementoResp.error)console.warn('[SIGEE Dashboard Complemento]',complementoResp.error);
+      const resumo=typeof resumoResp.data==='string'?JSON.parse(resumoResp.data):resumoResp.data;
+      const complemento=typeof complementoResp.data==='string'?JSON.parse(complementoResp.data):complementoResp.data;
+      const r=Object.assign({},resumo||{},complemento||{});
+      cache.set(chave,{dados:r,em:Date.now()});render(r);
     }catch(e){console.error('[SIGEE Dashboard RPC]',e);set('dashboard-ultima-atualizacao','Falha ao carregar indicadores');}
     finally{carregando=false}
   }
@@ -103,6 +114,6 @@
   document.addEventListener('change',e=>{if(['filtro-dashboard-nte','filtro-dashboard-periodo','dashboard-data-inicial','dashboard-data-final'].includes(e.target?.id))agendar(true)},true);
   document.addEventListener('sigee:navegacao-concluida',e=>{if((e.detail?.rota||e.detail?.aba)==='painel')agendar(false)});
   document.addEventListener('sigee:usuario-logado',()=>agendar(true));
-  window.carregarDadosDashboardReal=()=>agendar(true);window.carregarDadosDashboardRealImediato=()=>carregar(true);window.SIGEE_DASHBOARD_RPC={carregar,limparCache:()=>cache.clear(),versao:'RC4.6.10'};
+  window.carregarDadosDashboardReal=()=>agendar(true);window.carregarDadosDashboardRealImediato=()=>carregar(true);window.SIGEE_DASHBOARD_RPC={carregar,limparCache:()=>cache.clear(),versao:'RC4.7.0'};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>agendar(false));else agendar(false);
 })();
