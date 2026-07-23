@@ -1,276 +1,203 @@
 /**
- * SIGEE Enterprise RC5.1.0 — Autoridade única de acesso, menus e navegação.
- * Substitui as autoridades legadas e mantém o escopo territorial central.
+ * SIGEE Enterprise RC5.2.0 — Menu dinâmico e navegação única por perfil.
+ * Autoridade exclusiva para menus, rotas e destino pós-login.
  */
-(function (window, document) {
-  'use strict';
-  if (window.__SIGEE_AUTORIZACAO_RC510__) return;
-  window.__SIGEE_AUTORIZACAO_RC510__ = true;
+(function(window, document){
+'use strict';
+if (window.__SIGEE_AUTORIZACAO_RC520__) return;
+window.__SIGEE_AUTORIZACAO_RC520__ = true;
 
-  const ROTAS = Object.freeze({
-    painel: 'indicadores.visualizar',
-    processos: 'processos.visualizar',
-    escolas: 'escolas.visualizar',
-    usuarios: ['usuarios.gerenciar_global', 'usuarios.gerenciar_nte'],
-    logs: 'logs.visualizar',
-    'sala-situacao': 'indicadores.visualizar',
-    'centro-inteligencia': 'indicadores.visualizar',
-    relatorios: 'relatorios.visualizar',
-    'nova-solicitacao': 'processos.criar'
-  });
+const ROTAS = Object.freeze({
+  painel: 'indicadores.visualizar',
+  processos: 'processos.visualizar',
+  escolas: 'escolas.visualizar',
+  usuarios: ['usuarios.gerenciar_global', 'usuarios.gerenciar_nte'],
+  logs: 'logs.visualizar',
+  'sala-situacao': 'indicadores.visualizar',
+  'centro-inteligencia': 'indicadores.visualizar',
+  'nova-solicitacao': 'processos.criar'
+});
 
-  const MENUS = Object.freeze({
-    'menu-painel': 'indicadores.visualizar',
-    'menu-central-processos': 'processos.visualizar',
-    'menu-catalogo-escolas': 'escolas.visualizar',
-    'menu-escolas': 'escolas.visualizar',
-    'menu-usuarios': ['usuarios.gerenciar_global', 'usuarios.gerenciar_nte'],
-    'menu-logs': 'logs.visualizar',
-    'menu-relatorios': 'relatorios.visualizar',
-    'menu-sala-situacao': 'indicadores.visualizar',
-    'menu-inteligencia': 'indicadores.visualizar',
-    'btn-nova-solicitacao': 'processos.criar',
-    'menu-controle-acesso-ntes': 'sistema.suspender_nte'
-  });
+const MENU = Object.freeze([
+  { id:'menu-painel', rota:'painel', icone:'📊', rotulo:'Painel Gerencial', capacidade:'indicadores.visualizar' },
+  { id:'menu-central-processos', rota:'processos', icone:'📋', rotulo:'Central de Processos', capacidade:'processos.visualizar' },
+  { id:'menu-nova-solicitacao', rota:'nova-solicitacao', icone:'➕', rotulo:'Nova Solicitação', capacidade:'processos.criar' },
+  { id:'menu-catalogo-escolas', rota:'escolas', icone:'🏫', rotulo:'Catálogo de Escolas', capacidade:'escolas.visualizar' },
+  { id:'menu-usuarios', rota:'usuarios', icone:'👥', rotulo:'Usuários', capacidade:['usuarios.gerenciar_global','usuarios.gerenciar_nte'] },
+  { id:'menu-sala-situacao', rota:'sala-situacao', icone:'📡', rotulo:'Sala de Situação', capacidade:'indicadores.visualizar', perfis:['Master','SEC'] },
+  { id:'menu-logs', rota:'logs', icone:'⚙️', rotulo:'Configurações', capacidade:'logs.visualizar' }
+]);
 
-  const DESTINO_INICIAL = Object.freeze({
-    Master: 'painel',
-    SEC: 'painel',
-    Gestor: 'painel',
-    Administrador: 'processos',
-    'Técnico': 'processos',
-    'Estagiário': 'nova-solicitacao',
-    Consulta: 'processos'
-  });
+let navegacaoAutomatica = false;
+let instalando = false;
+let observer = null;
 
-  let navegacaoOriginal = null;
-  let observadorMenu = null;
-  let aplicacaoAgendada = false;
-  let emRedirecionamentoAutomatico = false;
-  let loginEmProcessamento = false;
-
-  function usuario() {
-    return window.SIGEE_SESSION?.getUser?.() || window.usuarioLogado || window.usuarioAtual || window.currentUser || null;
-  }
-
-  function perfil(u = usuario()) {
-    return window.SIGEE_PERFIS?.normalizar?.(u?.perfil) || '';
-  }
-
-  function pode(capacidade, u = usuario()) {
-    if (Array.isArray(capacidade)) return capacidade.some(item => pode(item, u));
-    return window.SIGEE_PERMISSOES?.pode?.(capacidade, u) === true;
-  }
-
-  function mostrar(elemento, autorizado) {
-    if (!elemento) return;
-    elemento.hidden = !autorizado;
-    elemento.classList.toggle('hidden', !autorizado);
-    elemento.setAttribute('aria-hidden', autorizado ? 'false' : 'true');
-    elemento.style.setProperty('display', autorizado ? '' : 'none', 'important');
-    if ('disabled' in elemento) elemento.disabled = !autorizado;
-  }
-
-  function garantirMenuNovaSolicitacao() {
-    const nav = document.querySelector('#sistema-dashboard aside nav, #sistema-dashboard nav.sigee-sidebar-nav');
-    if (!nav) return null;
-    let botao = document.getElementById('menu-nova-solicitacao');
-    const exclusivo = pode('processos.criar') && !pode('processos.visualizar');
-    if (!botao && exclusivo) {
-      botao = document.createElement('button');
-      botao.id = 'menu-nova-solicitacao';
-      botao.type = 'button';
-      botao.className = 'sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer';
-      botao.textContent = '➕ Nova Solicitação';
-      botao.addEventListener('click', function (event) {
-        event.preventDefault();
-        if (!pode('processos.criar')) return;
-        if (typeof window.abrirFormularioNovaSolicitacao === 'function') {
-          window.abrirFormularioNovaSolicitacao();
-        }
-      });
-      nav.insertBefore(botao, nav.firstChild);
-    }
-    if (botao) mostrar(botao, exclusivo);
-    return botao;
-  }
-
-  function aplicarMenus() {
-    const u = usuario();
-    if (!u) return false;
-
-    Object.entries(MENUS).forEach(([id, capacidade]) => {
-      mostrar(document.getElementById(id), pode(capacidade, u));
-    });
-
-    document.querySelectorAll('[data-sigee-capacidade]').forEach(elemento => {
-      mostrar(elemento, pode(elemento.dataset.sigeeCapacidade, u));
-    });
-
-    document.querySelectorAll('[data-acao="nova-solicitacao"], .btn-nova-solicitacao').forEach(elemento => {
-      mostrar(elemento, pode('processos.criar', u));
-    });
-
-    garantirMenuNovaSolicitacao();
-
-    if (document.body) {
-      document.body.dataset.sigeeAutorizacao = 'pronta';
-      document.body.dataset.sigeePerfil = perfil(u);
-      document.body.dataset.sigeeEscopo = window.SIGEE_ESCOPO?.ehGlobal?.(u) ? 'GLOBAL' : 'NTE';
-    }
+function usuario(){
+  return window.SIGEE_SESSION?.getUser?.() || window.usuarioLogado || window.usuarioAtual || window.currentUser || null;
+}
+function perfil(u=usuario()){
+  return window.SIGEE_PERFIS?.normalizar?.(u?.perfil) || window.SIGEE_SESSION?.normalizarPerfil?.(u?.perfil) || '';
+}
+function pode(cap, u=usuario()){
+  if (Array.isArray(cap)) return cap.some(item => pode(item, u));
+  return window.SIGEE_PERMISSOES?.pode?.(cap, u) === true;
+}
+function capacidadeRota(rota){ return ROTAS[String(rota || '').trim()] || null; }
+function autorizarRota(rota, silencioso=false){
+  const cap = capacidadeRota(rota);
+  if (!cap || pode(cap)) return true;
+  if (!silencioso) alert('Seu perfil não possui permissão para acessar esta área.');
+  return false;
+}
+function itemPermitido(item, u){
+  const p = perfil(u);
+  return (!item.perfis || item.perfis.includes(p)) && pode(item.capacidade, u);
+}
+function classeMenu(){
+  return 'sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer';
+}
+function containerMenu(){
+  return document.getElementById('sigee-menu-dinamico') || document.querySelector('.sigee-sidebar-nav');
+}
+function criarBotao(item){
+  const botao = document.createElement('button');
+  botao.type = 'button';
+  botao.id = item.id;
+  botao.className = classeMenu();
+  botao.dataset.sigeeRota = item.rota;
+  botao.dataset.sigeeCapacidade = Array.isArray(item.capacidade) ? item.capacidade.join('|') : item.capacidade;
+  botao.textContent = `${item.icone} ${item.rotulo}`;
+  botao.addEventListener('click', () => navegarPara(item.rota, { manual:true }));
+  return botao;
+}
+function renderizarMenu(){
+  const u = usuario();
+  const nav = containerMenu();
+  if (!u || !nav) return false;
+  const permitidos = MENU.filter(item => itemPermitido(item, u));
+  const assinatura = `${perfil(u)}|${permitidos.map(i=>i.id).join(',')}`;
+  if (nav.dataset.sigeeMenuAssinatura === assinatura && nav.children.length === permitidos.length) return true;
+  instalando = true;
+  nav.replaceChildren(...permitidos.map(criarBotao));
+  nav.dataset.sigeeMenuAssinatura = assinatura;
+  instalando = false;
+  atualizarIdentidade();
+  return true;
+}
+function atualizarIdentidade(){
+  const u = usuario(); if (!u) return;
+  const p = perfil(u);
+  const global = window.SIGEE_ESCOPO?.ehGlobal?.(u) === true;
+  const nte = window.SIGEE_ESCOPO?.nteUsuario?.(u) || u.nte || '';
+  const titulo = document.getElementById('sigee-escopo-titulo');
+  const subtitulo = document.getElementById('sigee-escopo-subtitulo');
+  if (titulo) titulo.textContent = global ? (p === 'Master' ? 'ADMINISTRAÇÃO GLOBAL' : 'VISÃO ESTADUAL') : (nte || 'GESTÃO TERRITORIAL');
+  if (subtitulo) subtitulo.textContent = global ? 'SEC / BA' : `${p} territorial`;
+  document.body.dataset.sigeePerfil = p;
+  document.body.dataset.sigeeEscopo = global ? 'GLOBAL' : 'NTE';
+}
+function primeiraRota(u=usuario()){
+  const p = perfil(u);
+  if (p === 'Estagiário' && pode('processos.criar', u)) return 'nova-solicitacao';
+  if (['Master','SEC','Gestor'].includes(p) && pode('indicadores.visualizar', u)) return 'painel';
+  if (pode('processos.visualizar', u)) return 'processos';
+  if (pode('processos.criar', u)) return 'nova-solicitacao';
+  if (pode('escolas.visualizar', u)) return 'escolas';
+  if (pode('indicadores.visualizar', u)) return 'painel';
+  return '';
+}
+function navegarOriginal(){
+  const atual = window.navegar;
+  if (typeof atual !== 'function') return null;
+  return atual.__sigeeRc520Original || atual;
+}
+function navegarPara(rota, opcoes={}){
+  const silencioso = opcoes.silencioso === true || navegacaoAutomatica === true || opcoes.manual !== true;
+  if (!autorizarRota(rota, silencioso)) return false;
+  const original = navegarOriginal();
+  if (rota === 'nova-solicitacao') {
+    if (typeof original === 'function' && pode('escolas.visualizar')) original.call(window, 'escolas');
+    setTimeout(() => window.abrirFormularioNovaSolicitacao?.(), 30);
+    renderizarMenu();
     return true;
   }
-
-  function capacidadeRota(aba) {
-    return ROTAS[String(aba || '').trim()] || null;
-  }
-
-  function autorizarRota(aba, silencioso = false) {
-    const capacidade = capacidadeRota(aba);
-    if (!capacidade || pode(capacidade)) return true;
-    if (!silencioso && !emRedirecionamentoAutomatico && !loginEmProcessamento) {
-      alert('Seu perfil não possui permissão para acessar esta área.');
-    }
-    return false;
-  }
-
-  function primeiraRotaPermitida() {
-    const preferida = DESTINO_INICIAL[perfil()] || 'painel';
-    if (autorizarRota(preferida, true)) return preferida;
-    return ['painel', 'processos', 'escolas', 'usuarios', 'sala-situacao', 'logs']
-      .find(rota => autorizarRota(rota, true)) || '';
-  }
-
-  function abrirNovaSolicitacaoAutomaticamente() {
-    if (!pode('processos.criar')) return false;
-    if (typeof window.abrirFormularioNovaSolicitacao !== 'function') return false;
-    window.abrirFormularioNovaSolicitacao();
-    return true;
-  }
-
-  function navegarAutomaticamente() {
-    const destino = primeiraRotaPermitida();
-    if (!destino) return false;
-    emRedirecionamentoAutomatico = true;
+  const resultado = typeof original === 'function' ? original.call(window, rota) : undefined;
+  queueMicrotask(renderizarMenu);
+  return resultado;
+}
+function instalarNavegacao(){
+  const atual = window.navegar;
+  if (typeof atual !== 'function') return false;
+  if (atual.__sigeeRc520) return true;
+  const original = atual.__sigeeRc520Original || atual;
+  const protegida = function(rota){
+    const silencioso = navegacaoAutomatica === true;
+    if (!autorizarRota(rota, silencioso)) return false;
+    const resultado = original.apply(this, arguments);
+    queueMicrotask(renderizarMenu);
+    return resultado;
+  };
+  protegida.__sigeeRc520 = true;
+  protegida.__sigeeRc520Original = original;
+  window.navegar = protegida;
+  try { globalThis.navegar = protegida; } catch (_) {}
+  return true;
+}
+function instalarLogin(){
+  const atual = window.handleLogin;
+  if (typeof atual !== 'function') return false;
+  if (atual.__sigeeRc520) return true;
+  const original = atual.__sigeeRc520Original || atual;
+  const protegido = async function(event){
+    navegacaoAutomatica = true;
     try {
-      if (destino === 'nova-solicitacao') return abrirNovaSolicitacaoAutomaticamente();
-      return typeof window.navegar === 'function' ? window.navegar(destino, { silencioso: true, automatico: true }) : false;
-    } finally {
-      setTimeout(() => { emRedirecionamentoAutomatico = false; }, 100);
-    }
-  }
-
-  function protegerNavegacao() {
-    const atual = window.navegar;
-    if (typeof atual !== 'function') return false;
-    if (atual.__sigeeRc510) return true;
-
-    navegacaoOriginal = atual.__original || atual;
-    function protegida(aba, opcoes) {
-      const opts = opcoes && typeof opcoes === 'object' ? opcoes : {};
-      const silencioso = opts.silencioso === true || opts.automatico === true || emRedirecionamentoAutomatico || loginEmProcessamento;
-      if (!autorizarRota(aba, silencioso)) {
-        if (silencioso) {
-          const alternativa = primeiraRotaPermitida();
-          if (alternativa && alternativa !== aba) {
-            emRedirecionamentoAutomatico = true;
-            try {
-              if (alternativa === 'nova-solicitacao') abrirNovaSolicitacaoAutomaticamente();
-              else navegacaoOriginal.call(this, alternativa);
-            } finally {
-              setTimeout(() => { emRedirecionamentoAutomatico = false; }, 100);
-            }
-          }
-        }
-        return false;
+      const resultado = await original.apply(this, arguments);
+      const u = usuario();
+      if (u && !document.getElementById('sistema-dashboard')?.classList.contains('hidden')) {
+        renderizarMenu();
+        const destino = primeiraRota(u);
+        if (destino) navegarPara(destino, { silencioso:true });
       }
-      const resultado = navegacaoOriginal.apply(this, arguments);
-      queueMicrotask(aplicarMenus);
       return resultado;
+    } finally {
+      setTimeout(() => { navegacaoAutomatica = false; }, 80);
     }
-    protegida.__sigeeRc510 = true;
-    protegida.__original = navegacaoOriginal;
-    window.navegar = protegida;
-    try { globalThis.navegar = protegida; } catch (_) {}
-    return true;
-  }
-
-  function destinoElemento(elemento) {
-    if (!elemento) return '';
-    if (elemento.id === 'menu-nova-solicitacao' || elemento.id === 'btn-nova-solicitacao' ||
-        elemento.matches?.('[data-acao="nova-solicitacao"], .btn-nova-solicitacao')) return 'nova-solicitacao';
-    const mapa = {
-      'menu-painel': 'painel',
-      'menu-central-processos': 'processos',
-      'menu-catalogo-escolas': 'escolas',
-      'menu-escolas': 'escolas',
-      'menu-usuarios': 'usuarios',
-      'menu-logs': 'logs',
-      'menu-relatorios': 'painel',
-      'menu-sala-situacao': 'sala-situacao',
-      'menu-inteligencia': 'centro-inteligencia'
-    };
-    return mapa[elemento.id] || '';
-  }
-
-  document.addEventListener('click', function (evento) {
-    const elemento = evento.target.closest?.('button, a, [data-acao]');
-    const aba = destinoElemento(elemento);
-    if (!aba || autorizarRota(aba, true)) return;
-    evento.preventDefault();
-    evento.stopImmediatePropagation();
-    if (!emRedirecionamentoAutomatico && !loginEmProcessamento) {
-      alert('Seu perfil não possui permissão para acessar esta área.');
-    }
-  }, true);
-
-  function observarMenu() {
-    if (observadorMenu) return;
-    const menu = document.querySelector('#sistema-dashboard aside, #sistema-dashboard nav');
-    if (!menu || typeof MutationObserver === 'undefined') return;
-    observadorMenu = new MutationObserver(function () {
-      if (aplicacaoAgendada) return;
-      aplicacaoAgendada = true;
-      requestAnimationFrame(function () {
-        aplicacaoAgendada = false;
-        aplicarMenus();
-        protegerNavegacao();
-      });
-    });
-    observadorMenu.observe(menu, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'style', 'hidden', 'aria-hidden'] });
-  }
-
-  function sincronizar() {
-    aplicarMenus();
-    protegerNavegacao();
-    observarMenu();
-  }
-
-  function aposLogin() {
-    loginEmProcessamento = true;
-    sincronizar();
-    setTimeout(function () {
-      sincronizar();
-      navegarAutomaticamente();
-      loginEmProcessamento = false;
-    }, 80);
-  }
-
-  document.addEventListener('DOMContentLoaded', sincronizar, { once: true });
-  document.addEventListener('sigee:usuario-logado', aposLogin);
-  window.addEventListener('sigee:login-concluido', aposLogin);
-  window.addEventListener('load', function () { setTimeout(sincronizar, 50); });
-
-  window.SIGEE_AUTORIZACAO = Object.freeze({
-    usuario,
-    perfil,
-    pode,
-    exigir: (capacidade, mensagem) => pode(capacidade) || ((mensagem !== false) && alert(mensagem || 'Ação não autorizada.'), false),
-    capacidadeRota,
-    autorizarRota,
-    aplicarMenus,
-    protegerNavegacao,
-    primeiraRotaPermitida,
-    navegarAutomaticamente
+  };
+  protegido.__sigeeRc520 = true;
+  protegido.__sigeeRc520Original = original;
+  window.handleLogin = protegido;
+  try { globalThis.handleLogin = protegido; } catch (_) {}
+  return true;
+}
+function observarMenu(){
+  const nav = containerMenu();
+  if (!nav || observer) return;
+  observer = new MutationObserver(() => {
+    if (!instalando) queueMicrotask(renderizarMenu);
   });
+  observer.observe(nav, { childList:true });
+}
+function iniciar(){
+  instalarNavegacao();
+  instalarLogin();
+  renderizarMenu();
+  observarMenu();
+}
+
+document.addEventListener('DOMContentLoaded', iniciar, { once:true });
+document.addEventListener('sigee:usuario-logado', () => setTimeout(() => {
+  renderizarMenu();
+  const destino = primeiraRota();
+  if (destino) navegarPara(destino, { silencioso:true });
+}, 0));
+document.addEventListener('sigee:navegacao-concluida', renderizarMenu);
+window.addEventListener('sigee:login-concluido', () => setTimeout(iniciar, 0));
+window.addEventListener('load', () => setTimeout(iniciar, 50));
+
+window.SIGEE_AUTORIZACAO = Object.freeze({
+  usuario, perfil, pode, capacidadeRota, autorizarRota,
+  aplicarMenus:renderizarMenu, renderizarMenu, primeiraRota,
+  navegarPara, protegerNavegacao:instalarNavegacao, instalarLogin,
+  exigir:(cap,mensagem)=>pode(cap)||((mensagem!==false)&&alert(mensagem||'Ação não autorizada.'),false)
+});
 })(window, document);
