@@ -513,7 +513,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 nivel_oferta: normalizarTextoSIGEE(p.nivel_oferta || p.ensino || null) || null,
                 modalidade: normalizarTextoSIGEE(p.modalidade || null) || null,
                 etapa_atual: normalizarTextoSIGEE(p.etapa || p.etapa_atual || 'Desarquivamento'),
-                nte: window.normalizarNteSIGEE ? window.normalizarNteSIGEE(p.nte || 'NTE-26') : normalizarTextoSIGEE(p.nte || 'NTE-26'),
+                nte: window.SIGEE_NORMALIZACAO_NTE?.nteDoProcesso?.(p) || (window.normalizarNteSIGEE ? window.normalizarNteSIGEE(p.nte || 'NTE-26') : normalizarTextoSIGEE(p.nte || 'NTE-26')),
                 cod_mec: normalizarTextoSIGEE(p.cod_mec || p.mec || null) || null,
                 escola_id: p.escola_id == null || p.escola_id === '' ? null : (Number(p.escola_id) || p.escola_id),
                 workflow_instance_id: p.workflow_instance_id || null,
@@ -535,7 +535,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         const processoParaSupabaseSIGEEOriginal = processoParaSupabaseSIGEE;
         processoParaSupabaseSIGEE = function(p) {
             const payload = processoParaSupabaseSIGEEOriginal(p);
-            if (window.SIGEE_NORMALIZACAO_NTE) window.SIGEE_NORMALIZACAO_NTE.aplicarPayload(payload);
+            if (window.SIGEE_NORMALIZACAO_NTE) window.SIGEE_NORMALIZACAO_NTE.aplicarPayload(payload, p);
             return limparDatasPayloadSupabaseSIGEE(payload);
         };
 
@@ -2545,6 +2545,10 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                     ((window.crypto && typeof window.crypto.randomUUID === 'function')
                         ? window.crypto.randomUUID()
                         : null);
+            }
+
+            if (window.SIGEE_NORMALIZACAO_NTE) {
+                window.SIGEE_NORMALIZACAO_NTE.aplicarPayload(processoPayload, proc);
             }
 
             const respostaProcesso = await client
