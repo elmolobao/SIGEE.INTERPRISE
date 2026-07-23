@@ -1,11 +1,11 @@
 /**
- * SIGEE Enterprise RC5.4.1 — Menu dinâmico e navegação única por perfil.
+ * SIGEE Enterprise RC5.4.2 — Menu dinâmico e navegação única por perfil.
  * Autoridade exclusiva para menus, rotas e destino pós-login.
  */
 (function(window, document){
 'use strict';
-if (window.__SIGEE_AUTORIZACAO_RC541__) return;
-window.__SIGEE_AUTORIZACAO_RC541__ = true;
+if (window.__SIGEE_AUTORIZACAO_RC542__) return;
+window.__SIGEE_AUTORIZACAO_RC542__ = true;
 
 const ROTAS = Object.freeze({
   painel: 'indicadores.visualizar',
@@ -16,7 +16,8 @@ const ROTAS = Object.freeze({
   'sala-situacao': 'indicadores.visualizar',
   'centro-inteligencia': 'indicadores.visualizar',
   'nova-solicitacao': 'processos.criar',
-  relatorios: 'relatorios.visualizar'
+  relatorios: 'relatorios.visualizar',
+  'migracao-historica': 'migracao.executar'
 });
 
 const MENU = Object.freeze([
@@ -27,7 +28,8 @@ const MENU = Object.freeze([
   { id:'menu-usuarios', rota:'usuarios', icone:'👥', rotulo:'Usuários do NTE', capacidade:['usuarios.gerenciar_global','usuarios.gerenciar_nte'], perfis:['Master','Administrador'] },
   { id:'menu-centro-inteligencia', rota:'centro-inteligencia', icone:'🧠', rotulo:'Centro de Inteligência', capacidade:'indicadores.visualizar', perfis:['Master','SEC'] },
   { id:'menu-sala-situacao', rota:'sala-situacao', icone:'📡', rotulo:'Sala de Situação', capacidade:'indicadores.visualizar', perfis:['Master','SEC','Gestor'] },
-  { id:'menu-logs', rota:'logs', icone:'⚙️', rotulo:'Configurações', capacidade:'logs.visualizar', perfis:['Master'] }
+  { id:'menu-logs', rota:'logs', icone:'⚙️', rotulo:'Configurações', capacidade:'logs.visualizar', perfis:['Master'] },
+  { id:'menu-migracao-historica', rota:'migracao-historica', icone:'🧬', rotulo:'Migração Histórica', capacidade:'migracao.executar', perfis:['Master'] }
 ]);
 
 let navegacaoAutomatica = false;
@@ -180,7 +182,7 @@ function atualizarIdentidade(){
 }
 function rotuloPerfil(p){
   const mapa={
-    Master:'Master do Sistema',
+    Master:'Master',
     SEC:'Visão Estadual',
     Gestor:'Gestor Territorial',
     Administrador:'Administrador Territorial',
@@ -194,7 +196,8 @@ function rotuloPerfil(p){
 function atualizarRotuloPerfilUsuario(){
   const u=usuario(); if(!u)return;
   const p=perfil(u), nte=window.SIGEE_ESCOPO?.nteUsuario?.(u)||u.nte||'';
-  const textoPerfil = `${rotuloPerfil(p)}${nte?` | ${nte}`:''}`;
+  const complemento = p==='Master' ? 'SEC - TODOS OS NTEs' : nte;
+  const textoPerfil = `${rotuloPerfil(p)}${complemento?` | ${complemento}`:''}`;
   const el=document.getElementById('user-perfil');
   if(el) el.textContent=textoPerfil;
   document.querySelectorAll('[data-sigee-perfil-usuario], #footer-perfil, #rodape-perfil')
@@ -204,7 +207,8 @@ function garantirRotaVisivel(rota){
   const mapa={
     painel:'aba-painel', processos:'aba-processos', escolas:'aba-escolas',
     usuarios:'aba-usuarios', logs:'aba-logs', relatorios:'aba-painel',
-    'sala-situacao':'aba-sala-situacao', 'centro-inteligencia':'aba-centro-inteligencia'
+    'sala-situacao':'aba-sala-situacao', 'centro-inteligencia':'aba-centro-inteligencia',
+    'migracao-historica':'aba-migracao-historica'
   };
   const id=mapa[rota];
   if(!id)return;
@@ -221,7 +225,7 @@ function garantirRotaVisivel(rota){
     window.carregarDadosDashboardReal?.();
     window.atualizarDashboardPeloMotorSIGEE?.();
   }
-  document.dispatchEvent(new CustomEvent('sigee:navegacao-concluida',{detail:{rota,origem:'autorizacao-rc541'}}));
+  document.dispatchEvent(new CustomEvent('sigee:navegacao-concluida',{detail:{rota,origem:'autorizacao-rc542'}}));
 }
 function primeiraRota(u=usuario()){
   const p = perfil(u);
@@ -267,6 +271,12 @@ function navegarPara(rota, opcoes={}){
     return true;
   }
 
+  if (rota === 'migracao-historica') {
+    garantirRotaVisivel('migracao-historica');
+    queueMicrotask(renderizarMenu);
+    return true;
+  }
+
   const destino = rotaCanonica(rota);
   const resultado = typeof original === 'function' ? original.call(window, destino) : undefined;
   queueMicrotask(renderizarMenu);
@@ -291,6 +301,12 @@ function instalarNavegacao(){
       window.atualizarDashboardPeloMotorSIGEE?.();
       queueMicrotask(renderizarMenu);
       setTimeout(aplicarControlesDaInterface, 30);
+      return true;
+    }
+
+    if (String(rota||'').trim() === 'migracao-historica') {
+      garantirRotaVisivel('migracao-historica');
+      queueMicrotask(renderizarMenu);
       return true;
     }
 
