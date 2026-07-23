@@ -10901,7 +10901,8 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
   window.SIGEE_NOVA_SOLICITACAO_PROTECOES = {
     validarAcervoAtual,
     buscarSolicitacoesSemelhantes,
-    validarDuplicidade
+    validarDuplicidade,
+    reinstalar: instalarTudo
   };
   console.info('[SIGEE] Proteções de duplicidade e acervo não recolhido ativas.');
 })();
