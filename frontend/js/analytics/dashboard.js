@@ -54,8 +54,10 @@
   }
   function itemRanking(item) {
     if (Array.isArray(item)) return { nome: txt(item[0]) || 'Não informado', total: Number(item[1] || 0), nte: txt(item[2]) };
+    const nomeBruto = txt(item?.nome || item?.label || item?.etapa || item?.tecnico || item?.escola || item?.nte) || 'Não informado';
+    const ehTerritorio = /^NTE\s*[- ]?\s*\d{1,2}/i.test(nomeBruto) && !item?.escola && !item?.tecnico && !item?.etapa;
     return {
-      nome: txt(item?.nome || item?.label || item?.etapa || item?.tecnico || item?.escola || item?.nte) || 'Não informado',
+      nome: ehTerritorio ? (window.rotuloNteSIGEE?.(nomeBruto) || nomeBruto) : nomeBruto,
       total: Number(item?.total || item?.quantidade || item?.valor || 0),
       nte: txt(item?.nte_escola || item?.nte || item?.territorio)
     };
@@ -77,11 +79,30 @@
     s.innerHTML='<div class="sigee-cig-head"><div><span>DASHBOARD OPERACIONAL</span><h2>Monitoramento da Produção</h2><p>Gargalos, produtividade técnica, demanda territorial e indicadores de entrada de pasta.</p></div><div class="sigee-cig-status"><i></i><div><strong>Dados sincronizados</strong><span id="cig-atualizado">Aguardando...</span></div></div></div><div class="sigee-cig-alertas" id="cig-alertas"></div><div class="sigee-cig-grid"><article class="sigee-cig-card"><header><h3>Gargalos por etapa</h3><b id="cig-total-ativos">0 ativos</b></header><div id="cig-gargalos"></div></article><article class="sigee-cig-card"><header><h3>Produtividade técnica</h3></header><div id="cig-tecnicos" class="sigee-cig-ranking"></div></article><article class="sigee-cig-card"><header><h3>Demanda por NTE</h3></header><div id="cig-ntes" class="sigee-cig-ranking"></div></article><article class="sigee-cig-card"><header><h3>Escolas mais solicitadas</h3></header><div id="cig-escolas" class="sigee-cig-ranking"></div></article></div>';
     aba.querySelector('.sigee-welcome-strip')?.insertAdjacentElement('afterend',s);
   }
+  function renderizarAtrasosPorEtapa(comp){
+    const corpo=document.getElementById('sigee-relatorio-atrasos-corpo');
+    const totalEl=document.getElementById('sigee-relatorio-atrasos-total');
+    if(!corpo)return;
+    const lista=Array.isArray(comp?.atrasos_por_etapa)?comp.atrasos_por_etapa:[];
+    const totalAtrasos=lista.reduce((a,x)=>a+Number(x.em_atraso||x.vencidos||0),0);
+    if(totalEl)totalEl.textContent=`${totalAtrasos.toLocaleString('pt-BR')} em atraso`;
+    corpo.innerHTML=lista.length?lista.map(x=>{
+      const nome=txt(x.nome||x.etapa)||'Não informado';
+      const total=Number(x.total||0);
+      const atraso=Number(x.em_atraso||x.vencidos||0);
+      const prazo=Math.max(0,total-atraso);
+      const percentual=Number(x.percentual_atraso ?? (total?atraso/total*100:0));
+      const classe=percentual>=30?'critico':percentual>=15?'atencao':'bom';
+      return `<div class="sigee-rel-atraso-linha ${classe}"><span>${esc(nome)}</span><strong>${total.toLocaleString('pt-BR')}</strong><strong>${atraso.toLocaleString('pt-BR')}</strong><strong>${prazo.toLocaleString('pt-BR')}</strong><strong>${percentual.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%</strong><i><em style="width:${Math.max(2,Math.min(100,percentual)).toFixed(1)}%"></em></i></div>`;
+    }).join(''):'<p class="sigee-cig-vazio">Sem dados de atraso para a abrangência atual.</p>';
+  }
+
   function render(r){
     set('dash-escolas',Number(r.escolas_total||0).toLocaleString('pt-BR'));set('dash-acervos',Number(r.acervos_recolhidos||0).toLocaleString('pt-BR'));set('dash-estaduais',Number(r.escolas_estaduais||0).toLocaleString('pt-BR'));
     set('dash-proc-desarquivamento',r.desarquivamento||0);set('dash-proc-analise',r.analise||0);set('dash-proc-pendencia',r.pendencia||0);set('dash-proc-digitacao',r.digitacao||0);set('dash-proc-conferencia',r.conferencia||0);set('dash-proc-assinatura',r.assinatura||0);set('dash-proc-aguardando',r.aguardando_retirada||0);set('dash-proc-retirado',r.retirado||0);
     set('dash-tec-media-entrega',`${Number(r.media_atendimento||0).toLocaleString('pt-BR',{maximumFractionDigits:1})} dias`);set('dash-ger-media-atendimento',`${Number(r.media_atendimento||0).toLocaleString('pt-BR',{maximumFractionDigits:1})} dias`);set('dash-ger-processos-concluidos',r.concluidos||0);
     const comp=window.__SIGEE_DASHBOARD_COMPLEMENTO__||{};
+    renderizarAtrasosPorEtapa(comp);
     set('dash-municipios',Number(comp.municipios_total??417).toLocaleString('pt-BR'));
     set('dash-usuarios',Number(comp.tecnicos_total||0).toLocaleString('pt-BR'));
     set('dash-tec-media-pedidos-dia',Number(comp.pedidos_abertos_periodo||0).toLocaleString('pt-BR'));
