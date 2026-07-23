@@ -92,7 +92,7 @@
     alterarEscola: u => isSEC(u) || isMaster(u) || isAdmin(u) || isTecnico(u),
     alterarEscolaCompleta: u => isMaster(u),
     alterarEscolaLimitada: u => isTecnico(u) || isAdmin(u),
-    excluirEscola: u => isSEC(u) || isMaster(u),
+    excluirEscola: u => isMaster(u),
     importarDados: u => isMaster(u),
     exportarDados: u => isSEC(u) || isMaster(u) || isAdmin(u),
     abrirSolicitacao: u => isMaster(u) || isAdmin(u) || isTecnico(u) || perfilCanonico(u&&u.perfil)==='Estagiario',
