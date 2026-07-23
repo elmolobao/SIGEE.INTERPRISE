@@ -114,7 +114,7 @@
         const termo = texto(nome).replace(/[,%_]/g, ' ').replace(/\s+/g, ' ').trim();
         const resposta = await supabase
           .from(tabelaProcessos())
-          .select('*')
+          .select('id,codigo_sigee,aluno_nome,nome_solicitante,escola_id,escola_nome,etapa_atual,etapa,tecnico_responsavel,responsavel,created_at')
           .ilike('aluno_nome', `%${termo}%`)
           .order('created_at', { ascending: false })
           .limit(50);

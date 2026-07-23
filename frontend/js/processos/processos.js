@@ -1390,7 +1390,17 @@
     const c=cliente(); if(!c) { status('off','🔴 Sem conexão'); return; }
     atualizando=true; status('wait','🟡 Atualizando...');
     try{
-      const {data,error}=await c.from(tabelaProcessos()).select('*').order('id',{ascending:false});
+      let q=c.from(tabelaProcessos())
+        .select('id,codigo_sigee,aluno_nome,nome_solicitante,escola_id,escola_nome,documento_tipo,modalidade,nivel_oferta,etapa_atual,etapa,etapa_codigo,prioridade,nte,nte_id,tecnico_responsavel,tecnico_responsavel_nome,responsavel,responsavel_nome,analista,analista_nome,digitador,digitador_nome,conferente,conferente_nome,data_inicio_desarquivamento,data_inicio_ciclo,prazo_inicio_ciclo,data_etapa_atual,created_at,updated_at,workflow_instance_id,workflow_ciclo,ciclo,ultima_mensagem_workflow,pendencia_aberta,finalizado_em')
+        .order('id',{ascending:false}).limit(300);
+      const u=window.SIGEE_SESSION?.getUser?.()||window.usuarioLogado||{};
+      const perfil=String(u.perfil||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
+      if(!['MASTER','SEC'].includes(perfil)){
+        const nteId=Number(u.nte_id||u.nteId||u.id_nte||0);
+        const nteTxt=String(u.nte||u.nte_nome||u.grupo||'').trim();
+        if(nteId) q=q.eq('nte_id',nteId); else if(nteTxt) q=q.eq('nte',nteTxt);
+      }
+      const {data,error}=await q;
       if(error) throw error;
       const lista=(data||[]).map(mapear).filter(Boolean);
       window.processosDB=lista;
@@ -1402,15 +1412,31 @@
       if(!silencioso) console.error('[SIGEE] Falha ao sincronizar processos:',e);
     }finally{ atualizando=false; }
   }
-  function agendar(){
+  function aplicarEventoRealtime(payload){
+    const evento=payload?.eventType||payload?.type||'';
+    const registro=payload?.new && Object.keys(payload.new).length ? payload.new : payload?.old;
+    if(!registro || registro.id==null) return;
+    const lista=Array.isArray(window.processosDB)?window.processosDB.slice():[];
+    const idx=lista.findIndex(x=>String(x.id)===String(registro.id));
+    if(evento==='DELETE') { if(idx>=0) lista.splice(idx,1); }
+    else {
+      const convertido=mapear(registro);
+      if(idx>=0) lista[idx]={...lista[idx],...convertido}; else lista.unshift(convertido);
+      if(lista.length>300) lista.length=300;
+    }
+    window.processosDB=lista;
+    try{ processosDB=lista; }catch(e){}
+    redesenhar();
+  }
+  function agendar(payload){
     clearTimeout(timer);
-    timer=setTimeout(()=>recarregar(true),180);
+    timer=setTimeout(()=>payload?.eventType?aplicarEventoRealtime(payload):recarregar(true),180);
   }
   function iniciarRealtime(){
     const c=cliente(); if(!c || typeof c.channel!=='function') return;
     try { if(canal) c.removeChannel(canal); } catch(e){}
     canal=c.channel('sigee-processos-central-v321')
-      .on('postgres_changes',{event:'*',schema:'public',table:tabelaProcessos()},agendar)
+      .on('postgres_changes',{event:'*',schema:'public',table:tabelaProcessos()},aplicarEventoRealtime)
       .subscribe((estado)=>{
         if(estado==='SUBSCRIBED') status('ok','🟢 Sincronizado');
         else if(estado==='CHANNEL_ERROR' || estado==='TIMED_OUT' || estado==='CLOSED') status('off','🔴 Sem conexão');
@@ -1441,9 +1467,11 @@
 
   window.addEventListener('online',()=>{ iniciarRealtime(); recarregar(true); });
   window.addEventListener('offline',()=>status('off','🔴 Offline'));
-  document.addEventListener('visibilitychange',()=>{ if(!document.hidden) recarregar(true); });
-  window.addEventListener('focus',()=>recarregar(true));
   window.addEventListener('load',()=>{ indicador(); iniciarRealtime(); setTimeout(()=>recarregar(true),400); });
+  document.addEventListener('sigee:navegacao-concluida',ev=>{
+    const rota=ev?.detail?.rota||ev?.detail?.aba||'';
+    if(rota==='processos') recarregar(true);
+  });
 })();
 
 
