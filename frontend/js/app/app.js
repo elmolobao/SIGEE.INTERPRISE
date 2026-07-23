@@ -3702,6 +3702,11 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     }
     function processosVisiveisExportacaoSIGEE(){
         let lista = filtrarNteExportacaoSIGEE(processosDB || [], 'nte');
+        const filtroNteCentral = document.getElementById('filtro-processos-nte')?.value || 'TODOS';
+        if (filtroNteCentral !== 'TODOS') {
+            const igualNte = (typeof nteIgualSIGEE === 'function') ? nteIgualSIGEE : ((a,b)=>String(a||'').replace(/\D/g,'') === String(b||'').replace(/\D/g,''));
+            lista = lista.filter(p => igualNte(p.nte || p.nte_nome || p.nte_vinculado || '', filtroNteCentral));
+        }
         if (typeof etapaFiltroAtual !== 'undefined' && etapaFiltroAtual && etapaFiltroAtual !== 'TODOS') lista = lista.filter(p => p.etapa === etapaFiltroAtual || p.etapa_atual === etapaFiltroAtual);
         const busca = (document.getElementById('busca-proc-nome')?.value || '').toLowerCase().trim();
         if (busca) lista = lista.filter(p => valorTextoSIGEE(p.aluno || p.aluno_nome).toLowerCase().includes(busca));
