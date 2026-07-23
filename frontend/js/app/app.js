@@ -7846,7 +7846,13 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
       await carregarBaseUsuarioCore();
       aplicarPermissoesCore();
       await registrarLogCore('LOGIN', `Perfil ${u.perfil} / ${u.nte}`);
-      if(typeof navegar === 'function') navegar('processos'); else await carregarDashboardCore();
+      // RC5.3.1: destino inicial definido exclusivamente por SIGEE_AUTORIZACAO.
+      // Não forçar a Central de Processos durante o login.
+      try {
+        document.dispatchEvent(new CustomEvent('sigee:login-concluido', {
+          detail: { usuario: u, loginConcluido: true, origem: 'app-core' }
+        }));
+      } catch (_) {}
       // RC4.3.7: marca o login manual desta execução. Sessão antiga armazenada
       // no navegador não pode abrir o recadastramento sobre a tela de login.
       window.__SIGEE_LOGIN_CONCLUIDO__ = true;
