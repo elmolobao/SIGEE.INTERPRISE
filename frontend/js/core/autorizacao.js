@@ -1,11 +1,11 @@
 /**
- * SIGEE Enterprise RC5.4.0 — Menu dinâmico e navegação única por perfil.
+ * SIGEE Enterprise RC5.4.1 — Menu dinâmico e navegação única por perfil.
  * Autoridade exclusiva para menus, rotas e destino pós-login.
  */
 (function(window, document){
 'use strict';
-if (window.__SIGEE_AUTORIZACAO_RC540__) return;
-window.__SIGEE_AUTORIZACAO_RC540__ = true;
+if (window.__SIGEE_AUTORIZACAO_RC541__) return;
+window.__SIGEE_AUTORIZACAO_RC541__ = true;
 
 const ROTAS = Object.freeze({
   painel: 'indicadores.visualizar',
@@ -221,7 +221,7 @@ function garantirRotaVisivel(rota){
     window.carregarDadosDashboardReal?.();
     window.atualizarDashboardPeloMotorSIGEE?.();
   }
-  document.dispatchEvent(new CustomEvent('sigee:navegacao-concluida',{detail:{rota,origem:'autorizacao-rc539'}}));
+  document.dispatchEvent(new CustomEvent('sigee:navegacao-concluida',{detail:{rota,origem:'autorizacao-rc541'}}));
 }
 function primeiraRota(u=usuario()){
   const p = perfil(u);
@@ -230,6 +230,15 @@ function primeiraRota(u=usuario()){
   if (pode('relatorios.visualizar',u)) return 'relatorios';
   if (pode('escolas.visualizar',u)) return 'escolas';
   return '';
+}
+function aplicarRotaInicialForcada(){
+  const u = usuario();
+  if(!u)return false;
+  const destino = perfil(u)==='Gestor' ? 'painel' : 'processos';
+  if(destino==='processos' && !pode('processos.visualizar',u)) return false;
+  navegarPara(destino,{silencioso:true});
+  setTimeout(()=>garantirRotaVisivel(destino),40);
+  return true;
 }
 function navegarOriginal(){
   const atual = window.navegar;
@@ -245,6 +254,16 @@ function navegarPara(rota, opcoes={}){
     if (typeof original === 'function') original.call(window, 'processos');
     setTimeout(() => window.abrirFormularioNovaSolicitacao?.(), 30);
     renderizarMenu();
+    return true;
+  }
+
+  if (rota === 'relatorios') {
+    // Relatórios reutiliza a seção analítica, mas não chama a rota protegida "painel".
+    garantirRotaVisivel('relatorios');
+    window.carregarDadosDashboardReal?.();
+    window.atualizarDashboardPeloMotorSIGEE?.();
+    queueMicrotask(renderizarMenu);
+    setTimeout(aplicarControlesDaInterface, 30);
     return true;
   }
 
@@ -265,6 +284,16 @@ function instalarNavegacao(){
   const protegida = function(rota){
     const silencioso = navegacaoAutomatica === true;
     if (!autorizarRota(rota, silencioso)) return false;
+
+    if (String(rota||'').trim() === 'relatorios') {
+      garantirRotaVisivel('relatorios');
+      window.carregarDadosDashboardReal?.();
+      window.atualizarDashboardPeloMotorSIGEE?.();
+      queueMicrotask(renderizarMenu);
+      setTimeout(aplicarControlesDaInterface, 30);
+      return true;
+    }
+
     const args = Array.from(arguments);
     args[0] = rotaCanonica(rota);
     const resultado = original.apply(this, args);
@@ -293,8 +322,9 @@ function instalarLogin(){
       const u = usuario();
       if (u && !document.getElementById('sistema-dashboard')?.classList.contains('hidden')) {
         renderizarMenu();
-        const destino = primeiraRota(u);
-        if (destino) { navegarPara(destino, { silencioso:true }); setTimeout(()=>garantirRotaVisivel(destino),180); }
+        aplicarRotaInicialForcada();
+        setTimeout(aplicarRotaInicialForcada,120);
+        setTimeout(aplicarRotaInicialForcada,320);
       }
       return resultado;
     } finally {
@@ -325,8 +355,8 @@ function iniciar(){
 document.addEventListener('DOMContentLoaded', iniciar, { once:true });
 document.addEventListener('sigee:usuario-logado', () => setTimeout(() => {
   renderizarMenu();
-  const destino = primeiraRota();
-  if (destino) navegarPara(destino, { silencioso:true });
+  aplicarRotaInicialForcada();
+  setTimeout(aplicarRotaInicialForcada,120);
 }, 0));
 document.addEventListener('sigee:navegacao-concluida', renderizarMenu);
 window.addEventListener('sigee:login-concluido', () => setTimeout(iniciar, 0));
@@ -334,7 +364,7 @@ window.addEventListener('load', () => setTimeout(iniciar, 50));
 
 window.SIGEE_AUTORIZACAO = Object.freeze({
   usuario, perfil, pode, rotaCanonica, capacidadeRota, autorizarRota,
-  aplicarMenus:renderizarMenu, renderizarMenu, primeiraRota,
+  aplicarMenus:renderizarMenu, renderizarMenu, primeiraRota, aplicarRotaInicialForcada,
   navegarPara, garantirRotaVisivel, protegerNavegacao:instalarNavegacao, instalarLogin,
   exigir:(cap,mensagem)=>pode(cap)||((mensagem!==false)&&alert(mensagem||'Ação não autorizada.'),false)
 });

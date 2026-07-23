@@ -1,11 +1,11 @@
 /**
- * SIGEE Enterprise RC5.4.0 — Catálogo oficial de perfis.
+ * SIGEE Enterprise RC5.4.1 — Catálogo oficial de perfis.
  * Autoridade única para nomenclatura, apresentação, natureza e rota inicial.
  */
 (function (window) {
   'use strict';
-  if (window.__SIGEE_PERFIS_RC540__) return;
-  window.__SIGEE_PERFIS_RC540__ = true;
+  if (window.__SIGEE_PERFIS_RC541__) return;
+  window.__SIGEE_PERFIS_RC541__ = true;
 
   const PERFIS = Object.freeze([
     Object.freeze({ key:'MASTER', value:'Master', label:'Master', titulo:'MASTER DO SISTEMA', subtitulo:'Administração global', escopo:'GLOBAL', natureza:'ADMINISTRACAO_GLOBAL', rotaInicial:'processos' }),
