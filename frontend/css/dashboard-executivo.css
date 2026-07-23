@@ -39,3 +39,9 @@
 .sigee-cig-rank-label{min-width:0;display:flex!important;flex-direction:row;align-items:center;gap:.42rem;overflow:hidden;white-space:nowrap}
 .sigee-cig-rank-label>b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 @media(max-width:720px){.sigee-exec-rank-label,.sigee-cig-rank-label{gap:.3rem}.sigee-exec-nte-escola,.sigee-cig-nte{font-size:.54rem!important;padding:.1rem .32rem}}
+
+
+/* RC4.7.0 — Separação oficial entre Perfil Executivo e Dashboard Operacional */
+#sigee-dashboard-executivo .sigee-exec-card{align-self:start}
+#sigee-exec-ensino .sigee-exec-bars{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:1.2rem}
+@media(max-width:720px){#sigee-exec-ensino .sigee-exec-bars{grid-template-columns:1fr}}
