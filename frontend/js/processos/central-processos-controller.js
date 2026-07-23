@@ -1,4 +1,4 @@
-/* SIGEE RC4.5.27 — Controlador de desempenho da Central de Processos */
+/* SIGEE RC4.6.1 — Central paginada e reconexão Supabase */
 (function (window, document) {
   'use strict';
   if (window.__SIGEE_CENTRAL_PROCESSOS_4527__) return;
@@ -64,14 +64,14 @@
     if (busca && busca.dataset.sigeeCentral4527 !== '1') {
       busca.dataset.sigeeCentral4527 = '1';
       busca.removeAttribute('oninput');
-      busca.addEventListener('input', () => agendar(false, 180));
+      let buscaTimer=0; busca.addEventListener('input', () => { clearTimeout(buscaTimer); buscaTimer=setTimeout(()=>window.recarregarCentralProcessosSIGEE?.(true,true),350); });
     }
 
     const filtroNte = document.getElementById('filtro-processos-nte');
     if (filtroNte && filtroNte.dataset.sigeeCentralNte !== '1') {
       filtroNte.dataset.sigeeCentralNte = '1';
       filtroNte.removeAttribute('onchange');
-      filtroNte.addEventListener('change', () => agendar(false, 0));
+      filtroNte.addEventListener('change', () => window.recarregarCentralProcessosSIGEE?.(true,true));
     }
     if (typeof m.configurarFiltroNte === 'function') m.configurarFiltroNte();
 

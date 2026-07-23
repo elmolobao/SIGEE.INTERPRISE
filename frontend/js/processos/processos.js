@@ -1176,6 +1176,9 @@
   let canal = null;
   let atualizando = false;
   let timer = null;
+  let paginaAtualRemota = 1;
+  const processosPorPagina = 25;
+  let totalProcessosRemotos = 0;
 
   function tabelaProcessos(){
     return (window.SIGEE_SUPABASE_TABELAS && window.SIGEE_SUPABASE_TABELAS.processos) || 'processos';
@@ -1385,31 +1388,77 @@
       else if(typeof window.carregarEContarProcessosHorizontais==='function') window.carregarEContarProcessosHorizontais();
     } catch(e){ console.warn('[SIGEE] Falha ao redesenhar Central.',e); }
   }
-  async function recarregar(silencioso=true){
+  function nteVariantes(valor){
+    const bruto=String(valor||'').trim();
+    const m=bruto.match(/(?:NTE\s*[- ]?\s*)?(\d{1,2})/i);
+    if(!m) return bruto ? [bruto] : [];
+    const n=String(Number(m[1]));
+    const p=n.padStart(2,'0');
+    return [...new Set([bruto,`NTE-${p}`,`NTE ${p}`,`NTE${p}`,`NTE-${n}`,`NTE ${n}`,`NTE${n}`])];
+  }
+  function termoSeguroBusca(valor){
+    return String(valor || '').replace(/[,%_]/g, ' ').replace(/\s+/g, ' ').trim();
+  }
+  function renderizarPaginacaoRemota(){
+    const aba=document.getElementById('aba-processos');
+    if(!aba) return;
+    let barra=document.getElementById('sigee-central-paginacao-remota');
+    if(!barra){
+      barra=document.createElement('div');
+      barra.id='sigee-central-paginacao-remota';
+      barra.className='mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-white px-4 py-3 text-xs shadow-sm';
+      const filtros=document.getElementById('filtros-processos') || document.getElementById('central-processos-abas');
+      if(filtros?.parentNode) filtros.parentNode.insertBefore(barra, filtros.nextSibling);
+      else aba.appendChild(barra);
+    }
+    const paginas=Math.max(1,Math.ceil(totalProcessosRemotos/processosPorPagina));
+    if(paginaAtualRemota>paginas) paginaAtualRemota=paginas;
+    const inicio=totalProcessosRemotos ? ((paginaAtualRemota-1)*processosPorPagina)+1 : 0;
+    const fim=Math.min(paginaAtualRemota*processosPorPagina,totalProcessosRemotos);
+    barra.innerHTML=`<span class="font-bold text-slate-600">Exibindo ${inicio}–${fim} de ${totalProcessosRemotos} processo(s)</span><div class="flex items-center gap-2"><button type="button" data-pag-anterior class="rounded-lg border px-3 py-2 font-bold text-blue-900 disabled:cursor-not-allowed disabled:opacity-40" ${paginaAtualRemota<=1?'disabled':''}>← Anterior</button><span class="font-black text-blue-950">Página ${paginaAtualRemota} de ${paginas}</span><button type="button" data-pag-proxima class="rounded-lg border px-3 py-2 font-bold text-blue-900 disabled:cursor-not-allowed disabled:opacity-40" ${paginaAtualRemota>=paginas?'disabled':''}>Próxima →</button></div>`;
+    barra.querySelector('[data-pag-anterior]')?.addEventListener('click',()=>{if(paginaAtualRemota>1){paginaAtualRemota--;recarregar(false);}});
+    barra.querySelector('[data-pag-proxima]')?.addEventListener('click',()=>{if(paginaAtualRemota<paginas){paginaAtualRemota++;recarregar(false);}});
+  }
+  async function recarregar(silencioso=true, resetarPagina=false){
     if(atualizando) return;
-    const c=cliente(); if(!c) { status('off','🔴 Sem conexão'); return; }
-    atualizando=true; status('wait','🟡 Atualizando...');
+    if(resetarPagina) paginaAtualRemota=1;
+    const c=cliente();
+    if(!c) { status('off','🔴 Cliente indisponível'); return; }
+    atualizando=true; status('wait','🟡 Reconectando...');
     try{
+      const inicio=(paginaAtualRemota-1)*processosPorPagina;
+      const fim=inicio+processosPorPagina-1;
       let q=c.from(tabelaProcessos())
-        .select('id,codigo_sigee,aluno_nome,nome_solicitante,escola_id,escola_nome,documento_tipo,modalidade,nivel_oferta,etapa_atual,etapa,etapa_codigo,prioridade,nte,nte_id,tecnico_responsavel,tecnico_responsavel_nome,responsavel,responsavel_nome,analista,analista_nome,digitador,digitador_nome,conferente,conferente_nome,data_inicio_desarquivamento,data_inicio_ciclo,prazo_inicio_ciclo,data_etapa_atual,created_at,updated_at,workflow_instance_id,workflow_ciclo,ciclo,ultima_mensagem_workflow,pendencia_aberta,finalizado_em')
-        .order('id',{ascending:false}).limit(300);
+        .select('id,codigo_sigee,aluno_nome,escola_id,escola_nome,cod_mec,documento_tipo,nivel_oferta,modalidade,etapa_atual,etapa_codigo,dias_decorridos,prioridade,nte,tecnico_responsavel,data_etapa,data_etapa_atual,prazo_etapa,prazo_inicio,prazo_fim,status,ativo,created_at,updated_at,workflow_instance_id,workflow_ciclo,ciclo,ultima_mensagem_workflow,pendencia_aberta,finalizado_em,processo_migrado', {count:'exact'})
+        .order('created_at',{ascending:false})
+        .range(inicio,fim);
       const u=window.SIGEE_SESSION?.getUser?.()||window.usuarioLogado||{};
       const perfil=String(u.perfil||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
+      const filtroNte=String(document.getElementById('filtro-processos-nte')?.value||'').trim();
       if(!['MASTER','SEC'].includes(perfil)){
-        const nteId=Number(u.nte_id||u.nteId||u.id_nte||0);
         const nteTxt=String(u.nte||u.nte_nome||u.grupo||'').trim();
-        if(nteId) q=q.eq('nte_id',nteId); else if(nteTxt) q=q.eq('nte',nteTxt);
+        const variantes=nteVariantes(nteTxt);
+        if(variantes.length) q=q.in('nte',variantes);
+      } else if(filtroNte && filtroNte!=='TODOS') {
+        const variantes=nteVariantes(filtroNte);
+        if(variantes.length) q=q.in('nte',variantes);
       }
-      const {data,error}=await q;
+      const busca=termoSeguroBusca(document.getElementById('busca-proc-nome')?.value);
+      if(busca) q=q.or(`codigo_sigee.ilike.%${busca}%,aluno_nome.ilike.%${busca}%,escola_nome.ilike.%${busca}%`);
+      const {data,error,count}=await q;
       if(error) throw error;
       const lista=(data||[]).map(mapear).filter(Boolean);
+      totalProcessosRemotos=Number(count||0);
       window.processosDB=lista;
       try { processosDB=lista; } catch(e){}
       redesenhar();
-      status('ok','🟢 Sincronizado');
+      renderizarPaginacaoRemota();
+      status('ok','🟢 Conectado');
+      window.dispatchEvent(new CustomEvent('sigee:supabase-conectado',{detail:{modulo:'processos',total:totalProcessosRemotos}}));
     }catch(e){
-      status('off','🔴 Sem conexão');
-      if(!silencioso) console.error('[SIGEE] Falha ao sincronizar processos:',e);
+      status('off','🔴 Falha na consulta');
+      console.error('[SIGEE RC4.6.1] Falha ao reconectar a Central de Processos:',e);
+      if(!silencioso && typeof window.mostrarToast==='function') window.mostrarToast('Não foi possível carregar os processos. Verifique o console.');
     }finally{ atualizando=false; }
   }
   function aplicarEventoRealtime(payload){
@@ -1422,7 +1471,7 @@
     else {
       const convertido=mapear(registro);
       if(idx>=0) lista[idx]={...lista[idx],...convertido}; else lista.unshift(convertido);
-      if(lista.length>300) lista.length=300;
+      if(lista.length>processosPorPagina) lista.length=processosPorPagina;
     }
     window.processosDB=lista;
     try{ processosDB=lista; }catch(e){}
@@ -1462,15 +1511,16 @@
     e.preventDefault(); copiar(b.getAttribute('data-sigee-codigo'));
   });
   window.copiarCodigoSIGEE=copiar;
-  window.recarregarCentralProcessosSIGEE=recarregar;
+  window.recarregarCentralProcessosSIGEE=(silencioso=true,resetarPagina=false)=>recarregar(silencioso,resetarPagina);
+  window.irParaPaginaCentralProcessosSIGEE=(pagina)=>{paginaAtualRemota=Math.max(1,Number(pagina)||1);return recarregar(false);};
   window.iniciarRealtimeProcessosSIGEE=iniciarRealtime;
 
   window.addEventListener('online',()=>{ iniciarRealtime(); recarregar(true); });
   window.addEventListener('offline',()=>status('off','🔴 Offline'));
-  window.addEventListener('load',()=>{ indicador(); iniciarRealtime(); setTimeout(()=>recarregar(true),400); });
+  window.addEventListener('load',()=>{ indicador(); iniciarRealtime(); setTimeout(()=>recarregar(true,true),400); });
   document.addEventListener('sigee:navegacao-concluida',ev=>{
     const rota=ev?.detail?.rota||ev?.detail?.aba||'';
-    if(rota==='processos') recarregar(true);
+    if(rota==='processos') recarregar(true,true);
   });
 })();
 
