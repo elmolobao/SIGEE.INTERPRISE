@@ -1,11 +1,11 @@
 /**
- * SIGEE Enterprise RC5.3.0 — Autorização, menu e navegação centralizados.
- * Única autoridade para menus, rotas e destino pós-login.
+ * SIGEE Enterprise RC5.2.0 — Menu dinâmico e navegação única por perfil.
+ * Autoridade exclusiva para menus, rotas e destino pós-login.
  */
 (function(window, document){
 'use strict';
-if (window.__SIGEE_AUTORIZACAO_RC530__) return;
-window.__SIGEE_AUTORIZACAO_RC530__ = true;
+if (window.__SIGEE_AUTORIZACAO_RC520__) return;
+window.__SIGEE_AUTORIZACAO_RC520__ = true;
 
 const ROTAS = Object.freeze({
   painel: 'indicadores.visualizar',
@@ -28,11 +28,9 @@ const MENU = Object.freeze([
   { id:'menu-logs', rota:'logs', icone:'⚙️', rotulo:'Configurações', capacidade:'logs.visualizar' }
 ]);
 
+let navegacaoAutomatica = false;
 let instalando = false;
 let observer = null;
-let navegacaoProtegida = null;
-let navegacaoOriginal = null;
-let inicializacaoEmCurso = false;
 
 function usuario(){
   return window.SIGEE_SESSION?.getUser?.() || window.usuarioLogado || window.usuarioAtual || window.currentUser || null;
@@ -55,11 +53,11 @@ function itemPermitido(item, u){
   const p = perfil(u);
   return (!item.perfis || item.perfis.includes(p)) && pode(item.capacidade, u);
 }
-function containerMenu(){
-  return document.getElementById('sigee-menu-dinamico') || document.querySelector('.sigee-sidebar-nav');
-}
 function classeMenu(){
   return 'sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer';
+}
+function containerMenu(){
+  return document.getElementById('sigee-menu-dinamico') || document.querySelector('.sigee-sidebar-nav');
 }
 function criarBotao(item){
   const botao = document.createElement('button');
@@ -67,44 +65,44 @@ function criarBotao(item){
   botao.id = item.id;
   botao.className = classeMenu();
   botao.dataset.sigeeRota = item.rota;
+  botao.dataset.sigeeCapacidade = Array.isArray(item.capacidade) ? item.capacidade.join('|') : item.capacidade;
   botao.textContent = `${item.icone} ${item.rotulo}`;
   botao.addEventListener('click', () => navegarPara(item.rota, { manual:true }));
   return botao;
 }
-function atualizarIdentidade(){
-  const u = usuario(); if (!u) return false;
-  const p = perfil(u);
-  const global = window.SIGEE_ESCOPO?.ehGlobal?.(u) === true;
-  const nte = window.SIGEE_ESCOPO?.nteUsuario?.(u) || u.nte || '';
-  const titulo = document.getElementById('sigee-escopo-titulo');
-  const subtitulo = document.getElementById('sigee-escopo-subtitulo');
-  if (titulo) titulo.textContent = global ? (p === 'Master' ? 'ADMINISTRAÇÃO GLOBAL' : 'VISÃO ESTADUAL') : (nte || 'GESTÃO TERRITORIAL');
-  if (subtitulo) subtitulo.textContent = global ? 'SEC / BA' : `${p} territorial`;
-  document.body.dataset.sigeePerfil = p;
-  document.body.dataset.sigeeEscopo = global ? 'GLOBAL' : 'NTE';
-  return true;
-}
 function renderizarMenu(){
   const u = usuario();
   const nav = containerMenu();
-  if (!nav) return false;
-  if (!u) {
-    if (nav.childElementCount) nav.replaceChildren();
-    delete nav.dataset.sigeeMenuAssinatura;
-    return false;
-  }
+  if (!u || !nav) return false;
   const permitidos = MENU.filter(item => itemPermitido(item, u));
   const assinatura = `${perfil(u)}|${permitidos.map(i=>i.id).join(',')}`;
-  if (nav.dataset.sigeeMenuAssinatura === assinatura && nav.children.length === permitidos.length) {
-    atualizarIdentidade();
-    return true;
-  }
+  if (nav.dataset.sigeeMenuAssinatura === assinatura && nav.children.length === permitidos.length) return true;
   instalando = true;
   nav.replaceChildren(...permitidos.map(criarBotao));
   nav.dataset.sigeeMenuAssinatura = assinatura;
   instalando = false;
   atualizarIdentidade();
   return true;
+}
+function atualizarIdentidade(){
+  const u = usuario(); if (!u) return;
+  const p = perfil(u);
+  const global = window.SIGEE_ESCOPO?.ehGlobal?.(u) === true;
+  const nte = window.SIGEE_ESCOPO?.nteUsuario?.(u) || u.nte || '';
+  const titulo = document.getElementById('sigee-escopo-titulo');
+  const subtitulo = document.getElementById('sigee-escopo-subtitulo');
+  if (titulo) {
+    titulo.textContent = global
+      ? (p === 'Master' ? 'ADMINISTRAÇÃO GLOBAL' : 'VISÃO ESTADUAL')
+      : (p === 'Gestor' ? 'GESTOR TERRITORIAL' : (nte || 'GESTÃO TERRITORIAL'));
+  }
+  if (subtitulo) {
+    subtitulo.textContent = global
+      ? 'SEC / BA'
+      : (p === 'Gestor' ? (nte || 'NTE vinculado') : `${p} territorial`);
+  }
+  document.body.dataset.sigeePerfil = p;
+  document.body.dataset.sigeeEscopo = global ? 'GLOBAL' : 'NTE';
 }
 function primeiraRota(u=usuario()){
   const p = perfil(u);
@@ -116,10 +114,15 @@ function primeiraRota(u=usuario()){
   if (pode('indicadores.visualizar', u)) return 'painel';
   return '';
 }
+function navegarOriginal(){
+  const atual = window.navegar;
+  if (typeof atual !== 'function') return null;
+  return atual.__sigeeRc520Original || atual;
+}
 function navegarPara(rota, opcoes={}){
-  const silencioso = opcoes.silencioso === true || opcoes.manual !== true || inicializacaoEmCurso;
+  const silencioso = opcoes.silencioso === true || navegacaoAutomatica === true || opcoes.manual !== true;
   if (!autorizarRota(rota, silencioso)) return false;
-  const original = navegacaoOriginal || window.navegar;
+  const original = navegarOriginal();
   if (rota === 'nova-solicitacao') {
     if (typeof original === 'function' && pode('escolas.visualizar')) original.call(window, 'escolas');
     setTimeout(() => window.abrirFormularioNovaSolicitacao?.(), 30);
@@ -133,61 +136,76 @@ function navegarPara(rota, opcoes={}){
 function instalarNavegacao(){
   const atual = window.navegar;
   if (typeof atual !== 'function') return false;
-  if (atual === navegacaoProtegida) return true;
-  navegacaoOriginal = atual.__sigeeOriginal || atual;
-  navegacaoProtegida = function(rota){
-    const silencioso = inicializacaoEmCurso === true;
+  if (atual.__sigeeRc520) return true;
+  const original = atual.__sigeeRc520Original || atual;
+  const protegida = function(rota){
+    const silencioso = navegacaoAutomatica === true;
     if (!autorizarRota(rota, silencioso)) return false;
-    const resultado = navegacaoOriginal.apply(this, arguments);
+    const resultado = original.apply(this, arguments);
     queueMicrotask(renderizarMenu);
     return resultado;
   };
-  navegacaoProtegida.__sigeeAutorizacao = true;
-  navegacaoProtegida.__sigeeOriginal = navegacaoOriginal;
-  window.navegar = navegacaoProtegida;
-  try { globalThis.navegar = navegacaoProtegida; } catch (_) {}
+  protegida.__sigeeRc520 = true;
+  protegida.__sigeeRc520Original = original;
+  window.navegar = protegida;
+  try { globalThis.navegar = protegida; } catch (_) {}
   return true;
 }
-function abrirDestinoInicial(){
-  const u = usuario();
-  const dashboard = document.getElementById('sistema-dashboard');
-  if (!u || dashboard?.classList.contains('hidden')) return false;
-  inicializacaoEmCurso = true;
-  try {
-    renderizarMenu();
-    const destino = primeiraRota(u);
-    return destino ? navegarPara(destino, { silencioso:true }) : false;
-  } finally {
-    setTimeout(() => { inicializacaoEmCurso = false; }, 300);
-  }
+function instalarLogin(){
+  const atual = window.handleLogin;
+  if (typeof atual !== 'function') return false;
+  if (atual.__sigeeRc520) return true;
+  const original = atual.__sigeeRc520Original || atual;
+  const protegido = async function(event){
+    navegacaoAutomatica = true;
+    try {
+      const resultado = await original.apply(this, arguments);
+      const u = usuario();
+      if (u && !document.getElementById('sistema-dashboard')?.classList.contains('hidden')) {
+        renderizarMenu();
+        const destino = primeiraRota(u);
+        if (destino) navegarPara(destino, { silencioso:true });
+      }
+      return resultado;
+    } finally {
+      setTimeout(() => { navegacaoAutomatica = false; }, 80);
+    }
+  };
+  protegido.__sigeeRc520 = true;
+  protegido.__sigeeRc520Original = original;
+  window.handleLogin = protegido;
+  try { globalThis.handleLogin = protegido; } catch (_) {}
+  return true;
 }
 function observarMenu(){
   const nav = containerMenu();
-  if (!nav || observer) return false;
+  if (!nav || observer) return;
   observer = new MutationObserver(() => {
     if (!instalando) queueMicrotask(renderizarMenu);
   });
   observer.observe(nav, { childList:true });
-  return true;
 }
 function iniciar(){
   instalarNavegacao();
+  instalarLogin();
   renderizarMenu();
   observarMenu();
 }
 
 document.addEventListener('DOMContentLoaded', iniciar, { once:true });
-document.addEventListener('sigee:usuario-logado', () => setTimeout(renderizarMenu, 0));
-document.addEventListener('sigee:usuario-deslogado', () => setTimeout(renderizarMenu, 0));
+document.addEventListener('sigee:usuario-logado', () => setTimeout(() => {
+  renderizarMenu();
+  const destino = primeiraRota();
+  if (destino) navegarPara(destino, { silencioso:true });
+}, 0));
 document.addEventListener('sigee:navegacao-concluida', renderizarMenu);
-document.addEventListener('sigee:login-concluido', () => setTimeout(abrirDestinoInicial, 0));
-window.addEventListener('sigee:login-concluido', () => setTimeout(abrirDestinoInicial, 0));
+window.addEventListener('sigee:login-concluido', () => setTimeout(iniciar, 0));
 window.addEventListener('load', () => setTimeout(iniciar, 50));
 
 window.SIGEE_AUTORIZACAO = Object.freeze({
   usuario, perfil, pode, capacidadeRota, autorizarRota,
   aplicarMenus:renderizarMenu, renderizarMenu, primeiraRota,
-  navegarPara, protegerNavegacao:instalarNavegacao, abrirDestinoInicial,
+  navegarPara, protegerNavegacao:instalarNavegacao, instalarLogin,
   exigir:(cap,mensagem)=>pode(cap)||((mensagem!==false)&&alert(mensagem||'Ação não autorizada.'),false)
 });
 })(window, document);
