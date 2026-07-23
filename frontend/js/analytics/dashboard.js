@@ -1,9 +1,9 @@
-/* SIGEE RC4.6.8 — Rankings com NTE, percentual e barras */
+/* SIGEE RC4.6.10 — Dashboard RPC com abrangência global normalizada */
 (function(){
   'use strict';
-  if(window.__SIGEE_DASHBOARD_RPC_468__) return;
-  window.__SIGEE_DASHBOARD_RPC_468__=true;
-  window.SIGEE_DASHBOARD_AUTORIDADE='RPC_RC4.6.8';
+  if(window.__SIGEE_DASHBOARD_RPC_4610__) return;
+  window.__SIGEE_DASHBOARD_RPC_4610__=true;
+  window.SIGEE_DASHBOARD_AUTORIDADE='RPC_RC4.6.10';
 
   const CACHE_MS=180000;
   const cache=new Map();
@@ -20,7 +20,7 @@
   function alvoNte(){
     if(!global()) return nteNumero(usuario()?.nte||usuario()?.nte_nome||usuario()?.grupo);
     const v=txt(document.getElementById('filtro-dashboard-nte')?.value||'TODOS');
-    return ['TODOS','GLOBAL',''].includes(norm(v))?'':nteNumero(v);
+    return (!norm(v) || norm(v)==='TODOS' || norm(v)==='GLOBAL' || norm(v).includes('TODOS OS NTES')) ? '' : nteNumero(v);
   }
   function configurarFiltro(){
     const box=document.getElementById('box-filtro-dashboard-master');
@@ -103,6 +103,6 @@
   document.addEventListener('change',e=>{if(['filtro-dashboard-nte','filtro-dashboard-periodo','dashboard-data-inicial','dashboard-data-final'].includes(e.target?.id))agendar(true)},true);
   document.addEventListener('sigee:navegacao-concluida',e=>{if((e.detail?.rota||e.detail?.aba)==='painel')agendar(false)});
   document.addEventListener('sigee:usuario-logado',()=>agendar(true));
-  window.carregarDadosDashboardReal=()=>agendar(true);window.carregarDadosDashboardRealImediato=()=>carregar(true);window.SIGEE_DASHBOARD_RPC={carregar,limparCache:()=>cache.clear(),versao:'RC4.6.8'};
+  window.carregarDadosDashboardReal=()=>agendar(true);window.carregarDadosDashboardRealImediato=()=>carregar(true);window.SIGEE_DASHBOARD_RPC={carregar,limparCache:()=>cache.clear(),versao:'RC4.6.10'};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>agendar(false));else agendar(false);
 })();

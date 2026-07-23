@@ -1,4 +1,4 @@
-/* SIGEE RC4.6.8 — Dashboard Executivo com percentuais e NTE da escola
+/* SIGEE RC4.6.10 — Dashboard Executivo com percentuais e NTE da escola
  * Atualização manual real, com baixo consumo e sem depender da página local de processos.
  */
 (function () {
@@ -171,7 +171,8 @@
     document.getElementById('sigee-exec-etapas').innerHTML=bars(etapas,Math.max(ativos,1),8,{classeExtra:'sigee-exec-gargalos'});
     document.getElementById('sigee-exec-escolas').innerHTML=bars(escolas,Math.max(total,1),10,{mostrarNte:true});
     document.getElementById('sigee-exec-tecnicos').innerHTML=bars(tecnicos,Math.max(total,1),10);
-    document.getElementById('sigee-exec-documentos').innerHTML='<p class="sigee-exec-empty">Indicador não disponível na consulta consolidada atual.</p>';
+    const documentos=normalizarRanking(r.por_documento);
+    document.getElementById('sigee-exec-documentos').innerHTML=bars(documentos,Math.max(total,1),8);
   }
 
   async function atualizarExecutivo(forcar=false) {
@@ -241,5 +242,5 @@
   function boot(){ ensureUI(); atualizarExecutivo(false); }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
   window.addEventListener('sigee:dashboard-rpc-atualizado',e=>{ if(e.detail) renderRpc(e.detail); });
-  window.SIGEE_DASHBOARD_EXECUTIVO={render,renderRpc,atualizar:atualizarExecutivo,versao:'RC4.6.8'};
+  window.SIGEE_DASHBOARD_EXECUTIVO={render,renderRpc,atualizar:atualizarExecutivo,versao:'RC4.6.10'};
 })();
