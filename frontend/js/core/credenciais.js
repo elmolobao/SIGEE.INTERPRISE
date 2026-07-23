@@ -207,7 +207,7 @@
       document.getElementById('sistema-dashboard')?.classList.remove('hidden');
       atualizarIdentidade(canonico);
       try { window.registrarLog?.('Acesso realizado ao SIGEE.'); } catch (_) {}
-      try { window.navegar?.('processos'); } catch (_) {}
+      // A rota inicial é definida exclusivamente por SIGEE_AUTORIZACAO.
       try { window.carregarEContarProcessosHorizontais?.(); } catch (_) {}
 
       // A decisão é feita com o mesmo registro oficial usado para autenticar.
