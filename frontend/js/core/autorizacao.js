@@ -1,11 +1,11 @@
 /**
- * SIGEE Enterprise RC5.3.6 — Menu dinâmico e navegação única por perfil.
+ * SIGEE Enterprise RC5.3.7 — Menu dinâmico e navegação única por perfil.
  * Autoridade exclusiva para menus, rotas e destino pós-login.
  */
 (function(window, document){
 'use strict';
-if (window.__SIGEE_AUTORIZACAO_RC536__) return;
-window.__SIGEE_AUTORIZACAO_RC536__ = true;
+if (window.__SIGEE_AUTORIZACAO_RC537__) return;
+window.__SIGEE_AUTORIZACAO_RC537__ = true;
 
 const ROTAS = Object.freeze({
   painel: 'indicadores.visualizar',
@@ -21,7 +21,7 @@ const ROTAS = Object.freeze({
 
 const MENU = Object.freeze([
   { id:'menu-painel', rota:'painel', icone:'📊', rotulo:'Painel Gerencial', capacidade:'indicadores.visualizar', perfis:['Master','SEC','Gestor','Administrador'] },
-  { id:'menu-central-processos', rota:'processos', icone:'📋', rotulo:'Central de Processos', capacidade:'processos.visualizar', perfis:['Master','SEC','Gestor','Administrador','Técnico','Consulta'] },
+  { id:'menu-central-processos', rota:'processos', icone:'📋', rotulo:'Central de Processos', capacidade:'processos.visualizar', perfis:['Master','SEC','Gestor','Administrador','Técnico','Atendimento','Estagiário','Consulta'] },
   { id:'menu-catalogo-escolas', rota:'escolas', icone:'🏫', rotulo:'Catálogo de Escolas', capacidade:'escolas.visualizar' },
   { id:'menu-relatorios', rota:'relatorios', icone:'📑', rotulo:'Relatórios', capacidade:'relatorios.visualizar', perfis:['Master','SEC','Gestor','Administrador','Técnico','Atendimento','Estagiário','Consulta'] },
   { id:'menu-usuarios', rota:'usuarios', icone:'👥', rotulo:'Usuários do NTE', capacidade:['usuarios.gerenciar_global','usuarios.gerenciar_nte'], perfis:['Master','Administrador'] },
@@ -100,21 +100,13 @@ function aplicarControlesCatalogo(){
 function garantirNovaSolicitacaoNaCentral(){
   const central = document.getElementById('aba-processos');
   if(!central)return;
-  let botao = document.getElementById('btn-nova-solicitacao-central');
-  if(!pode('processos.criar')){
-    botao?.remove();
-    return;
-  }
-  if(!botao){
-    botao=document.createElement('button');
-    botao.id='btn-nova-solicitacao-central';
-    botao.type='button';
-    botao.className='bg-blue-900 text-white text-xs font-bold px-4 py-2.5 rounded-lg shadow-sm hover:bg-blue-950 transition cursor-pointer';
-    botao.textContent='➕ Nova Solicitação';
-    botao.addEventListener('click',()=>navegarPara('nova-solicitacao',{manual:true}));
-    const alvo=central.querySelector('.sigee-central-cabecalho, .sigee-modulo-cabecalho, header, .flex')||central;
-    alvo.prepend(botao);
-  }
+
+  // Remove o botão adicional criado por versões anteriores.
+  document.getElementById('btn-nova-solicitacao-central')?.remove();
+
+  // Mantém somente o botão institucional já existente no cabeçalho da Central.
+  const botao = central.querySelector('#btn-nova-solicitacao, [data-acao="nova-solicitacao"]');
+  if(botao) mostrarElemento(botao, pode('processos.criar'));
 }
 function aplicarControlesDaInterface(){
   aplicarControlesCatalogo();
@@ -154,6 +146,50 @@ function atualizarIdentidade(){
   document.body.dataset.sigeePerfil = p;
   document.body.dataset.sigeeEscopo = global ? 'GLOBAL' : 'NTE';
   document.body.dataset.sigeeNatureza = meta?.natureza || '';
+  atualizarRotuloPerfilUsuario();
+}
+function rotuloPerfil(p){
+  const mapa={
+    Master:'Master do Sistema',
+    SEC:'Visão Estadual',
+    Gestor:'Gestor Territorial',
+    Administrador:'Administrador Territorial',
+    'Técnico':'Técnico do NTE',
+    Atendimento:'Atendimento Territorial',
+    'Estagiário':'Apoio Operacional',
+    Consulta:'Consulta Territorial'
+  };
+  return mapa[p] || p;
+}
+function atualizarRotuloPerfilUsuario(){
+  const u=usuario(); if(!u)return;
+  const p=perfil(u), nte=window.SIGEE_ESCOPO?.nteUsuario?.(u)||u.nte||'';
+  const el=document.getElementById('user-perfil');
+  if(el) el.textContent=`${rotuloPerfil(p)}${nte?` | ${nte}`:''}`;
+  document.querySelectorAll('[data-sigee-perfil-usuario]').forEach(x=>x.textContent=rotuloPerfil(p));
+}
+function garantirRotaVisivel(rota){
+  const mapa={
+    painel:'aba-painel', processos:'aba-processos', escolas:'aba-escolas',
+    usuarios:'aba-usuarios', logs:'aba-logs', relatorios:'aba-relatorios',
+    'sala-situacao':'aba-sala-situacao', 'centro-inteligencia':'aba-centro-inteligencia'
+  };
+  const id=mapa[rota];
+  if(!id)return;
+  const alvo=document.getElementById(id);
+  if(!alvo)return;
+  const oculto=alvo.classList.contains('hidden') || alvo.hidden || getComputedStyle(alvo).display==='none';
+  if(!oculto)return;
+  document.querySelectorAll('[id^="aba-"]').forEach(sec=>{
+    if(sec===alvo)return;
+    sec.classList.add('hidden'); sec.hidden=true;
+  });
+  alvo.classList.remove('hidden'); alvo.hidden=false; alvo.style.removeProperty('display');
+  if(rota==='painel'){
+    window.carregarDadosDashboardReal?.();
+    window.atualizarDashboardPeloMotorSIGEE?.();
+  }
+  document.dispatchEvent(new CustomEvent('sigee:navegacao-concluida',{detail:{rota,origem:'autorizacao-rc537'}}));
 }
 function primeiraRota(u=usuario()){
   const p = perfil(u);
@@ -182,6 +218,7 @@ function navegarPara(rota, opcoes={}){
   }
   const resultado = typeof original === 'function' ? original.call(window, rota) : undefined;
   queueMicrotask(renderizarMenu);
+  setTimeout(()=>garantirRotaVisivel(rota), 60);
   return resultado;
 }
 function instalarNavegacao(){
@@ -194,6 +231,7 @@ function instalarNavegacao(){
     if (!autorizarRota(rota, silencioso)) return false;
     const resultado = original.apply(this, arguments);
     queueMicrotask(renderizarMenu);
+    setTimeout(()=>garantirRotaVisivel(rota), 60);
     return resultado;
   };
   protegida.__sigeeRc520 = true;
@@ -215,7 +253,7 @@ function instalarLogin(){
       if (u && !document.getElementById('sistema-dashboard')?.classList.contains('hidden')) {
         renderizarMenu();
         const destino = primeiraRota(u);
-        if (destino) navegarPara(destino, { silencioso:true });
+        if (destino) { navegarPara(destino, { silencioso:true }); setTimeout(()=>garantirRotaVisivel(destino),180); }
       }
       return resultado;
     } finally {
@@ -256,7 +294,7 @@ window.addEventListener('load', () => setTimeout(iniciar, 50));
 window.SIGEE_AUTORIZACAO = Object.freeze({
   usuario, perfil, pode, capacidadeRota, autorizarRota,
   aplicarMenus:renderizarMenu, renderizarMenu, primeiraRota,
-  navegarPara, protegerNavegacao:instalarNavegacao, instalarLogin,
+  navegarPara, garantirRotaVisivel, protegerNavegacao:instalarNavegacao, instalarLogin,
   exigir:(cap,mensagem)=>pode(cap)||((mensagem!==false)&&alert(mensagem||'Ação não autorizada.'),false)
 });
 })(window, document);

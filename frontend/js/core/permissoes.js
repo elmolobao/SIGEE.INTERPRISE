@@ -1,11 +1,11 @@
 /**
- * SIGEE Enterprise RC5.3.6 — Matriz oficial de capacidades.
+ * SIGEE Enterprise RC5.3.7 — Matriz oficial de capacidades.
  * Capacidades definem o que o perfil faz; SIGEE_ESCOPO define onde a ação vale.
  */
 (function(window){
 'use strict';
-if(window.__SIGEE_PERMISSOES_RC536__)return;
-window.__SIGEE_PERMISSOES_RC536__=true;
+if(window.__SIGEE_PERMISSOES_RC537__)return;
+window.__SIGEE_PERMISSOES_RC537__=true;
 
 const C=Object.freeze({
   Master:Object.freeze({
