@@ -3748,7 +3748,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         if (!exigirPerfilExportadorSIGEE()) return;
         const dados = escolasVisiveisExportacaoSIGEE().map(e => ({
             'Código MEC': e.cod_mec || '', 'Escola': e.nome || e.nome_escola || '', 'Município': e.municipio || '',
-            'NTE': e.nte || '', 'Dependência': e.dependencia || e.dependencia_adm || '', 'Situação': e.situacao || e.situacao_funcional || '',
+            'NTE': window.rotuloNteSIGEE?.(e.nte) || e.nte || '', 'Dependência': e.dependencia || e.dependencia_adm || '', 'Situação': e.situacao || e.situacao_funcional || '',
             'Acervo': e.status_acervo || e.acervo || '', 'Local do Acervo': e.local_acervo || ''
         }));
         registrarLog(`Exportou Catálogo de Escolas (${formato.toUpperCase()}) - ${dados.length} registros.`);
@@ -3762,7 +3762,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             'Aluno': p.aluno || p.aluno_nome || '', 'Escola': p.escola || p.escola_nome || '', 'Documento': p.documento || p.documento_tipo || '',
             'Etapa': p.etapa || p.etapa_atual || '', 'Dias na Etapa': (typeof calcularDiasApartirDeDataString === 'function') ? calcularDiasApartirDeDataString(p.data_etapa_atual || p.created_at) : '',
             'Técnico': p.tecnico || p.analista || p.digitador || '', 'Prioridade': p.prioridade || '', 'Município': p.municipio || '',
-            'NTE': p.nte || '', 'Data de Abertura': p.data_inicio || p.created_at || '', 'Última Movimentação': p.data_etapa_atual || ''
+            'NTE': window.rotuloNteSIGEE?.(p.nte) || p.nte || '', 'Data de Abertura': p.data_inicio || p.created_at || '', 'Última Movimentação': p.data_etapa_atual || ''
         }));
         registrarLog(`Exportou Processos (${formato.toUpperCase()}) - ${dados.length} registros.`);
         if (formato === 'pdf') return exportarPDFSIGEE('Processos / Fluxo', Object.keys(dados[0] || {'Sem dados':''}), dados.map(Object.values), 'SIGEE_Processos');
@@ -3772,7 +3772,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     window.exportarLogsSIGEE = function(formato='xlsx'){
         if (!exigirPerfilExportadorSIGEE()) return;
         const dados = logsVisiveisExportacaoSIGEE().map(l => ({
-            'Data': l.data || l.dataHora || '', 'Hora': l.hora || '', 'Usuário': l.nome || '', 'Perfil': l.perfil || '', 'NTE': l.nte || '', 'E-mail': l.email || '', 'Ação': l.acao || ''
+            'Data': l.data || l.dataHora || '', 'Hora': l.hora || '', 'Usuário': l.nome || '', 'Perfil': l.perfil || '', 'NTE': window.rotuloNteSIGEE?.(l.nte) || l.nte || '', 'E-mail': l.email || '', 'Ação': l.acao || ''
         }));
         registrarLog(`Exportou Logs (${formato.toUpperCase()}) - ${dados.length} registros.`);
         if (formato === 'pdf') return exportarPDFSIGEE('Histórico de Atividades / Logs', Object.keys(dados[0] || {'Sem dados':''}), dados.map(Object.values), 'SIGEE_Logs');
@@ -3799,7 +3799,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     function dadosInformacoesTecnicasSIGEE(){
         const proc = filtrarNteExportacaoSIGEE(processosDB || [], 'nte');
         const mapa = {};
-        proc.forEach(p => { const k=p.escola || p.escola_nome || 'NÃO INFORMADA'; mapa[k] = mapa[k] || { Escola:k, NTE:p.nte||'', Quantidade:0 }; mapa[k].Quantidade++; });
+        proc.forEach(p => { const k=p.escola || p.escola_nome || 'NÃO INFORMADA'; mapa[k] = mapa[k] || { Escola:k, NTE:window.rotuloNteSIGEE?.(p.nte)||p.nte||'', Quantidade:0 }; mapa[k].Quantidade++; });
         return Object.values(mapa).sort((a,b)=>b.Quantidade-a.Quantidade).slice(0,10);
     }
     function dadosAtrasosPorEtapaSIGEE(){
@@ -3817,7 +3817,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         return proc.filter(p=>p.deferido_em||p.retirado_em).map(p=>{
             const inicio=new Date(p.created_at||p.data_inicio||0), def=p.deferido_em?new Date(p.deferido_em):null, ret=p.retirado_em?new Date(p.retirado_em):null;
             const dias=(a,b)=>a&&b&&!isNaN(a)&&!isNaN(b)?Math.max(0,Math.round((b-a)/86400000)):'';
-            return {'Código SIGEE':p.codigo_sigee||'', 'Aluno':p.aluno_nome||p.aluno||'', 'NTE':p.nte||'', 'Dias até Deferimento':dias(inicio,def), 'Dias do Deferimento à Retirada':dias(def,ret)};
+            return {'Código SIGEE':p.codigo_sigee||'', 'Aluno':p.aluno_nome||p.aluno||'', 'NTE':window.rotuloNteSIGEE?.(p.nte)||p.nte||'', 'Dias até Deferimento':dias(inicio,def), 'Dias do Deferimento à Retirada':dias(def,ret)};
         });
     }
     function dadosIndicadoresNteSIGEE(){
@@ -3827,7 +3827,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             const pend = proc.filter(p => (p.etapa || p.etapa_atual) === 'Pendência').length;
             const dias = proc.map(p => (typeof calcularDiasApartirDeDataString === 'function') ? calcularDiasApartirDeDataString(p.data_etapa_atual || p.created_at) : 0).filter(n => Number.isFinite(n));
             const media = dias.length ? Math.round(dias.reduce((a,b)=>a+b,0)/dias.length) : 0;
-            return { NTE: nte, Escolas: escolas.length, Solicitações: proc.length, Pendências: pend, 'Tempo Médio na Etapa': media };
+            return { NTE: window.rotuloNteSIGEE?.(nte) || nte, Escolas: escolas.length, Solicitações: proc.length, Pendências: pend, 'Tempo Médio na Etapa': media };
         });
     }
 
