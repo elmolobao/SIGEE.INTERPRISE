@@ -6,7 +6,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '3.3.10-LOGS-CONTEXTO';
+  const VERSION = '3.3.11-LOGS-CONSUMO-OTIMIZADO';
   const TABELA_LOGS = 'logs_sigee';
   const TABELA_ONLINE = 'usuarios_online_sigee';
   const HEARTBEAT_MS = 60 * 1000;
@@ -20,6 +20,11 @@
   let ultimoUsuarioEmail = '';
   let ultimoLog = { chave: '', ts: 0 };
   let instalando = false;
+  let logsTimer = null;
+  let carregandoLogs = false;
+  let logsTelaAtiva = false;
+  const LOGS_REFRESH_MS = 30 * 1000;
+  const LOGS_LIMITE = 100;
 
   function txt(v) { return v == null ? '' : String(v).trim(); }
   function esc(v) {
@@ -151,7 +156,7 @@
 
     salvarLocal(registro);
     await inserirLogSupabase(registro);
-    if (!document.getElementById('aba-logs')?.classList.contains('hidden')) carregarLogsSIGEE();
+    if (telaLogsVisivel()) carregarLogsSIGEE(true);
     return true;
   }
 
@@ -200,7 +205,7 @@
     if (!c) return [];
     const limite = new Date(Date.now() - ONLINE_LIMITE_MS).toISOString();
     const { data, error } = await c.from(TABELA_ONLINE)
-      .select('*')
+      .select('sessao_id,usuario_id,nome,email,perfil,nte,status,pagina_atual,ultimo_acesso')
       .eq('status', 'online')
       .gte('ultimo_acesso', limite)
       .order('ultimo_acesso', { ascending: false });
@@ -239,21 +244,51 @@
     }
   }
 
-  async function carregarLogsSIGEE() {
+  function telaLogsVisivel() {
+    const aba = document.getElementById('aba-logs');
+    return !!aba && !aba.classList.contains('hidden') && document.visibilityState === 'visible';
+  }
+
+  async function carregarLogsSIGEE(forcar = false) {
     const corpo = document.getElementById('tabela-logs-corpo');
-    if (!corpo) return;
-    const u = usuarioAtual();
-    let dados = [];
-    const c = cliente();
-    if (c) {
-      let q = c.from(TABELA_LOGS).select('*').order('created_at', { ascending: false }).limit(1000);
-      if (perfilCanonico(u?.perfil) === 'Administrador') q = q.eq('nte', nteUsuario(u));
-      const { data, error } = await q;
-      if (!error) dados = data || [];
+    if (!corpo || carregandoLogs || (!forcar && !telaLogsVisivel())) return;
+    carregandoLogs = true;
+    try {
+      const u = usuarioAtual();
+      let dados = [];
+      const c = cliente();
+      if (c) {
+        let q = c.from(TABELA_LOGS)
+          .select('id,created_at,nome,email,perfil,nte,acao,detalhes,modulo,processo_id,codigo_sigee,etapa')
+          .order('created_at', { ascending: false })
+          .limit(LOGS_LIMITE);
+        if (perfilCanonico(u?.perfil) === 'Administrador') q = q.eq('nte', nteUsuario(u));
+        const { data, error } = await q;
+        if (!error) dados = data || [];
+        else console.warn('[SIGEE Logs] Falha ao consultar registros:', error.message);
+      }
+      if (!dados.length) dados = logsLocais().slice(0, LOGS_LIMITE);
+      corpo.innerHTML = dados.length ? dados.map(l => `<tr class="hover:bg-gray-50 text-xs"><td class="p-4 whitespace-nowrap">${esc(dataBR(l.created_at || l.data))}</td><td class="p-4 font-bold">${esc(l.nome)}</td><td class="p-4 font-semibold text-blue-900">${esc(l.nte)}</td><td class="p-4 font-mono text-[11px] text-gray-500">${esc(l.email)}</td><td class="p-4"><span class="font-semibold">${esc(l.acao)}</span>${l.detalhes ? `<br><span class="text-gray-500">${esc(l.detalhes)}</span>` : ''}</td></tr>`).join('') : '<tr><td colspan="5" class="p-4 text-center text-gray-400">Nenhum registro localizado.</td></tr>';
+      await atualizarDashboardUsuariosConectadosSIGEE();
+    } finally {
+      carregandoLogs = false;
     }
-    if (!dados.length) dados = logsLocais();
-    corpo.innerHTML = dados.length ? dados.map(l => `<tr class="hover:bg-gray-50 text-xs"><td class="p-4 whitespace-nowrap">${esc(dataBR(l.created_at || l.data))}</td><td class="p-4 font-bold">${esc(l.nome)}</td><td class="p-4 font-semibold text-blue-900">${esc(l.nte)}</td><td class="p-4 font-mono text-[11px] text-gray-500">${esc(l.email)}</td><td class="p-4"><span class="font-semibold">${esc(l.acao)}</span>${l.detalhes ? `<br><span class="text-gray-500">${esc(l.detalhes)}</span>` : ''}</td></tr>`).join('') : '<tr><td colspan="5" class="p-4 text-center text-gray-400">Nenhum registro localizado.</td></tr>';
-    await atualizarDashboardUsuariosConectadosSIGEE();
+  }
+
+  function pararMonitoramentoLogsSIGEE() {
+    logsTelaAtiva = false;
+    if (logsTimer) clearInterval(logsTimer);
+    logsTimer = null;
+  }
+
+  function iniciarMonitoramentoLogsSIGEE() {
+    logsTelaAtiva = true;
+    if (!telaLogsVisivel()) return;
+    if (logsTimer) clearInterval(logsTimer);
+    carregarLogsSIGEE(true);
+    logsTimer = setInterval(() => {
+      if (logsTelaAtiva && telaLogsVisivel()) carregarLogsSIGEE();
+    }, LOGS_REFRESH_MS);
   }
 
   function descreverClique(el) {
@@ -289,6 +324,9 @@
 
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible' && usuarioAtual()) atualizarPresenca('online');
+      if (!logsTelaAtiva) return;
+      if (document.visibilityState === 'visible') iniciarMonitoramentoLogsSIGEE();
+      else if (logsTimer) { clearInterval(logsTimer); logsTimer = null; }
     });
     window.addEventListener('beforeunload', () => { marcarOffline(); });
   }
@@ -300,6 +338,7 @@
       await registrarLogSIGEE('LOGOUT', 'Saída do sistema');
       await marcarOffline();
       if (heartbeatTimer) clearInterval(heartbeatTimer);
+      pararMonitoramentoLogsSIGEE();
       if (typeof anterior === 'function') return anterior.apply(this, arguments);
       window.usuarioLogado = null;
       try { usuarioLogado = null; } catch (_) {}
@@ -332,6 +371,8 @@
     window.registrarLogContextualSIGEE = registrarLogSIGEE;
     window.carregarLogs = carregarLogsSIGEE;
     window.atualizarDashboardUsuariosConectadosSIGEE = atualizarDashboardUsuariosConectadosSIGEE;
+    window.iniciarMonitoramentoLogsSIGEE = iniciarMonitoramentoLogsSIGEE;
+    window.pararMonitoramentoLogsSIGEE = pararMonitoramentoLogsSIGEE;
     window.SIGEE_LOGS_VERSION = VERSION;
     try { registrarLog = registrarLogSIGEE; carregarLogs = carregarLogsSIGEE; } catch (_) {}
     instalarCapturaGlobal();
@@ -340,10 +381,16 @@
     if (usuarioAtual()) iniciarHeartbeat();
     setInterval(() => {
       envolverLogout();
-      if (!document.getElementById('aba-logs')?.classList.contains('hidden')) carregarLogsSIGEE();
+      if (telaLogsVisivel()) carregarLogsSIGEE(true);
     }, 30000);
     instalando = false;
   }
+
+  document.addEventListener('sigee:navegacao-concluida', event => {
+    const rota = txt(event?.detail?.rota || event?.detail?.aba).toLowerCase();
+    if (rota === 'logs') iniciarMonitoramentoLogsSIGEE();
+    else pararMonitoramentoLogsSIGEE();
+  });
 
   window.instalarModuloLogsSIGEE = instalar;
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', instalar);
