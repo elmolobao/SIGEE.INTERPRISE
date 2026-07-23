@@ -1,8 +1,16 @@
-/* SIGEE Enterprise 3.1 — Centro de Inteligência e Diagnóstico
+/* SIGEE Enterprise RC5.1.2 — Centro de Inteligência e Diagnóstico
  * Camada somente leitura. Não altera registros, workflow ou Supabase.
  */
 (function () {
   'use strict';
+
+  const CACHE_TTL_MS = 120000;
+  const estado = {
+    processando: false,
+    cache: null,
+    cacheEm: 0,
+    token: 0
+  };
 
   const norm = v => String(v ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toUpperCase();
   const key = v => norm(v).replace(/[^A-Z0-9]/g, '');
@@ -124,10 +132,10 @@
       <div id="intel-rules" class="sigee-intel-rules"></div>
       <aside id="intel-detail" class="sigee-intel-detail hidden" aria-live="polite"></aside>`;
     main.appendChild(section);
-    section.querySelector('#intel-refresh').addEventListener('click', render);
-    section.querySelector('#intel-category').addEventListener('change', render);
-    section.querySelector('#intel-level').addEventListener('change', render);
-    section.querySelector('#intel-search').addEventListener('input', render);
+    section.querySelector('#intel-refresh').addEventListener('click', () => render(true));
+    section.querySelector('#intel-category').addEventListener('change', () => render(false));
+    section.querySelector('#intel-level').addEventListener('change', () => render(false));
+    section.querySelector('#intel-search').addEventListener('input', () => render(false));
   }
 
   function open() {
@@ -136,7 +144,7 @@
     document.getElementById('aba-inteligencia')?.classList.remove('hidden');
     document.querySelectorAll('.sigee-menu-item').forEach(b=>b.classList.remove('sigee-menu-ativo'));
     document.getElementById('menu-inteligencia')?.classList.add('sigee-menu-ativo');
-    render();
+    render(false);
   }
 
   function itemLabel(item, cat) {
@@ -152,9 +160,26 @@
     box.querySelector('.intel-close').addEventListener('click',()=>box.classList.add('hidden'));
   }
 
-  function render() {
-    ensureUI();
-    const data=diagnostics();
+  function mostrarCarregamento(mensagem = 'Analisando a base do SIGEE...') {
+    const summary = document.getElementById('intel-summary');
+    const list = document.getElementById('intel-rules');
+    if (summary) {
+      summary.innerHTML = `<article class="intel-loading-card"><span>Centro de Inteligência</span><strong class="intel-spinner" aria-hidden="true"></strong><small>${esc(mensagem)}</small></article>`;
+    }
+    if (list) {
+      list.innerHTML = `<div class="sigee-intel-loading" role="status" aria-live="polite"><span class="intel-spinner" aria-hidden="true"></span><b>${esc(mensagem)}</b><small>O diagnóstico é carregado sob demanda e pode levar alguns segundos.</small></div>`;
+    }
+  }
+
+  function mostrarFalha(erro) {
+    console.error('[SIGEE Centro de Inteligência] Falha ao gerar diagnóstico:', erro);
+    const list = document.getElementById('intel-rules');
+    if (!list) return;
+    list.innerHTML = `<div class="sigee-intel-falha"><b>Não foi possível concluir o diagnóstico.</b><small>${esc(erro?.message || 'Falha inesperada durante a análise.')}</small><button type="button" id="intel-retry">Tentar novamente</button></div>`;
+    document.getElementById('intel-retry')?.addEventListener('click', () => render(true));
+  }
+
+  function pintar(data) {
     const category=document.getElementById('intel-category')?.value || 'TODOS';
     const level=document.getElementById('intel-level')?.value || 'TODOS';
     const search=norm(document.getElementById('intel-search')?.value || '');
@@ -170,6 +195,39 @@
     const list=document.getElementById('intel-rules'); if(!list) return;
     list.innerHTML=rules.map((r,i)=>`<button type="button" class="sigee-intel-rule ${r.level}" data-rule="${i}"><span class="intel-status">${r.items.length?'!':'✓'}</span><div><small>${esc(r.cat)}</small><h3>${esc(r.title)}</h3><p>${esc(r.hint)}</p></div><strong>${r.items.length}</strong><em>${r.items.length?'Ver registros':'Conforme'}</em></button>`).join('') || '<p class="sigee-intel-empty">Nenhum diagnóstico corresponde aos filtros.</p>';
     list.querySelectorAll('[data-rule]').forEach((b,i)=>b.addEventListener('click',()=>showDetail(rules[i])));
+  }
+
+  function render(forcar = false) {
+    ensureUI();
+    const section = document.getElementById('aba-inteligencia');
+    if (!section) return;
+
+    const cacheValido = estado.cache && (Date.now() - estado.cacheEm < CACHE_TTL_MS);
+    if (!forcar && cacheValido) {
+      pintar(estado.cache);
+      return;
+    }
+
+    if (estado.processando) return;
+    estado.processando = true;
+    const token = ++estado.token;
+    mostrarCarregamento(forcar ? 'Atualizando o diagnóstico...' : 'Carregando o Centro de Inteligência...');
+
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        try {
+          const data = diagnostics();
+          if (token !== estado.token) return;
+          estado.cache = data;
+          estado.cacheEm = Date.now();
+          pintar(data);
+        } catch (erro) {
+          if (token === estado.token) mostrarFalha(erro);
+        } finally {
+          if (token === estado.token) estado.processando = false;
+        }
+      }, 40);
+    });
   }
 
   function closeIntelligence() {
@@ -198,8 +256,8 @@
   function boot(){
     ensureUI();
     installSafeExit();
-    setTimeout(()=>{ if(canAccess()) render(); },1500);
+    console.info('[SIGEE] Centro de Inteligência RC5.1.2 pronto para carregamento sob demanda.');
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
-  window.SIGEE_CENTRO_INTELIGENCIA={open,close:closeIntelligence,render,diagnostics};
+  window.SIGEE_CENTRO_INTELIGENCIA={open,close:closeIntelligence,render,diagnostics,limparCache:()=>{estado.cache=null;estado.cacheEm=0;}};
 })();
