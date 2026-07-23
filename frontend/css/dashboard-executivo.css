@@ -57,3 +57,18 @@
 .sigee-cig-rank-item.semaforo-bom{border-left:4px solid #22c55e;padding-left:.45rem}.sigee-cig-rank-item.semaforo-atencao{border-left:4px solid #f59e0b;padding-left:.45rem}.sigee-cig-rank-item.semaforo-critico{border-left:4px solid #ef4444;padding-left:.45rem}.sigee-cig-rank-item.semaforo-bom>i>em{background:linear-gradient(90deg,#16a34a,#4ade80)}.sigee-cig-rank-item.semaforo-atencao>i>em{background:linear-gradient(90deg,#d97706,#fbbf24)}.sigee-cig-rank-item.semaforo-critico>i>em{background:linear-gradient(90deg,#dc2626,#fb7185)}
 .sigee-cig-alertas{display:flex!important;flex-wrap:wrap;gap:.45rem}.sigee-cig-alertas>div{display:inline-flex;align-items:center;gap:.35rem;padding:.38rem .58rem;border-radius:999px;font-size:.67rem;font-weight:800}.sigee-cig-alertas .atencao{background:#fef3c7;color:#92400e}
 @media(max-width:900px){.sigee-intel-trends{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:520px){.sigee-intel-trends{grid-template-columns:1fr}}
+
+/* SIGEE RC5.2.0 — Relatório visual de atrasos por etapa */
+.sigee-rel-atrasos{margin-top:24px;background:#fff;border:1px solid #cbd5e1;border-radius:18px;padding:20px;box-shadow:0 8px 24px rgba(15,23,42,.05)}
+.sigee-rel-atrasos>header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px}
+.sigee-rel-atrasos>header span{display:block;color:#0369a1;font-size:11px;font-weight:900;letter-spacing:.12em}
+.sigee-rel-atrasos>header h2{margin:4px 0;font-size:19px;color:#0f2f57;font-weight:850}
+.sigee-rel-atrasos>header p{margin:0;color:#64748b;font-size:12px}
+.sigee-rel-atrasos>header>strong{padding:7px 12px;border-radius:999px;background:#fee2e2;color:#b91c1c;font-size:12px;white-space:nowrap}
+.sigee-rel-atraso-cabecalho,.sigee-rel-atraso-linha{display:grid;grid-template-columns:minmax(180px,2fr) 80px 90px 80px 90px minmax(140px,1fr);align-items:center;gap:10px}
+.sigee-rel-atraso-cabecalho{padding:10px 12px;background:#f1f5f9;border-radius:10px;color:#334155;font-size:11px;font-weight:850;text-transform:uppercase}
+.sigee-rel-atraso-linha{padding:12px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#0f172a}
+.sigee-rel-atraso-linha>span{font-weight:750}.sigee-rel-atraso-linha>strong{text-align:center}
+.sigee-rel-atraso-linha>i{height:8px;background:#e2e8f0;border-radius:999px;overflow:hidden}.sigee-rel-atraso-linha>i>em{display:block;height:100%;border-radius:inherit;background:#16a34a}
+.sigee-rel-atraso-linha.atencao>i>em{background:#f59e0b}.sigee-rel-atraso-linha.critico>i>em{background:#dc2626}
+@media(max-width:900px){.sigee-rel-atraso-cabecalho{display:none}.sigee-rel-atraso-linha{grid-template-columns:1fr repeat(4,auto);}.sigee-rel-atraso-linha>i{grid-column:1/-1}.sigee-rel-atrasos>header{flex-direction:column}}
