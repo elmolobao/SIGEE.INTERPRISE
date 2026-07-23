@@ -285,10 +285,38 @@
         return base;
     }
 
+    function configurarFiltroNteCentral() {
+        const select = document.getElementById('filtro-processos-nte');
+        if (!select) return;
+        const u = usuario();
+        const valorAtual = select.value || 'TODOS';
+        const valores = new Map();
+        listaProcessos().forEach(p => {
+            const nte = processoNte(p);
+            const numero = numeroNte(nte);
+            if (numero) valores.set(numero, `NTE-${String(numero).padStart(2, '0')}`);
+        });
+        for (let i = 1; i <= 27; i++) if (!valores.has(i)) valores.set(i, `NTE-${String(i).padStart(2, '0')}`);
+        const opcoes = [...valores.entries()].sort((a,b)=>a[0]-b[0]);
+        if (isGlobal(u)) {
+            select.disabled = false;
+            select.innerHTML = '<option value="TODOS">Todos os NTEs</option>' + opcoes.map(([n,label]) => `<option value="${label}">${label}</option>`).join('');
+            select.value = [...select.options].some(o => o.value === valorAtual) ? valorAtual : 'TODOS';
+        } else {
+            const proprio = numeroNte(nteUsuario(u));
+            const valor = proprio ? `NTE-${String(proprio).padStart(2, '0')}` : normalizarNte(nteUsuario(u));
+            select.innerHTML = `<option value="${valor}">${valor || 'NTE do usuário'}</option>`;
+            select.value = valor;
+            select.disabled = true;
+        }
+    }
+
     function processosVisiveis() {
         const u = usuario();
         let lista = listaProcessos().slice();
         if (!isGlobal(u)) lista = lista.filter(p => mesmoNte(nteUsuario(u), processoNte(p)));
+        const filtroNte = texto(document.getElementById('filtro-processos-nte')?.value || 'TODOS');
+        if (filtroNte && filtroNte !== 'TODOS') lista = lista.filter(p => normalizarNte(processoNte(p)) === normalizarNte(filtroNte));
         const etapa = filtroEtapaModulo || (typeof etapaFiltroAtual !== 'undefined' ? etapaFiltroAtual : 'TODOS');
         if (etapa && etapa !== 'TODOS') {
             if (normalizar(etapa) === 'DESARQUIVAMENTO') {
@@ -596,6 +624,7 @@
     function renderizarProcessos() {
         const corpo = document.getElementById('tabela-processos-corpo');
         if (!corpo) return;
+        configurarFiltroNteCentral();
 
         const lista = processosVisiveis();
         let html = '';
@@ -1067,6 +1096,7 @@
     }
 
     function aplicarModuloProcessos() {
+        configurarFiltroNteCentral();
         window.carregarEContarProcessosHorizontais = atualizarContadoresProcessos;
         window.renderizarProcessosFlutuantes = renderizarProcessos;
         window.filtrarProcessosPorEtapa = filtrarProcessosPorEtapa;
@@ -1090,7 +1120,8 @@
         diasDesde,
         podeMovimentar,
         podeGerirProcessos,
-        codigoSIGEE
+        codigoSIGEE,
+        configurarFiltroNte: configurarFiltroNteCentral
     };
 
     window.addEventListener('load', aplicarModuloProcessos);

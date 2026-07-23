@@ -67,6 +67,14 @@
       busca.addEventListener('input', () => agendar(false, 180));
     }
 
+    const filtroNte = document.getElementById('filtro-processos-nte');
+    if (filtroNte && filtroNte.dataset.sigeeCentralNte !== '1') {
+      filtroNte.dataset.sigeeCentralNte = '1';
+      filtroNte.removeAttribute('onchange');
+      filtroNte.addEventListener('change', () => agendar(false, 0));
+    }
+    if (typeof m.configurarFiltroNte === 'function') m.configurarFiltroNte();
+
     window.SIGEE_CENTRAL_PROCESSOS = {
       atualizar: () => agendar(true, 0),
       renderizar: () => agendar(false, 0),
