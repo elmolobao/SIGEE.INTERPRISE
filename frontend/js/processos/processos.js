@@ -422,6 +422,7 @@
                 delete payload.data_desarquivamento;
                 delete payload.data_etapa_inicial;
                 delete payload.etapa; // coluna inexistente em public.processos
+                if (window.SIGEE_NORMALIZACAO_NTE) window.SIGEE_NORMALIZACAO_NTE.aplicarPayload(payload);
                 return protegerDatasPayloadSIGEE(payload);
             }
         } catch (e) {}
@@ -431,7 +432,7 @@
             escola_nome: processoEscola(p),
             documento_tipo: processoDocumento(p),
             etapa_atual: processoEtapa(p),
-            nte: processoNte(p),
+            nte: window.normalizarNteSIGEE ? window.normalizarNteSIGEE(processoNte(p)) : processoNte(p),
             cod_mec: p.cod_mec || p.mec || null,
             escola_id: p.escola_id == null || p.escola_id === '' ? null : (Number(p.escola_id) || p.escola_id),
             modalidade: p.modalidade || p.oferta_modalidade || null,
