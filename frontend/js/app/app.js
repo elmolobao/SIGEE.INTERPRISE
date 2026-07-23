@@ -7080,7 +7080,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   }
 
   document.addEventListener('DOMContentLoaded', function(){ garantirBase(); aplicarPermissoes(); setTimeout(aplicarPermissoes, 700); setTimeout(aplicarPermissoes, 2000); });
-  setInterval(function(){ if(usuarioAtual()) aplicarPermissoes(); }, 30000);
+  setInterval(function(){ if(usuarioAtual()) aplicarPermissoes(); }, 120000);
 })();
 
 
@@ -8483,8 +8483,12 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   const nav=window.navegar;
   window.navegar=function(aba){const r=typeof nav==='function'?nav.apply(this,arguments):undefined;if(aba==='painel')agendar();return r;};
   try{navegar=window.navegar;}catch(e){}
-  window.addEventListener('load',()=>setTimeout(carregar,900));
-  setInterval(()=>{const aba=document.getElementById('aba-painel');if(aba&&!aba.classList.contains('hidden'))carregar();},60000);
+  window.addEventListener('load',()=>setTimeout(()=>{
+    const aba=document.getElementById('aba-painel');
+    if(document.visibilityState==='visible' && aba && !aba.classList.contains('hidden')) carregar();
+  },900));
+  // RC4.7: removida a atualização periódica legada do Dashboard.
+  // O dashboard.js autoritativo atualiza por navegação, filtros, eventos e cache.
 })(window);
 
 /* =====================================================================
