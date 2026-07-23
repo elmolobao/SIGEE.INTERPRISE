@@ -1,4 +1,4 @@
-/* SIGEE RC4.5.25 — Controlador único: modal institucional para bloqueio de acervo */
+/* SIGEE RC4.5.29 — Controlador único da Nova Solicitação: escola, acervo, duplicidade e gravação */
 (function () {
   'use strict';
 
@@ -444,9 +444,45 @@
       return false;
     }
 
+    const duplicidade = window.SIGEE_DUPLICIDADE_NOVA_SOLICITACAO;
+    if (!duplicidade || typeof duplicidade.validar !== 'function') {
+      alert('A validação de duplicidade não está disponível. O cadastro foi interrompido por segurança.');
+      return false;
+    }
+
+    if (botao) {
+      botao.disabled = true;
+      botao.textContent = 'Verificando duplicidade...';
+    }
+
+    let permitido = false;
+    try {
+      permitido = await duplicidade.validar();
+    } catch (erro) {
+      console.error('[SIGEE RC4.5.29] Falha na validação de duplicidade:', erro);
+      alert('Não foi possível validar a duplicidade com segurança. O cadastro foi interrompido. Tente novamente.');
+      if (botao) {
+        botao.disabled = false;
+        botao.textContent = 'Enviar para Desarquivamento';
+      }
+      return false;
+    }
+
+    if (!permitido) {
+      if (botao) {
+        botao.disabled = false;
+        botao.textContent = 'Enviar para Desarquivamento';
+      }
+      return false;
+    }
+
     const segura = window.SIGEE_SALVAR_NOVA_SOLICITACAO_SEGURO;
     if (typeof segura !== 'function') {
       alert('A rotina de gravação da Nova Solicitação não está disponível.');
+      if (botao) {
+        botao.disabled = false;
+        botao.textContent = 'Enviar para Desarquivamento';
+      }
       return false;
     }
 
@@ -471,28 +507,15 @@
   }
 
   function instalar() {
-    const original = document.querySelector('#modal-nova-solicitacao form');
-    if (!original) return;
+    form = document.querySelector('#modal-nova-solicitacao form');
+    if (!form || form.dataset.sigeeNovaSolicitacaoController === '1') return;
 
-    // Substitui o formulário para remover todos os listeners legados acumulados.
-    const novoForm = original.cloneNode(true);
-    novoForm.removeAttribute('onsubmit');
-    // O clone remove os listeners do formulário original. Também é necessário
-    // remover as marcas herdadas para que as proteções de duplicidade e acervo
-    // sejam vinculadas novamente ao formulário efetivamente ativo.
-    novoForm.removeAttribute('data-sigee-protecoes-bound');
-    novoForm.removeAttribute('data-sigee-protecoes-liberado');
-    original.replaceWith(novoForm);
-    form = novoForm;
+    form.dataset.sigeeNovaSolicitacaoController = '1';
+    form.removeAttribute('onsubmit');
     botao = campo('btn-submeter-nova-solicitacao');
 
     garantirCampoPesquisa();
     form.addEventListener('submit', enviar, true);
-    // Reinstala imediatamente o aviso de duplicidade no formulário clonado,
-    // preservando o mesmo modal, os mesmos botões e o mesmo fluxo já homologado.
-    try { window.SIGEE_NOVA_SOLICITACAO_PROTECOES?.reinstalar?.(); } catch (erro) {
-      console.warn('[SIGEE RC4.5.28] Não foi possível reinstalar imediatamente as proteções:', erro);
-    }
     if (botao) {
       botao.type = 'submit';
       botao.onclick = null;
@@ -504,8 +527,7 @@
     window.handleSelecaoInstituicaoFluxoAutomatico = () => !!texto(campo('novo-proc-escola-id')?.value);
     window.SIGEE_NOVA_SOLICITACAO_CONTROLLER = { abrir, fechar, limpar: resetarFormulario, selecionarEscola };
 
-    // Garante estado visual neutro mesmo quando o formulário clonado herdou
-    // texto/disabled de uma tentativa anterior executada por código legado.
+    // Garante estado visual neutro na instalação do controlador único.
     resetarFormulario();
   }
 

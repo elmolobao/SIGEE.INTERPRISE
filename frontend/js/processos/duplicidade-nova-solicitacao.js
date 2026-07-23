@@ -1,5 +1,5 @@
 /**
- * SIGEE RC4.5.1 — Proteção objetiva contra duplicidade de Nova Solicitação.
+ * SIGEE RC4.5.29 — Serviço único de validação de duplicidade da Nova Solicitação.
  * Regra: Nome completo normalizado + escola selecionada.
  * Não altera cadastro, workflow, autenticação ou edição de processo.
  */
@@ -15,7 +15,6 @@
   });
 
   const ETAPAS_FINALIZADAS = new Set(['RETIRADO', 'INDEFERIDO']);
-  let verificacaoEmAndamento = false;
 
   function el(id) { return document.getElementById(id); }
   function texto(valor) { return valor == null ? '' : String(valor).trim(); }
@@ -135,7 +134,6 @@
   function abrirModal(registros) {
     return new Promise(resolve => {
       const principal = registros[0];
-      const haAtivo = registros.some(processo => !finalizado(processo));
       const fundo = document.createElement('div');
       fundo.id = 'modal-duplicidade-nova-solicitacao';
       fundo.className = 'fixed inset-0 z-[100000] bg-black/65 flex items-center justify-center p-4';
@@ -155,11 +153,7 @@
               <p><strong>Data de abertura:</strong> ${escapar(dataDoProcesso(principal))}</p>
             </div>
             ${registros.length > 1 ? `<p class="mt-3 text-xs font-bold text-amber-700">Foram encontrados ${registros.length} registros coincidentes.</p>` : ''}
-            <p class="mt-4 font-semibold ${haAtivo ? 'text-red-700' : 'text-amber-800'}">
-              ${haAtivo
-                ? 'O processo localizado ainda está ativo. A criação de outra solicitação foi bloqueada.'
-                : 'Os registros encontrados estão finalizados. Um novo chamado somente pode ser aberto mediante confirmação expressa.'}
-            </p>
+            <p class="mt-4 font-semibold text-amber-800">A criação de uma nova solicitação somente continuará após confirmação expressa.</p>
           </div>
           <div class="p-4 bg-gray-50 border-t flex flex-wrap justify-end gap-2" data-acoes></div>
         </div>`;
@@ -170,7 +164,7 @@
         ['Cancelar', 'cancelar', 'bg-gray-200 text-gray-800'],
         ['Visualizar processo', 'visualizar', 'bg-blue-700 text-white']
       ];
-      if (!haAtivo) botoes.push(['Continuar e abrir novo chamado', 'continuar', 'bg-amber-600 text-white']);
+      botoes.push(['Continuar e abrir novo chamado', 'continuar', 'bg-amber-600 text-white']);
       botoes.forEach(([rotulo, valor, classe]) => {
         const botao = document.createElement('button');
         botao.type = 'button';
@@ -205,57 +199,10 @@
     return decisao === 'continuar';
   }
 
-  function formulario() {
-    return document.querySelector(`#${IDS.modal} form`);
-  }
 
-  function instalar() {
-    const form = formulario();
-    if (!form || form.dataset.sigeeDuplicidadeBound === '1') return;
-    form.dataset.sigeeDuplicidadeBound = '1';
-
-    form.addEventListener('submit', async evento => {
-      if (form.dataset.sigeeDuplicidadeLiberada === '1') {
-        form.dataset.sigeeDuplicidadeLiberada = '';
-        return;
-      }
-      if (verificacaoEmAndamento) {
-        evento.preventDefault();
-        evento.stopImmediatePropagation();
-        return;
-      }
-
-      evento.preventDefault();
-      evento.stopImmediatePropagation();
-      verificacaoEmAndamento = true;
-      const botao = el(IDS.botao);
-      const textoOriginal = botao?.textContent || 'Enviar para Desarquivamento';
-      if (botao) { botao.disabled = true; botao.textContent = 'Verificando duplicidade...'; }
-
-      try {
-        const permitido = await validar();
-        if (!permitido) return;
-        form.dataset.sigeeDuplicidadeLiberada = '1';
-        if (botao) { botao.disabled = false; botao.textContent = textoOriginal; }
-        form.requestSubmit(botao || undefined);
-      } catch (erro) {
-        console.error('[SIGEE Duplicidade] Falha na validação.', erro);
-        alert('Não foi possível validar a duplicidade com segurança. O cadastro foi interrompido. Tente novamente.');
-      } finally {
-        verificacaoEmAndamento = false;
-        if (botao && form.dataset.sigeeDuplicidadeLiberada !== '1') {
-          botao.disabled = false;
-          botao.textContent = textoOriginal;
-        }
-      }
-    }, true);
-
-    console.info('[SIGEE RC4.5.1] Bloqueio de duplicidade da Nova Solicitação ativo.');
-  }
-
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', instalar, { once: true });
-  else instalar();
-  window.addEventListener('load', instalar, { once: true });
-
-  window.SIGEE_DUPLICIDADE_NOVA_SOLICITACAO = Object.freeze({ validar, localizarDuplicidades, instalar });
+  window.SIGEE_DUPLICIDADE_NOVA_SOLICITACAO = Object.freeze({
+    validar,
+    localizarDuplicidades
+  });
+  console.info('[SIGEE RC4.5.29] Serviço de duplicidade da Nova Solicitação disponível.');
 })(window, document);
