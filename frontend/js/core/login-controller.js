@@ -165,7 +165,6 @@
       renderizarUsuario(canonico);
 
       try { window.registrarLog?.('Acesso realizado ao SIGEE.'); } catch (_) {}
-      // A rota inicial é definida exclusivamente por SIGEE_AUTORIZACAO após o evento de login.
       try { window.carregarEContarProcessosHorizontais?.(); } catch (_) {}
 
       setTimeout(function () {
