@@ -1,4 +1,4 @@
-/* SIGEE RC4.6.4 — Dashboard Executivo integrado à RPC consolidada
+/* SIGEE RC4.6.8 — Dashboard Executivo com percentuais e NTE da escola
  * Atualização manual real, com baixo consumo e sem depender da página local de processos.
  */
 (function () {
@@ -120,13 +120,21 @@
     return all.filter(p => { const d=dateOf(p); return d && d>=min; });
   }
 
-  function bars(items,total,limit=8) {
-    if (!items.length) return '<p class="sigee-exec-empty">Sem dados disponíveis.</p>';
-    return `<div class="sigee-exec-bars">${items.slice(0,limit).map(([name,value],i)=>`<div class="sigee-exec-row"><div><b>${i+1}. ${esc(name)}</b><span>${value}</span></div><i><em style="width:${Math.max(3,pct(value,total))}%"></em></i></div>`).join('')}</div>`;
+  function normalizarRanking(lista) {
+    return Array.isArray(lista) ? lista.map(item => Array.isArray(item)
+      ? [item[0] || 'Não informado', Number(item[1] || 0), item[2] || '']
+      : [item?.nome || item?.label || item?.etapa || item?.tecnico || item?.escola || item?.nte || 'Não informado', Number(item?.total || item?.quantidade || item?.valor || 0), item?.nte_escola || item?.territorio || (item?.escola ? item?.nte : '') || '']) : [];
   }
 
-  function normalizarRanking(lista) {
-    return Array.isArray(lista) ? lista.map(item => Array.isArray(item) ? item : [item?.nome || item?.label || item?.nte || 'Não informado', Number(item?.total || item?.quantidade || item?.valor || 0)]) : [];
+  function bars(items,total,limit=8,{mostrarNte=false,classeExtra=''}={}) {
+    const lista=normalizarRanking(items);
+    if (!lista.length) return '<p class="sigee-exec-empty">Sem dados disponíveis.</p>';
+    const base=Number(total)||lista.reduce((a,x)=>a+Number(x[1]||0),0)||1;
+    return `<div class="sigee-exec-bars ${classeExtra}">${lista.slice(0,limit).map(([name,value,nteEscola],i)=>{
+      const percentual=Math.max(0,Math.min(100,(Number(value||0)/base)*100));
+      const nteMeta=mostrarNte&&nteEscola?`<small class="sigee-exec-nte-escola">${esc(window.normalizarNteSIGEE?.(nteEscola)||nteEscola)}</small>`:'';
+      return `<div class="sigee-exec-row sigee-exec-gargalo"><div><span class="sigee-exec-rank-label"><b>${i+1}. ${esc(name)}</b>${nteMeta}</span><span class="sigee-exec-gargalo-valores"><strong>${Number(value||0).toLocaleString('pt-BR')}</strong><small>${percentual.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%</small></span></div><i role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percentual.toFixed(1)}"><em style="width:${Math.max(2,percentual).toFixed(1)}%"></em></i></div>`;
+    }).join('')}</div>`;
   }
 
   function renderRpc(r) {
@@ -160,8 +168,8 @@
     const etapas=normalizarRanking(r.por_etapa);
     const escolas=normalizarRanking(r.por_escola);
     const tecnicos=normalizarRanking(r.por_tecnico);
-    document.getElementById('sigee-exec-etapas').innerHTML=bars(etapas,Math.max(ativos,1));
-    document.getElementById('sigee-exec-escolas').innerHTML=bars(escolas,Math.max(total,1),10);
+    document.getElementById('sigee-exec-etapas').innerHTML=bars(etapas,Math.max(ativos,1),8,{classeExtra:'sigee-exec-gargalos'});
+    document.getElementById('sigee-exec-escolas').innerHTML=bars(escolas,Math.max(total,1),10,{mostrarNte:true});
     document.getElementById('sigee-exec-tecnicos').innerHTML=bars(tecnicos,Math.max(total,1),10);
     document.getElementById('sigee-exec-documentos').innerHTML='<p class="sigee-exec-empty">Indicador não disponível na consulta consolidada atual.</p>';
   }
@@ -225,7 +233,7 @@
     if(nteBox) nteBox.innerHTML = ntes.length ? `<div class="sigee-exec-table"><div class="head"><b>NTE</b><b>Total</b><b>Concluídos</b><b>Em atraso</b><b>Eficiência</b></div>${ntes.slice(0,27).map(r=>`<div><span>${esc(r[0])}</span><span>${r[1]}</span><span>${r[2]}</span><span class="${r[3]?'bad':'ok'}">${r[3]}</span><span>${pct(r[2],r[1])}%</span></div>`).join('')}</div>` : '<p class="sigee-exec-empty">Sem dados por NTE.</p>';
 
     const etapas=countBy(ativos,etapa); document.getElementById('sigee-exec-etapas').innerHTML=bars(etapas,ativos.length);
-    const escolas=countBy(ps,escola); document.getElementById('sigee-exec-escolas').innerHTML=bars(escolas,ps.length,10);
+    const escolas=countBy(ps,p=>`${escola(p)}|||${nte(p)}`).map(([chave,total])=>{const [nome,nteEscola]=chave.split('|||');return [nome,total,nteEscola]}); document.getElementById('sigee-exec-escolas').innerHTML=bars(escolas,ps.length,10,{mostrarNte:true});
     const docs=countBy(ps,documento); document.getElementById('sigee-exec-documentos').innerHTML=bars(docs,ps.length);
     const tech=countBy(concl,tecnico); document.getElementById('sigee-exec-tecnicos').innerHTML=bars(tech,concl.length,10);
   }
@@ -233,5 +241,5 @@
   function boot(){ ensureUI(); atualizarExecutivo(false); }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
   window.addEventListener('sigee:dashboard-rpc-atualizado',e=>{ if(e.detail) renderRpc(e.detail); });
-  window.SIGEE_DASHBOARD_EXECUTIVO={render,renderRpc,atualizar:atualizarExecutivo,versao:'RC4.6.4'};
+  window.SIGEE_DASHBOARD_EXECUTIVO={render,renderRpc,atualizar:atualizarExecutivo,versao:'RC4.6.8'};
 })();

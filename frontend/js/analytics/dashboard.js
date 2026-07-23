@@ -1,9 +1,9 @@
-/* SIGEE RC4.6.3 — Autoridade única do Dashboard por RPC */
+/* SIGEE RC4.6.8 — Rankings com NTE, percentual e barras */
 (function(){
   'use strict';
-  if(window.__SIGEE_DASHBOARD_RPC_463__) return;
-  window.__SIGEE_DASHBOARD_RPC_463__=true;
-  window.SIGEE_DASHBOARD_AUTORIDADE='RPC_RC4.6.3';
+  if(window.__SIGEE_DASHBOARD_RPC_468__) return;
+  window.__SIGEE_DASHBOARD_RPC_468__=true;
+  window.SIGEE_DASHBOARD_AUTORIDADE='RPC_RC4.6.8';
 
   const CACHE_MS=180000;
   const cache=new Map();
@@ -52,8 +52,22 @@
     }
     return {tipo,inicio,inicioIso:inicio?.toISOString()||null,fimIso:tipo==='ACUMULADO'?null:fim.toISOString()};
   }
-  function top(id,dados){
-    html(id,(dados||[]).slice(0,10).map((x,i)=>`<div class="flex justify-between gap-3 border-b border-gray-100 py-1.5 last:border-b-0"><span class="min-w-0 truncate" title="${esc(x[0])}">${i+1}. ${esc(x[0])}</span><strong>${Number(x[1]||0).toLocaleString('pt-BR')}</strong></div>`).join('')||'Sem dados');
+  function itemRanking(item) {
+    if (Array.isArray(item)) return { nome: txt(item[0]) || 'Não informado', total: Number(item[1] || 0), nte: txt(item[2]) };
+    return {
+      nome: txt(item?.nome || item?.label || item?.etapa || item?.tecnico || item?.escola || item?.nte) || 'Não informado',
+      total: Number(item?.total || item?.quantidade || item?.valor || 0),
+      nte: txt(item?.nte_escola || item?.nte || item?.territorio)
+    };
+  }
+  function ranking(id,dados,{limite=10,mostrarNte=false,totalBase=0}={}){
+    const itens=(Array.isArray(dados)?dados:[]).map(itemRanking).filter(x=>x.total>=0).slice(0,limite);
+    const base=Number(totalBase)||itens.reduce((a,x)=>a+x.total,0)||1;
+    html(id,itens.map((x,i)=>{
+      const percentual=Math.max(0,Math.min(100,(x.total/base)*100));
+      const meta=mostrarNte&&x.nte?`<small class="sigee-cig-nte">${esc(window.normalizarNteSIGEE?.(x.nte)||x.nte)}</small>`:'';
+      return `<div class="sigee-cig-rank-item"><div class="sigee-cig-rank-head"><span title="${esc(x.nome)}"><b>${i+1}. ${esc(x.nome)}</b>${meta}</span><strong>${x.total.toLocaleString('pt-BR')} <small>${percentual.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%</small></strong></div><i role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percentual.toFixed(1)}"><em style="width:${Math.max(percentual,2).toFixed(1)}%"></em></i></div>`;
+    }).join('')||'<p class="sigee-cig-vazio">Sem dados</p>');
   }
   function garantirCig(){
     if(document.getElementById('sigee-cig'))return;
@@ -66,10 +80,10 @@
     set('dash-escolas',Number(r.escolas_total||0).toLocaleString('pt-BR'));set('dash-acervos',Number(r.acervos_recolhidos||0).toLocaleString('pt-BR'));set('dash-estaduais',Number(r.escolas_estaduais||0).toLocaleString('pt-BR'));
     set('dash-proc-desarquivamento',r.desarquivamento||0);set('dash-proc-analise',r.analise||0);set('dash-proc-pendencia',r.pendencia||0);set('dash-proc-digitacao',r.digitacao||0);set('dash-proc-conferencia',r.conferencia||0);set('dash-proc-assinatura',r.assinatura||0);set('dash-proc-aguardando',r.aguardando_retirada||0);set('dash-proc-retirado',r.retirado||0);
     set('dash-tec-media-entrega',`${Number(r.media_atendimento||0).toLocaleString('pt-BR',{maximumFractionDigits:1})} dias`);set('dash-ger-media-atendimento',`${Number(r.media_atendimento||0).toLocaleString('pt-BR',{maximumFractionDigits:1})} dias`);set('dash-ger-processos-concluidos',r.concluidos||0);
-    top('dash-tec-top-escolas',r.por_escola);top('dash-ger-escola-demanda',r.por_escola);top('dash-ger-territorio-demanda',r.por_nte);top('dash-ger-pendencias-escolas',[]);
+    ranking('dash-tec-top-escolas',r.por_escola,{mostrarNte:true,totalBase:r.total_processos});ranking('dash-ger-escola-demanda',r.por_escola,{mostrarNte:true,totalBase:r.total_processos});ranking('dash-ger-territorio-demanda',r.por_nte,{totalBase:r.total_processos});ranking('dash-ger-pendencias-escolas',[]);
     set('dashboard-ultima-atualizacao',new Date(r.atualizado_em||Date.now()).toLocaleString('pt-BR'));
     garantirCig();set('cig-total-ativos',`${Number(r.ativos||0).toLocaleString('pt-BR')} ativos`);set('cig-atualizado',`Atualizado em ${new Date(r.atualizado_em||Date.now()).toLocaleString('pt-BR')}`);
-    top('cig-gargalos',r.por_etapa);top('cig-tecnicos',r.por_tecnico);top('cig-ntes',r.por_nte);top('cig-escolas',r.por_escola);
+    ranking('cig-gargalos',r.por_etapa,{totalBase:r.ativos});ranking('cig-tecnicos',r.por_tecnico);ranking('cig-ntes',r.por_nte,{totalBase:r.total_processos});ranking('cig-escolas',r.por_escola,{mostrarNte:true,totalBase:r.total_processos});
     html('cig-alertas',r.vencidos?`<div class="critico"><b>⚠</b><span>${r.vencidos} processo(s) fora do prazo</span></div>`:'<div class="ok"><b>✓</b><span>Operação dentro dos parâmetros atuais</span></div>');
     window.dispatchEvent(new CustomEvent('sigee:dashboard-rpc-atualizado',{detail:r}));
   }
@@ -89,6 +103,6 @@
   document.addEventListener('change',e=>{if(['filtro-dashboard-nte','filtro-dashboard-periodo','dashboard-data-inicial','dashboard-data-final'].includes(e.target?.id))agendar(true)},true);
   document.addEventListener('sigee:navegacao-concluida',e=>{if((e.detail?.rota||e.detail?.aba)==='painel')agendar(false)});
   document.addEventListener('sigee:usuario-logado',()=>agendar(true));
-  window.carregarDadosDashboardReal=()=>agendar(true);window.carregarDadosDashboardRealImediato=()=>carregar(true);window.SIGEE_DASHBOARD_RPC={carregar,limparCache:()=>cache.clear(),versao:'RC4.6.3'};
+  window.carregarDadosDashboardReal=()=>agendar(true);window.carregarDadosDashboardRealImediato=()=>carregar(true);window.SIGEE_DASHBOARD_RPC={carregar,limparCache:()=>cache.clear(),versao:'RC4.6.8'};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>agendar(false));else agendar(false);
 })();
