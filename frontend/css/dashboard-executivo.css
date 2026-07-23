@@ -30,3 +30,12 @@
 .sigee-cig-rank-head>strong{display:flex;align-items:center;gap:.4rem;white-space:nowrap;color:#0f172a}.sigee-cig-rank-head>strong small{color:#0369a1;font-size:.65rem}
 .sigee-cig-rank-item>i{display:block;height:7px;margin-top:.28rem;background:#e2e8f0;border-radius:999px;overflow:hidden}.sigee-cig-rank-item>i>em{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#0284c7,#06b6d4);transition:width .35s ease}
 .sigee-cig-vazio{padding:.75rem;text-align:center;color:#94a3b8!important;font-size:.72rem}
+
+
+/* RC4.6.11 — NTE na mesma linha do nome da escola */
+.sigee-exec-rank-label{min-width:0;display:flex;flex-direction:row;align-items:center;gap:.42rem;overflow:hidden;white-space:nowrap}
+.sigee-exec-rank-label>b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sigee-exec-nte-escola,.sigee-cig-nte{display:inline-flex;flex:0 0 auto;align-items:center;margin:0!important;padding:.12rem .4rem;border-radius:999px;background:#e0f2fe;color:#0369a1!important;font-size:.58rem!important;font-weight:900;letter-spacing:.03em;line-height:1.2}
+.sigee-cig-rank-label{min-width:0;display:flex!important;flex-direction:row;align-items:center;gap:.42rem;overflow:hidden;white-space:nowrap}
+.sigee-cig-rank-label>b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:720px){.sigee-exec-rank-label,.sigee-cig-rank-label{gap:.3rem}.sigee-exec-nte-escola,.sigee-cig-nte{font-size:.54rem!important;padding:.1rem .32rem}}
