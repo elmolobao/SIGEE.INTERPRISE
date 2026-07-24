@@ -1,4 +1,3 @@
-/* SIGEE RC5.6.2 — solicitações sob demanda e blindagem de leitura global */
 /* SIGEE RC4.5.22 — campo de escola digitável sem limpeza tardia */
 /* SIGEE RC4.5.11 — identidade canônica da escola por ID */
 /* SIGEE PATCH 2.5.8 — técnico de lançamento responsável pelo Desarquivamento */
@@ -4423,12 +4422,13 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
 
   async function carregarTabela(tabela){
     try{
-      // RC5.6.2: o histórico de solicitações não participa da carga global.
-      // Solicitações são gravadas normalmente e lidas somente por fluxos específicos.
-      if(String(tabela||'') === 'solicitacoes_sigee') return [];
+      // RC5.6.5: o histórico integral de solicitações nunca é carregado no bootstrap.
+      // Cadastro, atualização e exclusão continuam disponíveis nos fluxos específicos.
+      const nomeTabela = String(tabela || '').trim();
+      if (nomeTabela === 'solicitacoes_sigee') return [];
       const client = (typeof obterSupabaseSIGEE === 'function') ? obterSupabaseSIGEE() : null;
       if(!client) return [];
-      const {data, error} = await client.from(tabela).select('*').limit(10000);
+      const {data, error} = await client.from(nomeTabela).select('*').limit(10000);
       if(error) throw error;
       return Array.isArray(data) ? data : [];
     }catch(e){ console.warn('SIGEE V32 SELECT', tabela, e); return []; }
@@ -4438,7 +4438,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     const [us, es, pr, nt] = await Promise.all([
       carregarTabela(T.usuarios), carregarTabela(T.escolas), carregarTabela(T.processos), carregarTabela(T.ntes)
     ]);
-    const so = []; // RC5.6.2: histórico de solicitações sob demanda.
+    const so = [];
     if(us.length) usuariosDB = us.map(normalizarUsuario).filter(u=>u.email);
     garantirUsuariosBase();
     if(es.length && typeof escolaDoSupabaseParaLocalSIGEE === 'function') escolasDB = es.map(escolaDoSupabaseParaLocalSIGEE).filter(e=>e && (e.cod_mec||e.nome));
@@ -6007,8 +6007,6 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     return null;
   }
   async function readAll(table, maxRows){
-    // RC5.6.2: blindagem contra leitura integral acidental do histórico.
-    if(String(table||'') === 'solicitacoes_sigee') return [];
     const c=client(); if(!c) throw new Error('Cliente Supabase não disponível');
     const caps={usuarios_sigee:500,ntes_sigee:100,processos:5000,solicitacoes_sigee:1000,escolas_sigee:1000,logs_sigee:1000};
     const cap=Number.isFinite(Number(maxRows))?Math.max(0,Number(maxRows)):(caps[table]||2000);
