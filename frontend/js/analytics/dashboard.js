@@ -1,13 +1,13 @@
-/* SIGEE RC5.7.0 — Dashboard Operacional com bootstrap único e sem disparos duplicados */
+/* SIGEE RC5.7.1 — Dashboard Operacional com orquestração única */
 (function(){
   'use strict';
   if(window.__SIGEE_DASHBOARD_RPC_510__) return;
   window.__SIGEE_DASHBOARD_RPC_510__=true;
-  window.SIGEE_DASHBOARD_AUTORIDADE='SNAPSHOT_RC5.7.0';
+  window.SIGEE_DASHBOARD_AUTORIDADE='SNAPSHOT_RC5.6.0';
 
   const CACHE_MS=180000;
   const BOOT_GUARD_MS=15000;
-  const estadoGlobal=window.__SIGEE_DASHBOARD_SNAPSHOT_STATE__||(window.__SIGEE_DASHBOARD_SNAPSHOT_STATE__={cache:new Map(),emAndamento:new Map(),ultimo:new Map(),bootExecutado:false});
+  const estadoGlobal=window.__SIGEE_DASHBOARD_SNAPSHOT_STATE__||(window.__SIGEE_DASHBOARD_SNAPSHOT_STATE__={cache:new Map(),emAndamento:new Map(),ultimo:new Map()});
   const cache=estadoGlobal.cache;
   let timer=0, carregando=false;
   const txt=v=>v==null?'':String(v).trim();
@@ -187,22 +187,17 @@
   }
   function agendar(forcar=false,origem='automatica'){clearTimeout(timer);timer=setTimeout(()=>carregar(forcar,origem).catch(()=>{}),120)}
   document.addEventListener('change',e=>{if(['filtro-dashboard-nte','filtro-dashboard-periodo','dashboard-data-inicial','dashboard-data-final'].includes(e.target?.id))agendar(true,'manual')},true);
-  document.addEventListener('sigee:navegacao-concluida',e=>{
-    if((e.detail?.rota||e.detail?.aba)!=='painel')return;
-    if(estadoGlobal.bootExecutado){
-      const p=periodo(),nte=alvoNte(),chave=`${nte}|${p.inicioIso}|${p.fimIso}`;
-      const salvo=cache.get(chave);
-      if(salvo){
-        window.__SIGEE_DASHBOARD_COMPLEMENTO__=salvo.complemento||{};
-        render(salvo.dados||{});
-      }
-      return;
-    }
-    estadoGlobal.bootExecutado=true;
-    agendar(false,'navegacao');
-  });
-  window.carregarDadosDashboardReal=()=>agendar(true,'manual');
-  window.carregarDadosDashboardRealImediato=()=>carregar(true,'manual');
-  window.SIGEE_DASHBOARD_RPC={carregar:(forcar=false)=>carregar(forcar,forcar?'manual':'api'),limparCache:()=>{cache.clear();estadoGlobal.ultimo.clear();estadoGlobal.bootExecutado=false;},versao:'RC5.7.0'};
+  document.addEventListener('sigee:navegacao-concluida',e=>{if((e.detail?.rota||e.detail?.aba)==='painel')agendar(false,'navegacao')});
+  document.addEventListener('sigee:usuario-logado',()=>agendar(false,'login'));
+  // RC5.7.1: chamadas históricas do app.js são automáticas e nunca ignoram o cache.
+  // Atualização forçada fica restrita aos filtros e ao botão explícito do Dashboard Executivo.
+  window.carregarDadosDashboardReal=()=>agendar(false,'legado');
+  window.carregarDadosDashboardRealImediato=()=>carregar(false,'legado');
+  window.SIGEE_DASHBOARD_RPC={
+    carregar:(forcar=false)=>carregar(forcar===true,forcar===true?'manual':'api'),
+    solicitar:()=>carregar(false,'api'),
+    limparCache:()=>{cache.clear();estadoGlobal.ultimo.clear();},
+    versao:'RC5.7.1'
+  };
   // Sem carga no DOMContentLoaded: o primeiro snapshot nasce somente após login ou navegação real ao painel.
 })();
