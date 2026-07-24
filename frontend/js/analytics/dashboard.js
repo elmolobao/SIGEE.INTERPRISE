@@ -1,9 +1,9 @@
-/* SIGEE RC5.1.0 — Dashboard Operacional com semáforo de gargalos */
+/* SIGEE RC5.5.3 — Dashboard Operacional com RPC sequencial e compartilhada */
 (function(){
   'use strict';
   if(window.__SIGEE_DASHBOARD_RPC_510__) return;
   window.__SIGEE_DASHBOARD_RPC_510__=true;
-  window.SIGEE_DASHBOARD_AUTORIDADE='RPC_RC5.1.0';
+  window.SIGEE_DASHBOARD_AUTORIDADE='RPC_RC5.5.3';
 
   const CACHE_MS=180000;
   const cache=new Map();
@@ -130,15 +130,24 @@
     const c=cliente();if(!c){console.warn('[SIGEE Dashboard] Supabase indisponível.');return}
     carregando=true;
     try{
-      const [resumoResp,complementoResp]=await Promise.all([
-        c.rpc('sigee_dashboard_resumo',{p_nte:nte||null,p_data_inicio:p.inicioIso,p_data_fim:p.fimIso}),
-        c.rpc('sigee_dashboard_complemento',{p_nte:nte||null,p_data_inicio:p.inicioIso,p_data_fim:p.fimIso})
-      ]);
+      // RC5.5.3: as RPCs pesadas não são mais disparadas em paralelo.
+      // O resumo tem prioridade; o complemento só inicia após a conclusão do resumo.
+      const resumoResp=await c.rpc('sigee_dashboard_resumo',{p_nte:nte||null,p_data_inicio:p.inicioIso,p_data_fim:p.fimIso});
       if(resumoResp.error)throw resumoResp.error;
-      if(complementoResp.error)console.warn('[SIGEE Dashboard Operacional] Complemento indisponível:',complementoResp.error);
       const r=typeof resumoResp.data==='string'?JSON.parse(resumoResp.data):resumoResp.data;
-      window.__SIGEE_DASHBOARD_COMPLEMENTO__=typeof complementoResp.data==='string'?JSON.parse(complementoResp.data):complementoResp.data||{};
-      cache.set(chave,{dados:r,complemento:window.__SIGEE_DASHBOARD_COMPLEMENTO__,em:Date.now()});render(r||{});
+
+      let complemento={};
+      const complementoResp=await c.rpc('sigee_dashboard_complemento',{p_nte:nte||null,p_data_inicio:p.inicioIso,p_data_fim:p.fimIso});
+      if(complementoResp.error){
+        console.warn('[SIGEE Dashboard Operacional] Complemento indisponível:',complementoResp.error);
+      }else{
+        complemento=typeof complementoResp.data==='string'?JSON.parse(complementoResp.data):complementoResp.data||{};
+      }
+      window.__SIGEE_DASHBOARD_COMPLEMENTO__=complemento;
+      cache.set(chave,{dados:r,complemento,em:Date.now()});
+      render(r||{});
+      // Compartilha resumo + complemento com Dashboard Executivo, Sala e demais consumidores.
+      window.dispatchEvent(new CustomEvent('sigee:dashboard-dados-compartilhados',{detail:{resumo:r||{},complemento,contexto:{nte:nte||null,inicio:p.inicioIso,fim:p.fimIso}}}));
     }catch(e){console.error('[SIGEE Dashboard RPC]',e);set('dashboard-ultima-atualizacao','Falha ao carregar indicadores');}
     finally{carregando=false}
   }
@@ -146,6 +155,6 @@
   document.addEventListener('change',e=>{if(['filtro-dashboard-nte','filtro-dashboard-periodo','dashboard-data-inicial','dashboard-data-final'].includes(e.target?.id))agendar(true)},true);
   document.addEventListener('sigee:navegacao-concluida',e=>{if((e.detail?.rota||e.detail?.aba)==='painel')agendar(false)});
   document.addEventListener('sigee:usuario-logado',()=>agendar(true));
-  window.carregarDadosDashboardReal=()=>agendar(true);window.carregarDadosDashboardRealImediato=()=>carregar(true);window.SIGEE_DASHBOARD_RPC={carregar,limparCache:()=>cache.clear(),versao:'RC5.1.0'};
+  window.carregarDadosDashboardReal=()=>agendar(true);window.carregarDadosDashboardRealImediato=()=>carregar(true);window.SIGEE_DASHBOARD_RPC={carregar,limparCache:()=>cache.clear(),versao:'RC5.5.3'};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>agendar(false));else agendar(false);
 })();

@@ -1,4 +1,4 @@
-/* SIGEE RC5.1.0 — Perfil Executivo com Inteligência Gerencial
+/* SIGEE RC5.5.3 — Perfil Executivo com Inteligência Gerencial
  * Atualização manual real, com baixo consumo e sem depender da página local de processos.
  */
 (function () {
@@ -200,31 +200,20 @@
   }
 
   async function atualizarExecutivo(forcar=false) {
-    if (atualizandoRPC) return;
     ensureUI();
     const botao=document.getElementById('sigee-exec-atualizar');
     const textoOriginal=botao?.textContent || '↻ Atualizar';
+    if(atualizandoRPC) return;
     atualizandoRPC=true;
     if(botao){botao.disabled=true;botao.textContent='↻ Atualizando...';}
     try {
-      const c=cliente();
-      if(!c) throw new Error('Conexão com o Supabase indisponível.');
-      const p=periodoRpc();
-      const [resumoResp,complementoResp]=await Promise.all([
-        c.rpc('sigee_dashboard_resumo',{p_nte:nteRpc(),p_data_inicio:p.inicio,p_data_fim:p.fim}),
-        c.rpc('sigee_dashboard_complemento',{p_nte:nteRpc(),p_data_inicio:p.inicio,p_data_fim:p.fim})
-      ]);
-      if(resumoResp.error) throw resumoResp.error;
-      if(complementoResp.error) console.warn('[SIGEE Perfil Executivo] Complemento indisponível:',complementoResp.error);
-      const resumo=typeof resumoResp.data==='string'?JSON.parse(resumoResp.data):resumoResp.data;
-      ultimoComplementoRPC=typeof complementoResp.data==='string'?JSON.parse(complementoResp.data):complementoResp.data;
-      renderRpc(resumo||{});
-      try {
-        window.SIGEE_DASHBOARD_RPC?.limparCache?.();
-        window.dispatchEvent(new CustomEvent('sigee:dashboard-executivo-atualizado',{detail:resumo||{}}));
-      } catch(_) {}
+      // RC5.5.3: o Executivo não possui mais uma segunda autoridade de RPC.
+      // Solicita ao Dashboard Operacional a carga única e reaproveita o evento compartilhado.
+      const api=window.SIGEE_DASHBOARD_RPC;
+      if(!api?.carregar) throw new Error('Controlador do Dashboard Operacional indisponível.');
+      await api.carregar(forcar===true);
     } catch(erro) {
-      console.error('[SIGEE Dashboard Executivo] Falha ao atualizar:',erro);
+      console.error('[SIGEE Dashboard Executivo] Falha ao solicitar atualização compartilhada:',erro);
       if(botao) botao.textContent='Falha — tentar novamente';
       setTimeout(()=>{if(botao)botao.textContent=textoOriginal;},2200);
       return;
@@ -267,8 +256,13 @@
     document.getElementById('sigee-exec-ensino').innerHTML=bars(countBy(ps,tipoEnsino),ps.length);
   }
 
-  function boot(){ ensureUI(); atualizarExecutivo(false); }
+  function boot(){ ensureUI(); }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
   window.addEventListener('sigee:dashboard-rpc-atualizado',e=>{ if(e.detail) renderRpc(e.detail); });
-  window.SIGEE_DASHBOARD_EXECUTIVO={render,renderRpc,atualizar:atualizarExecutivo,versao:'RC5.1.0'};
+  window.addEventListener('sigee:dashboard-dados-compartilhados',e=>{
+    const d=e.detail||{};
+    ultimoComplementoRPC=d.complemento||{};
+    if(d.resumo) renderRpc(d.resumo);
+  });
+  window.SIGEE_DASHBOARD_EXECUTIVO={render,renderRpc,atualizar:atualizarExecutivo,versao:'RC5.5.3'};
 })();
