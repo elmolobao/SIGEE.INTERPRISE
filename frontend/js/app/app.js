@@ -1,3 +1,4 @@
+/* SIGEE RC5.7.1 — Consolidação dos gatilhos do Dashboard */
 /* SIGEE RC4.5.22 — campo de escola digitável sem limpeza tardia */
 /* SIGEE RC4.5.11 — identidade canônica da escola por ID */
 /* SIGEE PATCH 2.5.8 — técnico de lançamento responsável pelo Desarquivamento */
@@ -8033,7 +8034,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     if(!sel.dataset.corev2){
       sel.innerHTML = '<option value="TODOS">TODOS</option>' + Array.from({length:27},(_,i)=>`<option value="NTE ${String(i+1).padStart(2,'0')}">NTE ${String(i+1).padStart(2,'0')}</option>`).join('');
       sel.dataset.corev2 = '1';
-      sel.onchange = () => window.carregarDadosDashboardReal();
+      // RC5.7.1: listener centralizado em js/analytics/dashboard.js; evita segundo disparo do snapshot.
     }
   }
 
