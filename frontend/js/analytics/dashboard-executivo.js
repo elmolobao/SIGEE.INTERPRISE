@@ -210,12 +210,14 @@
       const c=cliente();
       if(!c) throw new Error('Conexão com o Supabase indisponível.');
       const p=periodoRpc();
-      await window.SIGEE_ANALYTICS_DATA?.carregar?.(forcar);
-      const pacote=await window.SIGEE_ANALYTICS_DATA.rpcDashboard({p_nte:nteRpc(),p_data_inicio:p.inicio,p_data_fim:p.fim},forcar);
-      const resumo=Object.assign({},pacote.resumo||{});
-      ultimoComplementoRPC=Object.assign({},pacote.complemento||{});
-      const local=window.SIGEE_Analytics?.calcular?.({nte:nteRpc()||'TODOS',tipo:'ACUMULADO'});
-      if(local)Object.assign(resumo,{total_processos:local.total,ativos:local.ativos,vencidos:local.vencidos,concluidos:local.total-local.ativos,media_atendimento:local.mediaAtendimento,por_etapa:local.porEtapa,por_nte:local.porNte,por_escola:local.porEscola,por_tecnico:local.porTecnico});
+      const [resumoResp,complementoResp]=await Promise.all([
+        c.rpc('sigee_dashboard_resumo',{p_nte:nteRpc(),p_data_inicio:p.inicio,p_data_fim:p.fim}),
+        c.rpc('sigee_dashboard_complemento',{p_nte:nteRpc(),p_data_inicio:p.inicio,p_data_fim:p.fim})
+      ]);
+      if(resumoResp.error) throw resumoResp.error;
+      if(complementoResp.error) console.warn('[SIGEE Perfil Executivo] Complemento indisponível:',complementoResp.error);
+      const resumo=typeof resumoResp.data==='string'?JSON.parse(resumoResp.data):resumoResp.data;
+      ultimoComplementoRPC=typeof complementoResp.data==='string'?JSON.parse(complementoResp.data):complementoResp.data;
       renderRpc(resumo||{});
       try {
         window.SIGEE_DASHBOARD_RPC?.limparCache?.();
@@ -265,13 +267,8 @@
     document.getElementById('sigee-exec-ensino').innerHTML=bars(countBy(ps,tipoEnsino),ps.length);
   }
 
-  function boot(){ ensureUI(); try{ render(); }catch(_){} }
+  function boot(){ ensureUI(); atualizarExecutivo(false); }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
-
-  document.addEventListener('sigee:navegacao-concluida',e=>{
-    const rota=e.detail?.rota||e.detail?.aba||'';
-    if(['painel','centro-inteligencia','sala-situacao'].includes(rota)) setTimeout(()=>atualizarExecutivo(false),400);
-  });
   window.addEventListener('sigee:dashboard-rpc-atualizado',e=>{ if(e.detail) renderRpc(e.detail); });
-  window.SIGEE_DASHBOARD_EXECUTIVO={render,renderRpc,atualizar:atualizarExecutivo,versao:'RC5.5.1'};
+  window.SIGEE_DASHBOARD_EXECUTIVO={render,renderRpc,atualizar:atualizarExecutivo,versao:'RC5.1.0'};
 })();

@@ -64,7 +64,7 @@
     return `${arr.length}|${soma}|${recente}`;
   }
   function sincronizar(){
-    const arr=window.SIGEE_ANALYTICS_DATA?.atual?.()||window.SIGEE_DADOS?.processos?.()||(Array.isArray(window.processosDB)?window.processosDB:[]);
+    const arr=window.SIGEE_DADOS?.processos?.()||(Array.isArray(window.processosDB)?window.processosDB:[]);
     const sig=assinatura(arr);
     if(sig!==assinaturaAtual){
       assinaturaAtual=sig;
@@ -166,7 +166,8 @@
     helpers:Object.freeze({txt,norm,parseData,dias,etapa,inicio,entrada,conclusao,finalizado,ativo,vencido,proximo,nteNumero,nteLabel,escolaLabel,tecnicoLabel})
   });
 
-  window.addEventListener('sigee:analytics-base-carregada',()=>window.SIGEE_Analytics.invalidar());
+  setInterval(sincronizar,2000);
+  window.addEventListener('sigee:processos-atualizados',()=>window.SIGEE_Analytics.invalidar());
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)sincronizar()});
   console.info('[SIGEE] Motor Analítico Unificado 2.4.3B carregado.');
 })();
