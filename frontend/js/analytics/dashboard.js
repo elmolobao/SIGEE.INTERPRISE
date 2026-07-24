@@ -1,12 +1,16 @@
-/* SIGEE RC5.6.3 — Dashboard Operacional com snapshot único, cache e deduplicação global */
+/* SIGEE RC5.6.4 — Serviço global de snapshot, cache e deduplicação temporal */
 (function(){
   'use strict';
   if(window.__SIGEE_DASHBOARD_RPC_510__) return;
   window.__SIGEE_DASHBOARD_RPC_510__=true;
-  window.SIGEE_DASHBOARD_AUTORIDADE='SNAPSHOT_RC5.6.2';
+  window.SIGEE_DASHBOARD_AUTORIDADE='SNAPSHOT_RC5.6.4';
 
   const CACHE_MS=180000;
-  const estadoGlobal=window.__SIGEE_DASHBOARD_SNAPSHOT_STATE__||(window.__SIGEE_DASHBOARD_SNAPSHOT_STATE__={cache:new Map(),emAndamento:new Map()});
+  const FORCE_COOLDOWN_MS=5000;
+  const estadoGlobal=window.__SIGEE_DASHBOARD_SNAPSHOT_STATE__||(window.__SIGEE_DASHBOARD_SNAPSHOT_STATE__={cache:new Map(),emAndamento:new Map(),ultimaConclusao:new Map()});
+  if(!(estadoGlobal.cache instanceof Map)) estadoGlobal.cache=new Map();
+  if(!(estadoGlobal.emAndamento instanceof Map)) estadoGlobal.emAndamento=new Map();
+  if(!(estadoGlobal.ultimaConclusao instanceof Map)) estadoGlobal.ultimaConclusao=new Map();
   const cache=estadoGlobal.cache;
   let timer=0, carregando=false;
   const txt=v=>v==null?'':String(v).trim();
@@ -124,46 +128,73 @@
     html('cig-alertas',alertas.join('')||'<div class="ok"><b>✓</b><span>Operação dentro dos parâmetros atuais</span></div>');
     window.dispatchEvent(new CustomEvent('sigee:dashboard-rpc-atualizado',{detail:r}));
   }
+  async function obterSnapshotGlobal({clienteSupabase,chave,parametros,forcar=false}){
+    const agora=Date.now();
+    const salvo=cache.get(chave);
+    const ultima=Number(estadoGlobal.ultimaConclusao.get(chave)||0);
+
+    // Mesmo chamadas marcadas como "forçar" reutilizam um resultado concluído há poucos segundos.
+    // Isso absorve os vários eventos de login/navegação disparados em sequência.
+    const podeUsarCache=salvo&&((!forcar&&agora-salvo.em<CACHE_MS)||(forcar&&agora-ultima<FORCE_COOLDOWN_MS));
+    if(podeUsarCache) return {snapshot:{resumo:salvo.dados||{},complemento:salvo.complemento||{}},cache:true};
+
+    let requisicao=estadoGlobal.emAndamento.get(chave);
+    if(!requisicao){
+      requisicao=Promise.resolve(clienteSupabase.rpc('sigee_dashboard_snapshot',parametros));
+      estadoGlobal.emAndamento.set(chave,requisicao);
+      requisicao.then(
+        ()=>{estadoGlobal.emAndamento.delete(chave);estadoGlobal.ultimaConclusao.set(chave,Date.now());},
+        ()=>estadoGlobal.emAndamento.delete(chave)
+      );
+    }
+
+    const resposta=await requisicao;
+    if(resposta?.error) throw resposta.error;
+    const snapshot=typeof resposta?.data==='string'?JSON.parse(resposta.data):(resposta?.data||{});
+    const resumo=snapshot.resumo||{};
+    const complemento=snapshot.complemento||{};
+    cache.set(chave,{dados:resumo,complemento,em:Date.now()});
+    return {snapshot:{resumo,complemento},cache:false};
+  }
+
   async function carregar(forcar=false){
-    if(carregando||!usuario())return; const aba=document.getElementById('aba-painel');if(aba?.classList.contains('hidden'))return;
-    configurarFiltro();const p=periodo(),nte=alvoNte(),chave=`${nte}|${p.inicioIso}|${p.fimIso}`;const salvo=cache.get(chave);
-    if(!forcar&&salvo&&Date.now()-salvo.em<CACHE_MS){window.__SIGEE_DASHBOARD_COMPLEMENTO__=salvo.complemento||{};render(salvo.dados);return}
-    const c=cliente();if(!c){console.warn('[SIGEE Dashboard] Supabase indisponível.');return}
+    if(!usuario())return;
+    const aba=document.getElementById('aba-painel');
+    if(aba?.classList.contains('hidden'))return;
+
+    configurarFiltro();
+    const p=periodo(),nte=alvoNte(),chave=`${nte}|${p.inicioIso}|${p.fimIso}`;
+    const c=cliente();
+    if(!c){console.warn('[SIGEE Dashboard] Supabase indisponível.');return}
+
+    // O bloqueio local evita renderizações concorrentes; a deduplicação real fica no serviço global.
+    if(carregando&&estadoGlobal.emAndamento.has(chave)) return estadoGlobal.emAndamento.get(chave);
     carregando=true;
     try{
-      // RC5.6.0: uma única chamada retorna resumo + complemento.
-      // Isso reduz Egress, elimina concorrência entre RPCs e evita statement timeout.
-      // RC5.6.2: uma única Promise por abrangência/período, compartilhada globalmente.
-      let requisicao=estadoGlobal.emAndamento.get(chave);
-      if(!requisicao){
-        // O objeto retornado por supabase.rpc() é thenable, mas não garante .finally().
-        // Promise.resolve converte o builder em Promise nativa e preserva a deduplicação.
-        requisicao=Promise.resolve(
-          c.rpc('sigee_dashboard_snapshot',{p_nte:nte||null,p_data_inicio:p.inicioIso,p_data_fim:p.fimIso})
-        );
-        estadoGlobal.emAndamento.set(chave,requisicao);
-        requisicao.then(
-          ()=>estadoGlobal.emAndamento.delete(chave),
-          ()=>estadoGlobal.emAndamento.delete(chave)
-        );
-      }
-      const snapshotResp=await requisicao;
-      if(snapshotResp.error)throw snapshotResp.error;
-      const snapshot=typeof snapshotResp.data==='string'?JSON.parse(snapshotResp.data):snapshotResp.data||{};
-      const r=snapshot.resumo||{};
-      const complemento=snapshot.complemento||{};
+      const resultado=await obterSnapshotGlobal({
+        clienteSupabase:c,
+        chave,
+        parametros:{p_nte:nte||null,p_data_inicio:p.inicioIso,p_data_fim:p.fimIso},
+        forcar:forcar===true
+      });
+      const r=resultado.snapshot.resumo||{};
+      const complemento=resultado.snapshot.complemento||{};
       window.__SIGEE_DASHBOARD_COMPLEMENTO__=complemento;
-      cache.set(chave,{dados:r,complemento,em:Date.now()});
-      render(r||{});
-      // Compartilha resumo + complemento com Dashboard Executivo, Sala e demais consumidores.
-      window.dispatchEvent(new CustomEvent('sigee:dashboard-dados-compartilhados',{detail:{resumo:r||{},complemento,contexto:{nte:nte||null,inicio:p.inicioIso,fim:p.fimIso}}}));
-    }catch(e){console.error('[SIGEE Dashboard RPC]',e);set('dashboard-ultima-atualizacao','Falha ao carregar indicadores');}
-    finally{carregando=false}
+      render(r);
+      window.dispatchEvent(new CustomEvent('sigee:dashboard-dados-compartilhados',{detail:{resumo:r,complemento,contexto:{nte:nte||null,inicio:p.inicioIso,fim:p.fimIso},cache:resultado.cache}}));
+      return resultado.snapshot;
+    }catch(e){
+      console.error('[SIGEE Dashboard RPC]',e);
+      set('dashboard-ultima-atualizacao','Falha ao carregar indicadores');
+      return null;
+    }finally{
+      carregando=false;
+    }
   }
   function agendar(forcar=false){clearTimeout(timer);timer=setTimeout(()=>carregar(forcar),80)}
   document.addEventListener('change',e=>{if(['filtro-dashboard-nte','filtro-dashboard-periodo','dashboard-data-inicial','dashboard-data-final'].includes(e.target?.id))agendar(true)},true);
   document.addEventListener('sigee:navegacao-concluida',e=>{if((e.detail?.rota||e.detail?.aba)==='painel')agendar(false)});
   document.addEventListener('sigee:usuario-logado',()=>agendar(true));
-  window.carregarDadosDashboardReal=()=>agendar(true);window.carregarDadosDashboardRealImediato=()=>carregar(true);window.SIGEE_DASHBOARD_RPC={carregar,limparCache:()=>cache.clear(),versao:'RC5.6.3'};
+  window.carregarDadosDashboardReal=()=>agendar(true);window.carregarDadosDashboardRealImediato=()=>carregar(true);window.SIGEE_SNAPSHOT_SERVICE=Object.freeze({obter:obterSnapshotGlobal,estado:estadoGlobal,versao:'RC5.6.4'});window.SIGEE_DASHBOARD_RPC={carregar,limparCache:()=>{cache.clear();estadoGlobal.ultimaConclusao.clear();},versao:'RC5.6.4'};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>agendar(false));else agendar(false);
 })();
