@@ -260,4 +260,7 @@
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
   window.SIGEE_CENTRO_INTELIGENCIA={open,close:closeIntelligence,render,diagnostics,limparCache:()=>{estado.cache=null;estado.cacheEm=0;}};
+
+  // RC5.4.1: reprocessa a visão quando a base completa dos relatórios é carregada.
+  window.addEventListener('sigee:processos-atualizados',()=>{try{ if(typeof render==='function') render(); else if(typeof atualizar==='function') atualizar(); }catch(e){console.warn('[SIGEE Relatórios] atualização da visão',e);}});
 })();

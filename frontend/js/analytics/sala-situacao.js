@@ -296,4 +296,7 @@
     render: render,
     version: 'RC4.6.2'
   };
+
+  // RC5.4.1: reprocessa a visão quando a base completa dos relatórios é carregada.
+  window.addEventListener('sigee:processos-atualizados',()=>{try{ if(typeof render==='function') render(); else if(typeof atualizar==='function') atualizar(); }catch(e){console.warn('[SIGEE Relatórios] atualização da visão',e);}});
 })();

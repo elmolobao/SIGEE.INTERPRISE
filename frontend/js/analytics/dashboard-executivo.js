@@ -210,6 +210,13 @@
       const c=cliente();
       if(!c) throw new Error('Conexão com o Supabase indisponível.');
       const p=periodoRpc();
+      if(window.SIGEE_RELATORIOS_DADOS?.obterIndicadores){
+        const pacote=await window.SIGEE_RELATORIOS_DADOS.obterIndicadores({nte:nteRpc(),inicio:p.inicio,fim:p.fim,forcar});
+        ultimoComplementoRPC=pacote.complemento||{};
+        renderRpc(pacote.resumo||{});
+        window.dispatchEvent(new CustomEvent('sigee:dashboard-executivo-atualizado',{detail:pacote.resumo||{}}));
+        return;
+      }
       const [resumoResp,complementoResp]=await Promise.all([
         c.rpc('sigee_dashboard_resumo',{p_nte:nteRpc(),p_data_inicio:p.inicio,p_data_fim:p.fim}),
         c.rpc('sigee_dashboard_complemento',{p_nte:nteRpc(),p_data_inicio:p.inicio,p_data_fim:p.fim})
@@ -270,5 +277,5 @@
   function boot(){ ensureUI(); atualizarExecutivo(false); }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
   window.addEventListener('sigee:dashboard-rpc-atualizado',e=>{ if(e.detail) renderRpc(e.detail); });
-  window.SIGEE_DASHBOARD_EXECUTIVO={render,renderRpc,atualizar:atualizarExecutivo,versao:'RC5.1.0'};
+  window.SIGEE_DASHBOARD_EXECUTIVO={render,renderRpc,atualizar:atualizarExecutivo,versao:'RC5.4.1'};
 })();
