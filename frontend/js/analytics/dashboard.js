@@ -1,13 +1,14 @@
-/* SIGEE RC5.7.1 — Dashboard Operacional com orquestração única */
+/* SIGEE RC5.7.2 — Dashboard Operacional com bootstrap analítico definitivo */
 (function(){
   'use strict';
   if(window.__SIGEE_DASHBOARD_RPC_510__) return;
   window.__SIGEE_DASHBOARD_RPC_510__=true;
-  window.SIGEE_DASHBOARD_AUTORIDADE='SNAPSHOT_RC5.6.0';
+  window.SIGEE_DASHBOARD_AUTORIDADE='SNAPSHOT_RC5.7.2';
 
   const CACHE_MS=180000;
   const BOOT_GUARD_MS=15000;
-  const estadoGlobal=window.__SIGEE_DASHBOARD_SNAPSHOT_STATE__||(window.__SIGEE_DASHBOARD_SNAPSHOT_STATE__={cache:new Map(),emAndamento:new Map(),ultimo:new Map()});
+  const estadoGlobal=window.__SIGEE_DASHBOARD_SNAPSHOT_STATE__||(window.__SIGEE_DASHBOARD_SNAPSHOT_STATE__={cache:new Map(),emAndamento:new Map(),ultimo:new Map(),bootExecutado:false});
+  if(typeof estadoGlobal.bootExecutado!=='boolean')estadoGlobal.bootExecutado=false;
   const cache=estadoGlobal.cache;
   let timer=0, carregando=false;
   const txt=v=>v==null?'':String(v).trim();
@@ -187,17 +188,22 @@
   }
   function agendar(forcar=false,origem='automatica'){clearTimeout(timer);timer=setTimeout(()=>carregar(forcar,origem).catch(()=>{}),120)}
   document.addEventListener('change',e=>{if(['filtro-dashboard-nte','filtro-dashboard-periodo','dashboard-data-inicial','dashboard-data-final'].includes(e.target?.id))agendar(true,'manual')},true);
-  document.addEventListener('sigee:navegacao-concluida',e=>{if((e.detail?.rota||e.detail?.aba)==='painel')agendar(false,'navegacao')});
-  document.addEventListener('sigee:usuario-logado',()=>agendar(false,'login'));
-  // RC5.7.1: chamadas históricas do app.js são automáticas e nunca ignoram o cache.
-  // Atualização forçada fica restrita aos filtros e ao botão explícito do Dashboard Executivo.
-  window.carregarDadosDashboardReal=()=>agendar(false,'legado');
-  window.carregarDadosDashboardRealImediato=()=>carregar(false,'legado');
-  window.SIGEE_DASHBOARD_RPC={
-    carregar:(forcar=false)=>carregar(forcar===true,forcar===true?'manual':'api'),
-    solicitar:()=>carregar(false,'api'),
-    limparCache:()=>{cache.clear();estadoGlobal.ultimo.clear();},
-    versao:'RC5.7.1'
+  document.addEventListener('sigee:navegacao-concluida',e=>{
+    if((e.detail?.rota||e.detail?.aba)!=='painel')return;
+    if(!estadoGlobal.bootExecutado){
+      estadoGlobal.bootExecutado=true;
+      agendar(false,'bootstrap');
+      return;
+    }
+    // Navegações posteriores apenas reapresentam o cache; não forçam nova RPC.
+    agendar(false,'navegacao');
+  });
+  // Chamadas históricas do app.js tornam-se pedidos automáticos e nunca ignoram o cache.
+  window.carregarDadosDashboardReal=()=>{
+    if(!estadoGlobal.bootExecutado)return;
+    agendar(false,'legado');
   };
-  // Sem carga no DOMContentLoaded: o primeiro snapshot nasce somente após login ou navegação real ao painel.
+  window.carregarDadosDashboardRealImediato=()=>carregar(true,'manual');
+  window.SIGEE_DASHBOARD_RPC={carregar:(forcar=false)=>carregar(forcar,forcar?'manual':'api'),limparCache:()=>{cache.clear();estadoGlobal.ultimo.clear();},versao:'RC5.7.2'};
+  // Sem listener de login e sem DOMContentLoaded: há um único bootstrap na primeira navegação ao painel.
 })();
