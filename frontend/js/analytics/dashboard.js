@@ -1,9 +1,9 @@
-/* SIGEE RC5.5.3 — Dashboard Operacional com RPC sequencial e compartilhada */
+/* SIGEE RC5.6.0 — Dashboard Operacional com snapshot analítico único */
 (function(){
   'use strict';
   if(window.__SIGEE_DASHBOARD_RPC_510__) return;
   window.__SIGEE_DASHBOARD_RPC_510__=true;
-  window.SIGEE_DASHBOARD_AUTORIDADE='RPC_RC5.5.3';
+  window.SIGEE_DASHBOARD_AUTORIDADE='SNAPSHOT_RC5.6.0';
 
   const CACHE_MS=180000;
   const cache=new Map();
@@ -130,19 +130,13 @@
     const c=cliente();if(!c){console.warn('[SIGEE Dashboard] Supabase indisponível.');return}
     carregando=true;
     try{
-      // RC5.5.3: as RPCs pesadas não são mais disparadas em paralelo.
-      // O resumo tem prioridade; o complemento só inicia após a conclusão do resumo.
-      const resumoResp=await c.rpc('sigee_dashboard_resumo',{p_nte:nte||null,p_data_inicio:p.inicioIso,p_data_fim:p.fimIso});
-      if(resumoResp.error)throw resumoResp.error;
-      const r=typeof resumoResp.data==='string'?JSON.parse(resumoResp.data):resumoResp.data;
-
-      let complemento={};
-      const complementoResp=await c.rpc('sigee_dashboard_complemento',{p_nte:nte||null,p_data_inicio:p.inicioIso,p_data_fim:p.fimIso});
-      if(complementoResp.error){
-        console.warn('[SIGEE Dashboard Operacional] Complemento indisponível:',complementoResp.error);
-      }else{
-        complemento=typeof complementoResp.data==='string'?JSON.parse(complementoResp.data):complementoResp.data||{};
-      }
+      // RC5.6.0: uma única chamada retorna resumo + complemento.
+      // Isso reduz Egress, elimina concorrência entre RPCs e evita statement timeout.
+      const snapshotResp=await c.rpc('sigee_dashboard_snapshot',{p_nte:nte||null,p_data_inicio:p.inicioIso,p_data_fim:p.fimIso});
+      if(snapshotResp.error)throw snapshotResp.error;
+      const snapshot=typeof snapshotResp.data==='string'?JSON.parse(snapshotResp.data):snapshotResp.data||{};
+      const r=snapshot.resumo||{};
+      const complemento=snapshot.complemento||{};
       window.__SIGEE_DASHBOARD_COMPLEMENTO__=complemento;
       cache.set(chave,{dados:r,complemento,em:Date.now()});
       render(r||{});
@@ -155,6 +149,6 @@
   document.addEventListener('change',e=>{if(['filtro-dashboard-nte','filtro-dashboard-periodo','dashboard-data-inicial','dashboard-data-final'].includes(e.target?.id))agendar(true)},true);
   document.addEventListener('sigee:navegacao-concluida',e=>{if((e.detail?.rota||e.detail?.aba)==='painel')agendar(false)});
   document.addEventListener('sigee:usuario-logado',()=>agendar(true));
-  window.carregarDadosDashboardReal=()=>agendar(true);window.carregarDadosDashboardRealImediato=()=>carregar(true);window.SIGEE_DASHBOARD_RPC={carregar,limparCache:()=>cache.clear(),versao:'RC5.5.3'};
+  window.carregarDadosDashboardReal=()=>agendar(true);window.carregarDadosDashboardRealImediato=()=>carregar(true);window.SIGEE_DASHBOARD_RPC={carregar,limparCache:()=>cache.clear(),versao:'RC5.6.0'};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>agendar(false));else agendar(false);
 })();

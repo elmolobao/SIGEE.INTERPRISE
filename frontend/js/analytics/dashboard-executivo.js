@@ -1,4 +1,4 @@
-/* SIGEE RC5.5.3 — Perfil Executivo com Inteligência Gerencial
+/* SIGEE RC5.6.0 — Perfil Executivo com Inteligência Gerencial
  * Atualização manual real, com baixo consumo e sem depender da página local de processos.
  */
 (function () {
@@ -207,7 +207,7 @@
     atualizandoRPC=true;
     if(botao){botao.disabled=true;botao.textContent='↻ Atualizando...';}
     try {
-      // RC5.5.3: o Executivo não possui mais uma segunda autoridade de RPC.
+      // RC5.6.0: o Executivo não possui mais uma segunda autoridade de RPC.
       // Solicita ao Dashboard Operacional a carga única e reaproveita o evento compartilhado.
       const api=window.SIGEE_DASHBOARD_RPC;
       if(!api?.carregar) throw new Error('Controlador do Dashboard Operacional indisponível.');
@@ -264,5 +264,5 @@
     ultimoComplementoRPC=d.complemento||{};
     if(d.resumo) renderRpc(d.resumo);
   });
-  window.SIGEE_DASHBOARD_EXECUTIVO={render,renderRpc,atualizar:atualizarExecutivo,versao:'RC5.5.3'};
+  window.SIGEE_DASHBOARD_EXECUTIVO={render,renderRpc,atualizar:atualizarExecutivo,versao:'RC5.6.0'};
 })();
