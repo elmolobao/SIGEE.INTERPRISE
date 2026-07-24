@@ -1,4 +1,4 @@
-/* SIGEE RC5.6.2 — Perfil Executivo com Inteligência Gerencial
+/* SIGEE RC5.6.5 — Perfil Executivo com Inteligência Gerencial
  * Atualização manual real, com baixo consumo e sem depender da página local de processos.
  */
 (function () {
@@ -259,10 +259,14 @@
   function boot(){ ensureUI(); }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
   window.addEventListener('sigee:dashboard-rpc-atualizado',e=>{ if(e.detail) renderRpc(e.detail); });
-  window.addEventListener('sigee:dashboard-dados-compartilhados',e=>{
+  let ultimoSnapshotDetail=null;
+  function consumirSnapshot(e){
     const d=e.detail||{};
+    if(!d.resumo || d===ultimoSnapshotDetail) return;
+    ultimoSnapshotDetail=d;
     ultimoComplementoRPC=d.complemento||{};
-    if(d.resumo) renderRpc(d.resumo);
-  });
-  window.SIGEE_DASHBOARD_EXECUTIVO={render,renderRpc,atualizar:atualizarExecutivo,versao:'RC5.6.2'};
+    renderRpc(d.resumo);
+  }
+  window.addEventListener('sigee:snapshot-pronto',consumirSnapshot);
+  window.SIGEE_DASHBOARD_EXECUTIVO={render,renderRpc,atualizar:atualizarExecutivo,versao:'RC5.6.5'};
 })();

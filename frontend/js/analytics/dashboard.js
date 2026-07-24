@@ -1,18 +1,15 @@
-/* SIGEE RC5.6.4 — Serviço global de snapshot, cache e deduplicação temporal */
+/* SIGEE RC5.6.5 — Boot analítico central e snapshot único */
 (function(){
   'use strict';
   if(window.__SIGEE_DASHBOARD_RPC_510__) return;
   window.__SIGEE_DASHBOARD_RPC_510__=true;
-  window.SIGEE_DASHBOARD_AUTORIDADE='SNAPSHOT_RC5.6.4';
+  window.SIGEE_DASHBOARD_AUTORIDADE='SNAPSHOT_RC5.6.5';
 
   const CACHE_MS=180000;
-  const FORCE_COOLDOWN_MS=5000;
-  const estadoGlobal=window.__SIGEE_DASHBOARD_SNAPSHOT_STATE__||(window.__SIGEE_DASHBOARD_SNAPSHOT_STATE__={cache:new Map(),emAndamento:new Map(),ultimaConclusao:new Map()});
-  if(!(estadoGlobal.cache instanceof Map)) estadoGlobal.cache=new Map();
-  if(!(estadoGlobal.emAndamento instanceof Map)) estadoGlobal.emAndamento=new Map();
-  if(!(estadoGlobal.ultimaConclusao instanceof Map)) estadoGlobal.ultimaConclusao=new Map();
+  const BOOT_DEBOUNCE_MS=250;
+  const estadoGlobal=window.__SIGEE_DASHBOARD_SNAPSHOT_STATE__||(window.__SIGEE_DASHBOARD_SNAPSHOT_STATE__={cache:new Map(),emAndamento:new Map(),ultimoBoot:new Map()});
   const cache=estadoGlobal.cache;
-  let timer=0, carregando=false;
+  let timer=0;
   const txt=v=>v==null?'':String(v).trim();
   const norm=v=>txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/\s+/g,' ');
   const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v};
@@ -128,73 +125,56 @@
     html('cig-alertas',alertas.join('')||'<div class="ok"><b>✓</b><span>Operação dentro dos parâmetros atuais</span></div>');
     window.dispatchEvent(new CustomEvent('sigee:dashboard-rpc-atualizado',{detail:r}));
   }
-  async function obterSnapshotGlobal({clienteSupabase,chave,parametros,forcar=false}){
+  function obterSnapshotUnico(c,chave,parametros,forcar=false){
     const agora=Date.now();
     const salvo=cache.get(chave);
-    const ultima=Number(estadoGlobal.ultimaConclusao.get(chave)||0);
-
-    // Mesmo chamadas marcadas como "forçar" reutilizam um resultado concluído há poucos segundos.
-    // Isso absorve os vários eventos de login/navegação disparados em sequência.
-    const podeUsarCache=salvo&&((!forcar&&agora-salvo.em<CACHE_MS)||(forcar&&agora-ultima<FORCE_COOLDOWN_MS));
-    if(podeUsarCache) return {snapshot:{resumo:salvo.dados||{},complemento:salvo.complemento||{}},cache:true};
-
-    let requisicao=estadoGlobal.emAndamento.get(chave);
-    if(!requisicao){
-      requisicao=Promise.resolve(clienteSupabase.rpc('sigee_dashboard_snapshot',parametros));
-      estadoGlobal.emAndamento.set(chave,requisicao);
-      requisicao.then(
-        ()=>{estadoGlobal.emAndamento.delete(chave);estadoGlobal.ultimaConclusao.set(chave,Date.now());},
-        ()=>estadoGlobal.emAndamento.delete(chave)
-      );
-    }
-
-    const resposta=await requisicao;
-    if(resposta?.error) throw resposta.error;
-    const snapshot=typeof resposta?.data==='string'?JSON.parse(resposta.data):(resposta?.data||{});
-    const resumo=snapshot.resumo||{};
-    const complemento=snapshot.complemento||{};
-    cache.set(chave,{dados:resumo,complemento,em:Date.now()});
-    return {snapshot:{resumo,complemento},cache:false};
+    // Chamadas automáticas e eventos repetidos sempre reutilizam o snapshot válido.
+    if(!forcar && salvo && agora-salvo.em<CACHE_MS) return Promise.resolve(salvo.snapshot);
+    // Mesmo uma atualização manual não duplica uma requisição já em andamento.
+    if(estadoGlobal.emAndamento.has(chave)) return estadoGlobal.emAndamento.get(chave);
+    const requisicao=Promise.resolve(c.rpc('sigee_dashboard_snapshot',parametros)).then(resp=>{
+      if(resp?.error) throw resp.error;
+      const snapshot=typeof resp?.data==='string'?JSON.parse(resp.data):resp?.data||{};
+      cache.set(chave,{snapshot,em:Date.now()});
+      return snapshot;
+    });
+    estadoGlobal.emAndamento.set(chave,requisicao);
+    requisicao.then(
+      ()=>estadoGlobal.emAndamento.delete(chave),
+      ()=>estadoGlobal.emAndamento.delete(chave)
+    );
+    return requisicao;
   }
-
   async function carregar(forcar=false){
-    if(!usuario())return;
-    const aba=document.getElementById('aba-painel');
-    if(aba?.classList.contains('hidden'))return;
-
+    if(!usuario())return null;
+    const aba=document.getElementById('aba-painel');if(aba?.classList.contains('hidden'))return null;
     configurarFiltro();
     const p=periodo(),nte=alvoNte(),chave=`${nte}|${p.inicioIso}|${p.fimIso}`;
-    const c=cliente();
-    if(!c){console.warn('[SIGEE Dashboard] Supabase indisponível.');return}
-
-    // O bloqueio local evita renderizações concorrentes; a deduplicação real fica no serviço global.
-    if(carregando&&estadoGlobal.emAndamento.has(chave)) return estadoGlobal.emAndamento.get(chave);
-    carregando=true;
+    const c=cliente();if(!c){console.warn('[SIGEE Dashboard] Supabase indisponível.');return null}
     try{
-      const resultado=await obterSnapshotGlobal({
-        clienteSupabase:c,
-        chave,
-        parametros:{p_nte:nte||null,p_data_inicio:p.inicioIso,p_data_fim:p.fimIso},
-        forcar:forcar===true
-      });
-      const r=resultado.snapshot.resumo||{};
-      const complemento=resultado.snapshot.complemento||{};
+      const snapshot=await obterSnapshotUnico(c,chave,{p_nte:nte||null,p_data_inicio:p.inicioIso,p_data_fim:p.fimIso},forcar===true);
+      const r=snapshot?.resumo||{};
+      const complemento=snapshot?.complemento||{};
       window.__SIGEE_DASHBOARD_COMPLEMENTO__=complemento;
       render(r);
-      window.dispatchEvent(new CustomEvent('sigee:dashboard-dados-compartilhados',{detail:{resumo:r,complemento,contexto:{nte:nte||null,inicio:p.inicioIso,fim:p.fimIso},cache:resultado.cache}}));
-      return resultado.snapshot;
-    }catch(e){
-      console.error('[SIGEE Dashboard RPC]',e);
-      set('dashboard-ultima-atualizacao','Falha ao carregar indicadores');
-      return null;
-    }finally{
-      carregando=false;
-    }
+      window.dispatchEvent(new CustomEvent('sigee:dashboard-dados-compartilhados',{detail:{resumo:r,complemento,contexto:{nte:nte||null,inicio:p.inicioIso,fim:p.fimIso}}}));
+      window.dispatchEvent(new CustomEvent('sigee:snapshot-pronto',{detail:{resumo:r,complemento,contexto:{nte:nte||null,inicio:p.inicioIso,fim:p.fimIso}}}));
+      return snapshot;
+    }catch(e){console.error('[SIGEE Dashboard RPC]',e);set('dashboard-ultima-atualizacao','Falha ao carregar indicadores');return null}
   }
-  function agendar(forcar=false){clearTimeout(timer);timer=setTimeout(()=>carregar(forcar),80)}
+  function agendar(forcar=false){
+    clearTimeout(timer);
+    timer=setTimeout(()=>carregar(forcar),BOOT_DEBOUNCE_MS);
+  }
+  // Somente alterações explícitas do usuário ignoram o cache.
   document.addEventListener('change',e=>{if(['filtro-dashboard-nte','filtro-dashboard-periodo','dashboard-data-inicial','dashboard-data-final'].includes(e.target?.id))agendar(true)},true);
+  // Eventos automáticos convergem para o mesmo boot e nunca forçam uma segunda RPC.
   document.addEventListener('sigee:navegacao-concluida',e=>{if((e.detail?.rota||e.detail?.aba)==='painel')agendar(false)});
-  document.addEventListener('sigee:usuario-logado',()=>agendar(true));
-  window.carregarDadosDashboardReal=()=>agendar(true);window.carregarDadosDashboardRealImediato=()=>carregar(true);window.SIGEE_SNAPSHOT_SERVICE=Object.freeze({obter:obterSnapshotGlobal,estado:estadoGlobal,versao:'RC5.6.4'});window.SIGEE_DASHBOARD_RPC={carregar,limparCache:()=>{cache.clear();estadoGlobal.ultimaConclusao.clear();},versao:'RC5.6.4'};
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>agendar(false));else agendar(false);
+  document.addEventListener('sigee:usuario-logado',()=>agendar(false));
+  window.carregarDadosDashboardReal=()=>agendar(true);
+  window.carregarDadosDashboardRealImediato=()=>carregar(true);
+  window.SIGEE_DASHBOARD_RPC={carregar,limparCache:()=>cache.clear(),versao:'RC5.6.5'};
+  // Em restauração de sessão, inicia uma vez somente se o usuário já estiver disponível.
+  const boot=()=>{if(usuario())agendar(false)};
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 })();
