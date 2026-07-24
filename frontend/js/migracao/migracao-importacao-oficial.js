@@ -1,4 +1,4 @@
-/* SIGEE Enterprise — M5.3.0 | Importação Histórica Definitiva Auditada
+/* SIGEE Enterprise — M5.2.0 | Importação Histórica Definitiva Controlada
    Exclusivo Master. Reexecuta o preflight imediatamente antes da gravação.
    A persistência ocorre por uma única RPC transacional no Supabase. */
 (function(){
@@ -6,7 +6,7 @@
   if(window.__SIGEE_M52_IMPORTACAO_OFICIAL__) return;
   window.__SIGEE_M52_IMPORTACAO_OFICIAL__=true;
 
-  const VERSION='M5.3.0';
+  const VERSION='M5.2.0';
   let payloadPreparado=null;
   let preflightConfirmado=null;
   let resultadoImportacao=null;
@@ -36,7 +36,7 @@
   function prepararEventos(p){
     return (p.eventos_validos||[]).map(e=>({
       etapa:e.etapa||'',evento:e.evento||'',data:e.data||'',tipo_data:e.tipo_data||'REAL',
-      responsavel:e.responsavel||'',status:e.status||'',aba:e.aba||'',linha_origem:e.linha_origem||null
+      responsavel:e.responsavel||'',status:e.status||'',aba:e.aba||''
     }));
   }
 
@@ -48,22 +48,20 @@
     if(!file) throw new Error('Selecione novamente a planilha homologada.');
     const nte=numeroNte(document.getElementById('mig-nte')?.value||r.nte_selecionado||r.processos?.[0]?.nte_origem);
     if(!nte) throw new Error('NTE do lote não identificado.');
-    const processos=(r.processos||[]).filter(p=>p.status_validacao==='PRONTO'&&!p.ignorar_migracao);
-    const pendentes=(r.processos||[]).filter(p=>p.status_validacao==='PENDENTE'&&!p.ignorar_migracao);
-    if(pendentes.length) throw new Error(`${pendentes.length} processo(s) ainda estão pendentes de decisão ou correção.`);
-    if(!processos.length) throw new Error('Nenhum processo autorizado no lote.');
+    const processos=(r.processos||[]).filter(p=>p.status_validacao==='PRONTO');
+    if(!processos.length) throw new Error('Nenhum processo apto no lote.');
     const hash=await sha256(file);
     return {
       versao:VERSION,nte:`NTE-${nte}`,arquivo:file.name,hash_sha256:hash,qualidade_m4:100,
       executor:{nome:window.usuarioLogado?.nome||'Master',email:window.usuarioLogado?.email||'',perfil:window.usuarioLogado?.perfil||''},
       processos:processos.map(p=>({
-        migration_key:p.migration_key,aluno_nome:p.aluno_nome,escola_nome:p.escola_nome||p.escola_nome_original,linha_origem:p.linha_origem||null,aba_origem:p.aba_origem||'00 - DESARQUIVAR',hash_origem:hash,motor_migracao:'Engine de Migração 5.5.0',auditoria_aprovada:!!p.auditoria_aprovada,
+        migration_key:p.migration_key,aluno_nome:p.aluno_nome,escola_nome:p.escola_nome||p.escola_nome_original,
         escola_id:p.escola_id,cod_mec:p.codigo_mec||p.cod_mec||'',documento_tipo:p.documento_tipo||'Histórico',
         nivel_oferta:p.nivel_oferta||'',modalidade:p.modalidade||'',prioridade:p.prioridade||'Normal',
         etapa_atual:p.etapa_atual||'Desarquivamento',data_solicitacao:p.data_solicitacao,
         data_etapa_atual:p.data_etapa_atual||p.data_solicitacao,workflow_instance_id:p.workflow_instance_id||uuid(),
         tecnico_responsavel:nomeTecnicoAtual(p),etapa_codigo:p.etapa_codigo||'',contexto_analise:p.contexto_analise||'',
-        auditoria_migracao:p.auditoria_m53||[],decisao_master:p.decisao_m53||'IMPORTAR',pendencia_migrada:p.pendencia_migrada||null,eventos:prepararEventos(p)
+        eventos:prepararEventos(p)
       }))
     };
   }
@@ -74,18 +72,68 @@
     const sec=document.createElement('section');
     sec.id='m52-painel';sec.className='m52-painel';
     sec.innerHTML=`
-      <header class="m52-topo"><div><span>SIGEE ENTERPRISE</span><h3>Importação Definitiva Controlada</h3><p>Gravação atômica do lote homologado, sem sobrescrever registros existentes.</p></div><strong>🔐 MASTER</strong></header>
+      <header class="m52-topo"><div><span>SIGEE IMPORT ENGINE ${VERSION}</span><h3>Importação Definitiva Controlada</h3><p>Gravação atômica do lote homologado, sem sobrescrever registros existentes.</p></div><strong>🔐 MASTER</strong></header>
       <div class="m52-alerta"><b>Atenção:</b> esta etapa grava definitivamente no Supabase. Em caso de falha, todo o lote é revertido automaticamente.</div>
-      <div class="m52-acoes"><button id="m52-preparar" type="button">🔍 Preparar autorização final</button><button id="m52-importar" type="button" disabled>🔒 Importar definitivamente</button><button id="m52-certificado" type="button" disabled>📄 Exportar certificado</button></div>
-      <div id="m52-status" class="m52-status">Aguardando conclusão da auditoria.</div>
+      <div class="m52-acoes"><button id="m52-preparar" type="button">🔍 Preparar autorização final</button><button id="m52-importar" type="button" disabled>🔒 Importar definitivamente</button><button id="m52-certificado" type="button" disabled>📄 Exportar certificado</button><button id="m52-nova-importacao" type="button">🔄 Nova importação</button></div>
+      <div id="m52-status" class="m52-status">Aguardando preparação da M5.2.</div>
       <div id="m52-resumo" class="m52-resumo hidden"></div>
-      <div id="m52-progresso" class="m52-progresso hidden"><div><span>Importação transacional</span><strong id="m52-progresso-texto">Aguardando</strong></div><div class="m52-barra"><i id="m52-barra-i"></i></div></div>
-      <footer class="m52-engine-versao">Engine de Migração 5.4.0</footer>`;
+      <div id="m52-progresso" class="m52-progresso hidden"><div><span>Importação transacional</span><strong id="m52-progresso-texto">Aguardando</strong></div><div class="m52-barra"><i id="m52-barra-i"></i></div></div>`;
     host.appendChild(sec);
     sec.querySelector('#m52-preparar').addEventListener('click',preparar);
     sec.querySelector('#m52-importar').addEventListener('click',confirmarEImportar);
     sec.querySelector('#m52-certificado').addEventListener('click',exportarCertificado);
+    sec.querySelector('#m52-nova-importacao').addEventListener('click',resetarParaNovaImportacao);
   }
+
+  function resetarParaNovaImportacao(){
+    payloadPreparado=null;
+    preflightConfirmado=null;
+    resultadoImportacao=null;
+
+    document.getElementById('m52-modal')?.remove();
+
+    const prepararBtn=document.getElementById('m52-preparar');
+    const importarBtn=document.getElementById('m52-importar');
+    const certificadoBtn=document.getElementById('m52-certificado');
+    if(prepararBtn) prepararBtn.disabled=false;
+    if(importarBtn) importarBtn.disabled=true;
+    if(certificadoBtn) certificadoBtn.disabled=true;
+
+    const resumoBox=document.getElementById('m52-resumo');
+    if(resumoBox){
+      resumoBox.innerHTML='';
+      resumoBox.classList.add('hidden');
+    }
+
+    const progresso=document.getElementById('m52-progresso');
+    if(progresso) progresso.classList.add('hidden');
+    const barra=document.getElementById('m52-barra-i');
+    if(barra) barra.style.width='0%';
+    const progressoTexto=document.getElementById('m52-progresso-texto');
+    if(progressoTexto) progressoTexto.textContent='Aguardando';
+
+    // Limpa o estado da homologação M4 e o seletor de arquivo sem recarregar o navegador.
+    if(typeof window.SIGEE_MIGRACAO_HISTORICA_RESETAR==='function'){
+      window.SIGEE_MIGRACAO_HISTORICA_RESETAR();
+    }else{
+      window.dispatchEvent(new CustomEvent('sigee:migracao-reset'));
+      const input=document.getElementById('mig-arquivo');
+      if(input) input.value='';
+    }
+
+    status('Estado anterior limpo. Selecione a próxima planilha e execute uma nova validação.','ok');
+  }
+
+  window.addEventListener('sigee:migracao-arquivo-alterado',()=>{
+    // Evita reutilizar payload, preflight, resultado ou hash do arquivo anterior.
+    payloadPreparado=null;
+    preflightConfirmado=null;
+    resultadoImportacao=null;
+    const importarBtn=document.getElementById('m52-importar');
+    const certificadoBtn=document.getElementById('m52-certificado');
+    if(importarBtn) importarBtn.disabled=true;
+    if(certificadoBtn) certificadoBtn.disabled=true;
+  });
 
   function status(msg,tipo=''){const el=document.getElementById('m52-status');if(el){el.className='m52-status '+tipo;el.textContent=msg;}}
   function resumo(payload,pre){
@@ -100,7 +148,7 @@
     try{
       payloadPreparado=await montarPayload();
       const motor=window.SIGEE_MOTOR_PERSISTENCIA;
-      if(!motor?.preflight||!motor?.importar) throw new Error('Motor de persistência não carregado.');
+      if(!motor?.preflight||!motor?.importar) throw new Error('Motor M5.2 não carregado.');
       preflightConfirmado=await motor.preflight(payloadPreparado);
       resumo(payloadPreparado,preflightConfirmado);
       if(!preflightConfirmado.autorizado) throw new Error(preflightConfirmado.mensagem||'Preflight bloqueado.');
@@ -109,7 +157,7 @@
     }catch(e){
       payloadPreparado=null;preflightConfirmado=null;
       document.getElementById('m52-importar').disabled=true;
-      status('Importação bloqueada: '+(e.message||e),'erro');
+      status('M5.2 bloqueada: '+(e.message||e),'erro');
     }
   }
 
@@ -146,7 +194,7 @@
       document.getElementById('m52-barra-i').style.width='100%';
       document.getElementById('m52-progresso-texto').textContent='Concluída';
       document.getElementById('m52-certificado').disabled=false;
-      status(`Migração concluída: ${resultadoImportacao.processos_importados} processos e ${resultadoImportacao.eventos_importados} eventos incorporados. Desative a função para este NTE.`,'ok');
+      status(`Migração concluída: ${resultadoImportacao.processos_importados} processos e ${resultadoImportacao.eventos_importados} eventos incorporados. Exporte o certificado e clique em “Nova importação” para carregar outro NTE sem reiniciar o navegador.`,'ok');
       if(window.recarregarCentralProcessosSIGEE) await window.recarregarCentralProcessosSIGEE(true);
     }catch(e){
       document.getElementById('m52-barra-i').style.width='0%';
@@ -167,6 +215,11 @@
     const blob=new Blob([JSON.stringify(certificado,null,2)],{type:'application/json;charset=utf-8'});
     const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`sigee_certificado_migracao_${resultadoImportacao.nte}.json`;a.click();URL.revokeObjectURL(a.href);
   }
+
+  window.SIGEE_IMPORTACAO_M52={
+    versao:VERSION,
+    resetar:resetarParaNovaImportacao
+  };
 
   function iniciar(){garantirPainel();setTimeout(garantirPainel,1200);}
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',iniciar); else iniciar();
