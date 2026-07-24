@@ -210,21 +210,12 @@
       const c=cliente();
       if(!c) throw new Error('Conexão com o Supabase indisponível.');
       const p=periodoRpc();
-      if(window.SIGEE_RELATORIOS_DADOS?.obterIndicadores){
-        const pacote=await window.SIGEE_RELATORIOS_DADOS.obterIndicadores({nte:nteRpc(),inicio:p.inicio,fim:p.fim,forcar});
-        ultimoComplementoRPC=pacote.complemento||{};
-        renderRpc(pacote.resumo||{});
-        window.dispatchEvent(new CustomEvent('sigee:dashboard-executivo-atualizado',{detail:pacote.resumo||{}}));
-        return;
-      }
-      const [resumoResp,complementoResp]=await Promise.all([
-        c.rpc('sigee_dashboard_resumo',{p_nte:nteRpc(),p_data_inicio:p.inicio,p_data_fim:p.fim}),
-        c.rpc('sigee_dashboard_complemento',{p_nte:nteRpc(),p_data_inicio:p.inicio,p_data_fim:p.fim})
-      ]);
-      if(resumoResp.error) throw resumoResp.error;
-      if(complementoResp.error) console.warn('[SIGEE Perfil Executivo] Complemento indisponível:',complementoResp.error);
-      const resumo=typeof resumoResp.data==='string'?JSON.parse(resumoResp.data):resumoResp.data;
-      ultimoComplementoRPC=typeof complementoResp.data==='string'?JSON.parse(complementoResp.data):complementoResp.data;
+      await window.SIGEE_ANALYTICS_DATA?.carregar?.(forcar);
+      const pacote=await window.SIGEE_ANALYTICS_DATA.rpcDashboard({p_nte:nteRpc(),p_data_inicio:p.inicio,p_data_fim:p.fim},forcar);
+      const resumo=Object.assign({},pacote.resumo||{});
+      ultimoComplementoRPC=Object.assign({},pacote.complemento||{});
+      const local=window.SIGEE_Analytics?.calcular?.({nte:nteRpc()||'TODOS',tipo:'ACUMULADO'});
+      if(local)Object.assign(resumo,{total_processos:local.total,ativos:local.ativos,vencidos:local.vencidos,concluidos:local.total-local.ativos,media_atendimento:local.mediaAtendimento,por_etapa:local.porEtapa,por_nte:local.porNte,por_escola:local.porEscola,por_tecnico:local.porTecnico});
       renderRpc(resumo||{});
       try {
         window.SIGEE_DASHBOARD_RPC?.limparCache?.();
@@ -277,5 +268,5 @@
   function boot(){ ensureUI(); atualizarExecutivo(false); }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
   window.addEventListener('sigee:dashboard-rpc-atualizado',e=>{ if(e.detail) renderRpc(e.detail); });
-  window.SIGEE_DASHBOARD_EXECUTIVO={render,renderRpc,atualizar:atualizarExecutivo,versao:'RC5.4.1'};
+  window.SIGEE_DASHBOARD_EXECUTIVO={render,renderRpc,atualizar:atualizarExecutivo,versao:'RC5.1.0'};
 })();

@@ -3,7 +3,7 @@
   'use strict';
   if(window.__SIGEE_DASHBOARD_RPC_510__) return;
   window.__SIGEE_DASHBOARD_RPC_510__=true;
-  window.SIGEE_DASHBOARD_AUTORIDADE='BASE_COMPLETA_RC5.4.1';
+  window.SIGEE_DASHBOARD_AUTORIDADE='RPC_RC5.1.0';
 
   const CACHE_MS=180000;
   const cache=new Map();
@@ -130,20 +130,16 @@
     const c=cliente();if(!c){console.warn('[SIGEE Dashboard] Supabase indisponível.');return}
     carregando=true;
     try{
-      let r, complemento;
-      if(window.SIGEE_RELATORIOS_DADOS?.obterIndicadores){
-        const pacote=await window.SIGEE_RELATORIOS_DADOS.obterIndicadores({nte:nte||null,inicio:p.inicioIso,fim:p.fimIso,forcar});
-        r=pacote.resumo||{}; complemento=pacote.complemento||{};
-      }else{
-        const [resumoResp,complementoResp]=await Promise.all([
-          c.rpc('sigee_dashboard_resumo',{p_nte:nte||null,p_data_inicio:p.inicioIso,p_data_fim:p.fimIso}),
-          c.rpc('sigee_dashboard_complemento',{p_nte:nte||null,p_data_inicio:p.inicioIso,p_data_fim:p.fimIso})
-        ]);
-        if(resumoResp.error)throw resumoResp.error;
-        r=typeof resumoResp.data==='string'?JSON.parse(resumoResp.data):resumoResp.data;
-        complemento=typeof complementoResp.data==='string'?JSON.parse(complementoResp.data):complementoResp.data||{};
+      await window.SIGEE_ANALYTICS_DATA?.carregar?.(forcar);
+      const pacote=await window.SIGEE_ANALYTICS_DATA.rpcDashboard({p_nte:nte||null,p_data_inicio:p.inicioIso,p_data_fim:p.fimIso},forcar);
+      const r=Object.assign({},pacote.resumo||{});
+      window.__SIGEE_DASHBOARD_COMPLEMENTO__=Object.assign({},pacote.complemento||{});
+      const local=window.SIGEE_Analytics?.calcular?.({nte:nte||'TODOS',tipo:p.tipo,ini:document.getElementById('dashboard-data-inicial')?.value||null,fim:document.getElementById('dashboard-data-final')?.value||null});
+      if(local){
+        const mapa=Object.fromEntries((local.porEtapa||[]).map(([k,v])=>[norm(k),v]));
+        Object.assign(r,{total_processos:local.total,ativos:local.ativos,vencidos:local.vencidos,concluidos:local.total-local.ativos,media_atendimento:local.mediaAtendimento,por_etapa:local.porEtapa,por_nte:local.porNte,por_escola:local.porEscola,por_tecnico:local.porTecnico,desarquivamento:mapa.DESARQUIVAMENTO||0,analise:mapa.ANALISE||0,pendencia:mapa.PENDENCIA||0,digitacao:mapa.DIGITACAO||0,conferencia:mapa.CONFERENCIA||0,assinatura:mapa.ASSINATURA||0,aguardando_retirada:mapa['AGUARDANDO RETIRADA']||0,retirado:(local.processos||[]).filter(x=>norm(x.etapa_atual)==='RETIRADO').length,atualizado_em:local.atualizadosEm});
+        window.__SIGEE_DASHBOARD_COMPLEMENTO__.atrasos_por_etapa=(local.porEtapa||[]).map(([nome,total])=>{const itens=(local.processos||[]).filter(x=>norm(x.etapa_atual)===norm(nome));const atraso=itens.filter(x=>window.SIGEE_Analytics.helpers.vencido(x)).length;return {nome,total,em_atraso:atraso,percentual_atraso:total?atraso/total*100:0};});
       }
-      window.__SIGEE_DASHBOARD_COMPLEMENTO__=complemento||{};
       cache.set(chave,{dados:r,complemento:window.__SIGEE_DASHBOARD_COMPLEMENTO__,em:Date.now()});render(r||{});
     }catch(e){console.error('[SIGEE Dashboard RPC]',e);set('dashboard-ultima-atualizacao','Falha ao carregar indicadores');}
     finally{carregando=false}
@@ -152,6 +148,6 @@
   document.addEventListener('change',e=>{if(['filtro-dashboard-nte','filtro-dashboard-periodo','dashboard-data-inicial','dashboard-data-final'].includes(e.target?.id))agendar(true)},true);
   document.addEventListener('sigee:navegacao-concluida',e=>{if((e.detail?.rota||e.detail?.aba)==='painel')agendar(false)});
   document.addEventListener('sigee:usuario-logado',()=>agendar(true));
-  window.carregarDadosDashboardReal=()=>agendar(true);window.carregarDadosDashboardRealImediato=()=>carregar(true);window.SIGEE_DASHBOARD_RPC={carregar,limparCache:()=>cache.clear(),versao:'RC5.4.1'};
+  window.carregarDadosDashboardReal=()=>agendar(true);window.carregarDadosDashboardRealImediato=()=>carregar(true);window.SIGEE_DASHBOARD_RPC={carregar,limparCache:()=>cache.clear(),versao:'RC5.1.0'};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>agendar(false));else agendar(false);
 })();
