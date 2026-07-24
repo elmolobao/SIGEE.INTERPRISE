@@ -265,8 +265,13 @@
     document.getElementById('sigee-exec-ensino').innerHTML=bars(countBy(ps,tipoEnsino),ps.length);
   }
 
-  function boot(){ ensureUI(); atualizarExecutivo(false); }
+  function boot(){ ensureUI(); try{ render(); }catch(_){} }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
+
+  document.addEventListener('sigee:navegacao-concluida',e=>{
+    const rota=e.detail?.rota||e.detail?.aba||'';
+    if(['painel','centro-inteligencia','sala-situacao'].includes(rota)) setTimeout(()=>atualizarExecutivo(false),400);
+  });
   window.addEventListener('sigee:dashboard-rpc-atualizado',e=>{ if(e.detail) renderRpc(e.detail); });
-  window.SIGEE_DASHBOARD_EXECUTIVO={render,renderRpc,atualizar:atualizarExecutivo,versao:'RC5.1.0'};
+  window.SIGEE_DASHBOARD_EXECUTIVO={render,renderRpc,atualizar:atualizarExecutivo,versao:'RC5.5.1'};
 })();

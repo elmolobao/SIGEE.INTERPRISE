@@ -166,10 +166,7 @@
     helpers:Object.freeze({txt,norm,parseData,dias,etapa,inicio,entrada,conclusao,finalizado,ativo,vencido,proximo,nteNumero,nteLabel,escolaLabel,tecnicoLabel})
   });
 
-  setInterval(sincronizar,5000);
   window.addEventListener('sigee:analytics-base-carregada',()=>window.SIGEE_Analytics.invalidar());
-  window.SIGEE_ANALYTICS_DATA?.carregar?.(false).catch(()=>{});
-  window.addEventListener('sigee:processos-atualizados',()=>window.SIGEE_Analytics.invalidar());
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)sincronizar()});
   console.info('[SIGEE] Motor Analítico Unificado 2.4.3B carregado.');
 })();

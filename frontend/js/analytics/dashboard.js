@@ -144,10 +144,10 @@
     }catch(e){console.error('[SIGEE Dashboard RPC]',e);set('dashboard-ultima-atualizacao','Falha ao carregar indicadores');}
     finally{carregando=false}
   }
-  function agendar(forcar=false){clearTimeout(timer);timer=setTimeout(()=>carregar(forcar),80)}
+  function agendar(forcar=false){clearTimeout(timer);timer=setTimeout(()=>carregar(forcar),250)}
   document.addEventListener('change',e=>{if(['filtro-dashboard-nte','filtro-dashboard-periodo','dashboard-data-inicial','dashboard-data-final'].includes(e.target?.id))agendar(true)},true);
   document.addEventListener('sigee:navegacao-concluida',e=>{if((e.detail?.rota||e.detail?.aba)==='painel')agendar(false)});
-  document.addEventListener('sigee:usuario-logado',()=>agendar(true));
-  window.carregarDadosDashboardReal=()=>agendar(true);window.carregarDadosDashboardRealImediato=()=>carregar(true);window.SIGEE_DASHBOARD_RPC={carregar,limparCache:()=>cache.clear(),versao:'RC5.1.0'};
+  document.addEventListener('sigee:usuario-logado',()=>agendar(false));
+  window.carregarDadosDashboardReal=()=>agendar(true);window.carregarDadosDashboardRealImediato=()=>carregar(true);window.SIGEE_DASHBOARD_RPC={carregar,limparCache:()=>cache.clear(),versao:'RC5.5.1'};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>agendar(false));else agendar(false);
 })();

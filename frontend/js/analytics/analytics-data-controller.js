@@ -1,8 +1,8 @@
-/* SIGEE RC5.5.0 — Controle unificado de comunicação analítica com Supabase. */
+/* SIGEE RC5.5.1 — Controle unificado de comunicação analítica com Supabase. */
 (function(window){
   'use strict';
-  if(window.__SIGEE_ANALYTICS_DATA_CONTROLLER_RC550__) return;
-  window.__SIGEE_ANALYTICS_DATA_CONTROLLER_RC550__=true;
+  if(window.__SIGEE_ANALYTICS_DATA_CONTROLLER_RC551__) return;
+  window.__SIGEE_ANALYTICS_DATA_CONTROLLER_RC551__=true;
 
   const TTL=180000, PAGE=1000;
   const CAMPOS='id,aluno_nome,escola_nome,escola_id,cod_mec,documento_tipo,nivel_oferta,modalidade,etapa_atual,etapa_codigo,dias_decorridos,nte,tecnico_responsavel,prioridade,data_etapa,data_etapa_atual,prazo_etapa,prazo_inicio,prazo_fim,status,ativo,codigo_sigee,created_at,updated_at,workflow_instance_id,processo_migrado,origem_registro,migracao_lote_id,data_migracao,finalizado_em,deferido_em,retirado_em';
@@ -36,8 +36,7 @@
       dados=todos; carregadoEm=Date.now(); erroAtual=null;
       window.__SIGEE_ANALYTICS_PROCESSOS__=dados;
       window.dispatchEvent(new CustomEvent('sigee:analytics-base-carregada',{detail:{total:dados.length,carregadoEm}}));
-      window.dispatchEvent(new CustomEvent('sigee:processos-atualizados',{detail:{origem:'analytics-controller',total:dados.length}}));
-      return dados;
+            return dados;
     })().catch(e=>{erroAtual=e;console.error('[SIGEE Analytics Data]',e);throw e}).finally(()=>{promessa=null});
     return promessa;
   }
@@ -61,7 +60,6 @@
     })().finally(()=>rpcInflight.delete(chave));
     rpcInflight.set(chave,p);return p;
   }
-  window.SIGEE_ANALYTICS_DATA=Object.freeze({carregar,atual,invalidar,rpcDashboard,estado:()=>({total:dados.length,carregadoEm,carregando:!!promessa,erro:erroAtual?.message||null}),versao:'RC5.5.0'});
-  document.addEventListener('sigee:usuario-logado',()=>carregar(true).catch(()=>{}));
+  window.SIGEE_ANALYTICS_DATA=Object.freeze({carregar,atual,invalidar,rpcDashboard,estado:()=>({total:dados.length,carregadoEm,carregando:!!promessa,erro:erroAtual?.message||null}),versao:'RC5.5.1'});
   window.addEventListener('sigee:processo-salvo',()=>{invalidar();carregar(true).catch(()=>{})});
 })(window);
