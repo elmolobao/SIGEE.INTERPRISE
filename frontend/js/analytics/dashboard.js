@@ -1,15 +1,15 @@
-/* SIGEE RC5.6.5 — Boot analítico central e snapshot único */
+/* SIGEE RC5.6.6 — Dashboard Operacional com boot analítico único */
 (function(){
   'use strict';
   if(window.__SIGEE_DASHBOARD_RPC_510__) return;
   window.__SIGEE_DASHBOARD_RPC_510__=true;
-  window.SIGEE_DASHBOARD_AUTORIDADE='SNAPSHOT_RC5.6.5';
+  window.SIGEE_DASHBOARD_AUTORIDADE='SNAPSHOT_RC5.6.0';
 
   const CACHE_MS=180000;
-  const BOOT_DEBOUNCE_MS=250;
-  const estadoGlobal=window.__SIGEE_DASHBOARD_SNAPSHOT_STATE__||(window.__SIGEE_DASHBOARD_SNAPSHOT_STATE__={cache:new Map(),emAndamento:new Map(),ultimoBoot:new Map()});
+  const BOOT_GUARD_MS=15000;
+  const estadoGlobal=window.__SIGEE_DASHBOARD_SNAPSHOT_STATE__||(window.__SIGEE_DASHBOARD_SNAPSHOT_STATE__={cache:new Map(),emAndamento:new Map(),ultimo:new Map()});
   const cache=estadoGlobal.cache;
-  let timer=0;
+  let timer=0, carregando=false;
   const txt=v=>v==null?'':String(v).trim();
   const norm=v=>txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/\s+/g,' ');
   const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v};
@@ -125,56 +125,72 @@
     html('cig-alertas',alertas.join('')||'<div class="ok"><b>✓</b><span>Operação dentro dos parâmetros atuais</span></div>');
     window.dispatchEvent(new CustomEvent('sigee:dashboard-rpc-atualizado',{detail:r}));
   }
-  function obterSnapshotUnico(c,chave,parametros,forcar=false){
-    const agora=Date.now();
-    const salvo=cache.get(chave);
-    // Chamadas automáticas e eventos repetidos sempre reutilizam o snapshot válido.
-    if(!forcar && salvo && agora-salvo.em<CACHE_MS) return Promise.resolve(salvo.snapshot);
-    // Mesmo uma atualização manual não duplica uma requisição já em andamento.
-    if(estadoGlobal.emAndamento.has(chave)) return estadoGlobal.emAndamento.get(chave);
-    const requisicao=Promise.resolve(c.rpc('sigee_dashboard_snapshot',parametros)).then(resp=>{
-      if(resp?.error) throw resp.error;
-      const snapshot=typeof resp?.data==='string'?JSON.parse(resp.data):resp?.data||{};
-      cache.set(chave,{snapshot,em:Date.now()});
-      return snapshot;
-    });
-    estadoGlobal.emAndamento.set(chave,requisicao);
-    requisicao.then(
-      ()=>estadoGlobal.emAndamento.delete(chave),
-      ()=>estadoGlobal.emAndamento.delete(chave)
-    );
-    return requisicao;
-  }
-  async function carregar(forcar=false){
-    if(!usuario())return null;
-    const aba=document.getElementById('aba-painel');if(aba?.classList.contains('hidden'))return null;
+  async function carregar(forcar=false, origem='automatica'){
+    if(!usuario())return;
+    const aba=document.getElementById('aba-painel');
+    if(aba?.classList.contains('hidden'))return;
     configurarFiltro();
     const p=periodo(),nte=alvoNte(),chave=`${nte}|${p.inicioIso}|${p.fimIso}`;
-    const c=cliente();if(!c){console.warn('[SIGEE Dashboard] Supabase indisponível.');return null}
-    try{
-      const snapshot=await obterSnapshotUnico(c,chave,{p_nte:nte||null,p_data_inicio:p.inicioIso,p_data_fim:p.fimIso},forcar===true);
+    const agora=Date.now();
+    const salvo=cache.get(chave);
+    const manual=origem==='manual';
+
+    // Eventos automáticos de login, navegação e boot podem ocorrer em sequência.
+    // Mesmo quando marcados como atualização, reutilizam o snapshot recém-concluído.
+    if(salvo && ((!manual && agora-salvo.em<BOOT_GUARD_MS) || (!forcar && agora-salvo.em<CACHE_MS))){
+      window.__SIGEE_DASHBOARD_COMPLEMENTO__=salvo.complemento||{};
+      render(salvo.dados||{});
+      return salvo.snapshot||{resumo:salvo.dados||{},complemento:salvo.complemento||{}};
+    }
+
+    // Uma única Promise global por NTE/período. Qualquer consumidor simultâneo aguarda a mesma RPC.
+    if(estadoGlobal.emAndamento.has(chave)){
+      const snapshot=await estadoGlobal.emAndamento.get(chave);
       const r=snapshot?.resumo||{};
       const complemento=snapshot?.complemento||{};
       window.__SIGEE_DASHBOARD_COMPLEMENTO__=complemento;
       render(r);
-      window.dispatchEvent(new CustomEvent('sigee:dashboard-dados-compartilhados',{detail:{resumo:r,complemento,contexto:{nte:nte||null,inicio:p.inicioIso,fim:p.fimIso}}}));
-      window.dispatchEvent(new CustomEvent('sigee:snapshot-pronto',{detail:{resumo:r,complemento,contexto:{nte:nte||null,inicio:p.inicioIso,fim:p.fimIso}}}));
       return snapshot;
-    }catch(e){console.error('[SIGEE Dashboard RPC]',e);set('dashboard-ultima-atualizacao','Falha ao carregar indicadores');return null}
+    }
+
+    const c=cliente();
+    if(!c){console.warn('[SIGEE Dashboard] Supabase indisponível.');return}
+    carregando=true;
+    const requisicao=(async()=>{
+      const resposta=await c.rpc('sigee_dashboard_snapshot',{p_nte:nte||null,p_data_inicio:p.inicioIso,p_data_fim:p.fimIso});
+      if(resposta.error)throw resposta.error;
+      return typeof resposta.data==='string'?JSON.parse(resposta.data):resposta.data||{};
+    })();
+    estadoGlobal.emAndamento.set(chave,requisicao);
+
+    try{
+      const snapshot=await requisicao;
+      const r=snapshot.resumo||{};
+      const complemento=snapshot.complemento||{};
+      window.__SIGEE_DASHBOARD_COMPLEMENTO__=complemento;
+      const registro={dados:r,complemento,snapshot,em:Date.now()};
+      cache.set(chave,registro);
+      estadoGlobal.ultimo.set(chave,registro);
+      render(r);
+      const detail={resumo:r,complemento,contexto:{nte:nte||null,inicio:p.inicioIso,fim:p.fimIso}};
+      window.dispatchEvent(new CustomEvent('sigee:snapshot-pronto',{detail}));
+      window.dispatchEvent(new CustomEvent('sigee:dashboard-dados-compartilhados',{detail}));
+      return snapshot;
+    }catch(e){
+      console.error('[SIGEE Dashboard RPC]',e);
+      set('dashboard-ultima-atualizacao','Falha ao carregar indicadores');
+      throw e;
+    }finally{
+      if(estadoGlobal.emAndamento.get(chave)===requisicao)estadoGlobal.emAndamento.delete(chave);
+      carregando=false;
+    }
   }
-  function agendar(forcar=false){
-    clearTimeout(timer);
-    timer=setTimeout(()=>carregar(forcar),BOOT_DEBOUNCE_MS);
-  }
-  // Somente alterações explícitas do usuário ignoram o cache.
-  document.addEventListener('change',e=>{if(['filtro-dashboard-nte','filtro-dashboard-periodo','dashboard-data-inicial','dashboard-data-final'].includes(e.target?.id))agendar(true)},true);
-  // Eventos automáticos convergem para o mesmo boot e nunca forçam uma segunda RPC.
-  document.addEventListener('sigee:navegacao-concluida',e=>{if((e.detail?.rota||e.detail?.aba)==='painel')agendar(false)});
-  document.addEventListener('sigee:usuario-logado',()=>agendar(false));
-  window.carregarDadosDashboardReal=()=>agendar(true);
-  window.carregarDadosDashboardRealImediato=()=>carregar(true);
-  window.SIGEE_DASHBOARD_RPC={carregar,limparCache:()=>cache.clear(),versao:'RC5.6.5'};
-  // Em restauração de sessão, inicia uma vez somente se o usuário já estiver disponível.
-  const boot=()=>{if(usuario())agendar(false)};
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
+  function agendar(forcar=false,origem='automatica'){clearTimeout(timer);timer=setTimeout(()=>carregar(forcar,origem).catch(()=>{}),120)}
+  document.addEventListener('change',e=>{if(['filtro-dashboard-nte','filtro-dashboard-periodo','dashboard-data-inicial','dashboard-data-final'].includes(e.target?.id))agendar(true,'manual')},true);
+  document.addEventListener('sigee:navegacao-concluida',e=>{if((e.detail?.rota||e.detail?.aba)==='painel')agendar(false,'navegacao')});
+  document.addEventListener('sigee:usuario-logado',()=>agendar(false,'login'));
+  window.carregarDadosDashboardReal=()=>agendar(true,'manual');
+  window.carregarDadosDashboardRealImediato=()=>carregar(true,'manual');
+  window.SIGEE_DASHBOARD_RPC={carregar:(forcar=false)=>carregar(forcar,forcar?'manual':'api'),limparCache:()=>{cache.clear();estadoGlobal.ultimo.clear();},versao:'RC5.6.6'};
+  // Sem carga no DOMContentLoaded: o primeiro snapshot nasce somente após login ou navegação real ao painel.
 })();
