@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  const VERSION = 'M4.2.0';
+  const VERSION = 'M4.3.0';
   const LIMITE_FUTURO_DIAS = 1;
   const DATA_PADRAO_ANO = 2000;
 
@@ -76,6 +76,55 @@
   }
   function chave(nome, escola, data) {
     return [normalizar(nome), normalizar(escola), iso(data)].join('|');
+  }
+  function dataAberturaProcesso(processo) {
+    const direta = excelData(processo?.data_abertura || processo?.data_solicitacao || processo?.created_at);
+    if (direta && !dataFutura(direta)) return iso(direta);
+    const eventos = Array.isArray(processo?.eventos_validos) && processo.eventos_validos.length
+      ? processo.eventos_validos
+      : (Array.isArray(processo?.eventos) ? processo.eventos : []);
+    const primeira = eventos.map(e => excelData(e?.data)).find(d => d && !dataFutura(d));
+    return primeira ? iso(primeira) : '';
+  }
+  function normalizarProcessoImportacao(processo) {
+    const dataAbertura = dataAberturaProcesso(processo);
+    const origemEventos = Array.isArray(processo.eventos_validos) && processo.eventos_validos.length
+      ? processo.eventos_validos
+      : (Array.isArray(processo.eventos) ? processo.eventos.filter(e => e?.valido_cronologia !== false) : []);
+    const eventos = origemEventos.map((e, indice) => ({
+      ...e,
+      migration_key: processo.migration_key,
+      linha_origem: e.linha_origem || processo.linha_origem || null,
+      sequencia: indice + 1,
+      historico_reconstruido: true,
+      processo_migrado: true,
+      valido_cronologia: e.valido_cronologia !== false
+    }));
+    if (!eventos.length && dataAbertura) {
+      eventos.push({
+        migration_key: processo.migration_key,
+        etapa: 'Desarquivamento',
+        evento: 'Nova Solicitação',
+        data: dataAbertura,
+        tipo_data: dataAbertura.startsWith(String(DATA_PADRAO_ANO)) ? 'FICTICIA' : 'REAL',
+        responsavel: '', status: '', aba: '00 - DESARQUIVAR',
+        linha_origem: processo.linha_origem || null,
+        sequencia: 1,
+        historico_reconstruido: true,
+        processo_migrado: true,
+        valido_cronologia: true,
+        evento_sintetizado: true
+      });
+    }
+    return {
+      ...processo,
+      data_abertura: dataAbertura,
+      data_solicitacao: dataAbertura,
+      created_at: dataAbertura,
+      data_etapa_atual: processo.data_etapa_atual || dataAbertura,
+      eventos_validos: eventos,
+      eventos: eventos
+    };
   }
   function html(v) {
     return texto(v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
@@ -629,7 +678,7 @@
       const ultimoEventoEtapa = eventosEtapaReais[eventosEtapaReais.length - 1] || null;
       const dataEtapaAtual = ultimoEventoEtapa ? ultimoEventoEtapa.data : iso(abertura);
 
-      processos.push({
+      const processoNormalizado = normalizarProcessoImportacao({
         migration_key: chave(nome, escola, abertura),
         origem_registro: 'MIGRACAO_PLANILHA',
         processo_migrado: true,
@@ -663,6 +712,7 @@
         eventos: ev,
         eventos_validos: validos
       });
+      processos.push(processoNormalizado);
     });
 
     return {
@@ -670,7 +720,7 @@
       arquivo,
       abas,
       processos,
-      eventos: eventos.filter(e => e.valido_cronologia),
+      eventos: processos.flatMap(p => p.eventos_validos || []),
       inconsistencias,
       gravado_supabase: false,
       simulacao_executada: false
@@ -905,17 +955,17 @@
     const criterios = {
       processos: processos.length > 0,
       etapas: processos.every(p => !!p.etapa_atual),
-      datas: processos.every(p => !!p.data_solicitacao),
+      datas: processos.every(p => !!(p.data_abertura || p.data_solicitacao)),
       escolas: processos.every(p => p.escola_localizada),
       tecnicos: true,
-      workflow: processos.every(p => Array.isArray(p.eventos) && p.eventos.length > 0),
+      workflow: processos.every(p => Array.isArray(p.eventos_validos) && p.eventos_validos.length > 0),
       cronologia: !resultadoAtual.inconsistencias.some(i => ['DATA_INVALIDA','DATA_FUTURA','ORDEM_DATAS_CRITICA'].includes(i.tipo))
     };
 
     const detalhes = [
       ['Processos identificados', criterios.processos, processos.length],
       ['Etapas reconstruídas', criterios.etapas, processos.filter(p=>p.etapa_atual).length + '/' + total],
-      ['Datas de abertura', criterios.datas, processos.filter(p=>p.data_solicitacao).length + '/' + total],
+      ['Datas de abertura', criterios.datas, processos.filter(p=>p.data_abertura || p.data_solicitacao).length + '/' + total],
       ['Escolas localizadas', criterios.escolas, processos.filter(p=>p.escola_localizada).length + '/' + total],
       ['Técnicos atuais vinculados (informativo)', true, processos.filter(p=>p.tecnico_localizado).length + '/' + total],
       ['Histórico reconstruído', criterios.workflow, resultadoAtual.eventos.length],
@@ -983,10 +1033,14 @@
         aluno_nome: p.aluno_nome,
         motivo: (p.inconsistencias || []).filter(x => x.gravidade === 'Alta').map(x => x.descricao).join(' | ') || 'Pendência de validação'
       })),
-      historico_eventos_prontos: prontos.flatMap(p => p.eventos_validos.map(e => ({
+      historico_eventos_prontos: prontos.flatMap(p => (p.eventos_validos || []).map((e, indice) => ({
         migration_key: p.migration_key,
         aluno_nome: p.aluno_nome,
         escola_nome: p.escola_nome,
+        linha_origem: e.linha_origem || p.linha_origem || null,
+        sequencia: e.sequencia || indice + 1,
+        historico_reconstruido: true,
+        processo_migrado: true,
         ...e
       })))
     };

@@ -139,6 +139,27 @@
     });
   }
 
+  function dataAberturaPayload(p) {
+    return texto(p?.data_abertura || p?.data_solicitacao || p?.created_at || p?.eventos_validos?.[0]?.data || p?.eventos?.[0]?.data);
+  }
+  function eventosPayload(p) {
+    const abertura = dataAberturaPayload(p);
+    const origem = Array.isArray(p.eventos_validos) && p.eventos_validos.length ? p.eventos_validos : (Array.isArray(p.eventos) ? p.eventos : []);
+    const eventos = origem.map((e, indice) => ({
+      migration_key: p.migration_key,
+      etapa: e.etapa || '', evento: e.evento || '', data: e.data || abertura,
+      tipo_data: e.tipo_data || 'REAL', responsavel: e.responsavel || '', status: e.status || '', aba: e.aba || '',
+      linha_origem: e.linha_origem || p.linha_origem || null, sequencia: e.sequencia || indice + 1,
+      historico_reconstruido: true, processo_migrado: true, valido_cronologia: e.valido_cronologia !== false
+    }));
+    if (!eventos.length && abertura) eventos.push({
+      migration_key: p.migration_key, etapa: 'Desarquivamento', evento: 'Nova Solicitação', data: abertura,
+      tipo_data: 'REAL', responsavel: '', status: '', aba: '00 - DESARQUIVAR', linha_origem: p.linha_origem || null,
+      sequencia: 1, historico_reconstruido: true, processo_migrado: true, valido_cronologia: true, evento_sintetizado: true
+    });
+    return eventos;
+  }
+
   function prepararPayloadBanco(r, nte) {
     return {
       versao: VERSION,
@@ -162,22 +183,15 @@
         escola_nome: p.escola_nome_original || p.escola_nome,
         escola_id: p.escola_id,
         nte: `NTE ${Number(nte)}`,
-        data_solicitacao: p.data_solicitacao,
+        data_abertura: dataAberturaPayload(p),
+        data_solicitacao: dataAberturaPayload(p),
+        created_at: dataAberturaPayload(p),
         etapa_atual: p.etapa_atual,
         workflow_instance_id: p.workflow_instance_id || uuid(),
         auditoria_migracao: p.auditoria_m53 || [],
         decisao_master: p.decisao_m53 || 'IMPORTAR',
         pendencia_migrada: p.pendencia_migrada || null,
-        eventos: (p.eventos_validos || []).map(e => ({
-          etapa: e.etapa || '',
-          evento: e.evento || '',
-          data: e.data || '',
-          tipo_data: e.tipo_data || 'REAL',
-          responsavel: e.responsavel || '',
-          status: e.status || '',
-          aba: e.aba || '',
-          linha_origem: e.linha_origem || null
-        }))
+        eventos: eventosPayload(p)
       }))
     };
   }
