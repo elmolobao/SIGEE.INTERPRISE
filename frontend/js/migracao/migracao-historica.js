@@ -279,6 +279,18 @@
           </div>
         </article>
 
+        <article id="mig-auditoria-processo-box" class="mig-painel mig-area-ajustes-manuais hidden">
+          <header class="mig-painel-cab mig-ajustes-cabecalho">
+            <div>
+              <span class="mig-ajustes-etiqueta">AJUSTES MANUAIS</span>
+              <h2>Área específica para correção do processo</h2>
+              <p class="mig-painel-descricao">Corrija escola, data de abertura, etapa e datas do histórico sem alterar a planilha original.</p>
+            </div>
+            <button id="mig-fechar-auditoria" type="button" class="mig-btn-secundario">Fechar ajustes</button>
+          </header>
+          <div id="mig-auditoria-processo"></div>
+        </article>
+
         <article id="mig-auditoria-tecnica-box" class="mig-painel hidden">
           <header class="mig-painel-cab">
             <div>
@@ -293,14 +305,6 @@
               <tbody id="mig-auditoria-tecnica-corpo"></tbody>
             </table>
           </div>
-        </article>
-
-        <article id="mig-auditoria-processo-box" class="mig-painel hidden">
-          <header class="mig-painel-cab">
-            <h2>Auditoria individual do processo</h2>
-            <button id="mig-fechar-auditoria" type="button" class="mig-btn-secundario">Fechar</button>
-          </header>
-          <div id="mig-auditoria-processo"></div>
         </article>
 
         <article id="mig-simulacao-box" class="mig-painel hidden">
@@ -781,16 +785,134 @@
   }
 
 
+  function opcoesEscolaAuditoria(p) {
+    const nte = texto(p.nte_origem);
+    const escolas = listaEscolas()
+      .filter(e => !nte || nteDoRegistro(e) === nte)
+      .sort((a,b) => texto(campo(a,['nome_escola','nome','escola_nome'])).localeCompare(texto(campo(b,['nome_escola','nome','escola_nome'])), 'pt-BR'));
+
+    return ['<option value="">Selecione a escola correta...</option>']
+      .concat(escolas.map(e => {
+        const id = texto(campo(e,['id']));
+        const nome = texto(campo(e,['nome_escola','nome','escola_nome']));
+        const mec = texto(campo(e,['cod_mec','codigo_mec','mec']));
+        const municipio = texto(campo(e,['municipio']));
+        const selecionada = texto(p.escola_id) === id ? ' selected' : '';
+        return `<option value="${html(id)}"${selecionada}>${html(nome)}${mec ? ' • MEC '+html(mec) : ''}${municipio ? ' • '+html(municipio) : ''}</option>`;
+      })).join('');
+  }
+
+  function recalcularProcessoAuditado(p) {
+    const editaveis = new Set(['DATA_INVALIDA','DATA_FUTURA','ORDEM_DATAS_CRITICA','ESCOLA_NAO_LOCALIZADA','DATA_ABERTURA_FICTICIA','DATA_ABERTURA_RECONSTRUIDA']);
+    const mantidas = (p.inconsistencias || []).filter(i => !editaveis.has(i.tipo));
+    const novas = [];
+    const add = (tipo, gravidade, descricao, origem='Auditoria') => novas.push({aluno:p.aluno_nome,tipo,gravidade,descricao,origem});
+
+    const dataAbertura = texto(p.data_abertura || p.data_solicitacao || p.created_at);
+    if (!dataAbertura) add('DATA_INVALIDA','Alta','Data de abertura ausente após a auditoria.','Auditoria');
+    else if (dataFutura(new Date(dataAbertura+'T12:00:00'))) add('DATA_FUTURA','Alta',`Data de abertura futura: ${dataAbertura}.`,'Auditoria');
+
+    if (!p.escola_id || !p.escola_localizada) add('ESCOLA_NAO_LOCALIZADA','Alta','Escola não localizada no catálogo atual do SIGEE.','Auditoria');
+
+    const eventos = (p.eventos || []).filter(e => e.data).map(e => ({...e}));
+    eventos.forEach(e => {
+      const d = new Date(e.data+'T12:00:00');
+      e.tipo_data = e.tipo_data === 'FICTICIA' ? 'FICTICIA' : 'REAL';
+      e.valido_cronologia = e.tipo_data === 'FICTICIA' || (!Number.isNaN(d.getTime()) && !dataFutura(d));
+      if (Number.isNaN(d.getTime())) add('DATA_INVALIDA','Alta',`Data inválida em ${e.evento}.`,e.aba);
+      else if (dataFutura(d)) add('DATA_FUTURA','Alta',`Data futura ${e.data} em ${e.evento}.`,e.aba);
+    });
+
+    const validarParEventos = (entrada, saida, descricao) => {
+      const a = eventos.find(e => e.evento === entrada && e.valido_cronologia);
+      const b = eventos.find(e => e.evento === saida && e.valido_cronologia);
+      if (a && b && b.data < a.data) add('ORDEM_DATAS_CRITICA','Alta',`${descricao}: ${b.data} anterior a ${a.data}.`,b.aba || 'Auditoria');
+    };
+    validarParEventos('Entrada em Análise','Saída da Análise','Saída da Análise anterior à entrada');
+    validarParEventos('Entrada em Digitação','Saída da Digitação','Saída da Digitação anterior à entrada');
+    validarParEventos('Entrada em Conferência','Saída da Conferência','Saída da Conferência anterior à entrada');
+    validarParEventos('Envio para Assinatura','Retorno da Assinatura','Retorno da Assinatura anterior ao envio');
+    validarParEventos('Deferido','Documento Retirado','Retirada anterior ao deferimento');
+
+    p.eventos = eventos.sort((a,b) => a.data.localeCompare(b.data) || ((ORDEM_ETAPAS[a.etapa]||0)-(ORDEM_ETAPAS[b.etapa]||0)));
+    p.eventos_validos = p.eventos.filter(e => e.valido_cronologia);
+    p.quantidade_datas_reais = p.eventos.filter(e => e.tipo_data === 'REAL').length;
+    p.quantidade_datas_ficticias = p.eventos.filter(e => e.tipo_data === 'FICTICIA').length;
+    p.possui_data_ficticia = p.quantidade_datas_ficticias > 0;
+    p.inconsistencias = [...mantidas, ...novas];
+    p.diagnostico_cronologia = p.inconsistencias.filter(x => ['DATA_INVALIDA','DATA_FUTURA','ORDEM_DATAS_CRITICA','VARIACAO_FLUXO_HISTORICO'].includes(x.tipo));
+    p.status_validacao = p.inconsistencias.some(x => x.gravidade === 'Alta') ? 'PENDENTE' : 'PRONTO';
+
+    const eventosEtapa = p.eventos_validos.filter(e => e.etapa === p.etapa_atual);
+    p.data_etapa_atual = eventosEtapa.at(-1)?.data || p.data_abertura || p.data_solicitacao || '';
+  }
+
+  function salvarAuditoriaProcesso(migrationKey) {
+    if (!resultadoAtual) return;
+    const p = resultadoAtual.processos.find(x => x.migration_key === migrationKey);
+    if (!p) return;
+
+    const escolaId = texto(document.getElementById('mig-audit-escola')?.value);
+    const escola = listaEscolas().find(e => texto(campo(e,['id'])) === escolaId);
+    if (escola) {
+      p.escola_id = campo(escola,['id']);
+      p.escola_nome = texto(campo(escola,['nome_escola','nome','escola_nome']));
+      p.escola_localizada = true;
+      const mec = texto(campo(escola,['cod_mec','codigo_mec','mec']));
+      if (mec) p.codigo_mec = mec;
+    } else {
+      p.escola_id = null;
+      p.escola_localizada = false;
+    }
+
+    const abertura = texto(document.getElementById('mig-audit-data-abertura')?.value);
+    p.data_abertura = abertura;
+    p.data_solicitacao = abertura;
+    p.created_at = abertura;
+
+    const etapa = texto(document.getElementById('mig-audit-etapa')?.value);
+    if (etapa) p.etapa_atual = etapa;
+
+    document.querySelectorAll('[data-mig-evento-indice]').forEach(input => {
+      const indice = Number(input.dataset.migEventoIndice);
+      if (p.eventos[indice]) p.eventos[indice].data = texto(input.value);
+    });
+
+    recalcularProcessoAuditado(p);
+    p.auditoria_aprovada = true;
+    p.auditado_em = new Date().toISOString();
+
+    // A chave acompanha os dados efetivamente homologados.
+    const novaChave = chave(p.aluno_nome, p.escola_nome || p.escola_nome_original, p.data_abertura || p.data_solicitacao);
+    p.migration_key = novaChave;
+
+    resultadoAtual.eventos = resultadoAtual.processos.flatMap(proc => (proc.eventos_validos || []).map(e => ({
+      aluno_nome: proc.aluno_nome,
+      escola_nome: proc.escola_nome,
+      migration_key: proc.migration_key,
+      ...e
+    })));
+    resultadoAtual.inconsistencias = resultadoAtual.processos.flatMap(proc => proc.inconsistencias || []);
+    resultadoAtual.simulacao_executada = false;
+    delete resultadoAtual.lote_importacao;
+    delete resultadoAtual.validacao_final;
+
+    renderizar(resultadoAtual);
+    validarFinal();
+    abrirAuditoriaProcesso(novaChave);
+    atualizarStatus(`Auditoria salva para ${p.aluno_nome}. Indicadores e cronologia foram recalculados.`, p.status_validacao === 'PRONTO' ? 'ok' : 'erro');
+  }
+
   function abrirAuditoriaProcesso(migrationKey) {
     if (!resultadoAtual) return;
     const p = resultadoAtual.processos.find(x => x.migration_key === migrationKey);
     if (!p) return;
 
-    const eventosHtml = (p.eventos || []).map(e => `
+    const eventosHtml = (p.eventos || []).map((e, indice) => `
       <tr>
         <td>${html(e.evento)}</td>
         <td>${html(e.etapa)}</td>
-        <td>${html(e.data)}</td>
+        <td><input type="date" class="mig-audit-data-evento" data-mig-evento-indice="${indice}" value="${html(e.data)}"></td>
         <td><span class="mig-badge ${e.tipo_data === 'FICTICIA' ? 'ficticia' : 'ok'}">${html(e.tipo_data)}</span></td>
         <td>${html(e.responsavel)}</td>
         <td>${html(e.aba)}</td>
@@ -814,16 +936,12 @@
       </article>`;
 
     const fidelidadeItens = [
-      ['Aluno', !!p.aluno_nome],
-      ['Escola', !!p.escola_nome],
-      ['Código MEC', !!p.codigo_mec],
-      ['Data de abertura', !!p.data_solicitacao],
-      ['Etapa atual', !!p.etapa_atual],
-      ['Escola localizada', !!p.escola_localizada],
-      ['Técnico localizado', !!p.tecnico_localizado]
+      ['Aluno', !!p.aluno_nome], ['Escola', !!p.escola_nome], ['Código MEC', !!p.codigo_mec],
+      ['Data de abertura', !!(p.data_abertura || p.data_solicitacao)], ['Etapa atual', !!p.etapa_atual],
+      ['Escola localizada', !!p.escola_localizada], ['Técnico localizado', !!p.tecnico_localizado]
     ];
-    const ok = fidelidadeItens.filter(x => x[1]).length;
-    const indice = Math.round((ok / fidelidadeItens.length) * 100);
+    const indice = Math.round((fidelidadeItens.filter(x => x[1]).length / fidelidadeItens.length) * 100);
+    const etapas = ['Desarquivamento','Análise','Pendência','Digitação','Conferência','Assinatura','Aguardando Retirada','Retirado'];
 
     document.getElementById('mig-auditoria-processo').innerHTML = `
       <div class="mig-auditoria-resumo">
@@ -832,49 +950,36 @@
         <div><span>Etapa reconstruída</span><strong>${html(p.etapa_atual)}</strong></div>
         <div><span>Status</span><strong>${html(p.status_validacao)}</strong></div>
       </div>
-      <div class="mig-comparacao-grid">
-        <article><h3>Planilha</h3>
-          <dl>
-            <div><dt>Aluno</dt><dd>${html(p.aluno_nome)}</dd></div>
-            <div><dt>Escola</dt><dd>${html(p.escola_nome_original)}</dd></div>
-            <div><dt>Código MEC</dt><dd>${html(p.codigo_mec)}</dd></div>
-            <div><dt>Responsável histórico</dt><dd>${html(p.tecnico_responsavel_historico)}</dd></div>
-            <div><dt>Prioridade</dt><dd>${html(p.prioridade)}</dd></div>
-          </dl>
-        </article>
-        <article><h3>SIGEE</h3>
-          <dl>
-            <div><dt>Aluno</dt><dd>${html(p.aluno_nome)}</dd></div>
-            <div><dt>Escola vinculada</dt><dd>${html(p.escola_nome)}</dd></div>
-            <div><dt>Escola localizada</dt><dd>${p.escola_localizada ? 'SIM' : 'NÃO'}</dd></div>
-            <div><dt>Técnico localizado</dt><dd>${p.tecnico_localizado ? 'SIM' : 'NÃO'}</dd></div>
-            <div><dt>Etapa final</dt><dd>${html(p.etapa_atual)}</dd></div>
-          </dl>
-        </article>
-      </div>
-      <section class="mig-diagnostico-cronologia">
-        <header>
-          <div>
-            <h3>Diagnóstico da cronologia</h3>
-            <p>Explicação individual das regras que mantêm o processo pendente ou apenas registram variações históricas.</p>
-          </div>
-          <div class="mig-diagnostico-contadores">
-            <span class="bloqueio">${bloqueiosCronologia.length} bloqueio(s)</span>
-            <span class="observacao">${observacoesCronologia.length} observação(ões)</span>
-          </div>
-        </header>
-        <div class="mig-diagnostico-lista">${diagnosticoHtml}</div>
+      <section class="mig-editor-auditoria">
+        <header><div><h3>Corrigir informações da migração</h3><p>As alterações ficam no lote de migração e preservam a planilha original.</p></div></header>
+        <div class="mig-editor-grid">
+          <label><span>Escola correta no SIGEE</span><select id="mig-audit-escola">${opcoesEscolaAuditoria(p)}</select></label>
+          <label><span>Data de abertura</span><input id="mig-audit-data-abertura" type="date" value="${html(p.data_abertura || p.data_solicitacao || '')}"></label>
+          <label><span>Etapa atual</span><select id="mig-audit-etapa">${etapas.map(e => `<option value="${html(e)}"${e===p.etapa_atual?' selected':''}>${html(e)}</option>`).join('')}</select></label>
+          <label><span>Código MEC</span><input type="text" value="${html(p.codigo_mec)}" disabled></label>
+        </div>
+        <div class="mig-editor-acoes"><button type="button" id="mig-salvar-auditoria" class="mig-btn-salvar">Salvar correções e recalcular</button><span>Aluno: ${html(p.aluno_nome)} • Linha ${html(p.linha_origem)}</span></div>
       </section>
-      <h3 class="mig-subtitulo">Histórico reconstruído</h3>
-      <div class="mig-tabela-wrap">
-        <table>
-          <thead><tr><th>Evento</th><th>Etapa</th><th>Data</th><th>Tipo</th><th>Responsável</th><th>Origem</th></tr></thead>
-          <tbody>${eventosHtml || '<tr><td colspan="6">Sem eventos</td></tr>'}</tbody>
-        </table>
-      </div>`;
+      <div class="mig-comparacao-grid">
+        <article><h3>Planilha</h3><dl>
+          <div><dt>Aluno</dt><dd>${html(p.aluno_nome)}</dd></div><div><dt>Escola informada</dt><dd>${html(p.escola_nome_original)}</dd></div>
+          <div><dt>Responsável histórico</dt><dd>${html(p.tecnico_responsavel_historico)}</dd></div><div><dt>Prioridade</dt><dd>${html(p.prioridade)}</dd></div>
+        </dl></article>
+        <article><h3>SIGEE após auditoria</h3><dl>
+          <div><dt>Escola vinculada</dt><dd>${html(p.escola_nome)}</dd></div><div><dt>Escola localizada</dt><dd>${p.escola_localizada ? 'SIM' : 'NÃO'}</dd></div>
+          <div><dt>Data de abertura</dt><dd>${html(p.data_abertura || p.data_solicitacao)}</dd></div><div><dt>Etapa final</dt><dd>${html(p.etapa_atual)}</dd></div>
+        </dl></article>
+      </div>
+      <section class="mig-diagnostico-cronologia"><header><div><h3>Diagnóstico da cronologia</h3><p>Edite as datas do histórico abaixo e salve para recalcular os bloqueios.</p></div><div class="mig-diagnostico-contadores"><span class="bloqueio">${bloqueiosCronologia.length} bloqueio(s)</span><span class="observacao">${observacoesCronologia.length} observação(ões)</span></div></header><div class="mig-diagnostico-lista">${diagnosticoHtml}</div></section>
+      <h3 class="mig-subtitulo">Histórico reconstruído — datas editáveis</h3>
+      <div class="mig-tabela-wrap"><table><thead><tr><th>Evento</th><th>Etapa</th><th>Data</th><th>Tipo</th><th>Responsável</th><th>Origem</th></tr></thead><tbody>${eventosHtml || '<tr><td colspan="6">Sem eventos</td></tr>'}</tbody></table></div>`;
 
-    document.getElementById('mig-auditoria-processo-box')?.classList.remove('hidden');
-    document.getElementById('mig-auditoria-processo-box')?.scrollIntoView({behavior:'smooth', block:'start'});
+    document.getElementById('mig-salvar-auditoria')?.addEventListener('click', () => salvarAuditoriaProcesso(migrationKey));
+    const areaAjustes = document.getElementById('mig-auditoria-processo-box');
+    areaAjustes?.classList.remove('hidden');
+    areaAjustes?.classList.add('mig-area-ajustes-ativa');
+    areaAjustes?.scrollIntoView({behavior:'smooth', block:'start'});
+    setTimeout(() => areaAjustes?.classList.remove('mig-area-ajustes-ativa'), 1800);
   }
 
   function regraAuditoria(issue) {
