@@ -1,4 +1,4 @@
-/* SIGEE RC5.6.2 — Dashboard Operacional com snapshot único, cache e deduplicação global */
+/* SIGEE RC5.6.3 — Dashboard Operacional com snapshot único, cache e deduplicação global */
 (function(){
   'use strict';
   if(window.__SIGEE_DASHBOARD_RPC_510__) return;
@@ -136,9 +136,16 @@
       // RC5.6.2: uma única Promise por abrangência/período, compartilhada globalmente.
       let requisicao=estadoGlobal.emAndamento.get(chave);
       if(!requisicao){
-        requisicao=c.rpc('sigee_dashboard_snapshot',{p_nte:nte||null,p_data_inicio:p.inicioIso,p_data_fim:p.fimIso})
-          .finally(()=>estadoGlobal.emAndamento.delete(chave));
+        // O objeto retornado por supabase.rpc() é thenable, mas não garante .finally().
+        // Promise.resolve converte o builder em Promise nativa e preserva a deduplicação.
+        requisicao=Promise.resolve(
+          c.rpc('sigee_dashboard_snapshot',{p_nte:nte||null,p_data_inicio:p.inicioIso,p_data_fim:p.fimIso})
+        );
         estadoGlobal.emAndamento.set(chave,requisicao);
+        requisicao.then(
+          ()=>estadoGlobal.emAndamento.delete(chave),
+          ()=>estadoGlobal.emAndamento.delete(chave)
+        );
       }
       const snapshotResp=await requisicao;
       if(snapshotResp.error)throw snapshotResp.error;
@@ -157,6 +164,6 @@
   document.addEventListener('change',e=>{if(['filtro-dashboard-nte','filtro-dashboard-periodo','dashboard-data-inicial','dashboard-data-final'].includes(e.target?.id))agendar(true)},true);
   document.addEventListener('sigee:navegacao-concluida',e=>{if((e.detail?.rota||e.detail?.aba)==='painel')agendar(false)});
   document.addEventListener('sigee:usuario-logado',()=>agendar(true));
-  window.carregarDadosDashboardReal=()=>agendar(true);window.carregarDadosDashboardRealImediato=()=>carregar(true);window.SIGEE_DASHBOARD_RPC={carregar,limparCache:()=>cache.clear(),versao:'RC5.6.2'};
+  window.carregarDadosDashboardReal=()=>agendar(true);window.carregarDadosDashboardRealImediato=()=>carregar(true);window.SIGEE_DASHBOARD_RPC={carregar,limparCache:()=>cache.clear(),versao:'RC5.6.3'};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>agendar(false));else agendar(false);
 })();
