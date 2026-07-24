@@ -133,3 +133,13 @@
   text-align:right;
   letter-spacing:.04em
 }
+
+/* M5.5.1 — auditoria editável da migração */
+.mig-editor-auditoria{border:1px solid #93c5fd;border-radius:14px;background:#eff6ff;padding:16px;margin:14px 0}
+.mig-editor-auditoria header{display:flex;justify-content:space-between;gap:12px;margin-bottom:12px}.mig-editor-auditoria h3{margin:0;color:#0b4f8a}.mig-editor-auditoria p{margin:4px 0 0;color:#475569}
+.mig-editor-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:12px}.mig-editor-grid label{display:flex;flex-direction:column;gap:5px;font-size:11px;font-weight:800;color:#334155}
+.mig-editor-grid input,.mig-editor-grid select,.mig-audit-data-evento{width:100%;box-sizing:border-box;border:1px solid #94a3b8;border-radius:9px;padding:9px;background:#fff;color:#0f172a}
+.mig-editor-grid input:disabled{background:#e2e8f0;color:#64748b}.mig-editor-acoes{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px}.mig-editor-acoes span{font-size:11px;color:#64748b}
+.mig-btn-salvar{border:0;border-radius:10px;padding:11px 16px;background:#15803d;color:#fff;font-weight:900;cursor:pointer}.mig-btn-salvar:hover{background:#166534}
+.mig-audit-data-evento{min-width:145px;padding:7px}
+@media(max-width:1000px){.mig-editor-grid{grid-template-columns:1fr 1fr}}@media(max-width:600px){.mig-editor-grid{grid-template-columns:1fr}.mig-editor-acoes{align-items:flex-start;flex-direction:column}}
