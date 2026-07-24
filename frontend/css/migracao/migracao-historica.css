@@ -143,3 +143,40 @@
 .mig-btn-salvar{border:0;border-radius:10px;padding:11px 16px;background:#15803d;color:#fff;font-weight:900;cursor:pointer}.mig-btn-salvar:hover{background:#166534}
 .mig-audit-data-evento{min-width:145px;padding:7px}
 @media(max-width:1000px){.mig-editor-grid{grid-template-columns:1fr 1fr}}@media(max-width:600px){.mig-editor-grid{grid-template-columns:1fr}.mig-editor-acoes{align-items:flex-start;flex-direction:column}}
+
+
+/* RC5.5.3 — restauração da área específica de ajustes manuais */
+.mig-area-ajustes-manuais{
+  border:2px solid #0b5c97;
+  box-shadow:0 12px 30px rgba(11,79,138,.14);
+  scroll-margin-top:18px;
+}
+.mig-ajustes-cabecalho{
+  background:linear-gradient(135deg,#eef7ff,#f8fbff);
+  border-bottom:1px solid #c7def0;
+  padding:16px 18px;
+  border-radius:12px 12px 0 0;
+}
+.mig-ajustes-etiqueta{
+  display:inline-flex;
+  padding:4px 9px;
+  border-radius:999px;
+  background:#0b5c97;
+  color:#fff;
+  font-size:10px;
+  font-weight:900;
+  letter-spacing:.08em;
+  margin-bottom:5px;
+}
+.mig-area-ajustes-ativa{
+  animation:migDestaqueAjustes .9s ease-in-out 2;
+}
+@keyframes migDestaqueAjustes{
+  0%,100%{box-shadow:0 12px 30px rgba(11,79,138,.14)}
+  50%{box-shadow:0 0 0 6px rgba(11,92,151,.22),0 14px 34px rgba(11,79,138,.2)}
+}
+.mig-area-ajustes-manuais .mig-editor-auditoria{
+  margin-top:14px;
+  border:1px solid #b9d5e8;
+  background:#f9fcff;
+}
