@@ -1,4 +1,4 @@
-/* SIGEE RC5.6.0 — Perfil Executivo com Inteligência Gerencial
+/* SIGEE RC5.6.2 — Perfil Executivo com Inteligência Gerencial
  * Atualização manual real, com baixo consumo e sem depender da página local de processos.
  */
 (function () {
@@ -264,5 +264,5 @@
     ultimoComplementoRPC=d.complemento||{};
     if(d.resumo) renderRpc(d.resumo);
   });
-  window.SIGEE_DASHBOARD_EXECUTIVO={render,renderRpc,atualizar:atualizarExecutivo,versao:'RC5.6.0'};
+  window.SIGEE_DASHBOARD_EXECUTIVO={render,renderRpc,atualizar:atualizarExecutivo,versao:'RC5.6.2'};
 })();

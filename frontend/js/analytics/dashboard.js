@@ -1,12 +1,13 @@
-/* SIGEE RC5.6.0 — Dashboard Operacional com snapshot analítico único */
+/* SIGEE RC5.6.2 — Dashboard Operacional com snapshot único, cache e deduplicação global */
 (function(){
   'use strict';
   if(window.__SIGEE_DASHBOARD_RPC_510__) return;
   window.__SIGEE_DASHBOARD_RPC_510__=true;
-  window.SIGEE_DASHBOARD_AUTORIDADE='SNAPSHOT_RC5.6.0';
+  window.SIGEE_DASHBOARD_AUTORIDADE='SNAPSHOT_RC5.6.2';
 
   const CACHE_MS=180000;
-  const cache=new Map();
+  const estadoGlobal=window.__SIGEE_DASHBOARD_SNAPSHOT_STATE__||(window.__SIGEE_DASHBOARD_SNAPSHOT_STATE__={cache:new Map(),emAndamento:new Map()});
+  const cache=estadoGlobal.cache;
   let timer=0, carregando=false;
   const txt=v=>v==null?'':String(v).trim();
   const norm=v=>txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/\s+/g,' ');
@@ -132,7 +133,14 @@
     try{
       // RC5.6.0: uma única chamada retorna resumo + complemento.
       // Isso reduz Egress, elimina concorrência entre RPCs e evita statement timeout.
-      const snapshotResp=await c.rpc('sigee_dashboard_snapshot',{p_nte:nte||null,p_data_inicio:p.inicioIso,p_data_fim:p.fimIso});
+      // RC5.6.2: uma única Promise por abrangência/período, compartilhada globalmente.
+      let requisicao=estadoGlobal.emAndamento.get(chave);
+      if(!requisicao){
+        requisicao=c.rpc('sigee_dashboard_snapshot',{p_nte:nte||null,p_data_inicio:p.inicioIso,p_data_fim:p.fimIso})
+          .finally(()=>estadoGlobal.emAndamento.delete(chave));
+        estadoGlobal.emAndamento.set(chave,requisicao);
+      }
+      const snapshotResp=await requisicao;
       if(snapshotResp.error)throw snapshotResp.error;
       const snapshot=typeof snapshotResp.data==='string'?JSON.parse(snapshotResp.data):snapshotResp.data||{};
       const r=snapshot.resumo||{};
@@ -149,6 +157,6 @@
   document.addEventListener('change',e=>{if(['filtro-dashboard-nte','filtro-dashboard-periodo','dashboard-data-inicial','dashboard-data-final'].includes(e.target?.id))agendar(true)},true);
   document.addEventListener('sigee:navegacao-concluida',e=>{if((e.detail?.rota||e.detail?.aba)==='painel')agendar(false)});
   document.addEventListener('sigee:usuario-logado',()=>agendar(true));
-  window.carregarDadosDashboardReal=()=>agendar(true);window.carregarDadosDashboardRealImediato=()=>carregar(true);window.SIGEE_DASHBOARD_RPC={carregar,limparCache:()=>cache.clear(),versao:'RC5.6.0'};
+  window.carregarDadosDashboardReal=()=>agendar(true);window.carregarDadosDashboardRealImediato=()=>carregar(true);window.SIGEE_DASHBOARD_RPC={carregar,limparCache:()=>cache.clear(),versao:'RC5.6.2'};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>agendar(false));else agendar(false);
 })();
