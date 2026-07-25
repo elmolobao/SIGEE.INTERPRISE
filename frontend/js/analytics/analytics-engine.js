@@ -166,8 +166,12 @@
     helpers:Object.freeze({txt,norm,parseData,dias,etapa,inicio,entrada,conclusao,finalizado,ativo,vencido,proximo,nteNumero,nteLabel,escolaLabel,tecnicoLabel})
   });
 
-  setInterval(sincronizar,2000);
+  if (window.SIGEE_PERFORMANCE?.aCada) {
+    window.SIGEE_PERFORMANCE.aCada('analytics-engine:sincronizar', sincronizar, 30000, { somenteVisivel:true });
+  } else {
+    setInterval(()=>{ if(!document.hidden) sincronizar(); },30000);
+  }
   window.addEventListener('sigee:processos-atualizados',()=>window.SIGEE_Analytics.invalidar());
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)sincronizar()});
-  console.info('[SIGEE] Motor Analítico Unificado 2.4.3B carregado.');
+  console.info('[SIGEE] Motor Analítico Unificado RC5.8.6 carregado.');
 })();
