@@ -2,7 +2,7 @@
   'use strict';
 
   const root = global.SIGEE6 = global.SIGEE6 || {};
-  const VERSION = 'RC6.0.3';
+  const VERSION = 'RC6.0.4';
   const texto = (v) => v == null ? '' : String(v).trim();
   const normalizar = (v) => texto(v).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
 
@@ -45,6 +45,8 @@
     const n = textoBusca(obj);
     if (ehPastaRecebida(obj)) return 'PASTA_RECEBIDA';
     if (/DOCUMENTO RECEBIDO/.test(n)) return 'DOCUMENTO_RECEBIDO';
+    if (/DOCUMENTO SOLICITADO|SOLICITACAO DE DOCUMENTO|E-?MAIL 0?2/.test(n)) return 'DOCUMENTO_SOLICITADO';
+    if (/PASTA LOCALIZADA|ACERVO LOCALIZADO|ARQUIVO LOCALIZADO/.test(n)) return 'PASTA_LOCALIZADA';
     if (/SOLICITACAO|NOVA SOLICITACAO|CADASTRAD/.test(n)) return 'SOLICITACAO';
     if (/REITERACAO.*URG|URGENTE/.test(n)) return 'REITERACAO_URGENTE';
     if (/REITERACAO/.test(n)) return 'REITERACAO';
@@ -68,6 +70,8 @@
     const mapa = {
       PASTA_RECEBIDA: 'Pasta Recebida',
       DOCUMENTO_RECEBIDO: 'Documento Recebido',
+      DOCUMENTO_SOLICITADO: 'Documento solicitado',
+      PASTA_LOCALIZADA: 'Pasta localizada',
       SOLICITACAO: 'Solicitação registrada',
       REITERACAO_URGENTE: 'Reiteração com Urgência',
       REITERACAO: 'Reiteração',
@@ -106,6 +110,11 @@
       nte: valor(registro, 'nte'),
       detalhes: valor(registro, 'detalhes', 'observacao', 'descricao', 'mensagem'),
       observacao: valor(registro, 'observacao', 'detalhes', 'descricao', 'mensagem'),
+      prazoDias: valor(registro, 'prazo_dias', 'dias_prazo'),
+      prazoFinal: valor(registro, 'prazo_fim', 'data_prazo', 'vencimento'),
+      mensagemCodigo: valor(registro, 'mensagem_codigo', 'modelo_email', 'email_modelo'),
+      documento: valor(registro, 'tipo_arquivo', 'documento_tipo', 'arquivo', 'nome_arquivo'),
+      sessaoId: valor(registro, 'sessao_id'),
       origem,
       evidenciaPastaRecebida: tipo === 'PASTA_RECEBIDA',
       bruto: registro
@@ -121,7 +130,7 @@
       if (error) throw error;
       return data || processoBase || null;
     } catch (error) {
-      console.warn('[SIGEE RC6.0.3] Processo não pôde ser recarregado para a Timeline:', error);
+      console.warn('[SIGEE RC6.0.4] Processo não pôde ser recarregado para a Timeline:', error);
       return processoBase || null;
     }
   }
@@ -134,7 +143,7 @@
       if (error) throw error;
       return Array.isArray(data) ? data.map((r) => normalizarEvento(r, 'historico_processos')) : [];
     } catch (error) {
-      console.info('[SIGEE RC6.0.3] historico_processos indisponível; usando logs auditáveis.');
+      console.info('[SIGEE RC6.0.4] historico_processos indisponível; usando logs auditáveis.');
       return [];
     }
   }
@@ -159,7 +168,7 @@
       if (error) throw error;
       return Array.isArray(data) ? data.map((r) => normalizarEvento(r, 'logs_sigee')) : [];
     } catch (error) {
-      console.warn('[SIGEE RC6.0.3] Logs da Timeline indisponíveis:', error);
+      console.warn('[SIGEE RC6.0.4] Logs da Timeline indisponíveis:', error);
       return [];
     }
   }
@@ -181,14 +190,40 @@
     return saida;
   }
 
+  function riqueza(evento) {
+    return [evento.detalhes, evento.responsavel, evento.etapa, evento.emailResponsavel,
+      evento.mensagemCodigo, evento.documento, evento.prazoFinal, evento.prazoDias]
+      .filter((v) => texto(v)).length;
+  }
+
+  function minuto(dataHora) {
+    const d = dataHora ? new Date(dataHora) : null;
+    if (!d || Number.isNaN(d.getTime())) return '';
+    d.setSeconds(0, 0);
+    return d.toISOString();
+  }
+
   function removerDuplicados(eventos) {
-    const vistos = new Set();
-    return eventos.filter((evento) => {
-      const chave = [evento.tipo, evento.dataHora || '', normalizar(evento.detalhes || ''), normalizar(evento.responsavel || '')].join('|');
-      if (vistos.has(chave)) return false;
-      vistos.add(chave);
-      return true;
+    const grupos = new Map();
+    eventos.forEach((evento) => {
+      // Eventos equivalentes produzidos por histórico e log no mesmo minuto são
+      // exibidos como um único marco, preservando as fontes para auditoria.
+      const chave = `${evento.tipo}|${minuto(evento.dataHora)}`;
+      const atual = grupos.get(chave);
+      if (!atual) {
+        grupos.set(chave, { ...evento, fontes: [evento.origem], registrosAgrupados: [evento.bruto] });
+        return;
+      }
+      const principal = riqueza(evento) > riqueza(atual) ? { ...evento } : { ...atual };
+      principal.fontes = Array.from(new Set([...(atual.fontes || [atual.origem]), evento.origem].filter(Boolean)));
+      principal.registrosAgrupados = [...(atual.registrosAgrupados || [atual.bruto]), evento.bruto].filter(Boolean);
+      const detalhes = Array.from(new Set([atual.detalhes, evento.detalhes].filter((v) => texto(v))));
+      principal.detalhes = detalhes.sort((a, b) => texto(b).length - texto(a).length)[0] || principal.detalhes;
+      principal.observacao = principal.observacao || principal.detalhes;
+      principal.totalRegistrosAgrupados = principal.registrosAgrupados.length;
+      grupos.set(chave, principal);
     });
+    return Array.from(grupos.values());
   }
 
   async function carregar(processoId, processoBase) {
