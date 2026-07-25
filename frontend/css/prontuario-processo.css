@@ -1,4 +1,4 @@
-/* SIGEE Enterprise — RC6.0.4 — Prontuário Eletrônico */
+/* SIGEE Enterprise — RC6.1.0 — Prontuário Eletrônico */
 body.sigee-prontuario-aberto { overflow: hidden !important; }
 .sigee-btn-prontuario { background:linear-gradient(135deg,#075985,#0369a1)!important;color:#fff!important;border:1px solid #38bdf8!important; }
 .sigee-pep-overlay{position:fixed;inset:0;z-index:999999;background:rgba(15,23,42,.55);backdrop-filter:blur(8px);padding:18px;overflow:auto;color:#172033;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
@@ -33,7 +33,7 @@ body.sigee-prontuario-aberto { overflow: hidden !important; }
 .sigee-pep-marco-pasta.nao-registrado .sigee-pep-marco-status strong{color:#c2410c}
 
 
-/* RC6.0.4 — enriquecimento executivo e consolidação visual */
+/* RC6.1.0 — enriquecimento executivo e consolidação visual */
 .sigee-pep-grade{grid-template-columns:repeat(4,1fr)}
 .sigee-pep-evento-card header>div{min-width:0}
 .sigee-pep-evento-card h3{font-size:16px}
@@ -47,3 +47,10 @@ body.sigee-prontuario-aberto { overflow: hidden !important; }
 .sigee-pep-resumo-executivo .risco-normal{color:#15803d}
 .sigee-pep-vazio{padding:32px;border:1px dashed #cbd5e1;border-radius:14px;text-align:center;color:#64748b;background:#f8fafc}
 @media(max-width:1150px){.sigee-pep-grade{grid-template-columns:repeat(2,1fr)}}
+
+/* RC6.1 — Stepper derivado da fonte oficial da cronologia */
+.sigee-pep-etapa.futura { opacity:.62; }
+.sigee-pep-etapa.futura span { background:#e7edf5!important; color:#6f8097!important; box-shadow:none!important; }
+.sigee-pep-etapa.atual span { box-shadow:0 0 0 5px rgba(14,165,233,.15); }
+.sigee-pep-etapa.pendente-registro small { color:#9a5b22; }
+.sigee-pep-fontes { display:block; margin-top:9px; color:#64748b; font-size:10px; line-height:1.45; }
