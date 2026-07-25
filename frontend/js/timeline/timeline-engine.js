@@ -23,6 +23,6 @@
 
   const engine = Object.freeze({ observar, carregar, stop: () => listeners.splice(0).forEach((off) => off()) });
   root.timeline = engine;
-  root.core?.register('timeline.engine', engine, { mode: 'observation', version: 'RC6.0.1' });
+  root.core?.register('timeline.engine', engine, { mode: 'observation', version: 'RC6.0.2' });
   observar();
 })(window);
