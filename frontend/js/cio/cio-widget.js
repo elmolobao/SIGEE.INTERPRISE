@@ -1,6 +1,6 @@
 (function(global, document){
   'use strict';
-  if(global.SIGEE_CIO_WIDGET?.version==='RC6.2.2')return;
+  if(global.SIGEE_CIO_WIDGET?.version==='RC6.2.3')return;
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   let ultimoResultado=null;
   function usuario(){try{return global.SIGEE_SESSION?.getUser?.()||global.usuarioLogado||null;}catch(_){return global.usuarioLogado||null;}}
@@ -12,12 +12,36 @@
     const p=x?.processo||x||{};
     const candidatos=[x?.responsavel,p?.tecnico_atribuido_nome,p?.tecnico_atribuido,p?.tecnico_responsavel_nome,p?.tecnico_responsavel,p?.responsavel_etapa_nome,p?.responsavel_etapa,p?.responsavel_nome,p?.responsavel,p?.analista_nome,p?.analista,p?.digitador_nome,p?.digitador,p?.conferente_nome,p?.conferente,p?.usuario_lancamento_nome,p?.usuario_lancamento,p?.usuario_criacao_nome,p?.usuario_criacao,p?.criado_por_nome,p?.criado_por];
     for(const candidato of candidatos){const valor=String(candidato??'').trim();if(valor&&!/^(NAO ATRIBUIDO|NÃO ATRIBUÍDO|SEM RESPONSAVEL|SEM RESPONSÁVEL)$/i.test(valor))return valor;}
-    return 'Sem responsável';
+    return 'Aguardando atribuição';
   }
-  function abrirProntuario(id){
+  async function abrirProntuario(registro){
     const fn=global.abrirProntuarioSIGEE||global.abrirHistoricoProcessoSIGEE||global.abrirHistoricoSIGEE;
     if(typeof fn!=='function'){alert('O Prontuário Eletrônico ainda não está disponível nesta sessão.');return false;}
-    try{fn(id);return true;}catch(e){console.error('[SIGEE CIO] Falha ao abrir prontuário.',e);alert('Não foi possível abrir o Prontuário deste processo.');return false;}
+    const origem=registro?.processo||registro||{};
+    const id=origem?.id??registro?.id;
+    if(id==null||String(id).trim()===''){alert('O processo não possui identificador interno válido.');return false;}
+    try{
+      let completo=origem;
+      const locais=Array.isArray(global.processosDB)?global.processosDB:[];
+      const existente=locais.find(p=>String(p?.id)===String(id));
+      if(existente){completo={...origem,...existente};}
+      else{
+        const sb=global.obterSupabaseSIGEE?.()||global.criarClienteSupabaseSIGEE?.()||global.SIGEE_SUPABASE?.criarCliente?.()||null;
+        if(sb){
+          const consulta=await sb.from('processos').select('*').eq('id',id).maybeSingle();
+          if(consulta?.error)throw consulta.error;
+          if(consulta?.data)completo={...origem,...consulta.data};
+        }
+        if(!Array.isArray(global.processosDB))global.processosDB=[];
+        global.processosDB.push(completo);
+      }
+      await Promise.resolve(fn(id));
+      return true;
+    }catch(e){
+      console.error('[SIGEE CIO] Falha ao preparar/abrir prontuário.',e);
+      alert('Não foi possível abrir o Prontuário deste processo.');
+      return false;
+    }
   }
 
   function instalar(){
@@ -63,11 +87,11 @@
     };
     renderLinhas();
     modal.querySelector('#sigee-cio-filtro-nte')?.addEventListener('change',e=>renderLinhas(e.target.value));
-    modal.addEventListener('click',e=>{const botao=e.target.closest('[data-cio-prontuario]');if(botao){e.preventDefault();abrirProntuario(botao.dataset.cioProntuario);}});
+    modal.addEventListener('click',async e=>{const botao=e.target.closest('[data-cio-prontuario]');if(botao){e.preventDefault();const registro=lista.find(x=>String(x?.id)===String(botao.dataset.cioProntuario));await abrirProntuario(registro||{id:botao.dataset.cioProntuario});}});
     modal.querySelector('[data-fechar]').onclick=()=>modal.remove();modal.addEventListener('click',e=>{if(e.target===modal)modal.remove();});
   }
   async function carregar(force=false){instalar();const body=document.querySelector('[data-cio-widget-body]'),btn=document.querySelector('[data-cio-widget-refresh]');if(!body||!permitido())return false;try{if(btn)btn.disabled=true;body.innerHTML='<p class="sigee-cio-widget-placeholder">Analisando dados operacionais...</p>';await global.__SIGEE_CIO_BOOTSTRAP__?.load?.();if(typeof global.SIGEE_CIO?.engine?.analisar!=='function')throw new Error('Motor analítico indisponível.');ultimoResultado=await global.SIGEE_CIO.engine.analisar({force});body.innerHTML=render(ultimoResultado);return true;}catch(e){console.error('[SIGEE CIO Widget]',e);body.innerHTML=`<p class="sigee-cio-widget-error">Não foi possível gerar o resumo: ${esc(e.message)}</p>`;return false;}finally{if(btn)btn.disabled=false;}}
   function abrir(){const painel=document.getElementById('aba-painel');if(painel){painel.classList.remove('hidden');painel.hidden=false;painel.style.removeProperty('display');}instalar();document.getElementById('sigee-cio-resumo-widget')?.scrollIntoView({behavior:'smooth',block:'start'});return carregar(false);}
-  global.SIGEE_CIO_WIDGET=Object.freeze({version:'RC6.2.2',instalar,carregar,abrir,abrirProntuario,responsavelExibicao});
+  global.SIGEE_CIO_WIDGET=Object.freeze({version:'RC6.2.3',instalar,carregar,abrir,abrirProntuario,responsavelExibicao});
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(instalar,300),{once:true});else setTimeout(instalar,300);
 })(window,document);
