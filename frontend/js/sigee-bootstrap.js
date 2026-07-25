@@ -2,7 +2,7 @@
   'use strict';
   if (global.__SIGEE6_BOOTSTRAP__?.state === 'ready') return;
 
-  const VERSION = 'RC6.1.0';
+  const VERSION = 'RC6.1.1';
   const BASE = 'js/';
   const manifest = Object.freeze([
     { name: 'events', path: 'core/sigee-events.js' },
