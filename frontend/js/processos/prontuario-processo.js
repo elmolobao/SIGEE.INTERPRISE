@@ -1,18 +1,28 @@
 /* =====================================================================
-   SIGEE Enterprise — RC6.0.4
+   SIGEE Enterprise — RC6.1.0
    Prontuário Eletrônico do Processo
    Camada aditiva: não altera regras, transições ou persistência do workflow.
    ===================================================================== */
 (function () {
   'use strict';
-  if (window.__SIGEE_PRONTUARIO_RC604__) return;
-  window.__SIGEE_PRONTUARIO_RC604__ = true;
+  if (window.__SIGEE_PRONTUARIO_RC610__) return;
+  window.__SIGEE_PRONTUARIO_RC610__ = true;
 
-  const ETAPAS = [
-    'Solicitação', 'Documento Solicitado', 'Pasta Localizada', 'Pasta Recebida', 'Documento Recebido', 'Desarquivamento', 'Análise',
-    'Pendência', 'Digitação', 'Conferência', 'Assinatura',
-    'Aguardando Retirada', 'Retirado'
-  ];
+  const ETAPAS = Object.freeze([
+    { tipo:'SOLICITACAO', label:'Solicitação' },
+    { tipo:'DOCUMENTO_SOLICITADO', label:'Documento Solicitado' },
+    { tipo:'PASTA_LOCALIZADA', label:'Pasta Localizada' },
+    { tipo:'PASTA_RECEBIDA', label:'Pasta Recebida' },
+    { tipo:'DOCUMENTO_RECEBIDO', label:'Documento Recebido' },
+    { tipo:'DESARQUIVAMENTO', label:'Desarquivamento' },
+    { tipo:'ANALISE', label:'Análise' },
+    { tipo:'PENDENCIA', label:'Pendência' },
+    { tipo:'DIGITACAO', label:'Digitação' },
+    { tipo:'CONFERENCIA', label:'Conferência' },
+    { tipo:'ASSINATURA', label:'Assinatura' },
+    { tipo:'DEFERIDO', label:'Deferido' },
+    { tipo:'RETIRADO', label:'Retirado' }
+  ]);
 
   const texto = v => v == null ? '' : String(v).trim();
   const normalizar = v => texto(v).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
@@ -189,7 +199,7 @@
         };
       }
     } catch (e) {
-      console.warn('[SIGEE RC6.0.4] Timeline Enterprise indisponível; aplicando leitura compatível:', e);
+      console.warn('[SIGEE RC6.1.0] Timeline Enterprise indisponível; aplicando leitura compatível:', e);
     }
 
     const eventos = [];
@@ -222,16 +232,32 @@
     return { eventos, marcos:{ pastaRecebida, documentoRecebido:eventos.some(ev => /DOCUMENTO RECEBIDO/i.test(`${ev.acao || ''} ${ev.etapa || ''}`)) }, origem:'compatibilidade' };
   }
 
-  function workflowHTML(p, marcos = {}) {
+  function tipoEtapaAtual(p) {
     const atual = normalizar(etapaAtual(p));
-    const indiceAtual = Math.max(0, ETAPAS.findIndex(e => atual.includes(normalizar(e))));
-    return ETAPAS.map((e, i) => {
-      let classe = i < indiceAtual ? 'concluida' : i === indiceAtual ? 'atual' : 'futura';
-      if (normalizar(e) === 'PASTA RECEBIDA') {
-        classe = marcos.pastaRecebida ? 'concluida marco-pasta' : 'pendente-registro marco-pasta';
-      }
-      return `<div class="sigee-pep-etapa ${classe}">
-        <span>${i < indiceAtual ? '✓' : i + 1}</span><small>${escapar(e)}</small>
+    const mapa = {
+      'SOLICITACAO':'SOLICITACAO', 'DOCUMENTO SOLICITADO':'DOCUMENTO_SOLICITADO',
+      'PASTA LOCALIZADA':'PASTA_LOCALIZADA', 'PASTA RECEBIDA':'PASTA_RECEBIDA',
+      'DOCUMENTO RECEBIDO':'DOCUMENTO_RECEBIDO', 'DESARQUIVAMENTO':'DESARQUIVAMENTO',
+      'ANALISE':'ANALISE', 'PENDENCIA':'PENDENCIA', 'DIGITACAO':'DIGITACAO',
+      'CONFERENCIA':'CONFERENCIA', 'ASSINATURA':'ASSINATURA',
+      'DEFERIDO':'DEFERIDO', 'AGUARDANDO RETIRADA':'DEFERIDO', 'RETIRADO':'RETIRADO'
+    };
+    return mapa[atual] || ETAPAS.find(e => atual.includes(normalizar(e.label)))?.tipo || '';
+  }
+
+  function workflowHTML(p, eventos = [], marcos = {}) {
+    const executados = new Set(marcos.tiposExecutados || eventos.map(e => e.tipo).filter(Boolean));
+    const atual = tipoEtapaAtual(p);
+    return ETAPAS.map((etapa, i) => {
+      const concluida = executados.has(etapa.tipo);
+      const ehAtual = etapa.tipo === atual;
+      let classe = concluida ? 'concluida' : ehAtual ? 'atual' : 'futura';
+      if (etapa.tipo === 'PASTA_RECEBIDA' && !concluida) classe += ' pendente-registro marco-pasta';
+      if (etapa.tipo === 'PASTA_RECEBIDA' && concluida) classe += ' marco-pasta';
+      const simbolo = concluida ? '✓' : ehAtual ? '●' : i + 1;
+      const titulo = concluida ? 'Evento confirmado pela Timeline' : ehAtual ? 'Etapa atual do processo' : 'Evento não localizado na Timeline';
+      return `<div class="sigee-pep-etapa ${classe}" title="${titulo}">
+        <span>${simbolo}</span><small>${escapar(etapa.label)}</small>
       </div>`;
     }).join('');
   }
@@ -317,7 +343,7 @@
           </div>
         </section>
 
-        <section class="sigee-pep-workflow">${workflowHTML(p, marcos)}</section>
+        <section class="sigee-pep-workflow">${workflowHTML(p, eventos, marcos)}</section>
 
         <div class="sigee-pep-conteudo">
           <main class="sigee-pep-timeline">
@@ -342,7 +368,8 @@
               <h3>Recebimento da pasta</h3>
               <div class="sigee-pep-marco-status">
                 <strong>${marcos.pastaRecebida ? '✓ Pasta recebida' : 'Aguardando registro'}</strong>
-                <span>${marcos.pastaRecebida ? 'Há evidência auditável na linha do tempo.' : 'Nenhum recebimento da pasta foi localizado nos logs, no histórico ou em registro específico do processo.'}</span>
+                <span>${marcos.pastaRecebida ? 'Há evidência auditável na fonte oficial da cronologia.' : 'Nenhum recebimento da pasta foi localizado nas fontes consultadas.'}</span>
+                <small class="sigee-pep-fontes">Fontes verificadas: ${(marcos.fontesConsultadas || ['processos','historico_processos','logs_sigee']).map(escapar).join(' • ')}</small>
               </div>
             </section>
             <section><h3>Prazos</h3>
@@ -360,7 +387,7 @@
                 <div><dt>Conferente</dt><dd>${escapar(valor(p,'conferente','conferente_nome') || 'Não atribuído')}</dd></div>
               </dl>
             </section>
-            <section class="sigee-pep-selo"><b>Registro Institucional</b><span>Eventos auditáveis do SIGEE Enterprise</span><small>RC6.0.4</small></section>
+            <section class="sigee-pep-selo"><b>Registro Institucional</b><span>Eventos auditáveis do SIGEE Enterprise</span><small>RC6.1.0</small></section>
           </aside>
         </div>
       </div>
@@ -436,5 +463,5 @@
     ? document.addEventListener('DOMContentLoaded', renomearBotoes)
     : renomearBotoes();
 
-  console.info('[SIGEE RC6.0.4] Timeline Enterprise aprimorada e Prontuário Digital carregados.');
+  console.info('[SIGEE RC6.1.0] Cronologia consolidada: Timeline oficial, Stepper dinâmico e Prontuário carregados.');
 })();
