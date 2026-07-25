@@ -2,7 +2,7 @@
   'use strict';
 
   const root = global.SIGEE6 = global.SIGEE6 || {};
-  const VERSION = 'RC6.1.1';
+  const VERSION = 'RC6.1.2';
   const texto = (v) => v == null ? '' : String(v).trim();
   const normalizar = (v) => texto(v).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[_\-]+/g, ' ').replace(/\s+/g, ' ').trim().toUpperCase();
 
@@ -148,15 +148,16 @@
   }
 
   async function obterProcesso(processoId, processoBase) {
-    if (processoBase && String(processoBase.id) === String(processoId)) return processoBase;
     const cliente = db();
     if (!cliente) return processoBase || null;
     try {
       const { data, error } = await cliente.from('processos').select('*').eq('id', processoId).maybeSingle();
       if (error) throw error;
-      return data || processoBase || null;
+      // O objeto em memória pode estar desatualizado após uma transição. O registro
+      // do Supabase deve prevalecer, preservando apenas campos locais ausentes.
+      return data ? { ...(processoBase || {}), ...data } : (processoBase || null);
     } catch (error) {
-      console.warn('[SIGEE RC6.1.1] Processo não pôde ser recarregado para a Timeline:', error);
+      console.warn('[SIGEE RC6.1.2] Processo não pôde ser recarregado para a Timeline:', error);
       return processoBase || null;
     }
   }
@@ -169,7 +170,7 @@
       if (error) throw error;
       return Array.isArray(data) ? data.map((r) => normalizarEvento(r, 'historico_processos')) : [];
     } catch (error) {
-      console.info('[SIGEE RC6.1.1] historico_processos indisponível; usando logs auditáveis.');
+      console.info('[SIGEE RC6.1.2] historico_processos indisponível; usando logs auditáveis.');
       return [];
     }
   }
@@ -194,7 +195,36 @@
       if (error) throw error;
       return Array.isArray(data) ? data.map((r) => normalizarEvento(r, 'logs_sigee')) : [];
     } catch (error) {
-      console.warn('[SIGEE RC6.1.1] Logs da Timeline indisponíveis:', error);
+      console.warn('[SIGEE RC6.1.2] Logs da Timeline indisponíveis:', error);
+      return [];
+    }
+  }
+
+
+  async function obterAcoesWorkflow(processo) {
+    const cliente = db();
+    const instanceId = texto(valor(processo, 'workflow_instance_id'));
+    if (!cliente || !instanceId) return [];
+    try {
+      const { data, error } = await cliente.rpc('sigee_workflow_acoes_executadas', {
+        p_workflow_instance_id: instanceId,
+        p_ciclo: Number(valor(processo, 'workflow_ciclo', 'ciclo') || 1)
+      });
+      if (error) throw error;
+      return (Array.isArray(data) ? data : []).map((item, indice) => normalizarEvento({
+        id: item.id || item.historico_id || `${instanceId}-${indice}`,
+        created_at: item.created_at || item.data_hora || item.executado_em || item.updated_at || valor(processo, 'updated_at', 'data_etapa_atual'),
+        acao: item.acao || item.evento,
+        etapa: item.etapa || item.etapa_destino,
+        observacao: item.observacao || item.detalhes,
+        usuario_nome: item.usuario_nome || item.usuario,
+        usuario_email: item.usuario_email,
+        usuario_perfil: item.usuario_perfil || item.perfil,
+        mensagem_codigo: item.mensagem_codigo || item.mensagem,
+        dados: item.dados
+      }, 'workflow_acoes'));
+    } catch (error) {
+      console.info('[SIGEE RC6.1.2] Ações persistidas do workflow indisponíveis para a Timeline:', error);
       return [];
     }
   }
@@ -294,12 +324,13 @@
     const processo = await obterProcesso(processoId, processoBase);
     if (!processo) throw new Error('Processo não localizado para montar a Timeline.');
 
-    const [historico, logs] = await Promise.all([
+    const [historico, logs, acoesWorkflow] = await Promise.all([
       obterHistorico(processoId),
-      obterLogs(processo)
+      obterLogs(processo),
+      obterAcoesWorkflow(processo)
     ]);
 
-    let eventos = removerDuplicados(eventosSinteticos(processo, [...historico, ...logs]));
+    let eventos = removerDuplicados(eventosSinteticos(processo, [...historico, ...logs, ...acoesWorkflow]));
     eventos.sort((a, b) => {
       const da = a.dataHora ? new Date(a.dataHora).getTime() : Number.MAX_SAFE_INTEGER;
       const dbv = b.dataHora ? new Date(b.dataHora).getTime() : Number.MAX_SAFE_INTEGER;
@@ -316,7 +347,7 @@
         eventoPastaRecebida: pastaRecebida,
         documentoRecebido: eventos.some((e) => e.tipo === 'DOCUMENTO_RECEBIDO'),
         tiposExecutados: executados,
-        fontesConsultadas: ['processos', 'historico_processos', 'logs_sigee'],
+        fontesConsultadas: ['processos', 'historico_processos', 'logs_sigee', 'sigee_workflow_acoes_executadas'],
         fonteCronologica: 'SIGEE6.timeline.service'
       },
       carregadoEm: new Date().toISOString(),
