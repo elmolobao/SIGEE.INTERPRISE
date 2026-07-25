@@ -1,4 +1,4 @@
-/* SIGEE Enterprise RC5.1.2 — Centro de Inteligência e Diagnóstico
+/* SIGEE Enterprise RC6.2.1.2 — Governança e Qualidade dos Dados
  * Camada somente leitura. Não altera registros, workflow ou Supabase.
  */
 (function () {
@@ -111,22 +111,22 @@
   }
 
   function ensureUI() {
-    if (document.getElementById('aba-inteligencia')) return;
+    if (document.getElementById('aba-governanca-dados')) return;
     const nav = document.querySelector('.sigee-sidebar-nav');
     const main = document.querySelector('main');
     if (!nav || !main) return;
     const button = document.createElement('button');
-    button.id='menu-inteligencia'; button.type='button';
+    button.id='menu-governanca-dados'; button.type='button';
     button.className='sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer';
-    button.innerHTML='🧠 Centro de Inteligência';
+    button.innerHTML='🛡️ Governança de Dados';
     button.addEventListener('click', open);
     const logs=document.getElementById('menu-logs'); nav.insertBefore(button, logs || null);
     if (!canAccess()) button.classList.add('hidden');
 
     const section=document.createElement('section');
-    section.id='aba-inteligencia'; section.className='hidden sigee-intel';
+    section.id='aba-governanca-dados'; section.className='hidden sigee-intel';
     section.innerHTML=`
-      <header class="sigee-intel-head"><div><span>GOVERNANÇA E QUALIDADE DOS DADOS</span><h1>Centro de Inteligência SIGEE</h1><p>Diagnóstico automático, integridade cadastral e apoio à decisão.</p></div><div><button id="intel-refresh" type="button">↻ Atualizar diagnóstico</button></div></header>
+      <header class="sigee-intel-head"><div><span>GOVERNANÇA E QUALIDADE DOS DADOS</span><h1>Governança de Dados</h1><p>Diagnóstico de integridade cadastral, consistência e qualidade dos registros.</p></div><div><button id="intel-refresh" type="button">↻ Atualizar diagnóstico</button></div></header>
       <div id="intel-summary" class="sigee-intel-summary"></div>
       <div class="sigee-intel-toolbar"><select id="intel-category"><option value="TODOS">Todas as áreas</option><option>Escolas</option><option>Processos</option><option>Usuários</option></select><select id="intel-level"><option value="TODOS">Todas as gravidades</option><option value="critical">Crítico</option><option value="warning">Atenção</option><option value="info">Informativo</option></select><input id="intel-search" placeholder="Pesquisar diagnóstico ou registro..."></div>
       <div id="intel-rules" class="sigee-intel-rules"></div>
@@ -141,9 +141,9 @@
   function open() {
     ensureUI();
     document.querySelectorAll('main > section[id^="aba-"]').forEach(s=>s.classList.add('hidden'));
-    document.getElementById('aba-inteligencia')?.classList.remove('hidden');
+    document.getElementById('aba-governanca-dados')?.classList.remove('hidden');
     document.querySelectorAll('.sigee-menu-item').forEach(b=>b.classList.remove('sigee-menu-ativo'));
-    document.getElementById('menu-inteligencia')?.classList.add('sigee-menu-ativo');
+    document.getElementById('menu-governanca-dados')?.classList.add('sigee-menu-ativo');
     render(false);
   }
 
@@ -164,7 +164,7 @@
     const summary = document.getElementById('intel-summary');
     const list = document.getElementById('intel-rules');
     if (summary) {
-      summary.innerHTML = `<article class="intel-loading-card"><span>Centro de Inteligência</span><strong class="intel-spinner" aria-hidden="true"></strong><small>${esc(mensagem)}</small></article>`;
+      summary.innerHTML = `<article class="intel-loading-card"><span>Governança de Dados</span><strong class="intel-spinner" aria-hidden="true"></strong><small>${esc(mensagem)}</small></article>`;
     }
     if (list) {
       list.innerHTML = `<div class="sigee-intel-loading" role="status" aria-live="polite"><span class="intel-spinner" aria-hidden="true"></span><b>${esc(mensagem)}</b><small>O diagnóstico é carregado sob demanda e pode levar alguns segundos.</small></div>`;
@@ -172,7 +172,7 @@
   }
 
   function mostrarFalha(erro) {
-    console.error('[SIGEE Centro de Inteligência] Falha ao gerar diagnóstico:', erro);
+    console.error('[SIGEE Governança de Dados] Falha ao gerar diagnóstico:', erro);
     const list = document.getElementById('intel-rules');
     if (!list) return;
     list.innerHTML = `<div class="sigee-intel-falha"><b>Não foi possível concluir o diagnóstico.</b><small>${esc(erro?.message || 'Falha inesperada durante a análise.')}</small><button type="button" id="intel-retry">Tentar novamente</button></div>`;
@@ -199,7 +199,7 @@
 
   function render(forcar = false) {
     ensureUI();
-    const section = document.getElementById('aba-inteligencia');
+    const section = document.getElementById('aba-governanca-dados');
     if (!section) return;
 
     const cacheValido = estado.cache && (Date.now() - estado.cacheEm < CACHE_TTL_MS);
@@ -211,7 +211,7 @@
     if (estado.processando) return;
     estado.processando = true;
     const token = ++estado.token;
-    mostrarCarregamento(forcar ? 'Atualizando o diagnóstico...' : 'Carregando o Centro de Inteligência...');
+    mostrarCarregamento(forcar ? 'Atualizando o diagnóstico...' : 'Carregando a Governança de Dados...');
 
     requestAnimationFrame(() => {
       setTimeout(() => {
@@ -231,7 +231,7 @@
   }
 
   function closeIntelligence() {
-    const section = document.getElementById('aba-inteligencia');
+    const section = document.getElementById('aba-governanca-dados');
     if (section) {
       section.classList.add('hidden');
       section.style.removeProperty('display');
@@ -239,7 +239,7 @@
       section.style.removeProperty('opacity');
     }
     document.getElementById('intel-detail')?.classList.add('hidden');
-    document.getElementById('menu-inteligencia')?.classList.remove('sigee-menu-ativo');
+    document.getElementById('menu-governanca-dados')?.classList.remove('sigee-menu-ativo');
   }
 
   function installSafeExit() {
@@ -248,7 +248,7 @@
     nav.dataset.intelSafeExit = '1';
     nav.addEventListener('click', event => {
       const button = event.target.closest('button');
-      if (!button || button.id === 'menu-inteligencia') return;
+      if (!button || button.id === 'menu-governanca-dados') return;
       closeIntelligence();
     }, true);
   }
@@ -256,10 +256,10 @@
   function boot(){
     ensureUI();
     installSafeExit();
-    console.info('[SIGEE] Centro de Inteligência RC5.1.2 pronto para carregamento sob demanda.');
+    console.info('[SIGEE] Governança de Dados RC6.2.1.2 pronta para carregamento sob demanda.');
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
-  window.SIGEE_CENTRO_INTELIGENCIA={open,close:closeIntelligence,render,diagnostics,limparCache:()=>{estado.cache=null;estado.cacheEm=0;}};
+  window.SIGEE_GOVERNANCA_DADOS={open,close:closeIntelligence,render,diagnostics,limparCache:()=>{estado.cache=null;estado.cacheEm=0;}};
 
   // RC5.4.1: reprocessa a visão quando a base completa dos relatórios é carregada.
   window.addEventListener('sigee:processos-atualizados',()=>{try{ if(typeof render==='function') render(); else if(typeof atualizar==='function') atualizar(); }catch(e){console.warn('[SIGEE Relatórios] atualização da visão',e);}});
