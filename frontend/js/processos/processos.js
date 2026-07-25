@@ -2514,3 +2514,123 @@
   window.addEventListener('sigee:perfil-atualizado', instalar);
 })(window);
 
+
+
+/* =====================================================================
+   SIGEE RC6.1.4 — Reparo explícito dos marcos de recebimento
+   - Não altera escola, aluno, NTE, código MEC ou dados cadastrais.
+   - Uso controlado para processos que já avançaram para Análise sem histórico.
+   ===================================================================== */
+(function (window) {
+  'use strict';
+  if (window.SIGEE_REPARO_RC614) return;
+
+  const txt = (v) => v == null ? '' : String(v).trim();
+  const agora = () => new Date().toISOString();
+
+  function cliente() {
+    try { return window.obterSupabaseSIGEE?.() || window.criarClienteSupabaseSIGEE?.() || null; }
+    catch (_) { return null; }
+  }
+
+  function usuario() {
+    return window.SIGEE_SESSION?.getUser?.() || window.usuarioLogado || {};
+  }
+
+  async function repararDocumentoRecebido(processoId, opcoes = {}) {
+    const c = cliente();
+    if (!c) throw new Error('Cliente Supabase indisponível.');
+    const id = Number(processoId);
+    if (!Number.isFinite(id)) throw new Error('ID do processo inválido.');
+
+    const { data: processo, error: erroLeitura } = await c
+      .from('processos')
+      .select('id,codigo_sigee,nte,etapa_atual,workflow_instance_id,workflow_ciclo,ciclo,tecnico_responsavel,ultimo_evento_workflow,ultima_mensagem_workflow,contexto_analise,updated_at')
+      .eq('id', id)
+      .maybeSingle();
+    if (erroLeitura) throw erroLeitura;
+    if (!processo) throw new Error('Processo não localizado.');
+
+    const etapa = txt(processo.etapa_atual).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+    if (etapa !== 'ANALISE') {
+      throw new Error('O reparo só pode ser aplicado a processo já encaminhado para Análise.');
+    }
+
+    const { data: existentes, error: erroHistorico } = await c
+      .from('historico_processos')
+      .select('id,acao')
+      .eq('processo_id', id);
+    if (erroHistorico) throw erroHistorico;
+
+    const acoes = new Set((existentes || []).map(x => txt(x.acao).toUpperCase()));
+    const u = usuario();
+    const instante = opcoes.dataHora || processo.updated_at || agora();
+    const tipoArquivo = txt(opcoes.tipoArquivo) || 'Não informado';
+    const localArquivo = txt(opcoes.localArquivo) || 'Não informado';
+    const ciclo = Math.max(1, Number(processo.workflow_ciclo || processo.ciclo || 1));
+
+    // Atualização parcial: somente campos operacionais já existentes na tabela.
+    const { error: erroUpdate } = await c.from('processos').update({
+      ultimo_evento_workflow: 'DOCUMENTO_RECEBIDO',
+      ultima_mensagem_workflow: '02',
+      contexto_analise: 'DOCUMENTO_RECEBIDO',
+      updated_at: instante
+    }).eq('id', id);
+    if (erroUpdate) throw erroUpdate;
+
+    const base = {
+      processo_id: id,
+      codigo_sigee: processo.codigo_sigee || null,
+      etapa: 'Análise',
+      usuario_nome: u.nome || u.email || 'Sistema SIGEE',
+      usuario_email: u.email || null,
+      usuario_perfil: u.perfil || null,
+      nte: processo.nte || u.nte || null,
+      workflow_instance_id: processo.workflow_instance_id || null,
+      created_at: instante
+    };
+
+    if (opcoes.registrarPasta !== false && !acoes.has('PASTA_RECEBIDA')) {
+      const { error } = await c.from('historico_processos').insert({
+        ...base,
+        acao: 'PASTA_RECEBIDA',
+        observacao: `Pasta/acervo recebido no local ${localArquivo}. Registro recuperado pela rotina RC6.1.4.`,
+        dados: { marco:'PASTA_RECEBIDA', local_arquivo:localArquivo, ciclo, reparo:true }
+      });
+      if (error) throw error;
+    }
+
+    if (!acoes.has('DOCUMENTO_RECEBIDO')) {
+      const { error } = await c.from('historico_processos').insert({
+        ...base,
+        acao: 'DOCUMENTO_RECEBIDO',
+        observacao: `Documento recebido (${tipoArquivo}) no local ${localArquivo}. Registro recuperado pela rotina RC6.1.4.`,
+        dados: { marco:'DOCUMENTO_RECEBIDO', tipo_arquivo:tipoArquivo, local_arquivo:localArquivo, mensagem:'02', ciclo, reparo:true }
+      });
+      if (error) throw error;
+    }
+
+    const { error: erroLog } = await c.from('logs_sigee').insert({
+      usuario_id: u.id || null,
+      nome: u.nome || null,
+      email: u.email || null,
+      acao: 'Marcos de Pasta Recebida e Documento Recebido reparados.',
+      created_at: instante,
+      nte: processo.nte || u.nte || null,
+      perfil: u.perfil || null,
+      detalhes: `Processo ${processo.codigo_sigee || id} | ID ${id} | Reparo RC6.1.4`,
+      modulo: 'processos',
+      processo_id: id,
+      codigo_sigee: processo.codigo_sigee || null,
+      etapa: 'Análise',
+      sessao_id: window.SIGEE_SESSAO_ID || null
+    });
+    if (erroLog) console.warn('[SIGEE RC6.1.4] Log complementar do reparo não foi gravado:', erroLog);
+
+    try { window.SIGEE6?.timelineService?.invalidar?.(id); } catch (_) {}
+    try { window.SIGEE6?.events?.emit?.('workflow:changed', { processoId:id, evento:'DOCUMENTO_RECEBIDO', reparo:true }); } catch (_) {}
+    return { ok:true, processoId:id, pastaRecebida:opcoes.registrarPasta !== false, documentoRecebido:true };
+  }
+
+  window.SIGEE_REPARO_RC614 = Object.freeze({ repararDocumentoRecebido });
+})(window);
