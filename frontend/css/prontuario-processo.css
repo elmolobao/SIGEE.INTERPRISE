@@ -18,3 +18,16 @@ body.sigee-prontuario-aberto { overflow: hidden !important; }
 @media(max-width:1000px){.sigee-pep-cabecalho{grid-template-columns:1fr}.sigee-pep-conteudo{grid-template-columns:1fr}.sigee-pep-lateral{display:grid;grid-template-columns:1fr 1fr}.sigee-pep-grade{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:650px){.sigee-pep-overlay{padding:0}.sigee-pep-shell{border-radius:0}.sigee-pep-topo{padding:0 14px}.sigee-pep-marca span{display:none}.sigee-pep-topo-acoes button:first-child{display:none}.sigee-pep-cabecalho,.sigee-pep-conteudo{padding:16px}.sigee-pep-grade,.sigee-pep-lateral{grid-template-columns:1fr}.sigee-pep-detalhes{grid-template-columns:1fr}}
 @media print{body>*:not(#sigee-prontuario-overlay){display:none!important}.sigee-pep-overlay{position:static;padding:0;background:#fff}.sigee-pep-shell{box-shadow:none;border:0}.sigee-pep-topo-acoes{display:none}.sigee-pep-conteudo{grid-template-columns:1fr 280px}.sigee-pep-evento-card{break-inside:avoid}}
+
+/* RC6.0.3 — marco auditável de recebimento da pasta */
+.sigee-pep-etapa.pendente-registro span{background:#fff7ed;color:#c2410c;border:1px solid #fdba74;box-shadow:0 0 0 4px #ffedd5}
+.sigee-pep-etapa.pendente-registro small{color:#c2410c}
+.sigee-pep-etapa.marco-pasta.concluida span{background:#dcfce7;color:#15803d;border:1px solid #86efac}
+.sigee-pep-marco-pasta{border-left:5px solid #94a3b8!important}
+.sigee-pep-marco-pasta.registrado{border-left-color:#22c55e!important;background:linear-gradient(180deg,#fff,#f0fdf4)!important}
+.sigee-pep-marco-pasta.nao-registrado{border-left-color:#f97316!important;background:linear-gradient(180deg,#fff,#fff7ed)!important}
+.sigee-pep-marco-status strong,.sigee-pep-marco-status span{display:block}
+.sigee-pep-marco-status strong{font-size:13px;color:#172033;margin-bottom:6px}
+.sigee-pep-marco-status span{font-size:10px;line-height:1.45;color:#64748b}
+.sigee-pep-marco-pasta.registrado .sigee-pep-marco-status strong{color:#15803d}
+.sigee-pep-marco-pasta.nao-registrado .sigee-pep-marco-status strong{color:#c2410c}
