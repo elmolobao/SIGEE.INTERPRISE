@@ -3486,77 +3486,128 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         const localArquivo = valor('f00-local');
         const prioridade = valor('f00-prioridade');
         const analista = valor('f00-analista');
+        const prazoFim = new Date(Date.now() + 7 * 86400000).toISOString();
+        const cliente = obterSupabaseSIGEE();
 
-        p.tipo_arquivo = tipoArquivo;
-        p.local_arquivo = localArquivo;
-        p.prioridade = prioridade;
-        p.analista = analista;
-        p.analista_nome = p.analista_nome || analista;
-        p.tecnico_responsavel = analista;
-        p.tecnico_responsavel_nome = analista;
-        p.data_arquivo_recebido = recebidoEmSIGEE;
-        p.ultimo_evento_workflow = 'DOCUMENTO_RECEBIDO';
-        p.ultima_mensagem_workflow = '02';
-        p.contexto_analise = 'DOCUMENTO_RECEBIDO';
-        p.etapa_codigo = 'ANA';
-        p.etapa = 'Análise';
-        p.etapa_atual = 'Análise';
-        p.fase_atual = 'Análise';
-        p.data_etapa_atual = recebidoEmSIGEE;
-        p.prazo_inicio = recebidoEmSIGEE;
-        p.prazo_fim = new Date(Date.now() + 7 * 86400000).toISOString();
-        p.prazo_etapa = 7;
-        p.updated_at = recebidoEmSIGEE;
-        p.workflow_ciclo = cicloAtual;
-        p.ciclo = cicloAtual;
-
-        registrarLog(`Processo [${p.aluno}]: Documento recebido e encaminhado para Análise. Tipo: ${tipoArquivo}. Local: ${localArquivo}. Analista: ${analista}.`);
-
-        try {
-            const clienteHistoricoSIGEE = obterSupabaseSIGEE();
-            if (clienteHistoricoSIGEE) {
-                const { error } = await clienteHistoricoSIGEE.from('historico_processos').insert({
-                    processo_id: p.id,
-                    workflow_instance_id: p.workflow_instance_id || null,
-                    codigo_sigee: p.codigo_sigee || null,
-                    nte: p.nte || usuarioLogado?.nte || null,
-                    etapa: 'Análise',
-                    acao: 'DOCUMENTO_RECEBIDO',
-                    observacao: `Documento recebido (${tipoArquivo}) no local ${localArquivo}. E-mail 02 confirmado. Processo encaminhado para Análise sem reinício do ciclo.`,
-                    usuario_nome: usuarioLogado?.nome || usuarioLogado?.email || null,
-                    usuario_email: usuarioLogado?.email || null,
-                    usuario_perfil: usuarioLogado?.perfil || null,
-                    dados: {
-                        etapa_origem: 'Desarquivamento',
-                        etapa_destino: 'Análise',
-                        mensagem: '02',
-                        ciclo: cicloAtual,
-                        tipo_arquivo: tipoArquivo,
-                        local_arquivo: localArquivo,
-                        prioridade: prioridade,
-                        analista: analista,
-                        prazo_dias: 7,
-                        reinicia_ciclo: false
-                    },
-                    created_at: recebidoEmSIGEE
-                });
-                if (error) console.warn('[SIGEE] Evento Documento Recebido não gravado no histórico:', error);
-                else window.dispatchEvent(new CustomEvent('sigee:arquivo-recebido', { detail: { processoId: p.id } }));
-            }
-        } catch (erroHistoricoSIGEE) {
-            console.warn('[SIGEE] Falha ao registrar Documento Recebido para indicadores:', erroHistoricoSIGEE);
-        }
-
-        try {
-            if(window.SIGEE_Processos && typeof window.SIGEE_Processos.salvar === 'function') await window.SIGEE_Processos.salvar(p);
-            else salvarBancoLocalSIGEE();
-        } catch (erroSalvarDocumento) {
-            console.error('[SIGEE] Falha ao salvar Documento Recebido:', erroSalvarDocumento);
-            alert('Não foi possível concluir o Documento Recebido. Tente novamente.');
+        if (!cliente) {
+            alert('Não foi possível conectar ao banco de dados. A operação não foi realizada.');
             return;
         }
-        fecharModalFluxo('desarquivamento');
-        carregarEContarProcessosHorizontais();
+
+        /*
+         * RC6.1.3 — Persistência segura do Documento Recebido.
+         * Atualiza somente campos operacionais por ID. Não envia escola_id,
+         * escola_nome, aluno_nome, NTE, código MEC ou outros dados cadastrais.
+         */
+        const atualizacaoOperacional = {
+            etapa_atual: 'Análise',
+            etapa_codigo: 'ANA',
+            data_etapa_atual: recebidoEmSIGEE,
+            prazo_etapa: 7,
+            prazo_inicio: recebidoEmSIGEE,
+            prazo_fim: prazoFim,
+            prioridade: prioridade,
+            tecnico_responsavel: analista,
+            workflow_ciclo: cicloAtual,
+            ciclo: cicloAtual,
+            ultimo_evento_workflow: 'DOCUMENTO_RECEBIDO',
+            ultima_mensagem_workflow: '02',
+            contexto_analise: 'DOCUMENTO_RECEBIDO',
+            updated_at: recebidoEmSIGEE
+        };
+
+        setDisabled('f00-submit', true);
+        setTexto('f00-submit', 'Registrando...');
+
+        try {
+            const tabelaProcessos = (window.SIGEE_SUPABASE_TABELAS && window.SIGEE_SUPABASE_TABELAS.processos) || 'processos';
+            const { data: processoConfirmado, error: erroProcesso } = await cliente
+                .from(tabelaProcessos)
+                .update(atualizacaoOperacional)
+                .eq('id', p.id)
+                .select('id,etapa_atual,etapa_codigo,data_etapa_atual,prazo_etapa,prazo_inicio,prazo_fim,prioridade,tecnico_responsavel,workflow_ciclo,ciclo,ultimo_evento_workflow,ultima_mensagem_workflow,contexto_analise,updated_at')
+                .maybeSingle();
+
+            if (erroProcesso) throw erroProcesso;
+            if (!processoConfirmado || String(processoConfirmado.id) !== String(p.id)) {
+                throw new Error('O Supabase não confirmou a atualização do processo correto.');
+            }
+
+            // Atualiza somente os campos operacionais no objeto em memória.
+            Object.assign(p, atualizacaoOperacional, {
+                etapa: 'Análise',
+                fase_atual: 'Análise',
+                tipo_arquivo: tipoArquivo,
+                local_arquivo: localArquivo,
+                analista: analista,
+                analista_nome: analista,
+                tecnico_responsavel_nome: analista,
+                data_arquivo_recebido: recebidoEmSIGEE
+            });
+
+            const historicoPayload = {
+                processo_id: p.id,
+                workflow_instance_id: p.workflow_instance_id || null,
+                codigo_sigee: p.codigo_sigee || null,
+                nte: p.nte || usuarioLogado?.nte || null,
+                etapa: 'Análise',
+                acao: 'DOCUMENTO_RECEBIDO',
+                observacao: `Documento recebido (${tipoArquivo}) no local ${localArquivo}. E-mail 02 confirmado. Processo encaminhado para Análise sem reinício do ciclo.`,
+                usuario_nome: usuarioLogado?.nome || usuarioLogado?.email || null,
+                usuario_email: usuarioLogado?.email || null,
+                usuario_perfil: usuarioLogado?.perfil || null,
+                dados: {
+                    etapa_origem: 'Desarquivamento',
+                    etapa_destino: 'Análise',
+                    mensagem: '02',
+                    ciclo: cicloAtual,
+                    tipo_arquivo: tipoArquivo,
+                    local_arquivo: localArquivo,
+                    prioridade: prioridade,
+                    analista: analista,
+                    prazo_dias: 7,
+                    reinicia_ciclo: false
+                },
+                created_at: recebidoEmSIGEE
+            };
+
+            const { error: erroHistorico } = await cliente
+                .from('historico_processos')
+                .insert(historicoPayload);
+            if (erroHistorico) throw erroHistorico;
+
+            const logPayload = {
+                usuario_id: usuarioLogado?.id || null,
+                nome: usuarioLogado?.nome || null,
+                email: usuarioLogado?.email || null,
+                acao: 'Documento recebido e processo encaminhado para Análise.',
+                created_at: recebidoEmSIGEE,
+                nte: p.nte || usuarioLogado?.nte || null,
+                perfil: usuarioLogado?.perfil || null,
+                detalhes: `Processo ${p.codigo_sigee || p.id} | ID ${p.id} | Tipo ${tipoArquivo} | Local ${localArquivo} | Analista ${analista}`,
+                modulo: 'processos',
+                processo_id: p.id,
+                codigo_sigee: p.codigo_sigee || null,
+                etapa: 'Análise',
+                sessao_id: window.SIGEE_SESSAO_ID || null
+            };
+
+            const { error: erroLog } = await cliente.from('logs_sigee').insert(logPayload);
+            if (erroLog) console.warn('[SIGEE RC6.1.3] Processo e histórico confirmados, mas o log complementar falhou:', erroLog);
+
+            try { salvarBancoLocalSIGEE(); } catch (_) {}
+            try { window.SIGEE6?.timelineService?.invalidar?.(p.id); } catch (_) {}
+            try { window.SIGEE6?.events?.emit?.('workflow:changed', { processoId: p.id, evento: 'DOCUMENTO_RECEBIDO' }); } catch (_) {}
+            window.dispatchEvent(new CustomEvent('sigee:arquivo-recebido', { detail: { processoId: p.id } }));
+
+            fecharModalFluxo('desarquivamento');
+            carregarEContarProcessosHorizontais();
+        } catch (erroSalvarDocumento) {
+            console.error('[SIGEE RC6.1.3] Falha na persistência segura do Documento Recebido:', erroSalvarDocumento);
+            alert('Não foi possível concluir o Documento Recebido. Nenhum dado cadastral do processo foi alterado.');
+            setDisabled('f00-submit', false);
+            setTexto('f00-submit', 'Enviar para Análise');
+        }
     };
 
     // 01 - Análise
