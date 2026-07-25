@@ -1,15 +1,15 @@
 /* =====================================================================
-   SIGEE Enterprise — Sprint 3.5.0
+   SIGEE Enterprise — RC6.0.3
    Prontuário Eletrônico do Processo
    Camada aditiva: não altera regras, transições ou persistência do workflow.
    ===================================================================== */
 (function () {
   'use strict';
-  if (window.__SIGEE_PRONTUARIO_350__) return;
-  window.__SIGEE_PRONTUARIO_350__ = true;
+  if (window.__SIGEE_PRONTUARIO_RC603__) return;
+  window.__SIGEE_PRONTUARIO_RC603__ = true;
 
   const ETAPAS = [
-    'Solicitação', 'Documento Recebido', 'Desarquivamento', 'Análise',
+    'Solicitação', 'Pasta Recebida', 'Documento Recebido', 'Desarquivamento', 'Análise',
     'Pendência', 'Digitação', 'Conferência', 'Assinatura',
     'Aguardando Retirada', 'Retirado'
   ];
@@ -81,7 +81,8 @@
 
   function iconeEvento(ev) {
     const n = normalizar(`${ev.acao || ''} ${ev.etapa || ''}`);
-    if (n.includes('DOCUMENT')) return '📁';
+    if (n.includes('PASTA RECEBIDA') || n.includes('RECEBIMENTO DA PASTA')) return '🗂️';
+    if (n.includes('DOCUMENT')) return '📄';
     if (n.includes('MENSAGEM') || n.includes('COMUNIC')) return '✉️';
     if (n.includes('RETIFIC')) return '🔁';
     if (n.includes('REITER')) return '⏱️';
@@ -114,6 +115,7 @@
   function tituloEvento(ev) {
     const codigo = normalizar(ev?.acao || ev?.evento || '');
     const titulos = {
+      PASTA_RECEBIDA: 'Pasta Recebida',
       DOCUMENTO_RECEBIDO: 'Documento Recebido',
       RETIFICAR_DADOS: 'Retificação de Dados',
       SEND_REITERACAO: 'Reiteração',
@@ -127,6 +129,9 @@
   function descricaoEvento(ev) {
     const codigo = normalizar(ev?.acao || ev?.evento || '');
     const d = dadosEvento(ev);
+    if (codigo === 'PASTA_RECEBIDA' || /PASTA RECEBIDA|RECEBIMENTO DA PASTA/.test(codigo)) {
+      return ev.observacao || 'Recebimento da pasta física ou do acervo registrado no processo.';
+    }
     if (codigo === 'DOCUMENTO_RECEBIDO') {
       return ev.observacao || `Documento recebido${d.tipo_arquivo ? ` (${d.tipo_arquivo})` : ''}. Processo encaminhado para Análise sem reinício do ciclo.`;
     }
@@ -167,9 +172,21 @@
   }
 
   async function carregarEventos(p) {
+    try {
+      if (window.SIGEE6?.timeline?.carregar) {
+        const timeline = await window.SIGEE6.timeline.carregar(p.id, p);
+        return {
+          eventos: Array.isArray(timeline?.eventos) ? timeline.eventos : [],
+          marcos: timeline?.marcos || { pastaRecebida:false, documentoRecebido:false },
+          origem: 'SIGEE6.timeline'
+        };
+      }
+    } catch (e) {
+      console.warn('[SIGEE RC6.0.3] Timeline Enterprise indisponível; aplicando leitura compatível:', e);
+    }
+
     const eventos = [];
     const cliente = supabase();
-
     if (cliente && p?.id != null) {
       try {
         const { data, error } = await cliente
@@ -192,26 +209,20 @@
         usuario_nome: valor(p, 'criado_por', 'responsavel') || 'Sistema SIGEE',
         observacao: 'Registro inicial do processo.'
       });
-
-      const atual = etapaAtual(p);
-      if (normalizar(atual) !== 'SOLICITACAO') {
-        eventos.push({
-          created_at: valor(p, 'data_etapa_atual', 'updated_at') || new Date().toISOString(),
-          acao: `Processo em ${atual}`,
-          etapa: atual,
-          usuario_nome: valor(p, 'tecnico_responsavel', 'responsavel', 'analista') || 'Responsável não informado',
-          observacao: 'Evento reconstruído a partir do estado atual.'
-        });
-      }
     }
-    return eventos;
+
+    const pastaRecebida = eventos.some(ev => /PASTA (FISICA )?RECEBIDA|RECEBIMENTO (DA|DE) PASTA|ACERVO (FISICO )?RECEBIDO/i.test(`${ev.acao || ''} ${ev.etapa || ''} ${ev.observacao || ''} ${ev.detalhes || ''}`));
+    return { eventos, marcos:{ pastaRecebida, documentoRecebido:eventos.some(ev => /DOCUMENTO RECEBIDO/i.test(`${ev.acao || ''} ${ev.etapa || ''}`)) }, origem:'compatibilidade' };
   }
 
-  function workflowHTML(p) {
+  function workflowHTML(p, marcos = {}) {
     const atual = normalizar(etapaAtual(p));
     const indiceAtual = Math.max(0, ETAPAS.findIndex(e => atual.includes(normalizar(e))));
     return ETAPAS.map((e, i) => {
-      const classe = i < indiceAtual ? 'concluida' : i === indiceAtual ? 'atual' : 'futura';
+      let classe = i < indiceAtual ? 'concluida' : i === indiceAtual ? 'atual' : 'futura';
+      if (normalizar(e) === 'PASTA RECEBIDA') {
+        classe = marcos.pastaRecebida ? 'concluida marco-pasta' : 'pendente-registro marco-pasta';
+      }
       return `<div class="sigee-pep-etapa ${classe}">
         <span>${i < indiceAtual ? '✓' : i + 1}</span><small>${escapar(e)}</small>
       </div>`;
@@ -246,7 +257,7 @@
     return eventos.filter(e => /DOCUMENT|PASTA|ATA|CADERNETA|PARECER|BOLETIM/i.test(`${e.acao || ''} ${e.observacao || ''} ${e.tipo_arquivo || ''}`));
   }
 
-  function modalHTML(p, eventos) {
+  function modalHTML(p, eventos, marcos = {}) {
     const inicio = valor(p, 'created_at', 'criado_em', 'data_solicitacao', 'data_abertura', 'data_inicio_desarquivamento');
     const tempoTotal = diasEntre(inicio);
     const etapa = etapaAtual(p);
@@ -280,7 +291,7 @@
           </div>
         </section>
 
-        <section class="sigee-pep-workflow">${workflowHTML(p)}</section>
+        <section class="sigee-pep-workflow">${workflowHTML(p, marcos)}</section>
 
         <div class="sigee-pep-conteudo">
           <main class="sigee-pep-timeline">
@@ -295,6 +306,13 @@
                 <div><strong>${eventos.length}</strong><span>eventos</span></div>
                 <div><strong>${comunicacoes.length}</strong><span>comunicações</span></div>
                 <div><strong>${documentos.length}</strong><span>documentos</span></div>
+              </div>
+            </section>
+            <section class="sigee-pep-marco-pasta ${marcos.pastaRecebida ? 'registrado' : 'nao-registrado'}">
+              <h3>Recebimento da pasta</h3>
+              <div class="sigee-pep-marco-status">
+                <strong>${marcos.pastaRecebida ? '✓ Pasta recebida' : '⚠ Recebimento não registrado'}</strong>
+                <span>${marcos.pastaRecebida ? 'Há evidência auditável na Timeline.' : 'O SIGEE não localizará automaticamente esse marco sem log, histórico ou registro específico.'}</span>
               </div>
             </section>
             <section><h3>Prazos</h3>
@@ -333,8 +351,9 @@
     document.body.appendChild(carregando);
     document.body.classList.add('sigee-prontuario-aberto');
 
-    const eventos = await carregarEventos(p);
-    carregando.outerHTML = modalHTML(p, eventos);
+    const timeline = await carregarEventos(p);
+    const eventos = timeline.eventos || [];
+    carregando.outerHTML = modalHTML(p, eventos, timeline.marcos || {});
 
     const overlay = document.getElementById('sigee-prontuario-overlay');
     overlay?.querySelector('[data-pep-fechar]')?.addEventListener('click', fechar);
@@ -387,5 +406,5 @@
     ? document.addEventListener('DOMContentLoaded', renomearBotoes)
     : renomearBotoes();
 
-  console.info('[SIGEE] Prontuário Eletrônico 2.3.1 carregado.');
+  console.info('[SIGEE RC6.0.3] Timeline Enterprise e Prontuário Digital carregados.');
 })();
