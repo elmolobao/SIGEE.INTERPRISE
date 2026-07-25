@@ -64,9 +64,27 @@
     const niveis={CRITICO:0,ALTO:0,MEDIO:0,NORMAL:0};
     riscos.forEach(r=>{if(niveis[r.nivel]!=null)niveis[r.nivel]++;});
     const gargalo=backlogOrdenado[0]||null;
+    const riscosOrdenados=riscos.sort((a,b)=>b.score-a.score||((a.diasRestantes??9999)-(b.diasRestantes??9999))||((b.tempoParado??0)-(a.tempoParado??0)));
+    const filaPrioritaria=riscosOrdenados.filter(r=>['CRITICO','ALTO'].includes(r.nivel)).slice(0,50);
+    const semResponsavel=riscosOrdenados.filter(r=>r.responsavel==='Sem responsável');
+    const territorialMap={};
+    for(const r of riscosOrdenados){
+      const bruto=txt(r.nte||'NTE não informado');
+      const m=bruto.match(/(?:NTE\s*[-:]?\s*)?(\d{1,2})/i);
+      const nte=m?`NTE-${String(Number(m[1])).padStart(2,'0')}`:(bruto||'NTE não informado').toUpperCase();
+      const item=territorialMap[nte]||(territorialMap[nte]={nte,total:0,criticos:0,altos:0,medios:0,normais:0,semResponsavel:0,score:0});
+      item.total++;
+      if(r.nivel==='CRITICO')item.criticos++;
+      else if(r.nivel==='ALTO')item.altos++;
+      else if(r.nivel==='MEDIO')item.medios++;
+      else item.normais++;
+      if(r.responsavel==='Sem responsável')item.semResponsavel++;
+      item.score+=r.score||0;
+    }
+    const territorial=Object.values(territorialMap).map(x=>({...x,indiceRisco:x.total?Math.round((x.criticos*4+x.altos*3+x.medios*2)/x.total*25):0})).sort((a,b)=>b.indiceRisco-a.indiceRisco||b.criticos-a.criticos||b.total-a.total);
     return {
       totalAtivos:ativos.length,totalProcessos:todos.length,ativos,backlog,backlogOrdenado,gargalo,
-      riscos:riscos.sort((a,b)=>b.score-a.score),niveisRisco:niveis,
+      riscos:riscosOrdenados,niveisRisco:niveis,filaPrioritaria,semResponsavel,territorial,
       emRisco:niveis.CRITICO+niveis.ALTO,criticos:niveis.CRITICO,vencidos,vencem3,
       dentroSla:avaliados?Math.round(dentro/avaliados*100):null,avaliados,
       tempoMedioDias:ativos.length?totalDias/ativos.length:0,
@@ -75,5 +93,5 @@
       tendencias:{d7:tendencia(todos,7),d30:tendencia(todos,30),d90:tendencia(todos,90)}
     };
   }
-  NS.metrics=Object.freeze({calcular,risco,responsavel,SLAS,version:'RC6.2.2'});
+  NS.metrics=Object.freeze({calcular,risco,responsavel,SLAS,version:'RC6.3.0'});
 })(window);
