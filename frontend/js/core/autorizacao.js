@@ -26,7 +26,7 @@ const MENU = Object.freeze([
   { id:'menu-catalogo-escolas', rota:'escolas', icone:'🏫', rotulo:'Catálogo de Escolas', capacidade:'escolas.visualizar' },
   { id:'menu-relatorios', rota:'relatorios', icone:'📑', rotulo:'Relatórios', capacidade:'relatorios.visualizar', perfis:['Master','SEC','Gestor','Administrador','Técnico','Atendimento','Estagiário','Consulta'] },
   { id:'menu-usuarios', rota:'usuarios', icone:'👥', rotulo:'Usuários do NTE', capacidade:['usuarios.gerenciar_global','usuarios.gerenciar_nte'], perfis:['Master','Administrador'] },
-  { id:'menu-centro-inteligencia', rota:'centro-inteligencia', icone:'🧠', rotulo:'Centro de Inteligência', capacidade:'indicadores.visualizar', perfis:['Master','SEC'] },
+  { id:'menu-centro-inteligencia', rota:'centro-inteligencia', icone:'🧠', rotulo:'Centro de Inteligência Operacional', capacidade:'indicadores.visualizar', perfis:['Master','Gestor','Administrador'] },
   { id:'menu-sala-situacao', rota:'sala-situacao', icone:'📡', rotulo:'Sala de Situação', capacidade:'indicadores.visualizar', perfis:['Master','SEC','Gestor'] },
   { id:'menu-logs', rota:'logs', icone:'⚙️', rotulo:'Configurações', capacidade:'logs.visualizar', perfis:['Master'] },
   { id:'menu-migracao-historica', rota:'migracao-historica', icone:'🧬', rotulo:'Migração Histórica', capacidade:'migracao.executar', perfis:['Master'] }
@@ -207,7 +207,7 @@ function garantirRotaVisivel(rota){
   const mapa={
     painel:'aba-painel', processos:'aba-processos', escolas:'aba-escolas',
     usuarios:'aba-usuarios', logs:'aba-logs', relatorios:'aba-painel',
-    'sala-situacao':'aba-sala-situacao', 'centro-inteligencia':'aba-centro-inteligencia',
+    'sala-situacao':'aba-sala-situacao', 'centro-inteligencia':'aba-painel',
     'migracao-historica':'aba-migracao-historica'
   };
   const id=mapa[rota];
@@ -268,6 +268,15 @@ function navegarPara(rota, opcoes={}){
     window.atualizarDashboardPeloMotorSIGEE?.();
     queueMicrotask(renderizarMenu);
     setTimeout(aplicarControlesDaInterface, 30);
+    return true;
+  }
+
+  if (rota === 'centro-inteligencia') {
+    garantirRotaVisivel('centro-inteligencia');
+    window.carregarDadosDashboardReal?.();
+    window.atualizarDashboardPeloMotorSIGEE?.();
+    queueMicrotask(renderizarMenu);
+    setTimeout(() => window.SIGEE_CIO_WIDGET?.abrir?.(), 80);
     return true;
   }
 
