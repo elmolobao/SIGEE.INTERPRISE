@@ -1,4 +1,4 @@
-/* SIGEE Enterprise RC6.4.0 — Interface da Sala de Situação 2.0 */
+/* SIGEE Enterprise RC6.4.0.1 — Interface da Sala de Situação 2.0 */
 (function(){
  'use strict';
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -14,6 +14,6 @@
  c.querySelectorAll('[data-nte]').forEach(b=>b.onclick=()=>{const t=a.territorios.find(x=>x.codigo===b.dataset.nte);listaModal('Situação '+b.dataset.nte,t?.processos||[]);});
  c.querySelector('[data-fila]')?.addEventListener('click',()=>listaModal('Fila prioritária',a.fila));c.querySelectorAll('.sala2-queue [data-id]').forEach(b=>b.onclick=()=>listaModal('Processo prioritário',a.fila.filter(x=>String(x.id)===b.dataset.id)));
  }
- async function carregar(){renderShell();try{const payload=await window.SIGEE_SALA_DATA.carregar();state.payload=payload;state.analise=window.SIGEE_SALA_ENGINE.analisar(payload.processos);render();console.info('[SIGEE Sala 2.0]',{total:payload.totalCarregado,escopo:payload.processos.length,fonte:payload.fonte});}catch(e){console.error(e);const c=document.getElementById('sala2-content');if(c)c.innerHTML='<div class="sala2-error">Falha ao carregar a Sala de Situação 2.0.<br><small>'+esc(e.message)+'</small></div>';}}
- window.SIGEE_SALA_2={version:'RC6.4.0',abrir:carregar,atualizar:carregar};
+ async function carregar(){renderShell();try{if(!window.SIGEE_SALA_DATA?.carregar)throw new Error('Serviço de dados não carregado.');if(!window.SIGEE_SALA_ENGINE?.analisar)throw new Error('Motor analítico não carregado.');const payload=await window.SIGEE_SALA_DATA.carregar();state.payload=payload;state.analise=window.SIGEE_SALA_ENGINE.analisar(payload.processos);render();console.info('[SIGEE Sala 2.0]',{total:payload.totalCarregado,escopo:payload.processos.length,fonte:payload.fonte});}catch(e){console.error(e);const c=document.getElementById('sala2-content');if(c)c.innerHTML='<div class="sala2-error">Falha ao carregar a Sala de Situação 2.0.<br><small>'+esc(e.message)+'</small></div>';}}
+ window.SIGEE_SALA_2={version:'RC6.4.0.1',abrir:carregar,atualizar:carregar};
 })();
