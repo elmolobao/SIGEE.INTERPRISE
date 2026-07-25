@@ -1,4 +1,4 @@
-/* SIGEE Enterprise — Sprint 2.3.1 — Prontuário Eletrônico */
+/* SIGEE Enterprise — RC6.0.4 — Prontuário Eletrônico */
 body.sigee-prontuario-aberto { overflow: hidden !important; }
 .sigee-btn-prontuario { background:linear-gradient(135deg,#075985,#0369a1)!important;color:#fff!important;border:1px solid #38bdf8!important; }
 .sigee-pep-overlay{position:fixed;inset:0;z-index:999999;background:rgba(15,23,42,.55);backdrop-filter:blur(8px);padding:18px;overflow:auto;color:#172033;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
@@ -31,3 +31,19 @@ body.sigee-prontuario-aberto { overflow: hidden !important; }
 .sigee-pep-marco-status span{font-size:10px;line-height:1.45;color:#64748b}
 .sigee-pep-marco-pasta.registrado .sigee-pep-marco-status strong{color:#15803d}
 .sigee-pep-marco-pasta.nao-registrado .sigee-pep-marco-status strong{color:#c2410c}
+
+
+/* RC6.0.4 — enriquecimento executivo e consolidação visual */
+.sigee-pep-grade{grid-template-columns:repeat(4,1fr)}
+.sigee-pep-evento-card header>div{min-width:0}
+.sigee-pep-evento-card h3{font-size:16px}
+.sigee-pep-evento-card>p{font-size:12.5px;line-height:1.55;color:#526176}
+.sigee-pep-marcador{font-size:20px;background:#f8fbff}
+.sigee-pep-detalhes div{border:1px solid #edf2f7}
+.sigee-pep-kpis-executivos{margin-bottom:12px}
+.sigee-pep-resumo-executivo dd{max-width:175px}
+.sigee-pep-resumo-executivo .risco-critico{color:#b91c1c}
+.sigee-pep-resumo-executivo .risco-atencao{color:#b45309}
+.sigee-pep-resumo-executivo .risco-normal{color:#15803d}
+.sigee-pep-vazio{padding:32px;border:1px dashed #cbd5e1;border-radius:14px;text-align:center;color:#64748b;background:#f8fafc}
+@media(max-width:1150px){.sigee-pep-grade{grid-template-columns:repeat(2,1fr)}}
