@@ -81,7 +81,7 @@
       if(r.responsavel==='Sem responsável')item.semResponsavel++;
       item.score+=r.score||0;
     }
-    const territorial=Object.values(territorialMap).map(x=>({...x,indiceRisco:x.total?Math.round((x.criticos*4+x.altos*3+x.medios*2)/x.total*25):0})).sort((a,b)=>b.indiceRisco-a.indiceRisco||b.criticos-a.criticos||b.total-a.total);
+    const territorial=Object.values(territorialMap).map(x=>({...x,indiceRisco:x.total?Math.round((x.criticos*4+x.altos*3+x.medios*2)/x.total*25):0})).sort((a,b)=>b.criticos-a.criticos||b.indiceRisco-a.indiceRisco||b.total-a.total);
     return {
       totalAtivos:ativos.length,totalProcessos:todos.length,ativos,backlog,backlogOrdenado,gargalo,
       riscos:riscosOrdenados,niveisRisco:niveis,filaPrioritaria,semResponsavel,territorial,
@@ -93,5 +93,5 @@
       tendencias:{d7:tendencia(todos,7),d30:tendencia(todos,30),d90:tendencia(todos,90)}
     };
   }
-  NS.metrics=Object.freeze({calcular,risco,responsavel,SLAS,version:'RC6.3.0'});
+  NS.metrics=Object.freeze({calcular,risco,responsavel,SLAS,version:'RC6.3.1'});
 })(window);
