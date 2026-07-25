@@ -1,0 +1,282 @@
+{
+  "summary": {
+    "js_files": 118,
+    "script_tags": 57,
+    "loaded_local_scripts": 52,
+    "all_rpc_calls": 7,
+    "all_select_star": 66,
+    "loaded_select_star": 28,
+    "all_listeners": 629,
+    "loaded_listeners": 294,
+    "all_timers": 509,
+    "loaded_timers": 220,
+    "duplicate_basenames": 27
+  },
+  "rpc": [
+    [
+      "frontend/js/processos/workflow-externo.js",
+      265,
+      "const response = await client.rpc('sigee_workflow_acoes_executadas', {"
+    ],
+    [
+      "frontend/js/processos/workflow-externo.js",
+      514,
+      "const response = await client.rpc('sigee_registrar_acao_workflow', {"
+    ],
+    [
+      "frontend/js/processos/processos.js",
+      1447,
+      "const {data,error}=await c.rpc('sigee_processos_contadores',{p_nte:nteValor||null,p_busca:busca||null});"
+    ],
+    [
+      "frontend/js/migracao/motor-persistencia.js",
+      24,
+      "const {data,error}=await c.rpc(nome,{p_payload:payload});"
+    ],
+    [
+      "frontend/js/analytics/dashboard.js",
+      160,
+      "const resposta=await c.rpc('sigee_dashboard_snapshot',{p_nte:nte||null,p_data_inicio:p.inicioIso,p_data_fim:p.fimIso});"
+    ],
+    [
+      "frontend/js/workflow/workflow-externo.js",
+      265,
+      "const response = await client.rpc('sigee_workflow_acoes_executadas', {"
+    ],
+    [
+      "frontend/js/workflow/workflow-externo.js",
+      477,
+      "const response = await client.rpc('sigee_registrar_acao_workflow', {"
+    ]
+  ],
+  "loaded_select_star": [
+    [
+      "frontend/js/escolas/escolas.js",
+      547,
+      "let query = client.from(tabelaEscolas()).select('*').limit(1);"
+    ],
+    [
+      "frontend/js/app/app.js",
+      415,
+      ".select('*')"
+    ],
+    [
+      "frontend/js/app/app.js",
+      421,
+      ".select('*')"
+    ],
+    [
+      "frontend/js/app/app.js",
+      1037,
+      "const { data, error } = await client.from(SIGEE_SUPABASE_TABELAS.usuarios).select('*').limit(500);"
+    ],
+    [
+      "frontend/js/app/app.js",
+      4432,
+      "const {data, error} = await client.from(nomeTabela).select('*').limit(10000);"
+    ],
+    [
+      "frontend/js/app/app.js",
+      6021,
+      "const {data,error}=await c.from(table).select('*').range(from,to);"
+    ],
+    [
+      "frontend/js/app/app.js",
+      7865,
+      "let { data, error } = await c.from(T.usuarios).select('*').eq('email', email).maybeSingle();"
+    ],
+    [
+      "frontend/js/app/app.js",
+      8148,
+      "if(id){ resp = await c.from(T.usuarios).update(payload).eq('id', Number(id)).select('*').maybeSingle(); }"
+    ],
+    [
+      "frontend/js/app/app.js",
+      8149,
+      "else { resp = await c.from(T.usuarios).insert(payload).select('*').maybeSingle(); }"
+    ],
+    [
+      "frontend/js/core/login-controller.js",
+      50,
+      ".select('*')"
+    ],
+    [
+      "frontend/js/processos/processos.js",
+      1658,
+      "async function carregarPendencias(id){const c=cliente();if(!c)return [];try{const {data,error}=await c.from('processo_pendencias').select('*').eq('processo_id',id).order('id',{ascending:true});if(error)throw error;return"
+    ],
+    [
+      "frontend/js/processos/processos.js",
+      1843,
+      "async function abrirHistorico(id,retorno){const p=processo(id);if(!p)return;const voltar=retorno||contextoRetorno;const el=modal(`📜 Histórico — ${escapar(p.codigo_sigee||p.id)}`,'<div class=\"sigee-loading33\">Carregando h"
+    ],
+    [
+      "frontend/js/processos/processos.js",
+      1967,
+      "const {data,error}=await c.from('usuarios_sigee').select('*');"
+    ],
+    [
+      "frontend/js/usuarios/usuarios.js",
+      488,
+      "const { data } = await client.from(TABELA_USUARIOS_SIGEE).select('*').eq('id', id).maybeSingle();"
+    ],
+    [
+      "frontend/js/usuarios/usuarios.js",
+      493,
+      "const { data } = await client.from(TABELA_USUARIOS_SIGEE).select('*').eq('email', low(email)).maybeSingle();"
+    ],
+    [
+      "frontend/js/usuarios/usuarios.js",
+      516,
+      ".select('*')"
+    ],
+    [
+      "frontend/js/usuarios/usuarios.js",
+      525,
+      ".select('*')"
+    ],
+    [
+      "frontend/js/usuarios/usuarios.js",
+      745,
+      "const { data, error } = await c.from(TABELA).select('*').order('nome', { ascending:true });"
+    ],
+    [
+      "frontend/js/usuarios/usuarios.js",
+      772,
+      "const { data: existente, error: errConsulta } = await c.from(TABELA).select('*').eq('email', p.email).maybeSingle();"
+    ],
+    [
+      "frontend/js/usuarios/usuarios.js",
+      776,
+      "const { data, error } = await c.from(TABELA).insert(p).select('*').single();"
+    ],
+    [
+      "frontend/js/usuarios/usuarios.js",
+      781,
+      "const { data, error } = await q.select('*').single();"
+    ],
+    [
+      "frontend/js/usuarios/usuarios.js",
+      1163,
+      "const { data, error } = await c.from(TABELA).select('*').order('nome', { ascending: true });"
+    ],
+    [
+      "frontend/js/processos/prontuario-processo.js",
+      177,
+      ".select('*')"
+    ],
+    [
+      "frontend/js/core/credenciais.js",
+      44,
+      "const { data, error } = await c.from(TABELA_USUARIOS).select('*').ilike('email', email).limit(1).maybeSingle();"
+    ],
+    [
+      "frontend/js/core/credenciais.js",
+      147,
+      ".select('*')"
+    ],
+    [
+      "frontend/js/admin/controle-acesso-ntes.js",
+      36,
+      "const {data,error}=await c.from(TABELA).select('*').eq('nte',chave).maybeSingle();"
+    ],
+    [
+      "frontend/js/admin/controle-acesso-ntes.js",
+      47,
+      "const {data,error}=await c.from(tabela).select('*').ilike('email',texto(email).toLowerCase()).limit(1).maybeSingle();"
+    ],
+    [
+      "frontend/js/admin/controle-acesso-ntes.js",
+      143,
+      "c.from(TABELA).select('*')"
+    ]
+  ],
+  "duplicate_basenames": [
+    "workflow-components.js",
+    "app.js",
+    "importacao.js",
+    "logs.js",
+    "workflow-design-system.js",
+    "analytics-engine.js",
+    "app-core.js",
+    "fluxo-operacional.js",
+    "sigee_footer_institucional.js",
+    "prontuario-processo.js",
+    "exportacao.js",
+    "sala-situacao.js",
+    "migracao-historica.js",
+    "auth.js",
+    "permissoes.js",
+    "centro-inteligencia.js",
+    "processos.js",
+    "config.js",
+    "sigee-acabamento-visual.js",
+    "diagnostico-seguro.js",
+    "supabase.js",
+    "escolas.js",
+    "usuarios.js",
+    "municipios-territorios.js",
+    "dashboard-executivo.js",
+    "workflow-externo.js",
+    "login-controller.js"
+  ],
+  "scripts": [
+    "https://unpkg.com/@tailwindcss/browser@4",
+    "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js",
+    "https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js",
+    "https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js",
+    "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2",
+    "js/core/perfis.js?v=RC4.7.0",
+    "js/core/config.js?v=RC4.2.0",
+    "js/core/supabase.js",
+    "js/core/session.js?v=RC4.2.1",
+    "js/core/permissoes.js?v=RC4.7.0",
+    "js/core/escopo.js?v=RC5.0.0",
+    "js/core/dados-escopo.js?v=RC5.0.0",
+    "js/core/mensagens-config.js",
+    "js/core/pop-config.js",
+    "js/core/workflow.event.manager.js",
+    "js/core/workflow.state.manager.js?v=0.9.5.1",
+    "js/core/workflow.clock.js",
+    "js/core/workflow.timer.manager.js",
+    "js/core/workflow-engine.js?v=0.9.5.1",
+    "js/core/transition-manager.js?v=0.9.5.1",
+    "js/core/workflow.clock.panel.js",
+    "js/analytics/analytics-engine.js?v=2.4.3C",
+    "js/escolas/municipios-territorios.js?v=RC4.5.0",
+    "js/escolas/escolas.js?v=RC4.5.18",
+    "js/escolas/importacao.js",
+    "js/escolas/exportacao.js",
+    "js/processos/fluxo-operacional.js",
+    "js/core/stability-manager.js?v=RC4.3.1",
+    "js/core/app-core.js",
+    "js/components/WorkflowActionModal.js?v=RC4.3.3",
+    "js/core/normalizacao-nte.js?v=RC5.2.0",
+    "js/app/app.js?v=RC5.7.3",
+    "js/core/login-controller.js?v=RC5.3.0",
+    "js/processos/processos.js?v=RC5.1.1",
+    "js/migracao/migracao-historica.js?v=M4.2.0",
+    "js/migracao/motor-persistencia.js?v=M5.2.2",
+    "js/migracao/importacao-oficial.js?v=M5.2.2",
+    "js/migracao/migracao-importacao-oficial.js?v=M5.2.2",
+    "js/processos/workflow-externo.js?v=RC4.5.29",
+    "js/ui/sigee_footer_institucional.js?v=RC4.2.0",
+    "js/usuarios/logs.js?v=1.0.2.002",
+    "js/usuarios/usuarios.js?v=RC4.5.0",
+    "js/processos/prontuario-processo.js?v=RC4.3.2",
+    "js/ui/sigee-acabamento-visual.js?v=RC4.3.2",
+    "js/analytics/sala-situacao.js?v=RC4.6.2",
+    "js/admin/diagnostico-seguro.js?v=2.4.4A",
+    "js/ui/workflow-design-system.js?v=RC4.3.2",
+    "js/ui/workflow-components.js?v=RC4.3.2",
+    "js/analytics/dashboard-executivo.js?v=RC5.5.3",
+    "js/analytics/centro-inteligencia.js?v=RC5.1.2",
+    "js/core/credenciais.js?v=RC4.5.0",
+    "js/processos/duplicidade-nova-solicitacao.js?v=RC4.6.0",
+    "js/processos/nova-solicitacao-controller.js?v=RC4.5.30",
+    "js/processos/central-processos-controller.js?v=RC4.6.1",
+    "js/admin/controle-acesso-ntes.js?v=RC4.6.0",
+    "js/core/autorizacao.js?v=RC5.3.0",
+    "js/analytics/dashboard.js?v=RC5.7.3"
+  ]
+}
