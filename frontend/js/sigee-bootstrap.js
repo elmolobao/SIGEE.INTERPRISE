@@ -1,7 +1,7 @@
 (function (global) {
   'use strict';
   if (global.__SIGEE6_BOOTSTRAP__) return;
-  global.__SIGEE6_BOOTSTRAP__ = { version: 'RC6.0.3', state: 'loading', loaded: [] };
+  global.__SIGEE6_BOOTSTRAP__ = { version: 'RC6.0.4', state: 'loading', loaded: [] };
 
   const base = 'js/';
   const modules = [
@@ -17,7 +17,7 @@
   function load(src) {
     return new Promise((resolve, reject) => {
       const script = document.createElement('script');
-      script.src = `${base}${src}?v=RC6.0.3`;
+      script.src = `${base}${src}?v=RC6.0.4`;
       script.async = false;
       script.onload = () => {
         global.__SIGEE6_BOOTSTRAP__.loaded.push(src);
@@ -32,14 +32,14 @@
     try {
       for (const module of modules) await load(module);
       global.__SIGEE6_BOOTSTRAP__.state = 'ready';
-      console.info('[SIGEE RC6.0.3] Foundation consolidada carregada por bootstrap único.');
+      console.info('[SIGEE RC6.0.4] Foundation consolidada carregada por bootstrap único.');
       global.dispatchEvent(new CustomEvent('sigee6:bootstrap-ready', {
-        detail: { version: 'RC6.0.3', modules: modules.slice() }
+        detail: { version: 'RC6.0.4', modules: modules.slice() }
       }));
     } catch (error) {
       global.__SIGEE6_BOOTSTRAP__.state = 'error';
       global.__SIGEE6_BOOTSTRAP__.error = error.message;
-      console.error('[SIGEE RC6.0.3] Falha no bootstrap:', error);
+      console.error('[SIGEE RC6.0.4] Falha no bootstrap:', error);
     }
   }
 
