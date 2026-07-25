@@ -49,3 +49,30 @@
 .sigee-cio-territorial>button:hover{transform:translateY(-1px)}
 .sigee-cio-territorial>button.territorio-normal{border-left-color:#22c55e}.sigee-cio-territorial>button.territorio-medio{border-left-color:#eab308}.sigee-cio-territorial>button.territorio-alto{border-left-color:#f97316}.sigee-cio-territorial>button.territorio-critico{border-left-color:#ef4444}
 .sigee-cio-territorial>button.territorio-normal i{background:#14532d;color:#dcfce7}.sigee-cio-territorial>button.territorio-medio i{background:#713f12;color:#fef9c3}.sigee-cio-territorial>button.territorio-alto i{background:#7c2d12;color:#ffedd5}.sigee-cio-territorial>button.territorio-critico i{background:#7f1d1d;color:#fee2e2}
+
+/* RC6.3.1.1 — hotfix visual do monitoramento territorial */
+.sigee-cio-territorial-section{overflow:hidden;padding:0 14px 14px}
+.sigee-cio-territorial-section>.sigee-cio-section-title{
+  margin:0 -14px 10px;padding:12px 14px;
+  background:linear-gradient(135deg,#073b66,#0b5a88);
+  border-bottom:1px solid rgba(125,211,252,.32);
+  align-items:center
+}
+.sigee-cio-territorial-section>.sigee-cio-section-title h3{margin:0;color:#fff;font-size:14px;font-weight:900}
+.sigee-cio-territorial-section .sigee-cio-legenda-titulo{color:#dbeafe;font-size:10px;font-weight:600}
+.sigee-cio-sem-resp-badge{
+  display:flex;align-items:center;gap:7px;border:1px solid rgba(186,230,253,.55)!important;
+  border-radius:999px!important;padding:6px 10px!important;background:#e0f2fe!important;
+  color:#075985!important;box-shadow:0 4px 12px rgba(2,132,199,.16);white-space:nowrap
+}
+.sigee-cio-sem-resp-badge b{font-size:12px;color:#075985}
+.sigee-cio-sem-resp-badge span{font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.03em;color:#0c4a6e}
+.sigee-cio-indice-label{margin:0 0 6px;color:#e0f2fe;font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.09em}
+.sigee-cio-risco-legenda{margin:0 0 10px}
+.sigee-cio-territorial i{position:relative}
+.sigee-cio-territorial i::after{
+  content:'risco';position:absolute;top:36px;left:50%;transform:translateX(-50%);
+  color:#bae6fd;font-size:7px;font-weight:900;text-transform:uppercase;letter-spacing:.04em
+}
+.sigee-cio-territorial>button{padding-bottom:15px}
+@media(max-width:850px){.sigee-cio-sem-resp-badge{align-self:flex-start}}
