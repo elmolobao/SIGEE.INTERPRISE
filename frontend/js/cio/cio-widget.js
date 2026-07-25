@@ -1,12 +1,25 @@
 (function(global, document){
   'use strict';
-  if(global.SIGEE_CIO_WIDGET?.version==='RC6.2.1.1')return;
+  if(global.SIGEE_CIO_WIDGET?.version==='RC6.2.2')return;
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   let ultimoResultado=null;
   function usuario(){try{return global.SIGEE_SESSION?.getUser?.()||global.usuarioLogado||null;}catch(_){return global.usuarioLogado||null;}}
   function perfil(){const v=String(usuario()?.perfil||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();if(v.includes('MASTER'))return'MASTER';if(v.includes('GESTOR'))return'GESTOR';if(v.includes('ADMINISTRADOR')||v==='ADMIN')return'ADMINISTRADOR';return v;}
   function permitido(){return['MASTER','GESTOR','ADMINISTRADOR'].includes(perfil());}
   function nteValor(x){const bruto=String(x?.nte||x?.nte_nome||x?.territorio||x?.territorio_nome||'').trim();if(!bruto)return 'NTE não informado';const m=bruto.match(/(?:NTE\s*[-:]?\s*)?(\d{1,2})/i);return m?`NTE-${String(Number(m[1])).padStart(2,'0')}`:bruto.toUpperCase();}
+
+  function responsavelExibicao(x){
+    const p=x?.processo||x||{};
+    const candidatos=[x?.responsavel,p?.tecnico_atribuido_nome,p?.tecnico_atribuido,p?.tecnico_responsavel_nome,p?.tecnico_responsavel,p?.responsavel_etapa_nome,p?.responsavel_etapa,p?.responsavel_nome,p?.responsavel,p?.analista_nome,p?.analista,p?.digitador_nome,p?.digitador,p?.conferente_nome,p?.conferente,p?.usuario_lancamento_nome,p?.usuario_lancamento,p?.usuario_criacao_nome,p?.usuario_criacao,p?.criado_por_nome,p?.criado_por];
+    for(const candidato of candidatos){const valor=String(candidato??'').trim();if(valor&&!/^(NAO ATRIBUIDO|NÃO ATRIBUÍDO|SEM RESPONSAVEL|SEM RESPONSÁVEL)$/i.test(valor))return valor;}
+    return 'Sem responsável';
+  }
+  function abrirProntuario(id){
+    const fn=global.abrirProntuarioSIGEE||global.abrirHistoricoProcessoSIGEE||global.abrirHistoricoSIGEE;
+    if(typeof fn!=='function'){alert('O Prontuário Eletrônico ainda não está disponível nesta sessão.');return false;}
+    try{fn(id);return true;}catch(e){console.error('[SIGEE CIO] Falha ao abrir prontuário.',e);alert('Não foi possível abrir o Prontuário deste processo.');return false;}
+  }
+
   function instalar(){
     if(!permitido())return false;const painel=document.getElementById('aba-painel');if(!painel)return false;if(document.getElementById('sigee-cio-resumo-widget'))return true;
     const sec=document.createElement('section');sec.id='sigee-cio-resumo-widget';sec.className='sigee-cio-widget';sec.innerHTML=`<header class="sigee-cio-widget-head"><div><span>CENTRO DE INTELIGÊNCIA OPERACIONAL</span><h2>Resumo Executivo</h2><p>Riscos, capacidade, tendências e prioridades da operação.</p></div><button type="button" data-cio-widget-refresh>Atualizar análise</button></header><div class="sigee-cio-widget-body" data-cio-widget-body><p class="sigee-cio-widget-placeholder">O diagnóstico será carregado somente quando solicitado.</p></div>`;
@@ -46,14 +59,15 @@
       const filtrada=nte==='TODOS'?lista:lista.filter(x=>nteValor(x)===nte);
       if(contagem)contagem.textContent=String(filtrada.length);
       if(vazio)vazio.hidden=filtrada.length>0;
-      if(tbody){tbody.innerHTML=filtrada.slice(0,500).map(x=>`<tr><td>${esc(x.codigo||x.id||'—')}</td><td>${esc(x.aluno||x.aluno_nome||'—')}<small>${esc(x.escola||x.escola_nome||'')}</small></td><td><span class="sigee-cio-nte-badge">${esc(nteValor(x))}</span></td><td>${esc(x.etapa||x.etapa_atual||'—')}</td><td>${esc(x.responsavel||x.tecnico_responsavel||'—')}</td><td><b class="risco-${esc((x.nivel||'normal').toLowerCase())}">${esc(x.nivel||'NORMAL')}</b></td></tr>`).join('');}
+      if(tbody){tbody.innerHTML=filtrada.slice(0,500).map(x=>`<tr><td><button type="button" class="sigee-cio-processo-link" data-cio-prontuario="${esc(x.id)}" title="Abrir Prontuário Eletrônico">${esc(x.codigo||x.id||'—')}</button></td><td>${esc(x.aluno||x.aluno_nome||'—')}<small>${esc(x.escola||x.escola_nome||'')}</small></td><td><span class="sigee-cio-nte-badge">${esc(nteValor(x))}</span></td><td>${esc(x.etapa||x.etapa_atual||'—')}</td><td>${esc(responsavelExibicao(x))}</td><td><b class="risco-${esc((x.nivel||'normal').toLowerCase())}">${esc(x.nivel||'NORMAL')}</b></td></tr>`).join('');}
     };
     renderLinhas();
     modal.querySelector('#sigee-cio-filtro-nte')?.addEventListener('change',e=>renderLinhas(e.target.value));
+    modal.addEventListener('click',e=>{const botao=e.target.closest('[data-cio-prontuario]');if(botao){e.preventDefault();abrirProntuario(botao.dataset.cioProntuario);}});
     modal.querySelector('[data-fechar]').onclick=()=>modal.remove();modal.addEventListener('click',e=>{if(e.target===modal)modal.remove();});
   }
   async function carregar(force=false){instalar();const body=document.querySelector('[data-cio-widget-body]'),btn=document.querySelector('[data-cio-widget-refresh]');if(!body||!permitido())return false;try{if(btn)btn.disabled=true;body.innerHTML='<p class="sigee-cio-widget-placeholder">Analisando dados operacionais...</p>';await global.__SIGEE_CIO_BOOTSTRAP__?.load?.();if(typeof global.SIGEE_CIO?.engine?.analisar!=='function')throw new Error('Motor analítico indisponível.');ultimoResultado=await global.SIGEE_CIO.engine.analisar({force});body.innerHTML=render(ultimoResultado);return true;}catch(e){console.error('[SIGEE CIO Widget]',e);body.innerHTML=`<p class="sigee-cio-widget-error">Não foi possível gerar o resumo: ${esc(e.message)}</p>`;return false;}finally{if(btn)btn.disabled=false;}}
   function abrir(){const painel=document.getElementById('aba-painel');if(painel){painel.classList.remove('hidden');painel.hidden=false;painel.style.removeProperty('display');}instalar();document.getElementById('sigee-cio-resumo-widget')?.scrollIntoView({behavior:'smooth',block:'start'});return carregar(false);}
-  global.SIGEE_CIO_WIDGET=Object.freeze({version:'RC6.2.1.1',instalar,carregar,abrir});
+  global.SIGEE_CIO_WIDGET=Object.freeze({version:'RC6.2.2',instalar,carregar,abrir,abrirProntuario,responsavelExibicao});
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(instalar,300),{once:true});else setTimeout(instalar,300);
 })(window,document);

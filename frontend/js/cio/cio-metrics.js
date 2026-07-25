@@ -9,7 +9,24 @@
   function dias(a,b=new Date()){const x=data(a);return x?Math.max(0,(b-x)/86400000):0;}
   function dentroJanela(v,diasJanela){const d=data(v);if(!d)return false;const agora=new Date();const inicio=new Date(agora.getTime()-diasJanela*86400000);return d>=inicio&&d<=agora;}
   function etapa(p){return txt(p?.etapa_atual||p?.etapa||'Não informada');}
-  function responsavel(p){return txt(p?.tecnico_responsavel||p?.tecnico_responsavel_nome||p?.responsavel||p?.responsavel_nome||p?.analista_nome||p?.analista)||'Não atribuído';}
+  function responsavel(p){
+    const candidatos=[
+      p?.tecnico_atribuido_nome,p?.tecnico_atribuido,
+      p?.tecnico_responsavel_nome,p?.tecnico_responsavel,
+      p?.responsavel_etapa_nome,p?.responsavel_etapa,
+      p?.responsavel_nome,p?.responsavel,
+      p?.analista_nome,p?.analista,
+      p?.digitador_nome,p?.digitador,
+      p?.conferente_nome,p?.conferente,
+      p?.responsavel_assinatura_nome,p?.responsavel_assinatura,
+      p?.usuario_lancamento_nome,p?.usuario_lancamento,
+      p?.usuario_criacao_nome,p?.usuario_criacao,
+      p?.criado_por_nome,p?.criado_por,
+      p?.solicitante_nome,p?.nome_solicitante
+    ];
+    for(const candidato of candidatos){const valor=txt(candidato);if(valor&&!/^(NAO ATRIBUIDO|NÃO ATRIBUÍDO|SEM RESPONSAVEL|SEM RESPONSÁVEL)$/i.test(valor))return valor;}
+    return 'Sem responsável';
+  }
   function limite(p){const e=norm(etapa(p));for(const [k,v] of Object.entries(SLAS))if(e.includes(k))return v;return Number(p?.prazo_etapa)||null;}
   function prazo(p){const fim=data(p?.prazo_fim);if(fim)return (fim-new Date())/86400000;const l=limite(p);return l==null?null:l-dias(p?.data_etapa_atual||p?.data_etapa||p?.updated_at||p?.created_at);}
   function risco(p){
@@ -35,12 +52,12 @@
       const e=etapa(p);backlog[e]=(backlog[e]||0)+1;
       const resp=responsavel(p);cargas[resp]=(cargas[resp]||0)+1;
       const r=risco(p);
-      riscos.push({...r,id:p.id,codigo:p.codigo_sigee,aluno:p.aluno_nome,escola:p.escola_nome,etapa:e,responsavel:resp,nte:p.nte,prioridade:p.prioridade});
+      riscos.push({...r,id:p.id,codigo:p.codigo_sigee,aluno:p.aluno_nome,escola:p.escola_nome,etapa:e,responsavel:resp,nte:p.nte||p.nte_nome,prioridade:p.prioridade,processo:p});
       if(r.diasRestantes!=null){avaliados++;if(r.diasRestantes<0)vencidos++;else{dentro++;if(r.diasRestantes<=3)vencem3++;}}
       totalDias+=dias(p.created_at);
     }
     const backlogOrdenado=Object.entries(backlog).sort((a,b)=>b[1]-a[1]).map(([etapa,total])=>({etapa,total,percentual:ativos.length?Math.round(total/ativos.length*1000)/10:0}));
-    const cargaEntries=Object.entries(cargas).filter(([n])=>n!=='Não atribuído');
+    const cargaEntries=Object.entries(cargas).filter(([n])=>n!=='Sem responsável');
     const mediaCarga=cargaEntries.length?cargaEntries.reduce((s,[,v])=>s+v,0)/cargaEntries.length:0;
     const capacidade=cargaEntries.sort((a,b)=>b[1]-a[1]).map(([nome,total])=>({nome,total,media:mediaCarga,percentualMedia:mediaCarga?Math.round(total/mediaCarga*100):0,status:total>=Math.max(5,mediaCarga*1.25)?'ACIMA':total<=mediaCarga*.75?'ABAIXO':'EQUILIBRADO'}));
     const sobrecarregados=capacidade.filter(x=>x.status==='ACIMA').map(x=>({...x,excesso:Math.max(0,Math.round(x.total-mediaCarga))}));
@@ -58,5 +75,5 @@
       tendencias:{d7:tendencia(todos,7),d30:tendencia(todos,30),d90:tendencia(todos,90)}
     };
   }
-  NS.metrics=Object.freeze({calcular,risco,SLAS});
+  NS.metrics=Object.freeze({calcular,risco,responsavel,SLAS,version:'RC6.2.2'});
 })(window);
