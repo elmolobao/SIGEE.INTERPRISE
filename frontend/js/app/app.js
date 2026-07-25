@@ -9667,7 +9667,11 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     setTimeout(aplicarPermissoesEstagiario, 300);
   });
   window.addEventListener('load', () => setTimeout(aplicarPermissoesEstagiario, 150));
-  setInterval(aplicarPermissoesEstagiario, 1200);
+  if (window.SIGEE_PERFORMANCE?.aCada) {
+    window.SIGEE_PERFORMANCE.aCada('app:permissoes-estagiario', aplicarPermissoesEstagiario, 30000, { somenteVisivel:true });
+  } else {
+    setInterval(()=>{ if(!document.hidden) aplicarPermissoesEstagiario(); },30000);
+  }
 })();
 
 
@@ -10258,10 +10262,17 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
 
   setTimeout(instalarTudo, 500);
   setTimeout(instalarTudo, 1500);
-  setInterval(() => {
+  const manterControlesPerfilSenha = () => {
     instalarSenhaObrigatoria();
     ajustarSelectsUsuario();
-  }, 1500);
+  };
+  if (window.SIGEE_PERFORMANCE?.aCada) {
+    window.SIGEE_PERFORMANCE.aCada('app:perfil-senha', manterControlesPerfilSenha, 30000, { somenteVisivel:true });
+  } else {
+    setInterval(()=>{ if(!document.hidden) manterControlesPerfilSenha(); },30000);
+  }
+  document.addEventListener('sigee:navegacao-concluida', manterControlesPerfilSenha);
+  document.addEventListener('sigee:usuario-logado', manterControlesPerfilSenha);
 
   console.info('[SIGEE] Sprint 2.5 Perfil/Senha/Nova Solicitação ativo');
 })();
