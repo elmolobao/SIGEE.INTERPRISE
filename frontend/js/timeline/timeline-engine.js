@@ -1,7 +1,7 @@
 (function (global) {
   'use strict';
   const root = global.SIGEE6 = global.SIGEE6 || {};
-  const VERSION = 'RC6.0.4';
+  const VERSION = 'RC6.1.0';
   const listeners = [];
 
   function observar() {
@@ -21,7 +21,8 @@
     root.events?.emit?.('timeline:loaded', {
       processoId,
       totalEventos: timeline.eventos.length,
-      pastaRecebida: timeline.marcos?.pastaRecebida === true
+      pastaRecebida: timeline.marcos?.pastaRecebida === true,
+      tiposExecutados: timeline.marcos?.tiposExecutados || []
     });
     return timeline;
   }
