@@ -2,9 +2,35 @@
   'use strict';
 
   const root = global.SIGEE6 = global.SIGEE6 || {};
-  const VERSION = 'RC6.0.4';
+  const VERSION = 'RC6.1.0';
   const texto = (v) => v == null ? '' : String(v).trim();
   const normalizar = (v) => texto(v).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+
+
+  const TIPOS_ETAPA = Object.freeze({
+    SOLICITACAO: 'SOLICITACAO',
+    DOCUMENTO_SOLICITADO: 'DOCUMENTO_SOLICITADO',
+    PASTA_LOCALIZADA: 'PASTA_LOCALIZADA',
+    PASTA_RECEBIDA: 'PASTA_RECEBIDA',
+    DOCUMENTO_RECEBIDO: 'DOCUMENTO_RECEBIDO',
+    DESARQUIVAMENTO: 'DESARQUIVAMENTO',
+    REITERACAO: 'REITERACAO',
+    REITERACAO_URGENTE: 'REITERACAO_URGENTE',
+    CONFIRMACAO_DADOS: 'CONFIRMACAO_DADOS',
+    PEDIDO_ATAS: 'PEDIDO_ATAS',
+    ANALISE: 'ANALISE',
+    PENDENCIA: 'PENDENCIA',
+    DIGITACAO: 'DIGITACAO',
+    CONFERENCIA: 'CONFERENCIA',
+    ASSINATURA: 'ASSINATURA',
+    DEFERIDO: 'DEFERIDO',
+    INDEFERIDO: 'INDEFERIDO',
+    RETIRADO: 'RETIRADO'
+  });
+
+  function tiposExecutados(eventos) {
+    return Array.from(new Set((eventos || []).map(e => e?.tipo).filter(tipo => TIPOS_ETAPA[tipo])));
+  }
 
   function db() {
     try { const c = root.api?.client?.(); if (c) return c; } catch (_) {}
@@ -130,7 +156,7 @@
       if (error) throw error;
       return data || processoBase || null;
     } catch (error) {
-      console.warn('[SIGEE RC6.0.4] Processo não pôde ser recarregado para a Timeline:', error);
+      console.warn('[SIGEE RC6.1.0] Processo não pôde ser recarregado para a Timeline:', error);
       return processoBase || null;
     }
   }
@@ -143,7 +169,7 @@
       if (error) throw error;
       return Array.isArray(data) ? data.map((r) => normalizarEvento(r, 'historico_processos')) : [];
     } catch (error) {
-      console.info('[SIGEE RC6.0.4] historico_processos indisponível; usando logs auditáveis.');
+      console.info('[SIGEE RC6.1.0] historico_processos indisponível; usando logs auditáveis.');
       return [];
     }
   }
@@ -168,7 +194,7 @@
       if (error) throw error;
       return Array.isArray(data) ? data.map((r) => normalizarEvento(r, 'logs_sigee')) : [];
     } catch (error) {
-      console.warn('[SIGEE RC6.0.4] Logs da Timeline indisponíveis:', error);
+      console.warn('[SIGEE RC6.1.0] Logs da Timeline indisponíveis:', error);
       return [];
     }
   }
@@ -243,13 +269,17 @@
     });
 
     const pastaRecebida = eventos.find((e) => e.tipo === 'PASTA_RECEBIDA') || null;
+    const executados = tiposExecutados(eventos);
     return {
       processo,
       eventos,
       marcos: {
         pastaRecebida: Boolean(pastaRecebida),
         eventoPastaRecebida: pastaRecebida,
-        documentoRecebido: eventos.some((e) => e.tipo === 'DOCUMENTO_RECEBIDO')
+        documentoRecebido: eventos.some((e) => e.tipo === 'DOCUMENTO_RECEBIDO'),
+        tiposExecutados: executados,
+        fontesConsultadas: ['processos', 'historico_processos', 'logs_sigee'],
+        fonteCronologica: 'SIGEE6.timeline.service'
       },
       carregadoEm: new Date().toISOString(),
       versao: VERSION
@@ -265,7 +295,9 @@
     carregar,
     invalidar,
     classificar,
-    ehPastaRecebida
+    ehPastaRecebida,
+    tiposExecutados,
+    TIPOS_ETAPA
   });
 
   root.timelineService = service;
