@@ -3571,6 +3571,24 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 created_at: recebidoEmSIGEE
             };
 
+            // RC6.1.4 — registra os dois marcos operacionais separadamente.
+            // O recebimento da pasta é um fato distinto do recebimento do documento.
+            const pastaPayload = {
+                ...historicoPayload,
+                acao: 'PASTA_RECEBIDA',
+                observacao: `Pasta/acervo recebido no local ${localArquivo}. Registro vinculado ao recebimento do documento ${tipoArquivo}.`,
+                dados: {
+                    ...historicoPayload.dados,
+                    marco: 'PASTA_RECEBIDA',
+                    pasta_recebida: true
+                }
+            };
+
+            const { error: erroPasta } = await cliente
+                .from('historico_processos')
+                .insert(pastaPayload);
+            if (erroPasta) throw erroPasta;
+
             const { error: erroHistorico } = await cliente
                 .from('historico_processos')
                 .insert(historicoPayload);
@@ -3593,7 +3611,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             };
 
             const { error: erroLog } = await cliente.from('logs_sigee').insert(logPayload);
-            if (erroLog) console.warn('[SIGEE RC6.1.3] Processo e histórico confirmados, mas o log complementar falhou:', erroLog);
+            if (erroLog) console.warn('[SIGEE RC6.1.4] Processo e histórico confirmados, mas o log complementar falhou:', erroLog);
 
             try { salvarBancoLocalSIGEE(); } catch (_) {}
             try { window.SIGEE6?.timelineService?.invalidar?.(p.id); } catch (_) {}
@@ -3603,7 +3621,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             fecharModalFluxo('desarquivamento');
             carregarEContarProcessosHorizontais();
         } catch (erroSalvarDocumento) {
-            console.error('[SIGEE RC6.1.3] Falha na persistência segura do Documento Recebido:', erroSalvarDocumento);
+            console.error('[SIGEE RC6.1.4] Falha na persistência segura do Documento Recebido:', erroSalvarDocumento);
             alert('Não foi possível concluir o Documento Recebido. Nenhum dado cadastral do processo foi alterado.');
             setDisabled('f00-submit', false);
             setTexto('f00-submit', 'Enviar para Análise');
