@@ -377,7 +377,11 @@
     setTimeout(instalarPatches, 1500);
   });
   window.addEventListener('load', function(){ setTimeout(instalarPatches, 100); });
-  setInterval(aplicarPermissoes, 1500);
+  if (window.SIGEE_PERFORMANCE?.aCada) {
+    window.SIGEE_PERFORMANCE.aCada('usuarios:aplicar-permissoes', aplicarPermissoes, 30000, { somenteVisivel:true, condicao:()=>!!usuarioAtual() });
+  } else {
+    setInterval(()=>{ if(!document.hidden && usuarioAtual()) aplicarPermissoes(); },30000);
+  }
 
   window.SIGEE_USUARIOS = { normalizarUsuario, perfilCanonico, isSEC, isMaster, isAdmin, isTecnico, isConsulta, isGlobal, Perm, aplicarPermissoes, carregarListaUsuarios: () => window.carregarListaUsuarios() };
 })();
