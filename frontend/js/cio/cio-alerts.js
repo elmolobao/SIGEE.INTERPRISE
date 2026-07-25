@@ -1,0 +1,1 @@
+(function(global){'use strict';const NS=global.SIGEE_CIO=global.SIGEE_CIO||{};NS.alerts=Object.freeze({gerar:m=>NS.rules.avaliar(m)});})(window);
