@@ -39,5 +39,5 @@
 
   const service = Object.freeze({ carregar, invalidar: (id) => root.cache.clear(`timeline:${id || ''}`) });
   root.timelineService = service;
-  root.core?.register('timeline.service', service, { mode: 'read-only', version: 'RC6.0.1' });
+  root.core?.register('timeline.service', service, { mode: 'read-only', version: 'RC6.0.2' });
 })(window);
