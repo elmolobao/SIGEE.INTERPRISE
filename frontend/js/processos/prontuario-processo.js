@@ -1,19 +1,18 @@
 /* =====================================================================
-   SIGEE Enterprise — RC6.1.0
+   SIGEE Enterprise — RC6.1.5
    Prontuário Eletrônico do Processo
    Camada aditiva: não altera regras, transições ou persistência do workflow.
    ===================================================================== */
 (function () {
   'use strict';
-  if (window.__SIGEE_PRONTUARIO_RC610__) return;
-  window.__SIGEE_PRONTUARIO_RC610__ = true;
+  if (window.__SIGEE_PRONTUARIO_RC615__) return;
+  window.__SIGEE_PRONTUARIO_RC615__ = true;
 
   const ETAPAS = Object.freeze([
     { tipo:'SOLICITACAO', label:'Solicitação' },
     { tipo:'DOCUMENTO_SOLICITADO', label:'Documento Solicitado' },
     { tipo:'PASTA_LOCALIZADA', label:'Pasta Localizada' },
     { tipo:'PASTA_RECEBIDA', label:'Pasta Recebida' },
-    { tipo:'DOCUMENTO_RECEBIDO', label:'Documento Recebido' },
     { tipo:'DESARQUIVAMENTO', label:'Desarquivamento' },
     { tipo:'ANALISE', label:'Análise' },
     { tipo:'PENDENCIA', label:'Pendência' },
@@ -95,8 +94,7 @@
     if (tipo === 'SOLICITACAO') return '📄';
     if (tipo === 'DOCUMENTO_SOLICITADO') return '📧';
     if (tipo === 'PASTA_LOCALIZADA') return '📦';
-    if (tipo === 'PASTA_RECEBIDA' || n.includes('PASTA RECEBIDA')) return '📁';
-    if (tipo === 'DOCUMENTO_RECEBIDO' || n.includes('DOCUMENTO RECEBIDO')) return '📑';
+    if (tipo === 'PASTA_RECEBIDA' || tipo === 'DOCUMENTO_RECEBIDO' || n.includes('PASTA RECEBIDA') || n.includes('DOCUMENTO RECEBIDO')) return '📁';
     if (tipo === 'COMUNICACAO' || n.includes('COMUNIC')) return '✉️';
     if (tipo === 'RETIFICACAO' || n.includes('RETIFIC')) return '🔁';
     if (tipo.includes('REITERACAO') || n.includes('REITER')) return '⏱️';
@@ -130,7 +128,7 @@
     const codigo = normalizar(ev?.acao || ev?.evento || '');
     const titulos = {
       PASTA_RECEBIDA: 'Pasta Recebida',
-      DOCUMENTO_RECEBIDO: 'Documento Recebido',
+      DOCUMENTO_RECEBIDO: 'Pasta Recebida',
       RETIFICAR_DADOS: 'Retificação de Dados',
       SEND_REITERACAO: 'Reiteração',
       SEND_REITERACAO_URGENTE: 'Reiteração com Urgência',
@@ -143,11 +141,11 @@
   function descricaoEvento(ev) {
     const codigo = normalizar(ev?.acao || ev?.evento || '');
     const d = dadosEvento(ev);
-    if (codigo === 'PASTA_RECEBIDA' || /PASTA RECEBIDA|RECEBIMENTO DA PASTA/.test(codigo)) {
-      return ev.observacao || 'Recebimento da pasta física ou do acervo registrado no processo.';
-    }
-    if (codigo === 'DOCUMENTO_RECEBIDO') {
-      return ev.observacao || `Documento recebido${d.tipo_arquivo ? ` (${d.tipo_arquivo})` : ''}. Processo encaminhado para Análise sem reinício do ciclo.`;
+    if (codigo === 'PASTA_RECEBIDA' || codigo === 'DOCUMENTO_RECEBIDO' || /PASTA RECEBIDA|RECEBIMENTO DA PASTA|DOCUMENTO RECEBIDO/.test(codigo)) {
+      const tipo = d.tipo_arquivo || ev.documento || ev.tipo_arquivo;
+      const local = d.local_arquivo || d.local || ev.localArquivo || ev.local_arquivo;
+      const complemento = [tipo ? `Tipo: ${tipo}.` : '', local ? `Local: ${local}.` : ''].filter(Boolean).join(' ');
+      return ev.observacao || `Recebimento da pasta registrado${complemento ? `. ${complemento}` : '.'}`;
     }
     if (codigo === 'RETIFICAR_DADOS') {
       const novo = d.novo_ciclo || ev.novo_ciclo;
@@ -172,7 +170,8 @@
       ['Etapa', ev.etapa],
       ['Prazo', ev.prazoFinal ? formatarData(ev.prazoFinal, false) : (ev.prazoDias ? `${ev.prazoDias} dias` : '')],
       ['E-mail / modelo', ev.mensagemCodigo || ev.mensagem_codigo || ev.mensagem],
-      ['Documento', ev.documento || ev.tipo_arquivo || ev.arquivo],
+      ['Tipo do documento', ev.documento || ev.tipo_arquivo || ev.arquivo],
+      ['Local do arquivo', ev.localArquivo || ev.local_arquivo || d.local_arquivo || d.local],
       ['Origem auditável', fontes],
       ['Logs consolidados', ev.totalRegistrosAgrupados > 1 ? `${ev.totalRegistrosAgrupados} registros equivalentes` : '1 registro'],
       ['Sessão', ev.sessaoId || ev.sessao_id],
@@ -199,7 +198,7 @@
         };
       }
     } catch (e) {
-      console.warn('[SIGEE RC6.1.0] Timeline Enterprise indisponível; aplicando leitura compatível:', e);
+      console.warn('[SIGEE RC6.1.5] Timeline Enterprise indisponível; aplicando leitura compatível:', e);
     }
 
     const eventos = [];
@@ -237,7 +236,7 @@
     const mapa = {
       'SOLICITACAO':'SOLICITACAO', 'DOCUMENTO SOLICITADO':'DOCUMENTO_SOLICITADO',
       'PASTA LOCALIZADA':'PASTA_LOCALIZADA', 'PASTA RECEBIDA':'PASTA_RECEBIDA',
-      'DOCUMENTO RECEBIDO':'DOCUMENTO_RECEBIDO', 'DESARQUIVAMENTO':'DESARQUIVAMENTO',
+      'DOCUMENTO RECEBIDO':'PASTA_RECEBIDA', 'DESARQUIVAMENTO':'DESARQUIVAMENTO',
       'ANALISE':'ANALISE', 'PENDENCIA':'PENDENCIA', 'DIGITACAO':'DIGITACAO',
       'CONFERENCIA':'CONFERENCIA', 'ASSINATURA':'ASSINATURA',
       'DEFERIDO':'DEFERIDO', 'AGUARDANDO RETIRADA':'DEFERIDO', 'RETIRADO':'RETIRADO'
@@ -463,5 +462,5 @@
     ? document.addEventListener('DOMContentLoaded', renomearBotoes)
     : renomearBotoes();
 
-  console.info('[SIGEE RC6.1.0] Cronologia consolidada: Timeline oficial, Stepper dinâmico e Prontuário carregados.');
+  console.info('[SIGEE RC6.1.5] Cronologia consolidada: Timeline oficial, Stepper dinâmico e Prontuário carregados.');
 })();
