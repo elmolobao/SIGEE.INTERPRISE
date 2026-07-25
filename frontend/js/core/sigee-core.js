@@ -3,7 +3,7 @@
   const root = global.SIGEE6 = global.SIGEE6 || {};
   if (root.core?.initialized) return;
 
-  const VERSION = 'RC6.0.2';
+  const VERSION = 'RC6.1.0';
   const startedAt = new Date().toISOString();
   const modules = new Map();
 
