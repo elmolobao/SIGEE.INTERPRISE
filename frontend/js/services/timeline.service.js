@@ -2,7 +2,7 @@
   'use strict';
 
   const root = global.SIGEE6 = global.SIGEE6 || {};
-  const VERSION = 'RC6.1.2';
+  const VERSION = 'RC6.1.5';
   const texto = (v) => v == null ? '' : String(v).trim();
   const normalizar = (v) => texto(v).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[_\-]+/g, ' ').replace(/\s+/g, ' ').trim().toUpperCase();
 
@@ -320,6 +320,45 @@
     return Array.from(grupos.values());
   }
 
+
+  function consolidarRecebimento(eventos) {
+    const lista = Array.isArray(eventos) ? eventos.slice() : [];
+    const pasta = lista.find((e) => e.tipo === 'PASTA_RECEBIDA') || null;
+    const documentos = lista.filter((e) => e.tipo === 'DOCUMENTO_RECEBIDO');
+    if (!pasta && !documentos.length) return lista;
+
+    const principal = pasta ? { ...pasta } : { ...documentos[0], tipo: 'PASTA_RECEBIDA', titulo: 'Pasta Recebida', acao: 'Pasta Recebida', etapa: 'Pasta Recebida', evidenciaPastaRecebida: true };
+    const fontes = new Set(principal.fontes || [principal.origem].filter(Boolean));
+    const registros = [...(principal.registrosAgrupados || [principal.bruto].filter(Boolean))];
+    const detalhes = [principal.detalhes, principal.observacao].filter(Boolean);
+
+    documentos.forEach((evento) => {
+      (evento.fontes || [evento.origem]).filter(Boolean).forEach((f) => fontes.add(f));
+      registros.push(...(evento.registrosAgrupados || [evento.bruto].filter(Boolean)));
+      if (evento.detalhes) detalhes.push(evento.detalhes);
+      if (evento.observacao) detalhes.push(evento.observacao);
+      principal.documento = principal.documento || evento.documento || valor(evento.bruto, 'tipo_arquivo', 'documento_tipo', 'arquivo');
+      principal.localArquivo = principal.localArquivo || valor(evento.bruto, 'local_arquivo', 'arquivo_local', 'local_acervo', 'local');
+      principal.responsavel = principal.responsavel || evento.responsavel;
+      principal.usuario_nome = principal.usuario_nome || evento.usuario_nome;
+      principal.dataHora = principal.dataHora || evento.dataHora;
+      principal.created_at = principal.created_at || evento.created_at;
+    });
+
+    const partes = [];
+    if (principal.documento) partes.push(`Tipo: ${principal.documento}.`);
+    if (principal.localArquivo) partes.push(`Local: ${principal.localArquivo}.`);
+    const detalheBase = Array.from(new Set(detalhes.map(texto).filter(Boolean)));
+    principal.detalhes = [...partes, ...detalheBase].join(' ').trim() || 'Recebimento da pasta registrado no processo.';
+    principal.observacao = principal.detalhes;
+    principal.fontes = Array.from(fontes);
+    principal.registrosAgrupados = registros.filter(Boolean);
+    principal.totalRegistrosAgrupados = principal.registrosAgrupados.length || 1;
+    principal.documentoRecebidoInterno = documentos.length > 0;
+
+    return lista.filter((e) => e.tipo !== 'PASTA_RECEBIDA' && e.tipo !== 'DOCUMENTO_RECEBIDO').concat(principal);
+  }
+
   async function carregar(processoId, processoBase) {
     const processo = await obterProcesso(processoId, processoBase);
     if (!processo) throw new Error('Processo não localizado para montar a Timeline.');
@@ -330,7 +369,7 @@
       obterAcoesWorkflow(processo)
     ]);
 
-    let eventos = removerDuplicados(eventosSinteticos(processo, [...historico, ...logs, ...acoesWorkflow]));
+    let eventos = consolidarRecebimento(removerDuplicados(eventosSinteticos(processo, [...historico, ...logs, ...acoesWorkflow])));
     eventos.sort((a, b) => {
       const da = a.dataHora ? new Date(a.dataHora).getTime() : Number.MAX_SAFE_INTEGER;
       const dbv = b.dataHora ? new Date(b.dataHora).getTime() : Number.MAX_SAFE_INTEGER;
@@ -345,7 +384,7 @@
       marcos: {
         pastaRecebida: Boolean(pastaRecebida),
         eventoPastaRecebida: pastaRecebida,
-        documentoRecebido: eventos.some((e) => e.tipo === 'DOCUMENTO_RECEBIDO'),
+        documentoRecebido: Boolean(pastaRecebida && pastaRecebida.documentoRecebidoInterno),
         tiposExecutados: executados,
         fontesConsultadas: ['processos', 'historico_processos', 'logs_sigee', 'sigee_workflow_acoes_executadas'],
         fonteCronologica: 'SIGEE6.timeline.service'
