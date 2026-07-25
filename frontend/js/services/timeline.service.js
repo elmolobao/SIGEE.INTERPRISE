@@ -2,9 +2,9 @@
   'use strict';
 
   const root = global.SIGEE6 = global.SIGEE6 || {};
-  const VERSION = 'RC6.1.0';
+  const VERSION = 'RC6.1.1';
   const texto = (v) => v == null ? '' : String(v).trim();
-  const normalizar = (v) => texto(v).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+  const normalizar = (v) => texto(v).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[_\-]+/g, ' ').replace(/\s+/g, ' ').trim().toUpperCase();
 
 
   const TIPOS_ETAPA = Object.freeze({
@@ -156,7 +156,7 @@
       if (error) throw error;
       return data || processoBase || null;
     } catch (error) {
-      console.warn('[SIGEE RC6.1.0] Processo não pôde ser recarregado para a Timeline:', error);
+      console.warn('[SIGEE RC6.1.1] Processo não pôde ser recarregado para a Timeline:', error);
       return processoBase || null;
     }
   }
@@ -169,7 +169,7 @@
       if (error) throw error;
       return Array.isArray(data) ? data.map((r) => normalizarEvento(r, 'historico_processos')) : [];
     } catch (error) {
-      console.info('[SIGEE RC6.1.0] historico_processos indisponível; usando logs auditáveis.');
+      console.info('[SIGEE RC6.1.1] historico_processos indisponível; usando logs auditáveis.');
       return [];
     }
   }
@@ -194,7 +194,7 @@
       if (error) throw error;
       return Array.isArray(data) ? data.map((r) => normalizarEvento(r, 'logs_sigee')) : [];
     } catch (error) {
-      console.warn('[SIGEE RC6.1.0] Logs da Timeline indisponíveis:', error);
+      console.warn('[SIGEE RC6.1.1] Logs da Timeline indisponíveis:', error);
       return [];
     }
   }
@@ -211,6 +211,44 @@
         etapa: 'Solicitação',
         nome: valor(processo, 'usuario_lancamento_nome', 'criado_por_nome', 'responsavel') || 'Sistema SIGEE',
         detalhes: 'Registro inicial do processo no SIGEE.'
+      }, 'processos'));
+    }
+
+    // O workflow persiste também evidências no próprio processo. Essa fonte é
+    // necessária quando o histórico auditável não foi gravado ou usa códigos
+    // como DOCUMENTO_RECEBIDO com sublinhado.
+    const evidenciaDocumento = normalizar([
+      valor(processo, 'ultimo_evento_workflow'),
+      valor(processo, 'ultima_acao_workflow'),
+      valor(processo, 'contexto_analise'),
+      valor(processo, 'tipo_arquivo'),
+      valor(processo, 'tipo_arquivo_recebido'),
+      valor(processo, 'arquivo_tipo'),
+      valor(processo, 'observacao'),
+      valor(processo, 'ultima_mensagem_workflow')
+    ].filter(Boolean).join(' '));
+    const temDocumentoRecebido = saida.some((e) => e.tipo === 'DOCUMENTO_RECEBIDO');
+    const dataDocumento = valor(processo,
+      'data_arquivo_recebido', 'data_primeiro_arquivo_recebido',
+      'arquivo_recebido_em', 'documento_recebido_em');
+    const confirmouDocumento = /DOCUMENTO RECEBIDO|ARQUIVO RECEBIDO/.test(evidenciaDocumento) || Boolean(dataDocumento);
+
+    if (!temDocumentoRecebido && confirmouDocumento) {
+      const tipoArquivo = valor(processo, 'tipo_arquivo_recebido', 'tipo_arquivo', 'arquivo_tipo');
+      const localArquivo = valor(processo, 'local_arquivo', 'arquivo_local', 'local_acervo');
+      const detalhes = [
+        tipoArquivo ? `Tipo: ${tipoArquivo}.` : '',
+        localArquivo ? `Local: ${localArquivo}.` : '',
+        'Evidência recuperada dos campos persistidos no processo.'
+      ].filter(Boolean).join(' ');
+      saida.push(normalizarEvento({
+        id: `processo-${processo.id}-documento-recebido`,
+        created_at: dataDocumento || valor(processo, 'updated_at') || criada,
+        acao: 'DOCUMENTO_RECEBIDO',
+        etapa: 'Documento Recebido',
+        nome: valor(processo, 'analista_nome', 'tecnico_responsavel', 'responsavel', 'usuario_lancamento_nome') || 'Sistema SIGEE',
+        tipo_arquivo: tipoArquivo,
+        detalhes
       }, 'processos'));
     }
     return saida;
