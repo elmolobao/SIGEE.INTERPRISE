@@ -1,7 +1,7 @@
 (function (global) {
   'use strict';
   const root = global.SIGEE6 = global.SIGEE6 || {};
-  const VERSION = 'RC6.0.3';
+  const VERSION = 'RC6.0.4';
   const listeners = [];
 
   function observar() {
