@@ -1,4 +1,4 @@
-/* SIGEE RC5.7.1 — Consolidação dos gatilhos do Dashboard */
+/* SIGEE RC5.7.3 — bootstrap leve e autoridade única do Dashboard */
 /* SIGEE RC4.5.22 — campo de escola digitável sem limpeza tardia */
 /* SIGEE RC4.5.11 — identidade canônica da escola por ID */
 /* SIGEE PATCH 2.5.8 — técnico de lançamento responsável pelo Desarquivamento */
@@ -5518,7 +5518,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
       try{ if(typeof carregarDadosOperacionaisV32 === 'function') await carregarDadosOperacionaisV32(); }catch(e){}
       try{ if(typeof renderizarListaEscolasBufferMemoria === 'function') renderizarListaEscolasBufferMemoria(); }catch(e){}
       try{ if(typeof carregarEContarProcessosHorizontais === 'function') carregarEContarProcessosHorizontais(); }catch(e){}
-      try{ if(typeof carregarDadosDashboardReal === 'function') carregarDadosDashboardReal(); }catch(e){}
+      try{ window.SIGEE_DASHBOARD_RPC?.solicitar?.(); }catch(e){}
       try{ if(typeof registrarLog === 'function') registrarLog(`Importação V36: escolas inseridas ${insEsc}, atualizadas ${atuEsc}; processos inseridos ${insProc}, atualizados ${atuProc}.`); }catch(e){}
 
       setProg(100, 'Importação concluída.');
@@ -6008,8 +6008,11 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     return null;
   }
   async function readAll(table, maxRows){
+    // RC5.7.3: o histórico de solicitações nunca participa do bootstrap global.
+    // Os fluxos específicos continuam podendo gravar, editar e excluir registros.
+    if(String(table||'').trim()==='solicitacoes_sigee') return [];
     const c=client(); if(!c) throw new Error('Cliente Supabase não disponível');
-    const caps={usuarios_sigee:500,ntes_sigee:100,processos:5000,solicitacoes_sigee:1000,escolas_sigee:1000,logs_sigee:1000};
+    const caps={usuarios_sigee:500,ntes_sigee:100,processos:5000,solicitacoes_sigee:0,escolas_sigee:1000,logs_sigee:1000};
     const cap=Number.isFinite(Number(maxRows))?Math.max(0,Number(maxRows)):(caps[table]||2000);
     if(cap===0) return [];
     let out=[], from=0, size=Math.min(1000,cap);
@@ -6138,7 +6141,8 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
       try{ inicializarSelectsNteEcosystem(); }catch(e){}
       try{ window.aplicarPermissoesV37&&window.aplicarPermissoesV37(); }catch(e){}
       window.sigEESupabaseOnline=true; try{ sigEESupabaseOnline=true; }catch(e){}
-      window.carregarDadosDashboardReal(); window.renderizarListaEscolasBufferMemoria(); window.carregarEContarProcessosHorizontais();
+      // RC5.7.3: a navegação/autoridade analítica decide quando atualizar o Dashboard.
+      window.renderizarListaEscolasBufferMemoria(); window.carregarEContarProcessosHorizontais();
       setInfo(`Exibindo: ${dadosVisiveis(escolasDB).length} registros | Banco: Supabase carregado`);
       return true;
     }catch(err){ console.error('SIGEE V38 erro geral:',err); if(!silencioso) alert('Erro ao carregar dados do Supabase: '+(err.message||err)); return false; }
@@ -6212,7 +6216,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   };
   try{ handleLogin=window.handleLogin; }catch(e){}
   const oldNav=window.navegar;
-  if(oldNav){ window.navegar=function(aba){ const r=oldNav.apply(this,arguments); setTimeout(()=>{ if(aba==='painel') window.carregarDadosDashboardReal(); if(aba==='escolas') window.renderizarListaEscolasBufferMemoria(); if(aba==='processos') window.carregarEContarProcessosHorizontais(); },30); return r; }; try{ navegar=window.navegar; }catch(e){} }
+  if(oldNav){ window.navegar=function(aba){ const r=oldNav.apply(this,arguments); setTimeout(()=>{ /* RC5.7.3: painel é atualizado exclusivamente pelo evento sigee:navegacao-concluida. */ if(aba==='escolas') window.renderizarListaEscolasBufferMemoria(); if(aba==='processos') window.carregarEContarProcessosHorizontais(); },30); return r; }; try{ navegar=window.navegar; }catch(e){} }
 
   // Importação final: identifica escolas e processos em qualquer aba da planilha.
   function getCell(row,names){ const ks=Object.keys(row||{}); for(const n of names){ const nn=up(n); const k=ks.find(x=>up(x)===nn || up(x).includes(nn)); if(k && txt(row[k])) return row[k]; } return ''; }
@@ -8034,7 +8038,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     if(!sel.dataset.corev2){
       sel.innerHTML = '<option value="TODOS">TODOS</option>' + Array.from({length:27},(_,i)=>`<option value="NTE ${String(i+1).padStart(2,'0')}">NTE ${String(i+1).padStart(2,'0')}</option>`).join('');
       sel.dataset.corev2 = '1';
-      // RC5.7.1: listener centralizado em js/analytics/dashboard.js; evita segundo disparo do snapshot.
+      sel.onchange = () => window.carregarDadosDashboardReal();
     }
   }
 
