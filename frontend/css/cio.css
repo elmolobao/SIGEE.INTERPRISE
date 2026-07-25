@@ -32,3 +32,20 @@
 .sigee-cio-fila{display:grid;grid-template-columns:1fr 1fr;gap:7px}.sigee-cio-fila>button{display:grid;grid-template-columns:28px 1fr auto;align-items:center;gap:9px;border:0;border-radius:10px;padding:9px 10px;background:rgba(255,255,255,.08);color:#fff;text-align:left;cursor:pointer}.sigee-cio-fila>button:hover{background:rgba(255,255,255,.14)}.sigee-cio-fila>button>span{display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:#0284c7;font-size:10px;font-weight:900}.sigee-cio-fila b,.sigee-cio-fila small{display:block}.sigee-cio-fila small{margin-top:2px;color:#bae6fd;font-size:9px}.sigee-cio-fila strong{font-size:9px}
 .sigee-cio-territorial{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.sigee-cio-territorial>button{display:grid;grid-template-columns:auto 1fr auto;grid-template-areas:'nte crit score' 'nte detail score';gap:2px 10px;align-items:center;border:0;border-radius:10px;padding:10px;background:rgba(255,255,255,.08);color:#fff;text-align:left;cursor:pointer}.sigee-cio-territorial>button:hover{background:rgba(255,255,255,.14)}.sigee-cio-territorial .sigee-cio-nte-badge{grid-area:nte}.sigee-cio-territorial b{grid-area:crit}.sigee-cio-territorial small{grid-area:detail;color:#bae6fd;font-size:9px}.sigee-cio-territorial i{grid-area:score;display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:#0f172a;color:#7dd3fc;font-style:normal;font-weight:900;font-size:11px}
 @media(max-width:850px){.sigee-cio-fila,.sigee-cio-territorial{grid-template-columns:1fr}.sigee-cio-section-title{align-items:flex-start;flex-direction:column}}
+
+
+/* RC6.3.1 — Polimento da experiência operacional */
+.sigee-cio-fila>button{position:relative;border-left:4px solid transparent;min-height:92px}
+.sigee-cio-fila>button.nivel-critico{border-left-color:#ef4444;background:linear-gradient(90deg,rgba(239,68,68,.16),rgba(255,255,255,.08))}
+.sigee-cio-fila>button.nivel-alto{border-left-color:#f97316;background:linear-gradient(90deg,rgba(249,115,22,.14),rgba(255,255,255,.08))}
+.sigee-cio-fila>button.nivel-medio{border-left-color:#eab308}.sigee-cio-fila>button.nivel-normal{border-left-color:#22c55e}
+.sigee-cio-fila em{display:block;margin:2px 0 1px;color:#fff;font-size:10px;font-style:normal;font-weight:800}
+.sigee-cio-fila small{line-height:1.35}.sigee-cio-fila strong{align-self:start;margin-top:2px}
+.sigee-cio-legenda-titulo{margin:3px 0 0;color:#bae6fd;font-size:9px}
+.sigee-cio-risco-legenda{display:flex;flex-wrap:wrap;gap:6px;margin:-2px 0 9px}
+.sigee-cio-risco-legenda span{border-radius:999px;padding:4px 8px;font-size:9px;font-weight:900;color:#fff}
+.sigee-cio-risco-legenda .normal{background:#15803d}.sigee-cio-risco-legenda .medio{background:#a16207}.sigee-cio-risco-legenda .alto{background:#c2410c}.sigee-cio-risco-legenda .critico{background:#991b1b}
+.sigee-cio-territorial>button{border-left:4px solid transparent;transition:.16s transform,.16s background}
+.sigee-cio-territorial>button:hover{transform:translateY(-1px)}
+.sigee-cio-territorial>button.territorio-normal{border-left-color:#22c55e}.sigee-cio-territorial>button.territorio-medio{border-left-color:#eab308}.sigee-cio-territorial>button.territorio-alto{border-left-color:#f97316}.sigee-cio-territorial>button.territorio-critico{border-left-color:#ef4444}
+.sigee-cio-territorial>button.territorio-normal i{background:#14532d;color:#dcfce7}.sigee-cio-territorial>button.territorio-medio i{background:#713f12;color:#fef9c3}.sigee-cio-territorial>button.territorio-alto i{background:#7c2d12;color:#ffedd5}.sigee-cio-territorial>button.territorio-critico i{background:#7f1d1d;color:#fee2e2}
