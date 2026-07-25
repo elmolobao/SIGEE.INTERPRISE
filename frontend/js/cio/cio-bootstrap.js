@@ -1,10 +1,10 @@
 (function (global) {
   'use strict';
 
-  if (global.__SIGEE_CIO_BOOTSTRAP__?.version === 'RC6.2.0.2') return;
+  if (global.__SIGEE_CIO_BOOTSTRAP__?.version === 'RC6.2.1') return;
 
   const state = global.__SIGEE_CIO_BOOTSTRAP__ = {
-    version: 'RC6.2.0.2',
+    version: 'RC6.2.1',
     state: 'idle',
     loaded: [],
     loadingPromise: null
@@ -30,7 +30,7 @@
       const script = existente || document.createElement('script');
       script.id = id;
       script.async = false;
-      script.src = 'js/' + caminho + '?v=RC6.2.0.2';
+      script.src = 'js/' + caminho + '?v=RC6.2.1';
       script.onload = () => {
         script.dataset.loaded = 'true';
         if (!state.loaded.includes(caminho)) state.loaded.push(caminho);
@@ -48,7 +48,7 @@
     state.loadingPromise = (async () => {
       for (const modulo of MODULES) await carregarScript(modulo);
       state.state = 'ready';
-      console.info('[SIGEE RC6.2.0.2] Motor do CIO carregado sob demanda.');
+      console.info('[SIGEE RC6.2.1] Motor do CIO carregado sob demanda.');
     })().catch((erro) => {
       state.state = 'error';
       state.error = erro.message;
@@ -59,5 +59,5 @@
   }
 
   state.load = carregarModulos;
-  console.info('[SIGEE RC6.2.0.2] Infraestrutura leve do CIO ativa.');
+  console.info('[SIGEE RC6.2.1] Infraestrutura leve do CIO ativa.');
 })(window);

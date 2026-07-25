@@ -1,22 +1,62 @@
 (function(global){
-  'use strict'; const NS=global.SIGEE_CIO=global.SIGEE_CIO||{};
-  const txt=v=>v==null?'':String(v).trim(); const norm=v=>txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
+  'use strict';
+  const NS=global.SIGEE_CIO=global.SIGEE_CIO||{};
+  const txt=v=>v==null?'':String(v).trim();
+  const norm=v=>txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
   const SLAS={ANALISE:7,PENDENCIA:7,DIGITACAO:15,CONFERENCIA:10,ASSINATURA:7,DESARQUIVAMENTO:30};
   const finalizado=p=>/RETIRADO|INDEFERIDO/.test(norm(p?.etapa_atual||p?.etapa))||p?.ativo===false;
   function data(v){const d=v?new Date(v):null;return d&&!Number.isNaN(d.getTime())?d:null;}
   function dias(a,b=new Date()){const x=data(a);return x?Math.max(0,(b-x)/86400000):0;}
+  function dentroJanela(v,diasJanela){const d=data(v);if(!d)return false;const agora=new Date();const inicio=new Date(agora.getTime()-diasJanela*86400000);return d>=inicio&&d<=agora;}
   function etapa(p){return txt(p?.etapa_atual||p?.etapa||'Não informada');}
   function responsavel(p){return txt(p?.tecnico_responsavel||p?.tecnico_responsavel_nome||p?.responsavel||p?.responsavel_nome||p?.analista_nome||p?.analista)||'Não atribuído';}
   function limite(p){const e=norm(etapa(p));for(const [k,v] of Object.entries(SLAS))if(e.includes(k))return v;return Number(p?.prazo_etapa)||null;}
   function prazo(p){const fim=data(p?.prazo_fim);if(fim)return (fim-new Date())/86400000;const l=limite(p);return l==null?null:l-dias(p?.data_etapa_atual||p?.data_etapa||p?.updated_at||p?.created_at);}
-  function risco(p){if(finalizado(p))return {nivel:'FINALIZADO',score:0,diasRestantes:null};const r=prazo(p),parado=dias(p?.data_etapa_atual||p?.updated_at||p?.created_at),pri=norm(p?.prioridade);let s=0;if(r!=null){if(r<0)s+=60;else if(r<=3)s+=35;else if(r<=7)s+=15;}if(pri.includes('ALTA')||pri.includes('URG'))s+=20;if(parado>=15)s+=20;else if(parado>=7)s+=10;return {nivel:s>=70?'CRITICO':s>=45?'ALTO':s>=20?'MEDIO':'BAIXO',score:s,diasRestantes:r,tempoParado:parado};}
+  function risco(p){
+    if(finalizado(p))return {nivel:'FINALIZADO',score:0,diasRestantes:null,tempoParado:0};
+    const r=prazo(p),parado=dias(p?.data_etapa_atual||p?.updated_at||p?.created_at),pri=norm(p?.prioridade);let s=0;
+    if(r!=null){if(r<0)s+=60;else if(r<=3)s+=35;else if(r<=7)s+=15;}
+    if(pri.includes('ALTA')||pri.includes('URG'))s+=20;
+    if(parado>=15)s+=20;else if(parado>=7)s+=10;
+    return {nivel:s>=70?'CRITICO':s>=45?'ALTO':s>=20?'MEDIO':'NORMAL',score:s,diasRestantes:r,tempoParado:parado};
+  }
+  function tendencia(processos,diasJanela){
+    const entradas=processos.filter(p=>dentroJanela(p?.created_at||p?.data_solicitacao,diasJanela)).length;
+    const saidas=processos.filter(p=>dentroJanela(p?.retirado_em||p?.finalizado_em||p?.deferido_em,diasJanela)).length;
+    const saldo=entradas-saidas;
+    return {dias:diasJanela,entradas,saidas,saldo,direcao:saldo>0?'ALTA':saldo<0?'QUEDA':'ESTAVEL'};
+  }
   function calcular(dados){
-    const ativos=dados.processos.filter(p=>!finalizado(p)); const backlog={}; const cargas={}; let vencidos=0,vencem3=0,dentro=0,avaliados=0,totalDias=0;
+    const todos=Array.isArray(dados?.processos)?dados.processos:[];
+    const ativos=todos.filter(p=>!finalizado(p));
+    const backlog={},cargas={}; let vencidos=0,vencem3=0,dentro=0,avaliados=0,totalDias=0;
     const riscos=[];
-    for(const p of ativos){const e=etapa(p);backlog[e]=(backlog[e]||0)+1;const resp=responsavel(p);cargas[resp]=(cargas[resp]||0)+1;const r=risco(p);riscos.push({...r,id:p.id,codigo:p.codigo_sigee,aluno:p.aluno_nome,etapa:e,responsavel:resp,nte:p.nte});if(r.diasRestantes!=null){avaliados++;if(r.diasRestantes<0)vencidos++;else{dentro++;if(r.diasRestantes<=3)vencem3++;}}totalDias+=dias(p.created_at);}
-    const backlogOrdenado=Object.entries(backlog).sort((a,b)=>b[1]-a[1]); const cargaEntries=Object.entries(cargas).filter(([n])=>n!=='Não atribuído'); const mediaCarga=cargaEntries.length?cargaEntries.reduce((s,[,v])=>s+v,0)/cargaEntries.length:0;
-    const sobrecarregados=cargaEntries.filter(([,v])=>v>=Math.max(5,mediaCarga*1.25)).sort((a,b)=>b[1]-a[1]).map(([nome,total])=>({nome,total,media:mediaCarga,excesso:Math.max(0,Math.round(total-mediaCarga))}));
-    return {totalAtivos:ativos.length,totalProcessos:dados.processos.length,backlog,backlogOrdenado,gargalo:backlogOrdenado[0]?{etapa:backlogOrdenado[0][0],total:backlogOrdenado[0][1]}:null,riscos:riscos.sort((a,b)=>b.score-a.score),emRisco:riscos.filter(r=>['ALTO','CRITICO'].includes(r.nivel)).length,criticos:riscos.filter(r=>r.nivel==='CRITICO').length,vencidos,vencem3,dentroSla:avaliados?Math.round(dentro/avaliados*100):null,avaliados,tempoMedioDias:ativos.length?totalDias/ativos.length:0,cargas,sobrecarregados,mediaCarga};
+    for(const p of ativos){
+      const e=etapa(p);backlog[e]=(backlog[e]||0)+1;
+      const resp=responsavel(p);cargas[resp]=(cargas[resp]||0)+1;
+      const r=risco(p);
+      riscos.push({...r,id:p.id,codigo:p.codigo_sigee,aluno:p.aluno_nome,escola:p.escola_nome,etapa:e,responsavel:resp,nte:p.nte,prioridade:p.prioridade});
+      if(r.diasRestantes!=null){avaliados++;if(r.diasRestantes<0)vencidos++;else{dentro++;if(r.diasRestantes<=3)vencem3++;}}
+      totalDias+=dias(p.created_at);
+    }
+    const backlogOrdenado=Object.entries(backlog).sort((a,b)=>b[1]-a[1]).map(([etapa,total])=>({etapa,total,percentual:ativos.length?Math.round(total/ativos.length*1000)/10:0}));
+    const cargaEntries=Object.entries(cargas).filter(([n])=>n!=='Não atribuído');
+    const mediaCarga=cargaEntries.length?cargaEntries.reduce((s,[,v])=>s+v,0)/cargaEntries.length:0;
+    const capacidade=cargaEntries.sort((a,b)=>b[1]-a[1]).map(([nome,total])=>({nome,total,media:mediaCarga,percentualMedia:mediaCarga?Math.round(total/mediaCarga*100):0,status:total>=Math.max(5,mediaCarga*1.25)?'ACIMA':total<=mediaCarga*.75?'ABAIXO':'EQUILIBRADO'}));
+    const sobrecarregados=capacidade.filter(x=>x.status==='ACIMA').map(x=>({...x,excesso:Math.max(0,Math.round(x.total-mediaCarga))}));
+    const niveis={CRITICO:0,ALTO:0,MEDIO:0,NORMAL:0};
+    riscos.forEach(r=>{if(niveis[r.nivel]!=null)niveis[r.nivel]++;});
+    const gargalo=backlogOrdenado[0]||null;
+    return {
+      totalAtivos:ativos.length,totalProcessos:todos.length,ativos,backlog,backlogOrdenado,gargalo,
+      riscos:riscos.sort((a,b)=>b.score-a.score),niveisRisco:niveis,
+      emRisco:niveis.CRITICO+niveis.ALTO,criticos:niveis.CRITICO,vencidos,vencem3,
+      dentroSla:avaliados?Math.round(dentro/avaliados*100):null,avaliados,
+      tempoMedioDias:ativos.length?totalDias/ativos.length:0,
+      cargas,capacidade,sobrecarregados,mediaCarga,
+      tecnicosTotal:capacidade.length,equilibrados:capacidade.filter(x=>x.status==='EQUILIBRADO').length,abaixoMedia:capacidade.filter(x=>x.status==='ABAIXO').length,
+      tendencias:{d7:tendencia(todos,7),d30:tendencia(todos,30),d90:tendencia(todos,90)}
+    };
   }
   NS.metrics=Object.freeze({calcular,risco,SLAS});
 })(window);

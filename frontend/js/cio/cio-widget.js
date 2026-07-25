@@ -1,95 +1,37 @@
 (function(global, document){
   'use strict';
-  if (global.SIGEE_CIO_WIDGET?.version === 'RC6.2.0.1') return;
-
-  const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-
-  function usuario(){
-    try { return global.SIGEE_SESSION?.getUser?.() || global.usuarioLogado || null; }
-    catch (_) { return global.usuarioLogado || null; }
-  }
-  function perfil(){
-    const v=String(usuario()?.perfil||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
-    if(v.includes('MASTER')) return 'MASTER';
-    if(v.includes('GESTOR')) return 'GESTOR';
-    if(v.includes('ADMINISTRADOR')||v==='ADMIN') return 'ADMINISTRADOR';
-    return v;
-  }
-  function permitido(){ return ['MASTER','GESTOR','ADMINISTRADOR'].includes(perfil()); }
-
+  if(global.SIGEE_CIO_WIDGET?.version==='RC6.2.1')return;
+  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  let ultimoResultado=null;
+  function usuario(){try{return global.SIGEE_SESSION?.getUser?.()||global.usuarioLogado||null;}catch(_){return global.usuarioLogado||null;}}
+  function perfil(){const v=String(usuario()?.perfil||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();if(v.includes('MASTER'))return'MASTER';if(v.includes('GESTOR'))return'GESTOR';if(v.includes('ADMINISTRADOR')||v==='ADMIN')return'ADMINISTRADOR';return v;}
+  function permitido(){return['MASTER','GESTOR','ADMINISTRADOR'].includes(perfil());}
   function instalar(){
-    if(!permitido()) return false;
-    const painel=document.getElementById('aba-painel');
-    if(!painel) return false;
-    if(document.getElementById('sigee-cio-resumo-widget')) return true;
-    const sec=document.createElement('section');
-    sec.id='sigee-cio-resumo-widget';
-    sec.className='sigee-cio-widget';
-    sec.innerHTML=`
-      <header class="sigee-cio-widget-head">
-        <div><span>CENTRO DE INTELIGÊNCIA OPERACIONAL</span><h2>Resumo Executivo</h2><p>Leitura objetiva dos riscos, gargalos e prioridades da operação.</p></div>
-        <button type="button" data-cio-widget-refresh>Atualizar análise</button>
-      </header>
-      <div class="sigee-cio-widget-body" data-cio-widget-body>
-        <p class="sigee-cio-widget-placeholder">O diagnóstico será carregado somente quando solicitado.</p>
-      </div>`;
-    const welcome=painel.querySelector('.sigee-welcome-strip');
-    if(welcome?.nextSibling) painel.insertBefore(sec,welcome.nextSibling); else painel.prepend(sec);
+    if(!permitido())return false;const painel=document.getElementById('aba-painel');if(!painel)return false;if(document.getElementById('sigee-cio-resumo-widget'))return true;
+    const sec=document.createElement('section');sec.id='sigee-cio-resumo-widget';sec.className='sigee-cio-widget';sec.innerHTML=`<header class="sigee-cio-widget-head"><div><span>CENTRO DE INTELIGÊNCIA OPERACIONAL</span><h2>Resumo Executivo</h2><p>Riscos, capacidade, tendências e prioridades da operação.</p></div><button type="button" data-cio-widget-refresh>Atualizar análise</button></header><div class="sigee-cio-widget-body" data-cio-widget-body><p class="sigee-cio-widget-placeholder">O diagnóstico será carregado somente quando solicitado.</p></div>`;
+    const welcome=painel.querySelector('.sigee-welcome-strip');if(welcome?.nextSibling)painel.insertBefore(sec,welcome.nextSibling);else painel.prepend(sec);
     sec.querySelector('[data-cio-widget-refresh]')?.addEventListener('click',()=>carregar(true));
+    sec.addEventListener('click',e=>{const alvo=e.target.closest('[data-cio-lista]');if(alvo&&ultimoResultado)abrirLista(alvo.dataset.cioLista,ultimoResultado);});
     return true;
   }
-
-  function card(titulo,valor,detalhe=''){
-    return `<article><span>${esc(titulo)}</span><strong>${esc(valor)}</strong>${detalhe?`<small>${esc(detalhe)}</small>`:''}</article>`;
-  }
-
+  function card(titulo,valor,detalhe='',filtro=''){return `<button type="button" class="sigee-cio-kpi" data-cio-lista="${esc(filtro)}"><span>${esc(titulo)}</span><strong>${esc(valor)}</strong>${detalhe?`<small>${esc(detalhe)}</small>`:''}</button>`;}
+  function riscoCards(m){return `<div class="sigee-cio-riscos"><button data-cio-lista="CRITICO" class="critico"><b>${m.niveisRisco?.CRITICO||0}</b><span>Crítico</span></button><button data-cio-lista="ALTO" class="alto"><b>${m.niveisRisco?.ALTO||0}</b><span>Alto</span></button><button data-cio-lista="MEDIO" class="medio"><b>${m.niveisRisco?.MEDIO||0}</b><span>Médio</span></button><button data-cio-lista="NORMAL" class="normal"><b>${m.niveisRisco?.NORMAL||0}</b><span>Normal</span></button></div>`;}
   function render(resultado){
-    const m=resultado.metricas||{};
-    const alertas=(resultado.alertas||[]).slice(0,3);
-    const recs=(resultado.recomendacoes||[]).slice(0,3);
-    return `
-      <div class="sigee-cio-widget-brief"><strong>${esc(resultado.resumo?.saudacao||'Resumo operacional')}</strong><p>${esc(resultado.resumo?.texto||'Análise concluída.')}</p></div>
-      <div class="sigee-cio-widget-grid">
-        ${card('Processos ativos',m.totalAtivos??0)}
-        ${card('Em risco',m.emRisco??0,`${m.criticos??0} críticos`)}
-        ${card('Vencem em 3 dias',m.vencem3??0)}
-        ${card('Maior gargalo',m.gargalo?.etapa||'Não identificado',m.gargalo?`${m.gargalo.total} processos`:'')}
-      </div>
-      <div class="sigee-cio-widget-columns">
-        <div><h3>Alertas</h3>${alertas.length?alertas.map(a=>`<p><b>${esc(a.titulo)}</b> — ${esc(a.mensagem)}</p>`).join(''):'<p>Nenhum alerta relevante.</p>'}</div>
-        <div><h3>Recomendações</h3>${recs.length?`<ol>${recs.map(r=>`<li>${esc(r)}</li>`).join('')}</ol>`:'<p>Nenhuma recomendação prioritária.</p>'}</div>
-      </div>`;
+    const m=resultado.metricas||{},alertas=(resultado.alertas||[]).slice(0,4),recs=(resultado.recomendacoes||[]).slice(0,4);
+    const backlog=(m.backlogOrdenado||[]).slice(0,6).map(x=>`<button data-cio-lista="ETAPA:${esc(x.etapa)}"><span>${esc(x.etapa)}</span><b>${x.total}</b><small>${x.percentual}%</small></button>`).join('');
+    const capacidade=(m.capacidade||[]).slice(0,6).map(x=>`<button data-cio-lista="RESP:${esc(x.nome)}"><span>${esc(x.nome)}</span><b>${x.total}</b><small>${x.percentualMedia}% da média</small></button>`).join('');
+    const t7=m.tendencias?.d7||{},t30=m.tendencias?.d30||{};
+    return `<div class="sigee-cio-widget-brief"><strong>${esc(resultado.resumo?.saudacao||'Resumo operacional')}</strong><p>${esc(resultado.resumo?.texto||'Análise concluída.')}</p></div>
+      <div class="sigee-cio-widget-grid">${card('Processos ativos',m.totalAtivos??0,'Abrir lista','ATIVOS')}${card('Em risco',m.emRisco??0,`${m.criticos??0} críticos`,'RISCO')}${card('Vencem em 3 dias',m.vencem3??0,'Abrir lista','VENCE_3')}${card('Maior gargalo',m.gargalo?.etapa||'Não identificado',m.gargalo?`${m.gargalo.total} processos`:'','GARGALO')}</div>
+      <section class="sigee-cio-section"><h3>Classificação de risco</h3>${riscoCards(m)}</section>
+      <div class="sigee-cio-analytics"><section><h3>Backlog por etapa</h3><div class="sigee-cio-listas">${backlog||'<p>Sem dados.</p>'}</div></section><section><h3>Capacidade da equipe</h3><div class="sigee-cio-cap-resumo"><b>${m.tecnicosTotal||0}</b> técnicos · <b>${m.sobrecarregados?.length||0}</b> acima · <b>${m.equilibrados||0}</b> equilibrados</div><div class="sigee-cio-listas">${capacidade||'<p>Sem responsáveis atribuídos.</p>'}</div></section></div>
+      <section class="sigee-cio-section"><h3>Tendência operacional</h3><div class="sigee-cio-tendencias"><article><span>Últimos 7 dias</span><b>${t7.saldo>0?'+':''}${t7.saldo||0}</b><small>${t7.entradas||0} entradas · ${t7.saidas||0} saídas</small></article><article><span>Últimos 30 dias</span><b>${t30.saldo>0?'+':''}${t30.saldo||0}</b><small>${t30.entradas||0} entradas · ${t30.saidas||0} saídas</small></article><article><span>SLA no prazo</span><b>${m.dentroSla==null?'—':m.dentroSla+'%'}</b><small>${m.avaliados||0} processos avaliados</small></article></div></section>
+      <div class="sigee-cio-widget-columns"><div><h3>Alertas</h3>${alertas.length?alertas.map(a=>`<button class="sigee-cio-alerta ${esc(a.tipo.toLowerCase())}" data-cio-lista="${esc(a.filtro||'')}" ><b>${esc(a.titulo)}</b><span>${esc(a.mensagem)}</span></button>`).join(''):'<p>Nenhum alerta relevante.</p>'}</div><div><h3>Recomendações</h3>${recs.length?recs.map(r=>`<article class="sigee-cio-rec"><span>${esc(r.prioridade)}</span><b>${esc(r.titulo)}</b><p>${esc(r.justificativa)}</p><small>${esc(r.acao)}</small></article>`).join(''):'<p>Nenhuma recomendação prioritária.</p>'}</div></div>`;
   }
-
-  async function carregar(force=false){
-    instalar();
-    const body=document.querySelector('[data-cio-widget-body]');
-    const btn=document.querySelector('[data-cio-widget-refresh]');
-    if(!body||!permitido()) return false;
-    try{
-      if(btn) btn.disabled=true;
-      body.innerHTML='<p class="sigee-cio-widget-placeholder">Analisando dados operacionais...</p>';
-      await global.__SIGEE_CIO_BOOTSTRAP__?.load?.();
-      if(typeof global.SIGEE_CIO?.engine?.analisar!=='function') throw new Error('Motor analítico indisponível.');
-      const resultado=await global.SIGEE_CIO.engine.analisar({force});
-      body.innerHTML=render(resultado);
-      return true;
-    }catch(e){
-      console.error('[SIGEE CIO Widget]',e);
-      body.innerHTML=`<p class="sigee-cio-widget-error">Não foi possível gerar o resumo: ${esc(e.message)}</p>`;
-      return false;
-    }finally{ if(btn) btn.disabled=false; }
-  }
-
-  function abrir(){
-    const painel=document.getElementById('aba-painel');
-    if(painel){ painel.classList.remove('hidden'); painel.hidden=false; painel.style.removeProperty('display'); }
-    instalar();
-    document.getElementById('sigee-cio-resumo-widget')?.scrollIntoView({behavior:'smooth',block:'start'});
-    return carregar(false);
-  }
-
-  global.SIGEE_CIO_WIDGET=Object.freeze({version:'RC6.2.0.1',instalar,carregar,abrir});
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>setTimeout(instalar,300),{once:true});
-  else setTimeout(instalar,300);
+  function filtrar(tipo,r){const m=r.metricas||{};if(tipo==='ATIVOS')return m.ativos||[];if(tipo==='RISCO')return(m.riscos||[]).filter(x=>['CRITICO','ALTO'].includes(x.nivel));if(tipo==='CRITICO'||tipo==='ALTO'||tipo==='MEDIO'||tipo==='NORMAL')return(m.riscos||[]).filter(x=>x.nivel===tipo);if(tipo==='VENCE_3')return(m.riscos||[]).filter(x=>x.diasRestantes!=null&&x.diasRestantes>=0&&x.diasRestantes<=3);if(tipo==='GARGALO')return(m.riscos||[]).filter(x=>x.etapa===m.gargalo?.etapa);if(tipo.startsWith('ETAPA:'))return(m.riscos||[]).filter(x=>x.etapa===tipo.slice(6));if(tipo.startsWith('RESP:'))return(m.riscos||[]).filter(x=>x.responsavel===tipo.slice(5));if(tipo==='SOBRECARGA'){const nomes=new Set((m.sobrecarregados||[]).map(x=>x.nome));return(m.riscos||[]).filter(x=>nomes.has(x.responsavel));}return[];}
+  function abrirLista(tipo,r){const lista=filtrar(tipo,r);document.getElementById('sigee-cio-lista-modal')?.remove();const modal=document.createElement('div');modal.id='sigee-cio-lista-modal';modal.className='sigee-cio-modal';modal.innerHTML=`<section><header><div><span>DETALHAMENTO OPERACIONAL</span><h2>${esc(tipo.replace(/^ETAPA:|^RESP:/,''))}</h2><p>${lista.length} registro(s) no escopo analisado.</p></div><button type="button" data-fechar>×</button></header><div class="sigee-cio-modal-body">${lista.length?`<table><thead><tr><th>Processo</th><th>Aluno</th><th>Etapa</th><th>Responsável</th><th>Risco</th></tr></thead><tbody>${lista.slice(0,500).map(x=>`<tr><td>${esc(x.codigo||x.id||'—')}</td><td>${esc(x.aluno||'—')}<small>${esc(x.escola||'')}</small></td><td>${esc(x.etapa||'—')}</td><td>${esc(x.responsavel||'—')}</td><td><b class="risco-${esc((x.nivel||'normal').toLowerCase())}">${esc(x.nivel||'NORMAL')}</b></td></tr>`).join('')}</tbody></table>`:'<p>Nenhum registro localizado.</p>'}</div></section>`;document.body.appendChild(modal);modal.querySelector('[data-fechar]').onclick=()=>modal.remove();modal.addEventListener('click',e=>{if(e.target===modal)modal.remove();});}
+  async function carregar(force=false){instalar();const body=document.querySelector('[data-cio-widget-body]'),btn=document.querySelector('[data-cio-widget-refresh]');if(!body||!permitido())return false;try{if(btn)btn.disabled=true;body.innerHTML='<p class="sigee-cio-widget-placeholder">Analisando dados operacionais...</p>';await global.__SIGEE_CIO_BOOTSTRAP__?.load?.();if(typeof global.SIGEE_CIO?.engine?.analisar!=='function')throw new Error('Motor analítico indisponível.');ultimoResultado=await global.SIGEE_CIO.engine.analisar({force});body.innerHTML=render(ultimoResultado);return true;}catch(e){console.error('[SIGEE CIO Widget]',e);body.innerHTML=`<p class="sigee-cio-widget-error">Não foi possível gerar o resumo: ${esc(e.message)}</p>`;return false;}finally{if(btn)btn.disabled=false;}}
+  function abrir(){const painel=document.getElementById('aba-painel');if(painel){painel.classList.remove('hidden');painel.hidden=false;painel.style.removeProperty('display');}instalar();document.getElementById('sigee-cio-resumo-widget')?.scrollIntoView({behavior:'smooth',block:'start'});return carregar(false);}
+  global.SIGEE_CIO_WIDGET=Object.freeze({version:'RC6.2.1',instalar,carregar,abrir});
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(instalar,300),{once:true});else setTimeout(instalar,300);
 })(window,document);
