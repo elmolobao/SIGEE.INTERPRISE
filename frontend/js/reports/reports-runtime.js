@@ -1,7 +1,7 @@
-/* SIGEE Enterprise RC6.6.0 — Central de Relatórios em abas oficiais */
+/* SIGEE Enterprise RC6.6.1 — Relatórios com subabas independentes */
 (function(){
 'use strict';
-if(window.__SIGEE_REPORTS_6501__) return; window.__SIGEE_REPORTS_6501__=true;
+if(window.__SIGEE_REPORTS_661__) return; window.__SIGEE_REPORTS_661__=true;
 const txt=v=>v==null?'':String(v).trim(), norm=v=>txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase(), esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const R=()=>window.SIGEE_REGRAS_OPERACIONAIS;
 const tipos=[
@@ -62,24 +62,59 @@ function localizarMenuRelatorios(){
   if(!nav)return null;
   return [...nav.querySelectorAll('button,a')].find(el=>norm(el.textContent).replace(/[^A-Z]/g,'').includes('RELATORIOS'))||null;
 }
+function criarMenuRelatorios(){
+  const wrap=document.createElement('div');
+  wrap.id='menu-relatorios-rc661';
+  wrap.className='sig-rel-menu';
+  wrap.innerHTML=`
+    <button class="sig-rel-menu-title" type="button" aria-expanded="false" aria-controls="submenu-relatorios-rc661">
+      <span>📑 Relatórios</span><span class="sig-rel-chevron" aria-hidden="true">▾</span>
+    </button>
+    <div id="submenu-relatorios-rc661" class="sig-rel-submenu" role="group" aria-label="Subabas de Relatórios">
+      ${tipos.map(x=>`<button type="button" class="sig-rel-subaba" data-report-menu="${x[0]}" data-view="aba-relatorio-${x[0]}"><span>${x[1]}</span><span>${x[2].replace('Relatório de ','').replace('Relatório ','')}</span></button>`).join('')}
+    </div>`;
+  return wrap;
+}
 function instalarMenu(){
-  const nav=document.getElementById('sigee-menu-dinamico');if(!nav)return;
+  const nav=document.getElementById('sigee-menu-dinamico');
+  if(!nav)return;
   document.getElementById('menu-relatorios-rc650')?.remove();
-  const original=localizarMenuRelatorios();
-  let wrap=document.getElementById('menu-relatorios-rc6501');
-  if(!wrap){wrap=document.createElement('div');wrap.id='menu-relatorios-rc6501';wrap.className='sig-rel-menu';wrap.innerHTML='<button class="sig-rel-menu-title" type="button" aria-expanded="false">📑 Relatórios <span>▾</span></button><div>'+tipos.map(x=>'<button type="button" data-report-menu="'+x[0]+'">'+x[1]+' '+x[2]+'</button>').join('')+'</div>';
-    if(original){
-      // RC6.6.0: substitui somente o item original. Nunca substitui divs ancestrais,
-      // pois o botão pode ser filho direto da NAV e closest('div') alcançaria o shell inteiro.
-      original.replaceWith(wrap);
-    }else{
-      nav.appendChild(wrap);
-    }
+  document.getElementById('menu-relatorios-rc6501')?.remove();
+  let wrap=document.getElementById('menu-relatorios-rc661');
+  if(!wrap){
+    const original=localizarMenuRelatorios();
+    wrap=criarMenuRelatorios();
+    if(original) original.replaceWith(wrap); else nav.appendChild(wrap);
   }
   const title=wrap.querySelector('.sig-rel-menu-title');
-  title.onclick=e=>{e.preventDefault();e.stopPropagation();wrap.classList.toggle('open');title.setAttribute('aria-expanded',String(wrap.classList.contains('open')));};
-  wrap.querySelectorAll('[data-report-menu]').forEach(b=>b.onclick=e=>{e.preventDefault();e.stopPropagation();wrap.classList.add('open');abrir(b.dataset.reportMenu);});
+  if(title && !title.dataset.bound){
+    title.dataset.bound='1';
+    title.addEventListener('click',e=>{
+      e.preventDefault();e.stopPropagation();
+      const aberta=wrap.classList.toggle('open');
+      title.setAttribute('aria-expanded',String(aberta));
+    });
+  }
+  wrap.querySelectorAll('[data-report-menu]').forEach(b=>{
+    if(b.dataset.bound)return;
+    b.dataset.bound='1';
+    b.addEventListener('click',e=>{
+      e.preventDefault();e.stopPropagation();
+      wrap.classList.add('open');
+      title?.setAttribute('aria-expanded','true');
+      abrir(b.dataset.reportMenu);
+    });
+  });
   state.menuIntegrado=true;
+}
+let menuObserver=null;
+function observarMenu(){
+  const nav=document.getElementById('sigee-menu-dinamico');
+  if(!nav || menuObserver)return;
+  menuObserver=new MutationObserver(()=>{
+    if(!document.getElementById('menu-relatorios-rc661')) setTimeout(instalarMenu,0);
+  });
+  menuObserver.observe(nav,{childList:true,subtree:false});
 }
 function instalarPonteNavegacao(){
   const atual=window.navegar;
@@ -96,13 +131,14 @@ function instalarPonteNavegacao(){
 
 function init(){
   document.querySelectorAll('[data-relatorio-legado="true"]').forEach(ocultarModulo);
-  tipos.forEach(x=>{if(!host(x[0]))console.error('[SIGEE RC6.6.0] Aba ausente:',x[0]);});
+  tipos.forEach(x=>{if(!host(x[0]))console.error('[SIGEE RC6.6.1] Aba ausente:',x[0]);});
   instalarMenu();
   instalarPonteNavegacao();
-  setTimeout(()=>{instalarMenu();instalarPonteNavegacao();},300);
+  observarMenu();
+  setTimeout(()=>{instalarMenu();instalarPonteNavegacao();observarMenu();},300);
   setTimeout(()=>{instalarMenu();instalarPonteNavegacao();},1200);
 }
 document.readyState==='loading'?document.addEventListener('DOMContentLoaded',init):init();
-window.SIGEE_RELATORIOS={abrir,atualizar:()=>state.tipo&&abrir(state.tipo,true),versao:'RC6.6.0'};
-console.info('[SIGEE RC6.6.0] Central de Relatórios separada do CIO e integrada às abas oficiais.');
+window.SIGEE_RELATORIOS={abrir,atualizar:()=>state.tipo&&abrir(state.tipo,true),versao:'RC6.6.1'};
+console.info('[SIGEE RC6.6.1] Relatórios organizados em subabas independentes.');
 })();
