@@ -384,15 +384,19 @@
 
   function garantirMenu() {
     if (perfilAtual() !== 'MASTER') return;
-    const nav = document.getElementById('submenu-administracao') || document.querySelector('.sigee-sidebar-nav') || document.querySelector('aside nav');
-    if (!nav || document.getElementById('menu-migracao-historica')) return;
-    const btn = document.createElement('button');
-    btn.id = 'menu-migracao-historica';
-    btn.className = 'sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer';
-    btn.textContent = '🧬 Migração Histórica';
-    btn.addEventListener('click', abrirMigracao);
-    nav.appendChild(btn);
-    window.SIGEE_ADMIN_MENU?.organizar?.();
+    const nav = document.querySelector('.sigee-sidebar-nav') || document.querySelector('aside nav');
+    const destino = document.getElementById('submenu-administracao') || nav;
+    if (!destino) return;
+
+    let btn = document.getElementById('menu-migracao-historica');
+    if (!btn) {
+      btn = document.createElement('button');
+      btn.id = 'menu-migracao-historica';
+      btn.className = 'sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer';
+      btn.textContent = '🧬 Migração Histórica';
+      btn.addEventListener('click', abrirMigracao);
+    }
+    if (btn.parentElement !== destino) destino.appendChild(btn);
   }
   function abrirMigracao() {
     document.querySelectorAll('#sistema-dashboard main > section').forEach(s => s.classList.add('hidden'));
