@@ -10392,138 +10392,123 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
   }, { once: true });
 })(window);
 
-/* SIGEE RC6.6.5 — Menu institucional estável, sem ciclos de reconstrução */
+/* SIGEE RC7.0.0 — Menu Manager: autoridade única do menu institucional */
 (function(){
   'use strict';
-  if (window.__SIGEE_MENU_INSTITUCIONAL_665__) return;
-  window.__SIGEE_MENU_INSTITUCIONAL_665__ = true;
+  if (window.__SIGEE_MENU_MANAGER_RC700__) return;
+  window.__SIGEE_MENU_MANAGER_RC700__ = true;
 
-  const normalizar = valor => String(valor || '')
+  const norm = valor => String(valor || '')
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-zA-Z0-9 ]/g, ' ')
     .replace(/\s+/g, ' ').trim().toUpperCase();
 
-  function itemRaiz(nav, elemento) {
+  const estado = { organizando:false, tentativas:0, timer:null };
+
+  function raizDireta(nav, elemento){
     if (!nav || !elemento) return null;
     let atual = elemento;
     while (atual.parentElement && atual.parentElement !== nav) atual = atual.parentElement;
     return atual.parentElement === nav ? atual : null;
   }
 
-  function localizar(nav, termos, excluirDentroAdministrativo = true) {
+  function localizar(nav, termos, opcoes={}){
+    const excluir = opcoes.excluir || [];
     const candidatos = [...nav.querySelectorAll('button,a,[role="button"]')];
-    const elemento = candidatos.find(el => {
-      if (excluirDentroAdministrativo && el.closest('#menu-administrativo-rc665')) return false;
-      const texto = normalizar(el.textContent);
-      return termos.some(termo => texto === termo || texto.includes(termo));
+    const alvo = candidatos.find(el => {
+      if (excluir.some(sel => el.closest(sel))) return false;
+      const texto = norm(el.textContent);
+      return termos.some(t => texto === t || texto.includes(t));
     });
-    return itemRaiz(nav, elemento);
+    return raizDireta(nav, alvo);
   }
 
-  function criarAdministrativo(nav) {
-    let grupo = document.getElementById('menu-administrativo-rc665');
+  function criarGrupoAdministrativo(){
+    let grupo = document.getElementById('menu-administrativo-rc700');
     if (grupo) return grupo;
-
     document.getElementById('menu-administrativo-rc664')?.remove();
+    document.getElementById('menu-administrativo-rc665')?.remove();
     grupo = document.createElement('div');
-    grupo.id = 'menu-administrativo-rc665';
+    grupo.id = 'menu-administrativo-rc700';
     grupo.className = 'sigee-admin-menu';
     grupo.innerHTML = `
-      <button type="button" class="sigee-admin-menu-title" aria-expanded="false" aria-controls="submenu-administrativo-rc665">
+      <button type="button" class="sigee-admin-menu-title" aria-expanded="false" aria-controls="submenu-administrativo-rc700">
         <span>⚙️ Administrativo</span><span class="sigee-admin-chevron" aria-hidden="true">▾</span>
       </button>
-      <div id="submenu-administrativo-rc665" class="sigee-admin-submenu" role="group" aria-label="Submenu Administrativo"></div>`;
-
+      <div id="submenu-administrativo-rc700" class="sigee-admin-submenu" role="group" aria-label="Submenu Administrativo"></div>`;
     const titulo = grupo.querySelector('.sigee-admin-menu-title');
-    titulo.addEventListener('click', function(event){
+    titulo.addEventListener('click', event => {
       event.preventDefault();
       event.stopPropagation();
       const aberto = grupo.classList.toggle('open');
       titulo.setAttribute('aria-expanded', String(aberto));
     });
-    nav.appendChild(grupo);
     return grupo;
   }
 
-  let organizando = false;
-  let observer = null;
-
-  function moverSomenteSeNecessario(pai, item, referencia = null) {
-    if (!pai || !item) return;
-    if (referencia) {
-      if (item.parentElement !== pai || item.nextElementSibling !== referencia) pai.insertBefore(item, referencia);
-    } else if (item.parentElement !== pai || item !== pai.lastElementChild) {
-      pai.appendChild(item);
-    }
+  function mover(pai, item){
+    if (pai && item && item.parentElement !== pai) pai.appendChild(item);
   }
 
-  function organizarMenu() {
-    if (organizando) return;
+  function organizar(){
+    if (estado.organizando) return false;
     const nav = document.getElementById('sigee-menu-dinamico');
-    if (!nav || !nav.children.length) return;
-
-    organizando = true;
-    observer?.disconnect();
+    if (!nav || !nav.children.length) return false;
+    estado.organizando = true;
     try {
-      const processos = localizar(nav, ['CENTRAL DE PROCESSOS']);
-      const escolas = localizar(nav, ['CATALOGO DE ESCOLAS']);
-      const relatorios = document.getElementById('menu-relatorios-rc661') || localizar(nav, ['RELATORIOS']);
-      const cio = localizar(nav, ['CENTRO DE INTELIGENCIA']);
-      const sala = localizar(nav, ['SALA DE SITUACAO']);
-      const administrativo = criarAdministrativo(nav);
-      const submenu = administrativo.querySelector('.sigee-admin-submenu');
+      const excluirAdmin = ['#menu-administrativo-rc700'];
+      const processos = localizar(nav, ['CENTRAL DE PROCESSOS'], {excluir:excluirAdmin});
+      const escolas = localizar(nav, ['CATALOGO DE ESCOLAS'], {excluir:excluirAdmin});
+      const relatorios = document.getElementById('menu-relatorios-rc700') || document.getElementById('menu-relatorios-rc661') || localizar(nav, ['RELATORIOS'], {excluir:excluirAdmin});
+      const cio = localizar(nav, ['CENTRO DE INTELIGENCIA'], {excluir:excluirAdmin});
+      const sala = localizar(nav, ['SALA DE SITUACAO'], {excluir:excluirAdmin});
+      const admin = criarGrupoAdministrativo();
+      const submenu = admin.querySelector('.sigee-admin-submenu');
 
-      const itensAdministrativos = [
-        localizar(nav, ['USUARIOS', 'CONTROLE DE USUARIOS']),
-        localizar(nav, ['CONFIGURACOES']),
-        localizar(nav, ['LOGS', 'AUDITORIA', 'HISTORICO DE ATIVIDADES']),
-        localizar(nav, ['MIGRACAO HISTORICA'])
-      ].filter((item, indice, lista) => item && item !== administrativo && lista.indexOf(item) === indice);
+      const administrativos = [
+        localizar(nav, ['USUARIOS','CONTROLE DE USUARIOS'], {excluir:excluirAdmin}),
+        localizar(nav, ['CONFIGURACOES'], {excluir:excluirAdmin}),
+        localizar(nav, ['LOGS','AUDITORIA','HISTORICO DE ATIVIDADES'], {excluir:excluirAdmin}),
+        localizar(nav, ['MIGRACAO HISTORICA'], {excluir:excluirAdmin})
+      ].filter((v,i,a)=>v && a.indexOf(v)===i && v!==admin);
+      administrativos.forEach(item => mover(submenu,item));
 
-      itensAdministrativos.forEach(item => {
-        if (item.parentElement !== submenu) submenu.appendChild(item);
-      });
+      const ordem = [processos, escolas, relatorios, cio, sala, admin].filter(Boolean);
+      ordem.forEach(item => nav.appendChild(item));
 
-      const ordem = [processos, escolas, relatorios, cio, sala, administrativo].filter(Boolean);
-      ordem.forEach((item, indice) => {
-        const atual = nav.children[indice];
-        if (atual !== item) nav.insertBefore(item, atual || null);
-      });
-
-      const visiveis = [...submenu.children].filter(el => !el.classList.contains('hidden'));
-      administrativo.classList.toggle('hidden', visiveis.length === 0);
+      const itensVisiveis = [...submenu.children].filter(el => !el.classList.contains('hidden'));
+      admin.classList.toggle('hidden', itensVisiveis.length === 0);
+      nav.dataset.menuManager = 'RC7.0.0';
+      return true;
     } finally {
-      organizando = false;
-      observar();
+      estado.organizando = false;
     }
   }
 
-  let timer = null;
-  function agendar(){
-    clearTimeout(timer);
-    timer = setTimeout(organizarMenu, 120);
+  function agendar(atraso=80){
+    clearTimeout(estado.timer);
+    estado.timer=setTimeout(()=>{
+      organizar();
+      window.SIGEE_RELATORIOS?.instalarMenu?.();
+      organizar();
+    }, atraso);
   }
 
-  function observar(){
-    const nav = document.getElementById('sigee-menu-dinamico');
-    if (!nav) return;
-    if (!observer) observer = new MutationObserver(mutations => {
-      const relevante = mutations.some(m => m.type === 'childList' && (m.target === nav || m.target.id === 'submenu-administrativo-rc665'));
-      if (relevante) agendar();
-    });
-    observer.disconnect();
-    observer.observe(nav, {childList:true, subtree:true});
+  function cicloInicial(){
+    const atrasos=[0,120,350,800,1600];
+    atrasos.forEach(ms=>setTimeout(()=>{ window.SIGEE_RELATORIOS?.instalarMenu?.(); organizar(); },ms));
   }
 
-  function iniciar(){
-    organizarMenu();
-    observar();
-    setTimeout(organizarMenu, 500);
-    setTimeout(organizarMenu, 1600);
-  }
+  ['DOMContentLoaded','sigee:usuario-logado','sigee:menu-renderizado','sigee:navegacao-concluida'].forEach(nome=>{
+    document.addEventListener(nome,()=>agendar(nome==='DOMContentLoaded'?0:60));
+  });
+  window.addEventListener('load',cicloInicial,{once:true});
+  if(document.readyState!=='loading') cicloInicial();
 
-  document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', iniciar, {once:true}) : iniciar();
-  window.SIGEE_ORGANIZAR_MENU = organizarMenu;
-  console.info('[SIGEE RC6.6.5] Menu institucional estabilizado sem reconstrução contínua.');
+  window.SIGEE_MENU={
+    organizar,
+    atualizar:()=>agendar(0),
+    versao:'RC7.0.0'
+  };
+  console.info('[SIGEE RC7.0.0] Menu Manager carregado como autoridade única.');
 })();
-
