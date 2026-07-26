@@ -8,14 +8,12 @@
 #aba-painel #sigee-relatorio-atrasos-etapa[data-relatorio-legado="true"]{display:none!important}
 .sig-rel-page{width:100%;min-height:calc(100vh - 12rem)}
 .sig-rel-page:not(.hidden){display:block!important}
-#menu-relatorios-rc660{margin-top:0}
-#menu-relatorios-rc660 .sig-rel-menu-title{font-size:1rem;padding:.75rem 1rem}
-#menu-relatorios-rc660>div button{padding:.55rem 1rem .55rem 1.55rem}
+#menu-relatorios-rc6501{margin-top:0}
+#menu-relatorios-rc6501 .sig-rel-menu-title{font-size:1rem;padding:.75rem 1rem}
+#menu-relatorios-rc6501>div button{padding:.55rem 1rem .55rem 1.55rem}
 
 
-/* RC6.6.0 — estabilização da navegação e ações dos relatórios */
-#sigee-menu-dinamico #menu-relatorios-rc660{position:relative;width:100%;display:block!important}
-#sigee-menu-dinamico #menu-relatorios-rc660>div{width:100%}
-.sig-rel-page[aria-hidden="true"]{display:none!important}
-.sig-rel-page [data-relatorio="pendencias-externas"]{cursor:pointer;transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease}
-.sig-rel-page [data-relatorio="pendencias-externas"]:hover,.sig-rel-page [data-relatorio="pendencias-externas"]:focus{transform:translateY(-2px);border-color:#2563eb;box-shadow:0 10px 24px rgba(37,99,235,.15);outline:2px solid transparent}
+/* RC6.6.0 — submenu sempre contido na sidebar e sem expansão sobre o shell */
+#sigee-menu-dinamico > #menu-relatorios-rc6501{width:100%;max-width:100%;position:relative;inset:auto;}
+#menu-relatorios-rc6501, #menu-relatorios-rc6501 *{box-sizing:border-box;}
+#menu-relatorios-rc6501 > div{position:static;width:100%;}
