@@ -10391,3 +10391,82 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     }
   }, { once: true });
 })(window);
+
+
+/* SIGEE RC7.0.3 — agrupamento administrativo estático e seguro */
+(function(){
+  'use strict';
+  if(window.__SIGEE_ADMIN_MENU_RC703__) return;
+  window.__SIGEE_ADMIN_MENU_RC703__=true;
+
+  const idsAdministrativos=[
+    'menu-usuarios','menu-logs','menu-diagnostico',
+    'menu-controle-acesso-ntes','menu-migracao-historica'
+  ];
+
+  function perfilAtual(){
+    const u=window.usuarioLogado||window.usuarioAtual||window.currentUser||window.SIGEE_USUARIO_ATUAL;
+    return String(u?.perfil||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
+  }
+
+  function criarGrupo(nav){
+    let grupo=document.getElementById('menu-administrativo-rc703');
+    if(grupo) return grupo;
+    grupo=document.createElement('div');
+    grupo.id='menu-administrativo-rc703';
+    grupo.className='sigee-admin-menu';
+    grupo.innerHTML='<button type="button" id="menu-administrativo-titulo" aria-expanded="false" class="sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer">⚙️ Administrativo <span aria-hidden="true" style="float:right">▾</span></button><div id="submenu-administracao" class="hidden" style="padding-left:.45rem;margin-top:.25rem"></div>';
+    nav.appendChild(grupo);
+    const titulo=grupo.querySelector('#menu-administrativo-titulo');
+    titulo.addEventListener('click',function(ev){
+      ev.preventDefault(); ev.stopPropagation();
+      const sub=grupo.querySelector('#submenu-administracao');
+      const abrir=sub.classList.contains('hidden');
+      sub.classList.toggle('hidden',!abrir);
+      titulo.setAttribute('aria-expanded',String(abrir));
+    });
+    return grupo;
+  }
+
+  function criarBotaoDiagnostico(sub){
+    let b=document.getElementById('menu-diagnostico');
+    if(b) return b;
+    b=document.createElement('button');
+    b.id='menu-diagnostico'; b.type='button'; b.dataset.admin='diagnostico';
+    b.className='sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer';
+    b.textContent='🩺 Centro de Diagnóstico';
+    b.addEventListener('click',function(ev){ev.preventDefault();window.SIGEE_DIAGNOSTICO?.abrir?.();});
+    sub.appendChild(b); return b;
+  }
+
+  function atualizarVisibilidade(grupo){
+    const sub=grupo.querySelector('#submenu-administracao');
+    const visiveis=[...sub.children].filter(el=>!el.classList.contains('hidden'));
+    grupo.classList.toggle('hidden',visiveis.length===0);
+  }
+
+  function organizar(){
+    const nav=document.getElementById('sigee-menu-dinamico');
+    if(!nav) return false;
+    const grupo=criarGrupo(nav), sub=grupo.querySelector('#submenu-administracao');
+    criarBotaoDiagnostico(sub);
+    idsAdministrativos.forEach(id=>{
+      const el=document.getElementById(id);
+      if(el && el.parentElement!==sub) sub.appendChild(el);
+    });
+    // Diagnóstico e controles sensíveis são exclusivos do Master.
+    const master=perfilAtual().includes('MASTER');
+    document.getElementById('menu-diagnostico')?.classList.toggle('hidden',!master);
+    document.getElementById('menu-controle-acesso-ntes')?.classList.toggle('hidden',!master);
+    document.getElementById('menu-migracao-historica')?.classList.toggle('hidden',!master);
+    atualizarVisibilidade(grupo);
+    return true;
+  }
+
+  window.SIGEE_ADMIN_MENU={organizar,versao:'RC7.0.3'};
+  document.addEventListener('DOMContentLoaded',()=>{setTimeout(organizar,250);setTimeout(organizar,900);});
+  window.addEventListener('load',()=>setTimeout(organizar,500));
+  document.addEventListener('sigee:usuario-logado',()=>setTimeout(organizar,150));
+  window.addEventListener('sigee:login-concluido',()=>setTimeout(organizar,150));
+  document.addEventListener('sigee:navegacao-concluida',()=>setTimeout(organizar,30));
+})();
