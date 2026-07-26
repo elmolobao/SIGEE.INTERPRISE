@@ -1,9 +1,9 @@
-/* SIGEE Enterprise RC6.4.0.2 — Bootstrap definitivo da Sala de Situação 2.0 */
+/* SIGEE Enterprise RC6.4.0.3 — Bootstrap definitivo da Sala de Situação 2.0 */
 (function(){
   'use strict';
   if(window.__SIGEE_SALA_6402__) return;
   window.__SIGEE_SALA_6402__=true;
-  const VERSION='RC6.4.0.2';
+  const VERSION='RC6.4.0.3';
   let runtimePromise=null;
 
   function carregarRuntime(){
@@ -26,7 +26,7 @@
   }
 
   function mostrarErro(e){
-    console.error('[SIGEE Sala 2.0 RC6.4.0.2]',e);
+    console.error('[SIGEE Sala 2.0 RC6.4.0.3]',e);
     const sec=document.getElementById('aba-sala-situacao');
     if(!sec) return;
     sec.classList.remove('hidden');
@@ -38,12 +38,18 @@
     try{
       const app=await carregarRuntime();
       await app.abrir();
+      setTimeout(()=>app.restaurar?.(),250);
+      setTimeout(()=>app.restaurar?.(),1000);
     }catch(e){mostrarErro(e);}
   }
 
   function interceptar(e){
+    const qualquerMenu=e.target?.closest?.('.menu-item,.menu-link,[id^="menu-"]');
     const menu=e.target?.closest?.('#menu-sala-situacao');
-    if(!menu) return;
+    if(!menu){
+      if(qualquerMenu) window.SIGEE_SALA_2?.desativar?.();
+      return;
+    }
     // Impede qualquer controlador legado de renderizar depois da Sala 2.0.
     e.preventDefault();
     e.stopImmediatePropagation();
@@ -56,5 +62,5 @@
 
   document.addEventListener('click',interceptar,true);
   window.SIGEE_SALA_BOOTSTRAP={version:VERSION,abrir,recarregar:()=>{runtimePromise=null;return abrir();}};
-  console.info('[SIGEE RC6.4.0.2] Sala de Situação 2.0 em runtime único; módulo legado isolado.');
+  console.info('[SIGEE RC6.4.0.3] Sala de Situação 2.0 em runtime único; módulo legado isolado.');
 })();
