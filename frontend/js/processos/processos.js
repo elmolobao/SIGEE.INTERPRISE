@@ -2326,45 +2326,7 @@
 })(window);
 
 
-/* SIGEE 1.0.2.003B1 — Guarda da Nova Solicitação */
-(function(window){
-  'use strict';
-  function perfilAtual(){ return window.SIGEE_SESSION?.normalizarPerfil?.(window.SIGEE_SESSION?.getUser?.()?.perfil) || ''; }
-  function podeCriar(){
-    return ['Master','Administrador','Técnico','Estagiário'].includes(perfilAtual());
-  }
-  function aplicar(){
-    const original=window.abrirFormularioNovaSolicitacao;
-    if(typeof original==='function'&&!original.__SIGEE_NOVA_SOLICITACAO_GUARD__){
-      const protegido=function(){
-        if(!podeCriar()){
-          alert('Seu perfil não possui permissão para criar nova solicitação.');
-          return false;
-        }
-        return original.apply(this,arguments);
-      };
-      protegido.__SIGEE_NOVA_SOLICITACAO_GUARD__=true;
-      window.abrirFormularioNovaSolicitacao=protegido;
-      try{abrirFormularioNovaSolicitacao=protegido}catch(e){}
-    }
-
-    document.querySelectorAll(
-      '[onclick*="abrirFormularioNovaSolicitacao"],.btn-nova-solicitacao,#btn-nova-solicitacao,[data-acao="nova-solicitacao"]'
-    ).forEach(el=>{
-      const permitido=podeCriar();
-      el.classList.toggle('hidden',!permitido);
-      el.style.display=permitido?'':'none';
-      el.style.visibility=permitido?'visible':'hidden';
-      if('disabled' in el)el.disabled=!permitido;
-    });
-  }
-  window.addEventListener('load',()=>setTimeout(aplicar,0));
-  document.addEventListener('DOMContentLoaded',()=>{
-    aplicar();
-    setTimeout(aplicar,500);
-    setTimeout(aplicar,1500);
-  });
-})(window);
+/* RC7.3.0 — Guarda legada removida. A autorização usa SIGEE_PERMISSOES e a abertura pertence ao nova-solicitacao-controller. */
 
 
 /* =====================================================================
