@@ -10392,27 +10392,48 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
   }, { once: true });
 })(window);
 
-/* SIGEE RC7.0.5 — agrupamento administrativo pós-login, sem reorganização na navegação */
+/* SIGEE RC7.0.6 — autoridade idempotente do submenu Administrativo */
 (function(){
   'use strict';
-  if(window.__SIGEE_ADMIN_MENU_RC705__) return;
-  window.__SIGEE_ADMIN_MENU_RC705__=true;
+  if(window.__SIGEE_ADMIN_MENU_RC706__) return;
+  window.__SIGEE_ADMIN_MENU_RC706__=true;
 
-  const IDS=['menu-usuarios','menu-logs','menu-diagnostico','menu-controle-acesso-ntes','menu-migracao-historica'];
-  let ciclo=0;
-  let timers=[];
+  const ADMIN_IDS=[
+    'menu-usuarios',
+    'menu-logs',
+    'menu-diagnostico',
+    'menu-controle-acesso-ntes',
+    'menu-migracao-historica'
+  ];
 
   function usuario(){
-    return window.usuarioLogado||window.usuarioAtual||window.currentUser||window.SIGEE_USUARIO_ATUAL||window.SIGEE_SESSION?.getUser?.()||null;
+    return window.usuarioLogado||window.usuarioAtual||window.currentUser||
+      window.SIGEE_USUARIO_ATUAL||window.SIGEE_SESSION?.getUser?.()||null;
   }
-  function token(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();}
-  function master(){return token(usuario()?.perfil).includes('MASTER');}
+  function token(v){
+    return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
+  }
+  function master(){ return token(usuario()?.perfil).includes('MASTER'); }
 
-  function classeSubitem(el){
-    if(!el) return;
-    el.classList.add('sigee-menu-item','sigee-admin-subitem');
-    el.style.margin='0';
-    el.style.width='100%';
+  function criarDiagnostico(){
+    let botao=document.getElementById('menu-diagnostico');
+    if(botao) return botao;
+    botao=document.createElement('button');
+    botao.id='menu-diagnostico';
+    botao.type='button';
+    botao.dataset.admin='diagnostico';
+    botao.className='sigee-menu-item sigee-admin-subitem w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer';
+    botao.textContent='🩺 Centro de Diagnóstico';
+    botao.addEventListener('click',function(event){
+      event.preventDefault();
+      if(window.SIGEE_DIAGNOSTICO?.abrir) return window.SIGEE_DIAGNOSTICO.abrir();
+      const aba=document.getElementById('aba-diagnostico');
+      if(!aba) return window.mostrarToast?.('Centro de Diagnóstico indisponível nesta versão.');
+      document.querySelectorAll('#sistema-dashboard main > section[id^="aba-"]').forEach(sec=>sec.classList.add('hidden'));
+      aba.classList.remove('hidden');
+      window.atualizarDiagnosticoSIGEE?.();
+    });
+    return botao;
   }
 
   function criarGrupo(nav){
@@ -10423,90 +10444,108 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     grupo.id='menu-administrativo-grupo';
     grupo.className='sigee-menu-grupo sigee-admin-menu';
     grupo.innerHTML=`
-      <button type="button" id="menu-administrativo-titulo" class="sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer" aria-expanded="false">
-        <span>⚙️ Administrativo</span><span id="menu-administrativo-seta" aria-hidden="true" style="float:right">▼</span>
+      <button type="button" id="menu-administrativo-titulo"
+        class="sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer"
+        aria-expanded="false">
+        <span>⚙️ Administrativo</span>
+        <span id="menu-administrativo-seta" aria-hidden="true" style="float:right">▼</span>
       </button>
-      <div id="submenu-administracao" class="hidden" style="padding-left:.55rem;margin-top:.25rem;border-left:2px solid rgba(250,204,21,.75)"></div>`;
-    nav.appendChild(grupo);
-    grupo.querySelector('#menu-administrativo-titulo').addEventListener('click',ev=>{
-      ev.preventDefault(); ev.stopPropagation();
-      const sub=grupo.querySelector('#submenu-administracao');
-      const abrir=sub.classList.contains('hidden');
-      sub.classList.toggle('hidden',!abrir);
-      grupo.querySelector('#menu-administrativo-titulo').setAttribute('aria-expanded',String(abrir));
+      <div id="submenu-administracao" class="hidden"
+        style="padding-left:.55rem;margin-top:.25rem;border-left:2px solid rgba(250,204,21,.75)"></div>`;
+    const titulo=grupo.querySelector('#menu-administrativo-titulo');
+    titulo.addEventListener('click',function(event){
+      event.preventDefault();
+      event.stopPropagation();
+      const submenu=grupo.querySelector('#submenu-administracao');
+      const abrir=submenu.classList.contains('hidden');
+      submenu.classList.toggle('hidden',!abrir);
+      titulo.setAttribute('aria-expanded',String(abrir));
       grupo.querySelector('#menu-administrativo-seta').textContent=abrir?'▲':'▼';
     });
+    nav.appendChild(grupo);
     return grupo;
   }
 
-  function criarDiagnostico(){
-    let b=document.getElementById('menu-diagnostico');
-    if(b) return b;
-    b=document.createElement('button');
-    b.id='menu-diagnostico'; b.type='button'; b.dataset.admin='diagnostico';
-    b.className='sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer';
-    b.textContent='🩺 Centro de Diagnóstico';
-    b.addEventListener('click',ev=>{ev.preventDefault(); window.SIGEE_DIAGNOSTICO?.abrir?.();});
-    return b;
+  function posicionarGrupo(nav,grupo){
+    const sala=document.getElementById('menu-sala-situacao')||
+      nav.querySelector('[data-aba="sala-situacao"],[data-view="sala"]');
+    if(sala && sala.parentElement===nav){
+      if(sala.nextElementSibling!==grupo) sala.insertAdjacentElement('afterend',grupo);
+    }else if(grupo.parentElement!==nav){
+      nav.appendChild(grupo);
+    }
   }
 
-  function ordenarGrupo(nav,grupo){
-    const sala=document.getElementById('menu-sala-situacao')||document.querySelector('[data-aba="sala-situacao"],[data-view="sala"]');
-    if(sala && sala.parentElement===nav && sala.nextElementSibling!==grupo){
-      sala.insertAdjacentElement('afterend',grupo);
-    } else if(grupo.parentElement!==nav) nav.appendChild(grupo);
+  function formatarSubitem(elemento){
+    if(!elemento) return;
+    elemento.classList.add('sigee-menu-item','sigee-admin-subitem');
+    elemento.style.margin='0';
+    elemento.style.width='100%';
   }
 
   function organizar(){
     const nav=document.getElementById('sigee-menu-dinamico')||document.querySelector('.sigee-sidebar-nav');
     if(!nav) return false;
+
     const grupo=criarGrupo(nav);
-    ordenarGrupo(nav,grupo);
-    const sub=grupo.querySelector('#submenu-administracao');
+    posicionarGrupo(nav,grupo);
+    const submenu=grupo.querySelector('#submenu-administracao');
 
-    const diag=criarDiagnostico();
-    if(!document.getElementById('menu-diagnostico')) sub.appendChild(diag);
-
+    // O botão menu-logs é o Histórico de Atividades. O destino aba-logs é preservado.
     const logs=document.getElementById('menu-logs');
     if(logs){
-      logs.innerHTML='📜 Histórico de Atividades';
+      logs.textContent='📜 Histórico de Atividades';
       logs.setAttribute('aria-label','Histórico de Atividades');
+      logs.title='Histórico de Atividades';
     }
 
-    IDS.forEach(id=>{
-      const el=document.getElementById(id);
-      if(!el) return;
-      classeSubitem(el);
-      if(el.parentElement!==sub) sub.appendChild(el);
+    const diagnostico=criarDiagnostico();
+    if(diagnostico.parentElement!==submenu) submenu.appendChild(diagnostico);
+
+    ADMIN_IDS.forEach(id=>{
+      const elemento=document.getElementById(id);
+      if(!elemento) return;
+      formatarSubitem(elemento);
+      if(elemento.parentElement!==submenu) submenu.appendChild(elemento);
     });
 
     document.getElementById('menu-diagnostico')?.classList.toggle('hidden',!master());
     document.getElementById('menu-controle-acesso-ntes')?.classList.toggle('hidden',!master());
     document.getElementById('menu-migracao-historica')?.classList.toggle('hidden',!master());
 
-    const visiveis=[...sub.children].filter(el=>!el.classList.contains('hidden'));
+    const visiveis=[...submenu.children].filter(el=>!el.classList.contains('hidden'));
     grupo.classList.toggle('hidden',visiveis.length===0);
-    return IDS.filter(id=>id!=='menu-diagnostico').every(id=>document.getElementById(id));
+    return true;
   }
 
-  function agendar(){
-    ciclo++;
-    const meuCiclo=ciclo;
-    timers.forEach(clearTimeout); timers=[];
-    [120,400,900,1800,3200,5000].forEach(ms=>{
-      timers.push(setTimeout(()=>{
-        if(meuCiclo!==ciclo) return;
-        organizar();
-      },ms));
-    });
+  function organizarAposRender(){
+    // Uma única consolidação após o render oficial; chamadas repetidas são idempotentes.
+    queueMicrotask(organizar);
   }
 
-  window.SIGEE_ADMIN_MENU={organizar,agendar,versao:'RC7.0.5'};
-  document.addEventListener('DOMContentLoaded',agendar,{once:true});
-  window.addEventListener('load',agendar,{once:true});
-  document.addEventListener('sigee:usuario-logado',agendar);
-  window.addEventListener('sigee:login-concluido',agendar);
-  // RC7.0.5: não reorganizar a sidebar durante a navegação.
-  // Os botões permanecem nos seus containers depois da montagem pós-login.
+  function envolverAplicarMenu(){
+    const permissoes=window.SIGEE_PERMISSOES;
+    if(!permissoes || typeof permissoes.aplicarMenu!=='function' || permissoes.aplicarMenu.__adminRC706) return false;
+    const original=permissoes.aplicarMenu;
+    const envolvida=function(){
+      const resultado=original.apply(this,arguments);
+      organizarAposRender();
+      return resultado;
+    };
+    envolvida.__adminRC706=true;
+    permissoes.aplicarMenu=envolvida;
+    return true;
+  }
+
+  function iniciar(){
+    envolverAplicarMenu();
+    organizarAposRender();
+  }
+
+  window.SIGEE_ADMIN_MENU={organizar,iniciar,versao:'RC7.0.6'};
+  document.addEventListener('DOMContentLoaded',iniciar,{once:true});
+  window.addEventListener('load',iniciar,{once:true});
+  document.addEventListener('sigee:usuario-logado',iniciar);
+  window.addEventListener('sigee:login-concluido',iniciar);
 })();
 
