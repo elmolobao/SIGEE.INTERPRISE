@@ -1376,8 +1376,7 @@
       documento_tipo: r.documento_tipo || r.documento || '',
       etapa: r.etapa_atual || r.etapa || r.fase_atual || 'Desarquivamento',
       etapa_atual: r.etapa_atual || r.etapa || 'Desarquivamento',
-      nte: r.nte || r.nte_nome || r.grupo || (Number(r.nte_id) ? `NTE-${String(Number(r.nte_id)).padStart(2,'0')}` : ''),
-      nte_id: Number(r.nte_id) || null,
+      nte: r.nte || r.nte_nome || r.grupo || '',
       modalidade: r.modalidade || r.oferta_modalidade || r.modalidade_ensino || r.tipo_modalidade || r.nivel_oferta || r.oferta_nivel || r.ensino || r.nivel_ensino || '',
       prioridade: r.prioridade || 'Normal',
       tecnico_responsavel: r.tecnico_responsavel_nome || r.tecnico_responsavel || r.responsavel_nome || r.responsavel || r.usuario_responsavel_nome || r.usuario_responsavel || r.tecnico_nome || r.analista_nome || r.analista || r.analista_selecionado_nome || r.analista_selecionado || r.digitador_nome || r.digitador || r.conferente_nome || r.conferente || r.atribuido_para_nome || r.atribuido_para || '',
@@ -1429,7 +1428,6 @@
     const n=String(Number(m[1]));
     const p=n.padStart(2,'0');
     const filtros=[
-      `nte_id.eq.${Number(n)}`,
       `nte.eq.NTE-${p}`,
       `nte.eq.NTE ${p}`,
       `nte.eq.NTE${p}`,
@@ -1488,7 +1486,7 @@
       const inicio=(paginaAtualRemota-1)*processosPorPagina;
       const fim=inicio+processosPorPagina-1;
       let q=c.from(tabelaProcessos())
-        .select('id,codigo_sigee,aluno_nome,escola_id,escola_nome,cod_mec,documento_tipo,nivel_oferta,modalidade,etapa_atual,etapa_codigo,dias_decorridos,prioridade,nte,nte_id,tecnico_responsavel,data_etapa,data_etapa_atual,prazo_etapa,prazo_inicio,prazo_fim,status,ativo,created_at,updated_at,workflow_instance_id,workflow_ciclo,ciclo,ultima_mensagem_workflow,pendencia_aberta,finalizado_em,deferido_em,retirado_em,processo_migrado', {count:'exact'})
+        .select('id,codigo_sigee,aluno_nome,escola_id,escola_nome,cod_mec,documento_tipo,nivel_oferta,modalidade,etapa_atual,etapa_codigo,dias_decorridos,prioridade,nte,tecnico_responsavel,data_etapa,data_etapa_atual,prazo_etapa,prazo_inicio,prazo_fim,status,ativo,created_at,updated_at,workflow_instance_id,workflow_ciclo,ciclo,ultima_mensagem_workflow,pendencia_aberta,finalizado_em,deferido_em,retirado_em,processo_migrado', {count:'exact'})
         .order('created_at',{ascending:false})
         .range(inicio,fim);
       const u=window.SIGEE_SESSION?.getUser?.()||window.usuarioLogado||{};
