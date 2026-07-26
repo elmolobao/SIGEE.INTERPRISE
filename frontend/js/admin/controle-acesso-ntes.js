@@ -126,6 +126,7 @@
     if(document.getElementById('submenu-administracao')) container.appendChild(b);
     else if(document.getElementById('menu-usuarios')) document.getElementById('menu-usuarios').insertAdjacentElement('afterend',b);
     else container.appendChild(b);
+    window.SIGEE_ADMIN_MENU?.organizar?.();
     return true;
   }
 

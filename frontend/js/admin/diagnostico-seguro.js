@@ -76,4 +76,21 @@
     document.getElementById('diagnostico-resumo')?.classList.toggle('atencao',!ok);
     if(manual)window.mostrarToast?.('Diagnóstico atualizado.');
   };
+
+  function esconderAbas(){
+    document.querySelectorAll('#sistema-dashboard main > section').forEach(s=>s.classList.add('hidden'));
+  }
+  function abrirDiagnostico(){
+    esconderAbas();
+    const aba=document.getElementById('aba-diagnostico');
+    if(!aba){console.error('[SIGEE RC7.0.3] Aba de diagnóstico não localizada.');return false;}
+    aba.classList.remove('hidden');
+    document.querySelectorAll('.sigee-menu-item').forEach(b=>b.classList.remove('bg-blue-800'));
+    document.getElementById('menu-diagnostico')?.classList.add('bg-blue-800');
+    window.atualizarDiagnosticoSIGEE?.();
+    return true;
+  }
+  document.addEventListener('click',e=>{if(e.target.closest('#btn-atualizar-diagnostico'))window.atualizarDiagnosticoSIGEE?.(true);});
+  window.SIGEE_DIAGNOSTICO={abrir:abrirDiagnostico,atualizar:window.atualizarDiagnosticoSIGEE,versao:'RC7.0.3'};
+
 })();
