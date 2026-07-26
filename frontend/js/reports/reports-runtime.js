@@ -1,7 +1,7 @@
-/* SIGEE Enterprise RC6.5.0.2 — Central de Relatórios em abas oficiais */
+/* SIGEE Enterprise RC6.6.0 — Central de Relatórios em abas oficiais */
 (function(){
 'use strict';
-if(window.__SIGEE_REPORTS_6502__) return; window.__SIGEE_REPORTS_6502__=true;
+if(window.__SIGEE_REPORTS_660__) return; window.__SIGEE_REPORTS_660__=true;
 const txt=v=>v==null?'':String(v).trim(), norm=v=>txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase(), esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const R=()=>window.SIGEE_REGRAS_OPERACIONAIS;
 const tipos=[
@@ -16,35 +16,49 @@ function atraso(p){if(finalizado(p)||R().pendenciaAluno(p))return false;const l=
 function responsavel(p){return txt(p.tecnico_atribuido||p.tecnico_responsavel||p.responsavel_etapa||p.analista||p.digitador||p.conferente||p.responsavel||p.usuario_lancamento||p.criado_por_nome);}
 function dados(){const ps=state.payload.processos,ativos=ps.filter(p=>!finalizado(p)),externas=ativos.filter(R().pendenciaAluno),operacionais=ativos.filter(p=>!R().pendenciaAluno(p)),atrasados=operacionais.filter(atraso);return {ps,ativos,externas,operacionais,atrasados};}
 function main(){return document.querySelector('#sistema-dashboard main');}
-function abasOficiais(){const m=main();return m?[...m.children].filter(el=>el.tagName==='SECTION'):[];}
-function ocultarModulo(el){if(!el)return;el.classList.add('hidden');el.setAttribute('aria-hidden','true');el.style.display='none';}
-function mostrarModulo(el){if(!el)return;el.classList.remove('hidden');el.removeAttribute('aria-hidden');el.style.display='block';}
-function garantirVisivel(el){if(!el)return;mostrarModulo(el);el.style.setProperty('display','block','important');el.style.setProperty('visibility','visible','important');el.style.setProperty('opacity','1','important');}
-function esconderTudo(){
-  abasOficiais().forEach(ocultarModulo);
-  document.querySelectorAll('.sigee-cio-page,[data-cio-root],#centro-inteligencia-container,#sigee-centro-inteligencia').forEach(ocultarModulo);
+const VIEW_MAP={
+  painel:'aba-painel',processos:'aba-processos',escolas:'aba-escolas',usuarios:'aba-usuarios',logs:'aba-logs',
+  cio:'aba-centro-inteligencia',sala:'aba-sala-situacao',
+  relatorioOperacional:'aba-relatorio-operacional',relatorioSla:'aba-relatorio-sla',
+  relatorioTerritorial:'aba-relatorio-territorial',relatorioPendencias:'aba-relatorio-pendencias',
+  relatorioProdutividade:'aba-relatorio-produtividade',relatorioExecutivo:'aba-relatorio-executivo'
+};
+window.SIGEE_VIEWS=Object.assign({},window.SIGEE_VIEWS||{},VIEW_MAP);
+function todasViews(){
+  const ids=new Set(Object.values(window.SIGEE_VIEWS||{}));
+  const m=main();
+  if(m) [...m.children].filter(el=>el.tagName==='SECTION').forEach(el=>el.id&&ids.add(el.id));
+  return [...ids].map(id=>document.getElementById(id)).filter(Boolean);
 }
+function ocultarModulo(el){if(!el)return;el.classList.add('hidden');el.setAttribute('aria-hidden','true');el.style.removeProperty('display');}
+function mostrarModulo(el){if(!el)return;el.classList.remove('hidden');el.removeAttribute('aria-hidden');el.style.removeProperty('display');}
+function abrirView(nome){
+  const id=(window.SIGEE_VIEWS||{})[nome];
+  const destino=id&&document.getElementById(id);
+  if(!destino){console.error(`[SIGEE RC6.6.0] Aba não localizada: ${nome} → ${id||'sem registro'}`);return false;}
+  todasViews().forEach(ocultarModulo);
+  document.querySelectorAll('.sigee-cio-page,[data-cio-root],#centro-inteligencia-container,#sigee-centro-inteligencia').forEach(ocultarModulo);
+  mostrarModulo(destino);
+  document.dispatchEvent(new CustomEvent('sigee:view-aberta',{detail:{nome,id}}));
+  return true;
+}
+window.SIGEE_NAVIGATION=Object.assign({},window.SIGEE_NAVIGATION||{}, {abrir:abrirView,versao:'RC6.6.0'});
+function esconderTudo(){todasViews().forEach(ocultarModulo);}
 function host(tipo){return document.getElementById('aba-relatorio-'+tipo);}
 function abrir(tipo,forcar=false){
   if(!tipos.some(x=>x[0]===tipo)) return;
   state.tipo=tipo;
-  esconderTudo();
   const h=host(tipo);
-  if(!h){console.error('[SIGEE RC6.5.0.2] Aba oficial não localizada:',tipo);return;}
-  garantirVisivel(h);
-  h.innerHTML='<div class="sig-rel-loading" style="display:block;padding:24px;color:#0f172a">Consolidando dados do relatório...</div>';
-  const service=window.SIGEE_REPORTS_DATA;
-  if(!service?.carregar){
-    h.innerHTML='<div class="sig-rel-error" style="display:block;padding:24px;color:#991b1b"><h2>Serviço de relatórios indisponível</h2><p>O arquivo reports-data.service.js não foi carregado antes do runtime.</p></div>';
-    console.error('[SIGEE RC6.5.0.2] SIGEE_REPORTS_DATA indisponível.');
-    return;
-  }
-  service.carregar(forcar).then(p=>{
+  if(!h){console.error('[SIGEE RC6.6.0] Aba oficial não localizada:',tipo);return;}
+  if(!abrirView('relatorio'+tipo.charAt(0).toUpperCase()+tipo.slice(1))) return;
+  h.innerHTML='<div class="sig-rel-loading">Consolidando dados do relatório...</div>';
+  window.SIGEE_REPORTS_DATA.carregar(forcar).then(p=>{
     state.payload=p;
     if(state.tipo!==tipo)return;
-    esconderTudo();garantirVisivel(h);render(h,tipo);setTimeout(()=>garantirVisivel(h),0);setTimeout(()=>garantirVisivel(h),150);
+    if(state.tipo!==tipo)return;
+    abrirView('relatorio'+tipo.charAt(0).toUpperCase()+tipo.slice(1));render(h,tipo);
   }).catch(e=>{
-    esconderTudo();garantirVisivel(h);
+    abrirView('relatorio'+tipo.charAt(0).toUpperCase()+tipo.slice(1));
     h.innerHTML='<div class="sig-rel-error"><h2>Não foi possível carregar o relatório</h2><p>'+esc(e.message)+'</p><button data-retry>Tentar novamente</button></div>';
     h.querySelector('[data-retry]')?.addEventListener('click',()=>abrir(tipo,true));
   });
@@ -52,14 +66,14 @@ function abrir(tipo,forcar=false){
   window.scrollTo({top:0,behavior:'auto'});
 }
 function marcarMenu(tipo){document.querySelectorAll('[data-report-menu]').forEach(b=>b.classList.toggle('active',b.dataset.reportMenu===tipo));}
-function card(t,v,s){return '<article><span>'+esc(t)+'</span><strong>'+esc(v)+'</strong><small>'+esc(s)+'</small></article>';}
+function card(t,v,s,a=''){return '<article '+a+'><span>'+esc(t)+'</span><strong>'+esc(v)+'</strong><small>'+esc(s)+'</small></article>';}
 function tabela(arr){return '<div class="sig-rel-table"><table><thead><tr><th>Processo</th><th>Aluno / Escola</th><th>NTE</th><th>Etapa</th><th>Responsável</th></tr></thead><tbody>'+arr.map(p=>'<tr><td>'+esc(p.codigo_sigee||p.id)+'</td><td><b>'+esc(p.aluno_nome||'')+'</b><small>'+esc(p.escola_nome||'')+'</small></td><td>'+esc(window.SIGEE_REPORTS_DATA.nte(p.nte||p.nte_id))+'</td><td>'+esc(R().etapa(p))+'</td><td>'+esc(responsavel(p)||'Aguardando atribuição')+'</td></tr>').join('')+'</tbody></table></div>';}
 function header(tipo,titulo,desc){return '<header class="sig-rel-hero"><div><small>CENTRAL DE RELATÓRIOS</small><h1>'+esc(titulo)+'</h1><p>'+esc(desc)+'</p></div><div><span>'+esc(state.payload.contexto.global?'Estado da Bahia':state.payload.contexto.nte)+'</span><button data-refresh>↻ Atualizar</button></div></header>';}
 function render(h,tipo){const d=dados();let body='';
  if(tipo==='operacional'){const etapas={};d.operacionais.forEach(p=>{const e=R().etapa(p);etapas[e]=(etapas[e]||0)+1;});body='<section class="sig-rel-cards">'+card('Ativos operacionais',d.operacionais.length,'Exclui espera externa')+card('Em atraso',d.atrasados.length,'Com prazo controlado')+card('Pendências externas',d.externas.length,'Sem prazo estimado')+card('Sem responsável',d.operacionais.filter(p=>!responsavel(p)).length,'Aguardando atribuição')+'</section><section class="sig-rel-panel"><h2>Distribuição operacional por etapa</h2><div class="sig-rel-bars">'+Object.entries(etapas).sort((a,b)=>b[1]-a[1]).map(([e,n])=>'<div><span>'+esc(e)+'</span><b>'+n+'</b></div>').join('')+'</div></section>'+tabela(d.atrasados.slice(0,300));}
  if(tipo==='sla'){const sla=d.operacionais.length?Math.round((d.operacionais.length-d.atrasados.length)*100/d.operacionais.length):0;body='<section class="sig-rel-cards">'+card('SLA operacional',sla+'%','Somente etapas com prazo')+card('Base com SLA',d.operacionais.filter(p=>limite(R().etapa(p))!=null).length,'Processos elegíveis')+card('Vencidos',d.atrasados.length,'Fora do prazo')+card('Espera externa',d.externas.length,'Fora do SLA')+'</section><section class="sig-rel-note"><b>Regra aplicada:</b> Pendência do Aluno não possui prazo estimado e não entra no cálculo do SLA.</section>'+tabela(d.atrasados);}
  if(tipo==='territorial'){const map=new Map();d.operacionais.forEach(p=>{const n=window.SIGEE_REPORTS_DATA.nte(p.nte||p.nte_id);if(!map.has(n))map.set(n,[]);map.get(n).push(p);});body='<section class="sig-rel-territory">'+[...map].map(([n,arr])=>'<article><h3>'+esc(n)+'</h3><strong>'+arr.length+'</strong><span>ativos operacionais</span><small>'+arr.filter(atraso).length+' atrasados · '+arr.filter(p=>!responsavel(p)).length+' sem responsável</small></article>').join('')+'</section>';}
- if(tipo==='pendencias'){const inst=d.ativos.filter(R().pendenciaInstitucional);body='<section class="sig-rel-cards">'+card('Pendências externas',d.externas.length,'Aluno/interessado')+card('Pendências institucionais',inst.length,'Responsabilidade interna')+card('Externas no SLA',0,'Não contabilizadas')+card('Institucionais monitoradas',inst.length,'Acompanhamento operacional')+'</section><section class="sig-rel-tabs"><h2>Pendência do Aluno — espera externa</h2><p>Sem prazo estimado, sem alerta de atraso e fora do ranking de criticidade.</p></section>'+tabela(d.externas);}
+ if(tipo==='pendencias'){const inst=d.ativos.filter(R().pendenciaInstitucional);body='<section class="sig-rel-cards">'+card('Pendências externas',d.externas.length,'Aluno/interessado','role="button" tabindex="0" data-relatorio="pendencias-externas"')+card('Pendências institucionais',inst.length,'Responsabilidade interna')+card('Externas no SLA',0,'Não contabilizadas')+card('Institucionais monitoradas',inst.length,'Acompanhamento operacional')+'</section><section class="sig-rel-tabs"><h2>Pendência do Aluno — espera externa</h2><p>Sem prazo estimado, sem alerta de atraso e fora do ranking de criticidade.</p></section>'+tabela(d.externas);}
  if(tipo==='produtividade'){const map=new Map();d.operacionais.forEach(p=>{const r=responsavel(p)||'Aguardando atribuição';if(!map.has(r))map.set(r,[]);map.get(r).push(p);});body='<section class="sig-rel-team">'+[...map].sort((a,b)=>b[1].length-a[1].length).map(([r,arr])=>'<article><h3>'+esc(r)+'</h3><strong>'+arr.length+'</strong><span>processos ativos</span><small>'+arr.filter(atraso).length+' em atraso</small></article>').join('')+'</section><section class="sig-rel-note">Indicadores destinados ao equilíbrio de carga, apoio e treinamento, sem finalidade punitiva.</section>';}
  if(tipo==='executivo'){body='<section class="sig-rel-cards">'+card('Processos ativos',d.ativos.length,'Total em tramitação')+card('Operação controlável',d.operacionais.length,'Depende da equipe')+card('Espera externa',d.externas.length,'Depende do interessado')+card('Em atraso',d.atrasados.length,'Somente operação controlável')+'</section><section class="sig-rel-exec"><h2>Leitura executiva</h2><p>Existem <b>'+d.operacionais.length+'</b> processos sob gestão direta da operação e <b>'+d.externas.length+'</b> aguardando resposta externa. O total em atraso é <b>'+d.atrasados.length+'</b>, sem contabilizar Pendência do Aluno.</p></section>';}
  const meta=tipos.find(x=>x[0]===tipo);h.innerHTML=header(tipo,meta[2],descricao(tipo))+body;h.querySelector('[data-refresh]').onclick=()=>abrir(tipo,true);h.querySelector('[data-retry]')?.addEventListener('click',()=>abrir(tipo,true));}
@@ -73,23 +87,35 @@ function instalarMenu(){
   const nav=document.getElementById('sigee-menu-dinamico');if(!nav)return;
   document.getElementById('menu-relatorios-rc650')?.remove();
   const original=localizarMenuRelatorios();
-  let wrap=document.getElementById('menu-relatorios-rc6501');
-  if(!wrap){wrap=document.createElement('div');wrap.id='menu-relatorios-rc6501';wrap.className='sig-rel-menu';wrap.innerHTML='<button class="sig-rel-menu-title" type="button" aria-expanded="false">📑 Relatórios <span>▾</span></button><div>'+tipos.map(x=>'<button type="button" data-report-menu="'+x[0]+'">'+x[1]+' '+x[2]+'</button>').join('')+'</div>';
+  let wrap=document.getElementById('menu-relatorios-rc660');
+  if(!wrap){wrap=document.createElement('div');wrap.id='menu-relatorios-rc660';wrap.className='sig-rel-menu';wrap.innerHTML='<button class="sig-rel-menu-title" type="button" aria-expanded="false">📑 Relatórios <span>▾</span></button><div>'+tipos.map(x=>'<button type="button" data-report-menu="'+x[0]+'">'+x[1]+' '+x[2]+'</button>').join('')+'</div>';
     if(original){const parent=original.closest('div')||original;parent.replaceWith(wrap);}else nav.appendChild(wrap);
   }
   const title=wrap.querySelector('.sig-rel-menu-title');
   title.onclick=e=>{e.preventDefault();e.stopPropagation();wrap.classList.toggle('open');title.setAttribute('aria-expanded',String(wrap.classList.contains('open')));};
-  wrap.querySelectorAll('[data-report-menu]').forEach(b=>b.onclick=e=>{e.preventDefault();e.stopPropagation();e.stopImmediatePropagation?.();wrap.classList.add('open');const tipo=b.dataset.reportMenu;setTimeout(()=>abrir(tipo),0);setTimeout(()=>{const h=host(tipo);if(state.tipo===tipo&&h)garantirVisivel(h);},180);});
+  wrap.querySelectorAll('[data-report-menu]').forEach(b=>b.onclick=e=>{e.preventDefault();e.stopPropagation();wrap.classList.add('open');abrir(b.dataset.reportMenu);});
   state.menuIntegrado=true;
+}
+
+function tratarAcaoRelatorio(event){
+  const alvo=event.target.closest?.('[data-relatorio="pendencias-externas"]');
+  if(!alvo)return;
+  if(event.type==='keydown' && !['Enter',' '].includes(event.key))return;
+  event.preventDefault();
+  abrir('pendencias');
 }
 function init(){
   document.querySelectorAll('[data-relatorio-legado="true"]').forEach(ocultarModulo);
-  tipos.forEach(x=>{if(!host(x[0]))console.error('[SIGEE RC6.5.0.2] Aba ausente:',x[0]);});
+  tipos.forEach(x=>{if(!host(x[0]))console.error('[SIGEE RC6.6.0] Aba ausente:',x[0]);});
   instalarMenu();
+  document.removeEventListener('click',tratarAcaoRelatorio);
+  document.removeEventListener('keydown',tratarAcaoRelatorio);
+  document.addEventListener('click',tratarAcaoRelatorio);
+  document.addEventListener('keydown',tratarAcaoRelatorio);
   setTimeout(instalarMenu,300);
   setTimeout(instalarMenu,1200);
 }
 document.readyState==='loading'?document.addEventListener('DOMContentLoaded',init):init();
-window.SIGEE_RELATORIOS={abrir,atualizar:()=>state.tipo&&abrir(state.tipo,true),versao:'RC6.5.0.2'};
-console.info('[SIGEE RC6.5.0.2] Central de Relatórios separada do CIO e integrada às abas oficiais.');
+window.SIGEE_RELATORIOS={abrir,atualizar:()=>state.tipo&&abrir(state.tipo,true),versao:'RC6.6.0'};
+console.info('[SIGEE RC6.6.0] Central de Relatórios separada do CIO e integrada às abas oficiais.');
 })();
