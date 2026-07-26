@@ -1,17 +1,15 @@
-/* SIGEE Enterprise RC6.4.0.4 — Bootstrap definitivo da Sala de Situação 2.0 */
+/* SIGEE Enterprise RC6.4.0.5 — Integração oficial da Sala 2.0 ao sistema de abas */
 (function(){
   'use strict';
-  if(window.__SIGEE_SALA_6402__) return;
-  window.__SIGEE_SALA_6402__=true;
-  const VERSION='RC6.4.0.4';
+  if(window.__SIGEE_SALA_6405__) return;
+  window.__SIGEE_SALA_6405__=true;
+  const VERSION='RC6.4.0.5';
   let runtimePromise=null;
 
   function carregarRuntime(){
     if(window.SIGEE_SALA_2?.abrir) return Promise.resolve(window.SIGEE_SALA_2);
     if(runtimePromise) return runtimePromise;
     runtimePromise=new Promise((resolve,reject)=>{
-      const old=document.querySelector('script[data-sala-runtime]');
-      if(old) old.remove();
       const s=document.createElement('script');
       s.src='js/sala/sala-runtime.js?v='+VERSION;
       s.async=false;
@@ -25,49 +23,36 @@
     return runtimePromise;
   }
 
-  function mostrarErro(e){
-    console.error('[SIGEE Sala 2.0 RC6.4.0.4]',e);
-    const sec=document.getElementById('aba-sala-situacao-2')||document.getElementById('aba-sala-situacao');
-    if(!sec) return;
-    sec.classList.remove('hidden');
-    sec.innerHTML='<div class="sala2-root"><header class="sala2-hero"><div><small>CENTRO DE OPERAÇÕES</small><h1>Sala de Situação 2.0</h1><p>Monitoramento territorial, alertas e resposta rápida da operação.</p></div></header><div class="sala2-error"><strong>Não foi possível inicializar a Sala 2.0.</strong><br><small>'+String(e?.message||e)+'</small><br><button id="sala2-tentar-novamente">Tentar novamente</button></div></div>';
-    sec.querySelector('#sala2-tentar-novamente')?.addEventListener('click',abrir);
-  }
-
   async function abrir(){
     try{
       const app=await carregarRuntime();
       await app.abrir();
-      setTimeout(()=>app.restaurar?.(),250);
-      setTimeout(()=>app.restaurar?.(),1000);
-    }catch(e){mostrarErro(e);}
+    }catch(e){
+      console.error('[SIGEE Sala 2.0 RC6.4.0.5]',e);
+      const sec=document.getElementById('aba-sala-situacao');
+      if(sec){
+        sec.innerHTML='<div class="sala2-root"><div class="sala2-error"><strong>Não foi possível inicializar a Sala 2.0.</strong><br><small>'+String(e?.message||e)+'</small><br><button id="sala2-tentar-novamente">Tentar novamente</button></div></div>';
+        sec.querySelector('#sala2-tentar-novamente')?.addEventListener('click',abrir);
+      }
+    }
   }
 
-  function interceptar(e){
-    const qualquerMenu=e.target?.closest?.('.menu-item,.menu-link,[id^="menu-"]');
-    const menu=e.target?.closest?.('#menu-sala-situacao');
-    if(!menu){
-      if(qualquerMenu) window.SIGEE_SALA_2?.desativar?.();
-      return;
-    }
-    // Impede qualquer controlador legado de renderizar depois da Sala 2.0.
-    e.preventDefault();
-    e.stopImmediatePropagation();
-    document.querySelectorAll('section[id^="aba-"]').forEach(s=>s.classList.add('hidden'));
-    document.getElementById('aba-sala-situacao')?.classList.add('hidden');
-    let host=document.getElementById('aba-sala-situacao-2');
-    if(!host){
-      const legado=document.getElementById('aba-sala-situacao');
-      const parent=legado?.parentElement||document.querySelector('main')||document.querySelector('.main-content')||document.querySelector('#conteudo-principal');
-      if(parent){host=document.createElement('section');host.id='aba-sala-situacao-2';host.className='hidden';if(legado?.nextSibling)parent.insertBefore(host,legado.nextSibling);else parent.appendChild(host);}
-    }
-    host?.classList.remove('hidden');
-    document.querySelectorAll('.menu-item.active,.menu-link.active').forEach(x=>x.classList.remove('active'));
-    menu.classList.add('active');
-    abrir();
+  function isMenuSala(el){
+    const item=el?.closest?.('button,a,.menu-item,.menu-link,[role="button"]');
+    if(!item) return false;
+    const id=(item.id||'').toLowerCase();
+    const text=(item.textContent||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+    return id.includes('sala-situacao') || text.includes('sala de situacao');
   }
 
-  document.addEventListener('click',interceptar,true);
+  // Não disputa com a navegação oficial. Aguarda a aba oficial ser ativada e então renderiza.
+  document.addEventListener('click',function(e){
+    if(!isMenuSala(e.target)) return;
+    setTimeout(abrir,0);
+    setTimeout(()=>window.SIGEE_SALA_2?.garantirVisivel?.(),120);
+  },false);
+
+  // API pública para controladores existentes chamarem diretamente.
   window.SIGEE_SALA_BOOTSTRAP={version:VERSION,abrir,recarregar:()=>{runtimePromise=null;return abrir();}};
-  console.info('[SIGEE RC6.4.0.4] Sala de Situação 2.0 em runtime único; módulo legado isolado.');
+  console.info('[SIGEE RC6.4.0.5] Sala 2.0 integrada à aba oficial do SIGEE.');
 })();
