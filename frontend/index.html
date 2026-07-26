@@ -12,7 +12,7 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>SIGEE - Sistema de Gestão de Escolas Extintas (SEC/BA)</title>
-<meta name="sigee-release" content="RC7.0.3">
+<meta name="sigee-release" content="RC7.0.7">
 <meta content="#0B4F8A" name="theme-color"/>
 <meta content="SIGEE" name="application-name"/>
 <link href="assets/sigee-icon.svg?v=2.1.1" rel="icon" type="image/svg+xml"/>
@@ -367,25 +367,6 @@
 </table>
 </div>
 </section>
-<section class="hidden space-y-5" id="aba-diagnostico">
-  <header class="flex flex-wrap justify-between items-center gap-4 rounded-2xl bg-gradient-to-r from-slate-900 to-blue-900 text-white p-6 shadow-lg">
-    <div><span class="text-xs font-black tracking-widest text-amber-300">ADMINISTRAÇÃO</span><h1 class="text-3xl font-black mt-1">Centro de Diagnóstico</h1><p class="text-blue-100 mt-1">Verificação segura dos componentes, dados e integrações do SIGEE.</p></div>
-    <button id="btn-atualizar-diagnostico" type="button" class="bg-amber-500 hover:bg-amber-600 text-blue-950 font-black px-4 py-2.5 rounded-lg cursor-pointer">↻ Atualizar diagnóstico</button>
-  </header>
-  <section id="diagnostico-resumo" class="bg-white border rounded-2xl p-5 shadow-sm">
-    <div class="flex flex-wrap justify-between items-center gap-3"><div><span class="text-xs font-black text-gray-500 uppercase">Situação geral</span><h2 id="diag-status-geral" class="text-2xl font-black text-blue-950">Aguardando verificação</h2></div><small id="diag-atualizado" class="text-gray-500">Ainda não atualizado</small></div>
-    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mt-5">
-      <article class="bg-slate-50 border rounded-xl p-4"><span class="text-xs text-gray-500">Processos</span><strong id="diag-processos" class="block text-xl text-blue-950">0</strong></article>
-      <article class="bg-slate-50 border rounded-xl p-4"><span class="text-xs text-gray-500">Escolas</span><strong id="diag-escolas" class="block text-xl text-blue-950">0</strong></article>
-      <article class="bg-slate-50 border rounded-xl p-4"><span class="text-xs text-gray-500">Usuários</span><strong id="diag-usuarios" class="block text-xl text-blue-950">0</strong></article>
-      <article class="bg-slate-50 border rounded-xl p-4"><span class="text-xs text-gray-500">Tempo de cálculo</span><strong id="diag-tempo-calculo" class="block text-xl text-blue-950">—</strong></article>
-      <article class="bg-slate-50 border rounded-xl p-4"><span class="text-xs text-gray-500">Última sincronização</span><strong id="diag-ultima-sync" class="block text-xl text-blue-950">—</strong></article>
-      <article class="bg-slate-50 border rounded-xl p-4"><span class="text-xs text-gray-500">Conectividade</span><strong id="diag-conectividade" class="block text-xl text-blue-950">—</strong></article>
-    </div>
-  </section>
-  <section class="bg-white border rounded-2xl p-5 shadow-sm"><h2 class="text-xl font-black text-blue-950 mb-4">Componentes do sistema</h2><div id="diag-componentes" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"><p class="text-gray-500">Aguardando diagnóstico...</p></div></section>
-</section>
-
 </main>
 </div>
 <div class="hidden fixed inset-0 bg-blue-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-50" id="modal-fluxo-desarquivamento">
@@ -776,10 +757,10 @@
 <script src="js/core/app-core.js"></script>
 <script src="js/components/WorkflowActionModal.js?v=RC4.3.3"></script>
 <script src="js/core/normalizacao-nte.js?v=RC5.2.0"></script>
-<script src="js/app/app.js?v=RC7.0.6"></script>
+<script src="js/app/app.js?v=RC7.0.7"></script>
 <script src="js/core/login-controller.js?v=RC5.3.0"></script>
 <script src="js/processos/processos.js?v=RC5.1.1"></script>
-<script src="js/migracao/migracao-historica.js?v=M4.2.0-RC7.0.3"></script>
+<script src="js/migracao/migracao-historica.js?v=M4.2.0"></script>
 <script src="js/migracao/motor-persistencia.js?v=M5.2.2"></script>
 <script src="js/migracao/importacao-oficial.js?v=M5.2.2"></script>
 <script src="js/migracao/migracao-importacao-oficial.js?v=M5.2.2"></script>
@@ -804,7 +785,7 @@ window.filtrarTabelaUsuariosSIGEE = function (termo) {
 <script src="js/reports/reports-data.service.js?v=RC6.6.0"></script>
 <script src="js/reports/reports-runtime.js?v=RC6.6.2"></script>
 <script src="js/sala/sala-bootstrap.js?v=RC6.5.0"></script>
-<script src="js/admin/diagnostico-seguro.js?v=RC7.0.3"></script>
+<script src="js/admin/diagnostico-seguro.js?v=2.4.4A"></script>
 <script src="js/ui/workflow-design-system.js?v=RC4.3.2"></script>
 <script src="js/ui/workflow-components.js?v=RC4.3.2"></script>
 <!-- escolas-authority.js removido: arquivo inexistente no projeto -->
@@ -816,11 +797,13 @@ window.filtrarTabelaUsuariosSIGEE = function (termo) {
 <script src="js/processos/nova-solicitacao-controller.js?v=RC4.5.30"></script>
 <script src="js/processos/central-processos-controller.js?v=RC4.6.1"></script>
 
-<script src="js/admin/controle-acesso-ntes.js?v=RC7.0.3"></script>
+<script src="js/admin/controle-acesso-ntes.js?v=RC4.6.0"></script>
 
 <script src="js/core/autorizacao.js?v=RC5.3.0"></script>
 <script src="js/analytics/dashboard.js?v=RC5.8.6"></script>
 <script src="js/cio/cio-bootstrap.js?v=RC6.3.1"></script>
 <script src="js/cio/cio-widget.js?v=RC6.3.1.1"></script>
+
+<script src="js/admin/admin-menu-bootstrap.js?v=RC7.0.7"></script>
 </body>
 </html>
