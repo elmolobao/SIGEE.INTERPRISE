@@ -1,4 +1,4 @@
-/* SIGEE Enterprise RC6.6.4 — Relatórios com subabas independentes */
+/* SIGEE Enterprise RC6.6.5 — Relatórios com subabas independentes */
 (function(){
 'use strict';
 if(window.__SIGEE_REPORTS_664__) return; window.__SIGEE_REPORTS_664__=true;
@@ -147,7 +147,7 @@ function instalarPonteNavegacao(){
 function init(){
   instalarBloqueioMenuPrincipal();
   document.querySelectorAll('[data-relatorio-legado="true"]').forEach(ocultarModulo);
-  tipos.forEach(x=>{if(!host(x[0]))console.error('[SIGEE RC6.6.4] Aba ausente:',x[0]);});
+  tipos.forEach(x=>{if(!host(x[0]))console.error('[SIGEE RC6.6.5] Aba ausente:',x[0]);});
   instalarMenu();
   instalarPonteNavegacao();
   observarMenu();
@@ -155,6 +155,6 @@ function init(){
   setTimeout(()=>{instalarMenu();instalarPonteNavegacao();},1200);
 }
 document.readyState==='loading'?document.addEventListener('DOMContentLoaded',init):init();
-window.SIGEE_RELATORIOS={abrir,atualizar:()=>state.tipo&&abrir(state.tipo,true),versao:'RC6.6.4'};
-console.info('[SIGEE RC6.6.4] Menu Relatórios apenas expande subabas; abertura ocorre somente pelos submenus.');
+window.SIGEE_RELATORIOS={abrir,atualizar:()=>state.tipo&&abrir(state.tipo,true),versao:'RC6.6.5'};
+console.info('[SIGEE RC6.6.5] Menu Relatórios apenas expande subabas; abertura ocorre somente pelos submenus.');
 })();
