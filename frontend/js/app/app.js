@@ -1,3 +1,5 @@
+/* RC7.3.0 — Compatibilidade legada de aplicação.
+   Este arquivo não é autoridade de perfis, permissões, menus ou Nova Solicitação. */
 /* SIGEE RC5.7.3 — bootstrap leve e autoridade única do Dashboard */
 /* SIGEE RC4.5.22 — campo de escola digitável sem limpeza tardia */
 /* SIGEE RC4.5.11 — identidade canônica da escola por ID */
@@ -1784,7 +1786,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         }
 
         function abrirFormularioNovaSolicitacao() {
-            const btnAbrir = document.querySelector('button[onclick="abrirFormularioNovaSolicitacao()"]');
+            const btnAbrir = document.querySelector('[data-sigee-legado-desativado=\"nova-solicitacao\"]');
             if (btnAbrir) { btnAbrir.disabled = true; btnAbrir.dataset.textoOriginal = btnAbrir.innerText; btnAbrir.innerText = 'Carregando...'; }
 
             // V18: abre a nova solicitação sem travar; não bloqueia a tela com alertas de sincronização em segundo plano.
@@ -7061,7 +7063,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
 
     document.querySelectorAll('button[onclick="abrirModalNovaEscola()"], .btn-nova-escola').forEach(el => el.classList.toggle('hidden', !Perm.cadastrarEscola(u)));
     document.querySelectorAll('[data-sigee-permissao="editar-escola"], .btn-editar-escola').forEach(el => el.classList.toggle('hidden', !Perm.alterarEscola(u)));
-    document.querySelectorAll('button[onclick="abrirFormularioNovaSolicitacao()"], .btn-nova-solicitacao').forEach(el => el.classList.toggle('hidden', !Perm.abrirSolicitacao(u)));
+    document.querySelectorAll('[data-sigee-legado-desativado="nova-solicitacao"]').forEach(el => el.classList.toggle('hidden', !Perm.abrirSolicitacao(u)));
 
     const tituloUser = document.querySelector('#aba-usuarios h1, #aba-usuarios .text-3xl');
     const btnCadastrarTecnico = document.querySelector('button[onclick="abrirModalCriarUsuarioMaster()"]');
@@ -7271,7 +7273,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     document.querySelectorAll('.import-only, [data-sigee-importar]').forEach(el=>el.classList.toggle('hidden', !podeImportar()));
     document.querySelectorAll('button[onclick="abrirModalNovaEscola()"], .btn-nova-escola').forEach(el=>el.classList.toggle('hidden', !podeCadastrarEditarEscola()));
     document.querySelectorAll('[data-sigee-permissao="editar-escola"], .btn-editar-escola').forEach(el=>el.classList.toggle('hidden', !podeCadastrarEditarEscola()));
-    document.querySelectorAll('button[onclick="abrirFormularioNovaSolicitacao()"], .btn-nova-solicitacao').forEach(el=>el.classList.toggle('hidden', !podeNovaSolicitacao()));
+    document.querySelectorAll('[data-sigee-legado-desativado="nova-solicitacao"]').forEach(el=>el.classList.toggle('hidden', !podeNovaSolicitacao()));
 
     const abaUsuarios = document.getElementById('aba-usuarios');
     if(abaUsuarios && !abaUsuarios.classList.contains('hidden') && !podeUsuarios()){
@@ -7435,7 +7437,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     document.querySelectorAll('.import-only, [data-sigee-importar]').forEach(el=>lockButton(el, !canImport(u)));
     document.querySelectorAll('button[onclick="abrirModalNovaEscola()"], .btn-nova-escola').forEach(el=>lockButton(el, !canEditSchool(u)));
     document.querySelectorAll('[data-sigee-permissao="editar-escola"], .btn-editar-escola').forEach(el=>lockButton(el, !canEditSchool(u)));
-    document.querySelectorAll('button[onclick="abrirFormularioNovaSolicitacao()"], .btn-nova-solicitacao').forEach(el=>lockButton(el, !canNewRequest(u)));
+    document.querySelectorAll('[data-sigee-legado-desativado="nova-solicitacao"]').forEach(el=>lockButton(el, !canNewRequest(u)));
 
     const abaUsuarios = document.getElementById('aba-usuarios');
     if(abaUsuarios && !abaUsuarios.classList.contains('hidden') && !canUsers(u)){
@@ -9320,7 +9322,7 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     window.abrirFormularioNovaSolicitacao = abrirNovaSolicitacaoSprint23;
     try { abrirFormularioNovaSolicitacao = window.abrirFormularioNovaSolicitacao; } catch (_) {}
 
-    document.querySelectorAll('button[onclick="abrirFormularioNovaSolicitacao()"]').forEach(btn => {
+    document.querySelectorAll('[data-sigee-legado-desativado=\"nova-solicitacao\"]').forEach(btn => {
       btn.onclick = function (ev) {
         ev.preventDefault();
         abrirNovaSolicitacaoSprint23();
@@ -9510,7 +9512,7 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     if (menuLogs) menuLogs.classList.toggle('hidden', !(isSEC(u) || isMaster(u) || isAdmin(u)));
 
     // Nova solicitação liberada para Estagiário.
-    document.querySelectorAll('button[onclick="abrirFormularioNovaSolicitacao()"], .btn-nova-solicitacao').forEach(el => bloquearBotao(el, !podeNovaSolicitacao(u)));
+    document.querySelectorAll('[data-sigee-legado-desativado="nova-solicitacao"]').forEach(el => bloquearBotao(el, !podeNovaSolicitacao(u)));
 
     // Estagiário visualiza, mas não edita/movimenta.
     if (est) {
@@ -10190,7 +10192,7 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     window.abrirFormularioNovaSolicitacao = abrirNovaSolicitacaoSprint25;
     try { abrirFormularioNovaSolicitacao = window.abrirFormularioNovaSolicitacao; } catch (_) {}
 
-    document.querySelectorAll('button[onclick="abrirFormularioNovaSolicitacao()"]').forEach(btn => {
+    document.querySelectorAll('[data-sigee-legado-desativado=\"nova-solicitacao\"]').forEach(btn => {
       btn.onclick = function (ev) {
         ev.preventDefault();
         abrirNovaSolicitacaoSprint25();
