@@ -1,9 +1,9 @@
-/* SIGEE Enterprise RC6.4.0.5 — Integração oficial da Sala 2.0 ao sistema de abas */
+/* SIGEE Enterprise RC6.4.1 — Integração oficial da Sala 2.0 ao sistema de abas */
 (function(){
   'use strict';
-  if(window.__SIGEE_SALA_6405__) return;
-  window.__SIGEE_SALA_6405__=true;
-  const VERSION='RC6.4.0.5';
+  if(window.__SIGEE_SALA_641__) return;
+  window.__SIGEE_SALA_641__=true;
+  const VERSION='RC6.4.1';
   let runtimePromise=null;
 
   function carregarRuntime(){
@@ -28,7 +28,7 @@
       const app=await carregarRuntime();
       await app.abrir();
     }catch(e){
-      console.error('[SIGEE Sala 2.0 RC6.4.0.5]',e);
+      console.error('[SIGEE Sala 2.0 RC6.4.1]',e);
       const sec=document.getElementById('aba-sala-situacao');
       if(sec){
         sec.innerHTML='<div class="sala2-root"><div class="sala2-error"><strong>Não foi possível inicializar a Sala 2.0.</strong><br><small>'+String(e?.message||e)+'</small><br><button id="sala2-tentar-novamente">Tentar novamente</button></div></div>';
@@ -54,5 +54,5 @@
 
   // API pública para controladores existentes chamarem diretamente.
   window.SIGEE_SALA_BOOTSTRAP={version:VERSION,abrir,recarregar:()=>{runtimePromise=null;return abrir();}};
-  console.info('[SIGEE RC6.4.0.5] Sala 2.0 integrada à aba oficial do SIGEE.');
+  console.info('[SIGEE RC6.4.1] Sala 2.0 integrada à aba oficial do SIGEE.');
 })();
