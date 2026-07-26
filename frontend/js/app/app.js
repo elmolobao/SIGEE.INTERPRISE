@@ -1045,39 +1045,22 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             }
         }
 
+        function abaVisivelSIGEE(id) {
+            const elemento = document.getElementById(id);
+            return Boolean(elemento && !elemento.classList.contains('hidden'));
+        }
+        window.SIGEE_ABA_VISIVEL = abaVisivelSIGEE;
+
         async function sincronizarSupabaseSegundoPlanoSIGEE() {
             try {
                 await carregarTodasTabelasSupabaseSIGEE(true);
-
-                if (!usuarioLogado) return;
-
-                // RC6.1.5 — Algumas telas (como Relatórios) não possuem todas as
-                // abas do painel principal no DOM. Validamos a existência do
-                // elemento antes de acessar classList para impedir que a
-                // sincronização em segundo plano interrompa a renderização.
-                const abaEstaVisivel = (id) => {
-                    const elemento = document.getElementById(id);
-                    return Boolean(elemento && !elemento.classList.contains('hidden'));
-                };
-
-                if (typeof inicializarSelectsNteEcosystem === 'function') {
+                if (usuarioLogado) {
                     inicializarSelectsNteEcosystem();
-                }
-
-                if (abaEstaVisivel('aba-painel') && typeof carregarDadosDashboardReal === 'function') {
-                    carregarDadosDashboardReal();
-                }
-                if (abaEstaVisivel('aba-escolas') && typeof renderizarListaEscolasBufferMemoria === 'function') {
-                    renderizarListaEscolasBufferMemoria();
-                }
-                if (abaEstaVisivel('aba-processos') && typeof carregarEContarProcessosHorizontais === 'function') {
-                    carregarEContarProcessosHorizontais();
-                }
-                if (abaEstaVisivel('aba-usuarios') && typeof carregarListaUsuarios === 'function') {
-                    carregarListaUsuarios();
-                }
-                if (abaEstaVisivel('aba-logs') && typeof carregarLogs === 'function') {
-                    carregarLogs();
+                    if (abaVisivelSIGEE('aba-painel')) carregarDadosDashboardReal();
+                    if (abaVisivelSIGEE('aba-escolas')) renderizarListaEscolasBufferMemoria();
+                    if (abaVisivelSIGEE('aba-processos')) carregarEContarProcessosHorizontais();
+                    if (abaVisivelSIGEE('aba-usuarios')) carregarListaUsuarios();
+                    if (abaVisivelSIGEE('aba-logs')) carregarLogs();
                 }
             } catch (erro) {
                 console.warn('Sincronização em segundo plano falhou:', erro);
@@ -1228,11 +1211,14 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         }
 
         function navegar(aba) {
-            document.getElementById('aba-painel').classList.add('hidden');
-            document.getElementById('aba-escolas').classList.add('hidden');
-            document.getElementById('aba-processos').classList.add('hidden');
-            document.getElementById('aba-usuarios').classList.add('hidden');
-            document.getElementById('aba-logs').classList.add('hidden');
+            // RC6.6.0: relatórios e módulos modernos usam o registro central de views.
+            if (window.SIGEE_NAVIGATION?.abrir && window.SIGEE_VIEWS?.[aba]) {
+                window.SIGEE_NAVIGATION.abrir(aba);
+                return;
+            }
+            ['aba-painel','aba-escolas','aba-processos','aba-usuarios','aba-logs'].forEach(id => {
+                document.getElementById(id)?.classList.add('hidden');
+            });
             
             if (aba === 'painel') { document.getElementById('aba-painel').classList.remove('hidden'); carregarDadosDashboardReal(); } 
             if (aba === 'escolas') { document.getElementById('aba-escolas').classList.remove('hidden'); renderizarListaEscolasBufferMemoria(); if (!sigEESupabaseOnline) setTimeout(() => sincronizarSupabaseSegundoPlanoSIGEE(), 50); } 
