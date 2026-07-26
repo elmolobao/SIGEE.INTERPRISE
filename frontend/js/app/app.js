@@ -1048,13 +1048,36 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         async function sincronizarSupabaseSegundoPlanoSIGEE() {
             try {
                 await carregarTodasTabelasSupabaseSIGEE(true);
-                if (usuarioLogado) {
+
+                if (!usuarioLogado) return;
+
+                // RC6.1.5 — Algumas telas (como Relatórios) não possuem todas as
+                // abas do painel principal no DOM. Validamos a existência do
+                // elemento antes de acessar classList para impedir que a
+                // sincronização em segundo plano interrompa a renderização.
+                const abaEstaVisivel = (id) => {
+                    const elemento = document.getElementById(id);
+                    return Boolean(elemento && !elemento.classList.contains('hidden'));
+                };
+
+                if (typeof inicializarSelectsNteEcosystem === 'function') {
                     inicializarSelectsNteEcosystem();
-                    if (!document.getElementById('aba-painel').classList.contains('hidden')) carregarDadosDashboardReal();
-                    if (!document.getElementById('aba-escolas').classList.contains('hidden')) renderizarListaEscolasBufferMemoria();
-                    if (!document.getElementById('aba-processos').classList.contains('hidden')) carregarEContarProcessosHorizontais();
-                    if (!document.getElementById('aba-usuarios').classList.contains('hidden')) carregarListaUsuarios();
-                    if (!document.getElementById('aba-logs').classList.contains('hidden')) carregarLogs();
+                }
+
+                if (abaEstaVisivel('aba-painel') && typeof carregarDadosDashboardReal === 'function') {
+                    carregarDadosDashboardReal();
+                }
+                if (abaEstaVisivel('aba-escolas') && typeof renderizarListaEscolasBufferMemoria === 'function') {
+                    renderizarListaEscolasBufferMemoria();
+                }
+                if (abaEstaVisivel('aba-processos') && typeof carregarEContarProcessosHorizontais === 'function') {
+                    carregarEContarProcessosHorizontais();
+                }
+                if (abaEstaVisivel('aba-usuarios') && typeof carregarListaUsuarios === 'function') {
+                    carregarListaUsuarios();
+                }
+                if (abaEstaVisivel('aba-logs') && typeof carregarLogs === 'function') {
+                    carregarLogs();
                 }
             } catch (erro) {
                 console.warn('Sincronização em segundo plano falhou:', erro);
