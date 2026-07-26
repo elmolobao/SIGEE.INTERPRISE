@@ -175,7 +175,12 @@ function garantirNovaSolicitacaoNaCentral(){
   central.querySelectorAll('#btn-nova-solicitacao-central').forEach(el=>el.remove());
 
   let botao = central.querySelector('#btn-nova-solicitacao, [data-acao="nova-solicitacao"]');
-  const autorizado = pode('processos.criar');
+  const perfilAtual = perfil();
+  const perfisComSolicitacao = new Set(['Master','Administrador','Técnico','Tecnico','Atendimento','Estagiário','Estagiario']);
+  // A capacidade oficial continua sendo a regra principal. O fallback por perfil
+  // evita que o botão desapareça durante a janela curta em que a sessão já existe,
+  // mas o serviço de permissões ainda não concluiu sua inicialização.
+  const autorizado = pode('processos.criar') || perfisComSolicitacao.has(perfilAtual);
 
   // Alguns módulos legados removem o botão do DOM. Recria somente quando autorizado.
   if(!botao && autorizado){
@@ -215,7 +220,13 @@ function renderizarMenu(){
   const estruturaIntegra = nav.dataset.sigeeMenuAssinatura === assinatura &&
     document.getElementById('menu-relatorios-rc6501') &&
     (!administrativos.length || (document.getElementById('menu-administrativo-grupo') && document.getElementById('submenu-administracao')));
-  if (estruturaIntegra) return true;
+  if (estruturaIntegra) {
+    // O menu pode estar íntegro enquanto controles internos foram alterados por
+    // módulos tardios de perfil. Reaplica a interface sem reconstruir a sidebar.
+    atualizarIdentidade();
+    aplicarControlesDaInterface();
+    return true;
+  }
   instalando = true;
   const fragment=document.createDocumentFragment();
   principais.forEach(item=>fragment.appendChild(item.tipo==='relatorios'?criarGrupoRelatorios():criarBotao(item)));
@@ -458,8 +469,15 @@ document.addEventListener('sigee:usuario-logado', () => setTimeout(() => {
   renderizarMenu();
   aplicarRotaInicialForcada();
   setTimeout(aplicarRotaInicialForcada,120);
+  // Passagens curtas e finitas para cobrir a finalização assíncrona da sessão.
+  setTimeout(aplicarControlesDaInterface,180);
+  setTimeout(aplicarControlesDaInterface,650);
 }, 0));
-window.addEventListener('sigee:login-concluido', () => setTimeout(iniciar, 0));
+window.addEventListener('sigee:login-concluido', () => {
+  setTimeout(iniciar, 0);
+  setTimeout(aplicarControlesDaInterface,180);
+  setTimeout(aplicarControlesDaInterface,650);
+});
 window.addEventListener('load', () => setTimeout(iniciar, 50));
 
 window.SIGEE_AUTORIZACAO = Object.freeze({
