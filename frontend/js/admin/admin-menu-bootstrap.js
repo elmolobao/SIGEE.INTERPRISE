@@ -1,9 +1,9 @@
-/* SIGEE RC7.0.7 — Bootstrap administrativo final
+/* SIGEE RC7.1.0 — Bootstrap administrativo final
    Executado por último. Agrupa uma única vez os botões originais, sem observar navegação. */
 (function (window, document) {
   'use strict';
-  if (window.__SIGEE_ADMIN_BOOTSTRAP_RC707__) return;
-  window.__SIGEE_ADMIN_BOOTSTRAP_RC707__ = true;
+  if (window.__SIGEE_ADMIN_BOOTSTRAP_RC710__) return;
+  window.__SIGEE_ADMIN_BOOTSTRAP_RC710__ = true;
 
   const MAX_TENTATIVAS = 35;
   const INTERVALO = 180;
@@ -152,35 +152,30 @@
     return true;
   }
 
-  function parar() {
-    if (timer) clearTimeout(timer);
-    timer = null;
-    tentativas = 0;
+  const PASSAGENS = [0, 350, 900, 1800, 3200, 5200];
+  let agendamentos = [];
+
+  function cancelarAgendamentos() {
+    agendamentos.forEach(id => clearTimeout(id));
+    agendamentos = [];
   }
 
-  function tentar() {
-    if (document.getElementById('menu-administrativo-grupo')?.dataset.consolidado === 'true') {
-      parar();
-      return;
-    }
-    if (consolidar()) {
-      // Uma segunda passagem única captura módulos Master que tenham sido criados no mesmo ciclo.
-      timer = setTimeout(() => { consolidar(); parar(); }, 350);
-      return;
-    }
-    tentativas += 1;
-    if (tentativas >= MAX_TENTATIVAS) return parar();
-    timer = setTimeout(tentar, INTERVALO);
+  function executarPassagens() {
+    cancelarAgendamentos();
+    PASSAGENS.forEach(atraso => {
+      agendamentos.push(setTimeout(() => {
+        consolidar();
+      }, atraso));
+    });
   }
 
   function iniciar() {
-    parar();
-    tentar();
+    executarPassagens();
   }
 
   document.addEventListener('DOMContentLoaded', iniciar, { once: true });
   window.addEventListener('load', iniciar, { once: true });
   document.addEventListener('sigee:usuario-logado', iniciar);
   window.addEventListener('sigee:login-concluido', iniciar);
-  window.SIGEE_ADMIN_MENU = { iniciar, consolidar, versao: 'RC7.0.7' };
+  window.SIGEE_ADMIN_MENU = { iniciar, consolidar, versao: 'RC7.1.0' };
 })(window, document);

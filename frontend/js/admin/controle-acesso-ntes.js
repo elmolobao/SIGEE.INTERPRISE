@@ -108,25 +108,23 @@
   function garantirItemMenu(){
     const u=usuarioAtual();
     if(!perfilMaster(u)) return false;
-    if(document.getElementById('menu-controle-acesso-ntes')) return true;
 
     const referencia=document.getElementById('menu-usuarios')||document.getElementById('menu-logs');
     const container=document.getElementById('submenu-administracao')||referencia?.parentElement;
     if(!container) return false;
 
-    const b=document.createElement('button');
-    b.id='menu-controle-acesso-ntes';
-    b.type='button';
-    b.dataset.admin='controle-ntes';
-    b.className=referencia?.className||'sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer';
+    let b=document.getElementById('menu-controle-acesso-ntes');
+    if(!b){
+      b=document.createElement('button');
+      b.id='menu-controle-acesso-ntes';
+      b.type='button';
+      b.dataset.admin='controle-ntes';
+      b.className=referencia?.className||'sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer';
+      b.innerHTML='⛔ Controle de Acesso dos NTEs';
+      b.addEventListener('click',function(ev){ev.preventDefault(); abrirPainel();});
+    }
     b.classList.remove('hidden');
-    b.innerHTML='⛔ Controle de Acesso dos NTEs';
-    b.addEventListener('click',function(ev){ev.preventDefault(); abrirPainel();});
-
-    if(document.getElementById('submenu-administracao')) container.appendChild(b);
-    else if(document.getElementById('menu-usuarios')) document.getElementById('menu-usuarios').insertAdjacentElement('afterend',b);
-    else container.appendChild(b);
-    window.SIGEE_ADMIN_MENU?.organizar?.();
+    if(b.parentElement!==container) container.appendChild(b);
     return true;
   }
 
