@@ -10392,11 +10392,11 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
   }, { once: true });
 })(window);
 
-/* SIGEE RC7.0.4 — agrupamento administrativo estático, sem observadores */
+/* SIGEE RC7.0.5 — agrupamento administrativo pós-login, sem reorganização na navegação */
 (function(){
   'use strict';
-  if(window.__SIGEE_ADMIN_MENU_RC704__) return;
-  window.__SIGEE_ADMIN_MENU_RC704__=true;
+  if(window.__SIGEE_ADMIN_MENU_RC705__) return;
+  window.__SIGEE_ADMIN_MENU_RC705__=true;
 
   const IDS=['menu-usuarios','menu-logs','menu-diagnostico','menu-controle-acesso-ntes','menu-migracao-historica'];
   let ciclo=0;
@@ -10493,7 +10493,7 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     ciclo++;
     const meuCiclo=ciclo;
     timers.forEach(clearTimeout); timers=[];
-    [0,80,180,350,650,1100,1800,2800,4200].forEach(ms=>{
+    [120,400,900,1800,3200,5000].forEach(ms=>{
       timers.push(setTimeout(()=>{
         if(meuCiclo!==ciclo) return;
         organizar();
@@ -10501,15 +10501,12 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     });
   }
 
-  window.SIGEE_ADMIN_MENU={organizar,agendar,versao:'RC7.0.4'};
+  window.SIGEE_ADMIN_MENU={organizar,agendar,versao:'RC7.0.5'};
   document.addEventListener('DOMContentLoaded',agendar,{once:true});
   window.addEventListener('load',agendar,{once:true});
   document.addEventListener('sigee:usuario-logado',agendar);
   window.addEventListener('sigee:login-concluido',agendar);
-  document.addEventListener('sigee:navegacao-concluida',()=>{
-    organizar();
-    setTimeout(organizar,120);
-    setTimeout(organizar,420);
-  });
+  // RC7.0.5: não reorganizar a sidebar durante a navegação.
+  // Os botões permanecem nos seus containers depois da montagem pós-login.
 })();
 
