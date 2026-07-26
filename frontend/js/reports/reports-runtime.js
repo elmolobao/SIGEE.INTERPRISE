@@ -1,13 +1,13 @@
-/* SIGEE Enterprise RC6.5.0 — Central de Relatórios */
+/* SIGEE Enterprise RC6.5.0.1 — Central de Relatórios em abas oficiais */
 (function(){
 'use strict';
-if(window.__SIGEE_REPORTS_650__) return; window.__SIGEE_REPORTS_650__=true;
+if(window.__SIGEE_REPORTS_6501__) return; window.__SIGEE_REPORTS_6501__=true;
 const txt=v=>v==null?'':String(v).trim(), norm=v=>txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase(), esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const R=()=>window.SIGEE_REGRAS_OPERACIONAIS;
 const tipos=[
  ['operacional','📊','Relatório Operacional'],['sla','⏱️','Relatório de SLA'],['territorial','🗺️','Relatório Territorial'],['pendencias','⏸️','Relatório de Pendências'],['produtividade','👥','Relatório de Produtividade'],['executivo','📈','Relatório Executivo']
 ];
-let state={payload:null,tipo:null};
+let state={payload:null,tipo:null,menuIntegrado:false};
 function finalizado(p){const e=norm(R().etapa(p));return e.includes('RETIR')||e.includes('INDEFER')||e.includes('DEFERIDO');}
 function data(v){if(!v)return null;const d=new Date(v);return Number.isNaN(d.getTime())?null:d;}
 function dias(v){const d=data(v);return d?Math.max(0,Math.floor((Date.now()-d)/86400000)):0;}
@@ -16,9 +16,34 @@ function atraso(p){if(finalizado(p)||R().pendenciaAluno(p))return false;const l=
 function responsavel(p){return txt(p.tecnico_atribuido||p.tecnico_responsavel||p.responsavel_etapa||p.analista||p.digitador||p.conferente||p.responsavel||p.usuario_lancamento||p.criado_por_nome);}
 function dados(){const ps=state.payload.processos,ativos=ps.filter(p=>!finalizado(p)),externas=ativos.filter(R().pendenciaAluno),operacionais=ativos.filter(p=>!R().pendenciaAluno(p)),atrasados=operacionais.filter(atraso);return {ps,ativos,externas,operacionais,atrasados};}
 function main(){return document.querySelector('#sistema-dashboard main');}
-function esconder(){main()?.querySelectorAll(':scope > section').forEach(s=>s.classList.add('hidden'));}
-function host(tipo){let s=document.getElementById('aba-relatorio-'+tipo);if(!s){s=document.createElement('section');s.id='aba-relatorio-'+tipo;s.className='hidden sig-rel-page';main()?.appendChild(s);}return s;}
-function abrir(tipo,forcar=false){state.tipo=tipo;esconder();const h=host(tipo);h.classList.remove('hidden');h.innerHTML='<div class="sig-rel-loading">Consolidando dados do relatório...</div>';window.SIGEE_REPORTS_DATA.carregar(forcar).then(p=>{state.payload=p;render(h,tipo);}).catch(e=>h.innerHTML='<div class="sig-rel-error"><h2>Não foi possível carregar o relatório</h2><p>'+esc(e.message)+'</p><button data-retry>Tentar novamente</button></div>');marcarMenu(tipo);}
+function abasOficiais(){const m=main();return m?[...m.children].filter(el=>el.tagName==='SECTION'):[];}
+function ocultarModulo(el){if(!el)return;el.classList.add('hidden');el.setAttribute('aria-hidden','true');el.style.display='none';}
+function mostrarModulo(el){if(!el)return;el.classList.remove('hidden');el.removeAttribute('aria-hidden');el.style.display='block';}
+function esconderTudo(){
+  abasOficiais().forEach(ocultarModulo);
+  document.querySelectorAll('.sigee-cio-page,[data-cio-root],#centro-inteligencia-container,#sigee-centro-inteligencia').forEach(ocultarModulo);
+}
+function host(tipo){return document.getElementById('aba-relatorio-'+tipo);}
+function abrir(tipo,forcar=false){
+  if(!tipos.some(x=>x[0]===tipo)) return;
+  state.tipo=tipo;
+  esconderTudo();
+  const h=host(tipo);
+  if(!h){console.error('[SIGEE RC6.5.0.1] Aba oficial não localizada:',tipo);return;}
+  mostrarModulo(h);
+  h.innerHTML='<div class="sig-rel-loading">Consolidando dados do relatório...</div>';
+  window.SIGEE_REPORTS_DATA.carregar(forcar).then(p=>{
+    state.payload=p;
+    if(state.tipo!==tipo)return;
+    esconderTudo();mostrarModulo(h);render(h,tipo);
+  }).catch(e=>{
+    esconderTudo();mostrarModulo(h);
+    h.innerHTML='<div class="sig-rel-error"><h2>Não foi possível carregar o relatório</h2><p>'+esc(e.message)+'</p><button data-retry>Tentar novamente</button></div>';
+    h.querySelector('[data-retry]')?.addEventListener('click',()=>abrir(tipo,true));
+  });
+  marcarMenu(tipo);
+  window.scrollTo({top:0,behavior:'auto'});
+}
 function marcarMenu(tipo){document.querySelectorAll('[data-report-menu]').forEach(b=>b.classList.toggle('active',b.dataset.reportMenu===tipo));}
 function card(t,v,s){return '<article><span>'+esc(t)+'</span><strong>'+esc(v)+'</strong><small>'+esc(s)+'</small></article>';}
 function tabela(arr){return '<div class="sig-rel-table"><table><thead><tr><th>Processo</th><th>Aluno / Escola</th><th>NTE</th><th>Etapa</th><th>Responsável</th></tr></thead><tbody>'+arr.map(p=>'<tr><td>'+esc(p.codigo_sigee||p.id)+'</td><td><b>'+esc(p.aluno_nome||'')+'</b><small>'+esc(p.escola_nome||'')+'</small></td><td>'+esc(window.SIGEE_REPORTS_DATA.nte(p.nte||p.nte_id))+'</td><td>'+esc(R().etapa(p))+'</td><td>'+esc(responsavel(p)||'Aguardando atribuição')+'</td></tr>').join('')+'</tbody></table></div>';}
@@ -32,9 +57,32 @@ function render(h,tipo){const d=dados();let body='';
  if(tipo==='executivo'){body='<section class="sig-rel-cards">'+card('Processos ativos',d.ativos.length,'Total em tramitação')+card('Operação controlável',d.operacionais.length,'Depende da equipe')+card('Espera externa',d.externas.length,'Depende do interessado')+card('Em atraso',d.atrasados.length,'Somente operação controlável')+'</section><section class="sig-rel-exec"><h2>Leitura executiva</h2><p>Existem <b>'+d.operacionais.length+'</b> processos sob gestão direta da operação e <b>'+d.externas.length+'</b> aguardando resposta externa. O total em atraso é <b>'+d.atrasados.length+'</b>, sem contabilizar Pendência do Aluno.</p></section>';}
  const meta=tipos.find(x=>x[0]===tipo);h.innerHTML=header(tipo,meta[2],descricao(tipo))+body;h.querySelector('[data-refresh]').onclick=()=>abrir(tipo,true);h.querySelector('[data-retry]')?.addEventListener('click',()=>abrir(tipo,true));}
 function descricao(t){return {operacional:'Visão do fluxo, atrasos e capacidade operacional.',sla:'Acompanhamento de prazos das etapas controladas pela equipe.',territorial:'Distribuição da operação e dos atrasos por NTE.',pendencias:'Separação entre pendência externa e institucional.',produtividade:'Carga e acompanhamento das equipes sem finalidade punitiva.',executivo:'Síntese estratégica para apoio à decisão.'}[t];}
-function instalarMenu(){const nav=document.getElementById('sigee-menu-dinamico');if(!nav||document.getElementById('menu-relatorios-rc650'))return;const wrap=document.createElement('div');wrap.id='menu-relatorios-rc650';wrap.className='sig-rel-menu';wrap.innerHTML='<button class="sig-rel-menu-title" type="button">📑 Relatórios <span>▾</span></button><div>'+tipos.map(x=>'<button type="button" data-report-menu="'+x[0]+'">'+x[1]+' '+x[2]+'</button>').join('')+'</div>';nav.appendChild(wrap);wrap.querySelector('.sig-rel-menu-title').onclick=()=>wrap.classList.toggle('open');wrap.querySelectorAll('[data-report-menu]').forEach(b=>b.onclick=()=>abrir(b.dataset.reportMenu));}
-function init(){instalarMenu();tipos.forEach(x=>host(x[0]));}
+function localizarMenuRelatorios(){
+  const nav=document.getElementById('sigee-menu-dinamico');
+  if(!nav)return null;
+  return [...nav.querySelectorAll('button,a')].find(el=>norm(el.textContent).replace(/[^A-Z]/g,'').includes('RELATORIOS'))||null;
+}
+function instalarMenu(){
+  const nav=document.getElementById('sigee-menu-dinamico');if(!nav)return;
+  document.getElementById('menu-relatorios-rc650')?.remove();
+  const original=localizarMenuRelatorios();
+  let wrap=document.getElementById('menu-relatorios-rc6501');
+  if(!wrap){wrap=document.createElement('div');wrap.id='menu-relatorios-rc6501';wrap.className='sig-rel-menu';wrap.innerHTML='<button class="sig-rel-menu-title" type="button" aria-expanded="false">📑 Relatórios <span>▾</span></button><div>'+tipos.map(x=>'<button type="button" data-report-menu="'+x[0]+'">'+x[1]+' '+x[2]+'</button>').join('')+'</div>';
+    if(original){const parent=original.closest('div')||original;parent.replaceWith(wrap);}else nav.appendChild(wrap);
+  }
+  const title=wrap.querySelector('.sig-rel-menu-title');
+  title.onclick=e=>{e.preventDefault();e.stopPropagation();wrap.classList.toggle('open');title.setAttribute('aria-expanded',String(wrap.classList.contains('open')));};
+  wrap.querySelectorAll('[data-report-menu]').forEach(b=>b.onclick=e=>{e.preventDefault();e.stopPropagation();wrap.classList.add('open');abrir(b.dataset.reportMenu);});
+  state.menuIntegrado=true;
+}
+function init(){
+  document.querySelectorAll('[data-relatorio-legado="true"]').forEach(ocultarModulo);
+  tipos.forEach(x=>{if(!host(x[0]))console.error('[SIGEE RC6.5.0.1] Aba ausente:',x[0]);});
+  instalarMenu();
+  setTimeout(instalarMenu,300);
+  setTimeout(instalarMenu,1200);
+}
 document.readyState==='loading'?document.addEventListener('DOMContentLoaded',init):init();
-window.SIGEE_RELATORIOS={abrir,atualizar:()=>state.tipo&&abrir(state.tipo,true),versao:'RC6.5.0'};
-console.info('[SIGEE RC6.5.0] Central de Relatórios pronta.');
+window.SIGEE_RELATORIOS={abrir,atualizar:()=>state.tipo&&abrir(state.tipo,true),versao:'RC6.5.0.1'};
+console.info('[SIGEE RC6.5.0.1] Central de Relatórios separada do CIO e integrada às abas oficiais.');
 })();
