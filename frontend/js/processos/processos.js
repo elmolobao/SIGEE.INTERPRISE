@@ -1494,7 +1494,12 @@
       const filtroNte=String(document.getElementById('filtro-processos-nte')?.value||'').trim();
       let nteConsulta='';
       if(!['MASTER','SEC'].includes(perfil)){
-        nteConsulta=String(u.nte||u.nte_nome||u.grupo||(Number(u.nte_id)?`NTE-${String(Number(u.nte_id)).padStart(2,'0')}`:'')).trim();
+        const idNte=Number(u.nte_id||u.nteId||u.id_nte||0);
+        nteConsulta=String(
+          u.nte||u.nte_nome||u.nte_vinculado||u.grupo||u.territorio||
+          (idNte?`NTE-${String(idNte).padStart(2,'0')}`:'')||
+          (filtroNte&&filtroNte!=='TODOS'?filtroNte:'')
+        ).trim();
         if(nteConsulta) q=aplicarFiltroNteRemoto(q,nteConsulta);
       } else if(filtroNte && filtroNte!=='TODOS') {
         nteConsulta=filtroNte;
@@ -1509,6 +1514,7 @@
       const lista=(data||[]).map(mapear).filter(Boolean);
       totalProcessosRemotos=Number(count||0);
       window.processosDB=lista;
+      window.__SIGEE_PROCESSOS_ORIGEM__='REMOTA_PAGINADA';
       try { processosDB=lista; } catch(e){}
       redesenhar();
       renderizarPaginacaoRemota();
