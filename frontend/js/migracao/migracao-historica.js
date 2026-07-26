@@ -384,7 +384,7 @@
 
   function garantirMenu() {
     if (perfilAtual() !== 'MASTER') return;
-    const nav = document.querySelector('.sigee-sidebar-nav') || document.querySelector('aside nav');
+    const nav = document.getElementById('submenu-administracao') || document.querySelector('.sigee-sidebar-nav') || document.querySelector('aside nav');
     if (!nav || document.getElementById('menu-migracao-historica')) return;
     const btn = document.createElement('button');
     btn.id = 'menu-migracao-historica';
@@ -392,6 +392,7 @@
     btn.textContent = '🧬 Migração Histórica';
     btn.addEventListener('click', abrirMigracao);
     nav.appendChild(btn);
+    window.SIGEE_ADMIN_MENU?.organizar?.();
   }
   function abrirMigracao() {
     document.querySelectorAll('#sistema-dashboard main > section').forEach(s => s.classList.add('hidden'));
