@@ -1,14 +1,14 @@
-/* SIGEE RC7.1.0 — Bootstrap administrativo final
-   Executado por último. Agrupa uma única vez os botões originais, sem observar navegação. */
+/* SIGEE RC7.1.1 — Bootstrap administrativo resiliente
+   Observa somente substituições diretas dos filhos da sidebar.
+   Não observa classes, estilos, submenus ou eventos de navegação. */
 (function (window, document) {
   'use strict';
-  if (window.__SIGEE_ADMIN_BOOTSTRAP_RC710__) return;
-  window.__SIGEE_ADMIN_BOOTSTRAP_RC710__ = true;
+  if (window.__SIGEE_ADMIN_BOOTSTRAP_RC711__) return;
+  window.__SIGEE_ADMIN_BOOTSTRAP_RC711__ = true;
 
-  const MAX_TENTATIVAS = 35;
-  const INTERVALO = 180;
-  let timer = null;
-  let tentativas = 0;
+  let observadorMenu = null;
+  let debounceMenu = null;
+  let emConsolidacao = false;
 
   const texto = value => String(value || '').trim();
   const token = value => texto(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
@@ -111,8 +111,11 @@
   }
 
   function consolidar() {
+    if (emConsolidacao) return false;
     const nav = document.getElementById('sigee-menu-dinamico');
     if (!nav) return false;
+    emConsolidacao = true;
+    observadorMenu?.disconnect();
 
     const users = document.getElementById('menu-usuarios');
     const logs = document.getElementById('menu-logs');
@@ -120,7 +123,11 @@
     const access = document.getElementById('menu-controle-acesso-ntes');
 
     // Aguarda os dois itens oficiais essenciais. Os módulos Master podem chegar depois.
-    if (!users || !logs) return false;
+    if (!users || !logs) {
+      emConsolidacao = false;
+      instalarObservador();
+      return false;
+    }
 
     const group = criarGrupo(nav);
     const submenu = group.querySelector('#submenu-administracao');
@@ -149,7 +156,35 @@
 
     group.classList.toggle('hidden', ![...submenu.children].some(el => !el.classList.contains('hidden')));
     group.dataset.consolidado = 'true';
+    emConsolidacao = false;
+    instalarObservador();
     return true;
+  }
+
+  function precisaRestaurar() {
+    const nav = document.getElementById('sigee-menu-dinamico');
+    if (!nav) return false;
+    const group = document.getElementById('menu-administrativo-grupo');
+    const submenu = document.getElementById('submenu-administracao');
+    const users = document.getElementById('menu-usuarios');
+    const logs = document.getElementById('menu-logs');
+    if (!users || !logs) return false;
+    return !group || group.parentElement !== nav || !submenu ||
+      users.parentElement !== submenu || logs.parentElement !== submenu;
+  }
+
+  function instalarObservador() {
+    const nav = document.getElementById('sigee-menu-dinamico');
+    if (!nav || emConsolidacao) return;
+    if (!observadorMenu) {
+      observadorMenu = new MutationObserver(() => {
+        if (emConsolidacao || !precisaRestaurar()) return;
+        clearTimeout(debounceMenu);
+        debounceMenu = setTimeout(() => consolidar(), 80);
+      });
+    }
+    observadorMenu.disconnect();
+    observadorMenu.observe(nav, { childList: true, subtree: false });
   }
 
   const PASSAGENS = [0, 350, 900, 1800, 3200, 5200];
@@ -171,11 +206,12 @@
 
   function iniciar() {
     executarPassagens();
+    instalarObservador();
   }
 
   document.addEventListener('DOMContentLoaded', iniciar, { once: true });
   window.addEventListener('load', iniciar, { once: true });
   document.addEventListener('sigee:usuario-logado', iniciar);
   window.addEventListener('sigee:login-concluido', iniciar);
-  window.SIGEE_ADMIN_MENU = { iniciar, consolidar, versao: 'RC7.1.0' };
+  window.SIGEE_ADMIN_MENU = { iniciar, consolidar, versao: 'RC7.1.1' };
 })(window, document);
