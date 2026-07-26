@@ -10391,3 +10391,147 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     }
   }, { once: true });
 })(window);
+
+/* =====================================================================
+   SIGEE RC6.6.3 — Navegação contextual dos Relatórios para Processos
+   Abre a Central de Processos com filtros definidos e preserva o shell.
+   ===================================================================== */
+(function(){
+  'use strict';
+  if(window.__SIGEE_PROCESSOS_CONTEXTUAL_663__)return;
+  window.__SIGEE_PROCESSOS_CONTEXTUAL_663__=true;
+
+  const norm=v=>String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toUpperCase();
+  let contexto=null;
+  let originalRender=null;
+  let originalContar=null;
+
+  function etapa(p){return p?.etapa_atual||p?.etapa||'';}
+  function responsavel(p){return p?.tecnico_atribuido||p?.tecnico_responsavel||p?.responsavel_etapa||p?.analista||p?.digitador||p?.conferente||p?.responsavel||p?.usuario_lancamento||p?.criado_por_nome||'';}
+  function codigo(p){return p?.codigo_sigee||p?.codigo||p?.id||'';}
+  function nte(p){return p?.nte||p?.nte_nome||p?.nte_vinculado||p?.nte_id||'';}
+  function data(v){const d=v?new Date(v):null;return d&&!Number.isNaN(d.getTime())?d:null;}
+  function dias(v){const d=data(v);return d?Math.max(0,Math.floor((Date.now()-d.getTime())/86400000)):0;}
+  function limite(e){const x=norm(e);if(x.includes('DESARQ'))return 30;if(x.includes('ANAL'))return 7;if(x.includes('DIGIT'))return 15;if(x.includes('CONFER'))return 10;if(x.includes('ASSIN'))return 7;return null;}
+  function finalizado(p){const e=norm(etapa(p));return e.includes('RETIR')||e.includes('INDEFER')||e.includes('DEFERIDO')||e.includes('AGUARDANDO RETIRADA');}
+  function pendenciaAluno(p){try{return !!window.SIGEE_REGRAS_OPERACIONAIS?.pendenciaAluno?.(p);}catch(_){return norm(p?.tipo_pendencia||p?.pendencia_tipo||p?.pendencia_origem).includes('ALUNO');}}
+  function pendenciaInstitucional(p){try{return !!window.SIGEE_REGRAS_OPERACIONAIS?.pendenciaInstitucional?.(p);}catch(_){return norm(p?.tipo_pendencia||p?.pendencia_tipo||p?.pendencia_origem).includes('INSTIT');}}
+  function atrasado(p){if(finalizado(p)||pendenciaAluno(p))return false;const l=limite(etapa(p));return l!==null&&dias(p?.data_etapa_atual||p?.data_etapa||p?.created_at)>l;}
+
+  function filtrar(lista){
+    if(!contexto)return lista;
+    return (lista||[]).filter(p=>{
+      if(contexto.codigo&&norm(codigo(p))!==norm(contexto.codigo))return false;
+      if(contexto.nte&&norm(nte(p)).replace(/[^0-9]/g,'')!==norm(contexto.nte).replace(/[^0-9]/g,''))return false;
+      if(contexto.etapa&&norm(etapa(p))!==norm(contexto.etapa))return false;
+      if(contexto.responsavel){
+        const alvo=norm(contexto.responsavel);
+        if(alvo==='AGUARDANDO ATRIBUICAO'){if(norm(responsavel(p)))return false;}
+        else if(norm(responsavel(p))!==alvo)return false;
+      }
+      switch(contexto.tipo){
+        case 'ativos': if(finalizado(p))return false; break;
+        case 'operacionais': if(finalizado(p)||pendenciaAluno(p))return false; break;
+        case 'atraso': if(!atrasado(p))return false; break;
+        case 'pendencia_externa': if(!pendenciaAluno(p))return false; break;
+        case 'pendencia_institucional': if(!pendenciaInstitucional(p))return false; break;
+        case 'sem_responsavel': if(finalizado(p)||pendenciaAluno(p)||norm(responsavel(p)))return false; break;
+        case 'sla_base': if(finalizado(p)||pendenciaAluno(p)||limite(etapa(p))===null)return false; break;
+      }
+      return true;
+    });
+  }
+
+  function tituloFiltro(){
+    if(!contexto)return '';
+    const partes=[];
+    const rotulos={ativos:'Processos ativos',operacionais:'Operação controlável',atraso:'Processos em atraso',pendencia_externa:'Pendência externa',pendencia_institucional:'Pendência institucional',sem_responsavel:'Sem responsável',sla_base:'Base elegível para SLA'};
+    if(contexto.tipo)partes.push(rotulos[contexto.tipo]||contexto.tipo);
+    if(contexto.etapa)partes.push('Etapa: '+contexto.etapa);
+    if(contexto.nte)partes.push('NTE: '+contexto.nte);
+    if(contexto.responsavel)partes.push('Responsável: '+contexto.responsavel);
+    if(contexto.codigo)partes.push('Processo: '+contexto.codigo);
+    return partes.join(' · ');
+  }
+
+  function atualizarFaixa(){
+    const aba=document.getElementById('aba-processos');if(!aba)return;
+    let faixa=document.getElementById('sigee-filtro-contextual-processos');
+    if(!contexto){faixa?.remove();return;}
+    if(!faixa){
+      faixa=document.createElement('div');faixa.id='sigee-filtro-contextual-processos';faixa.className='sigee-filtro-contextual-processos';
+      const topo=aba.firstElementChild;topo?.insertAdjacentElement('afterend',faixa);
+    }
+    faixa.innerHTML='<div><strong>Filtro originado dos Relatórios</strong><span>'+tituloFiltro()+'</span></div><button type="button" id="sigee-limpar-filtro-contextual">Limpar filtro</button>';
+    faixa.querySelector('button').onclick=limpar;
+  }
+
+  function renderComContexto(fn,thisArg,args){
+    if(!contexto)return fn.apply(thisArg,args);
+    let antigoLocal,antigoWindow;
+    try{
+      antigoLocal=typeof processosDB!=='undefined'?processosDB:undefined;
+      antigoWindow=window.processosDB;
+      const base=Array.isArray(antigoLocal)?antigoLocal:(Array.isArray(antigoWindow)?antigoWindow:[]);
+      const reduzida=filtrar(base);
+      try{processosDB=reduzida;}catch(_){ }
+      window.processosDB=reduzida;
+      return fn.apply(thisArg,args);
+    }finally{
+      try{if(antigoLocal!==undefined)processosDB=antigoLocal;}catch(_){ }
+      window.processosDB=antigoWindow;
+      setTimeout(atualizarFaixa,0);
+    }
+  }
+
+  function instalarWrapper(){
+    const modulo=window.SIGEE_Processos;if(!modulo)return false;
+    if(typeof modulo.renderizar==='function'&&!modulo.renderizar.__SIGEE_CONTEXTUAL_663__){
+      originalRender=modulo.renderizar;
+      const wrap=function(){return renderComContexto(originalRender,modulo,arguments);};
+      wrap.__SIGEE_CONTEXTUAL_663__=true;modulo.renderizar=wrap;
+      window.renderizarProcessosFlutuantes=wrap;try{renderizarProcessosFlutuantes=wrap;}catch(_){ }
+    }
+    if(typeof modulo.contar==='function'&&!modulo.contar.__SIGEE_CONTEXTUAL_663__){
+      originalContar=modulo.contar;
+      const wrapCount=function(){return renderComContexto(originalContar,modulo,arguments);};
+      wrapCount.__SIGEE_CONTEXTUAL_663__=true;modulo.contar=wrapCount;
+      window.carregarEContarProcessosHorizontais=wrapCount;try{carregarEContarProcessosHorizontais=wrapCount;}catch(_){ }
+    }
+    return true;
+  }
+
+  function sincronizarControles(){
+    const sel=document.getElementById('filtro-processos-nte');
+    if(sel)sel.value=contexto?.nte||'TODOS';
+    const busca=document.getElementById('busca-proc-nome');
+    if(busca)busca.value=contexto?.codigo||'';
+    try{etapaFiltroAtual=contexto?.etapa||'TODOS';}catch(_){ }
+  }
+
+  function abrir(filtros={}){
+    contexto={...filtros};
+    instalarWrapper();
+    if(typeof window.navegar==='function')window.navegar('processos');
+    sincronizarControles();
+    setTimeout(()=>{
+      instalarWrapper();sincronizarControles();atualizarFaixa();
+      window.SIGEE_Processos?.contar?.();
+      window.SIGEE_Processos?.renderizar?.();
+    },80);
+  }
+
+  function limpar(){
+    contexto=null;
+    const sel=document.getElementById('filtro-processos-nte');if(sel)sel.value='TODOS';
+    const busca=document.getElementById('busca-proc-nome');if(busca)busca.value='';
+    try{etapaFiltroAtual='TODOS';}catch(_){ }
+    atualizarFaixa();
+    window.SIGEE_Processos?.contar?.();window.SIGEE_Processos?.renderizar?.();
+  }
+
+  window.SIGEE_PROCESSOS_CONTEXTUAL={abrir,limpar,obter:()=>contexto,filtrar,versao:'RC6.6.3'};
+  document.addEventListener('DOMContentLoaded',()=>{instalarWrapper();setTimeout(instalarWrapper,600);});
+  setTimeout(instalarWrapper,1200);
+  console.info('[SIGEE RC6.6.3] Navegação contextual com filtros dos Relatórios instalada.');
+})();
