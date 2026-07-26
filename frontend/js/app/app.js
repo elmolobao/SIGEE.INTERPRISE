@@ -10392,81 +10392,124 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
   }, { once: true });
 })(window);
 
-
-/* SIGEE RC7.0.3 — agrupamento administrativo estático e seguro */
+/* SIGEE RC7.0.4 — agrupamento administrativo estático, sem observadores */
 (function(){
   'use strict';
-  if(window.__SIGEE_ADMIN_MENU_RC703__) return;
-  window.__SIGEE_ADMIN_MENU_RC703__=true;
+  if(window.__SIGEE_ADMIN_MENU_RC704__) return;
+  window.__SIGEE_ADMIN_MENU_RC704__=true;
 
-  const idsAdministrativos=[
-    'menu-usuarios','menu-logs','menu-diagnostico',
-    'menu-controle-acesso-ntes','menu-migracao-historica'
-  ];
+  const IDS=['menu-usuarios','menu-logs','menu-diagnostico','menu-controle-acesso-ntes','menu-migracao-historica'];
+  let ciclo=0;
+  let timers=[];
 
-  function perfilAtual(){
-    const u=window.usuarioLogado||window.usuarioAtual||window.currentUser||window.SIGEE_USUARIO_ATUAL;
-    return String(u?.perfil||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
+  function usuario(){
+    return window.usuarioLogado||window.usuarioAtual||window.currentUser||window.SIGEE_USUARIO_ATUAL||window.SIGEE_SESSION?.getUser?.()||null;
+  }
+  function token(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();}
+  function master(){return token(usuario()?.perfil).includes('MASTER');}
+
+  function classeSubitem(el){
+    if(!el) return;
+    el.classList.add('sigee-menu-item','sigee-admin-subitem');
+    el.style.margin='0';
+    el.style.width='100%';
   }
 
   function criarGrupo(nav){
-    let grupo=document.getElementById('menu-administrativo-rc703');
-    if(grupo) return grupo;
+    let grupo=document.getElementById('menu-administrativo-grupo');
+    if(grupo && grupo.parentElement===nav) return grupo;
+    grupo?.remove();
     grupo=document.createElement('div');
-    grupo.id='menu-administrativo-rc703';
-    grupo.className='sigee-admin-menu';
-    grupo.innerHTML='<button type="button" id="menu-administrativo-titulo" aria-expanded="false" class="sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer">⚙️ Administrativo <span aria-hidden="true" style="float:right">▾</span></button><div id="submenu-administracao" class="hidden" style="padding-left:.45rem;margin-top:.25rem"></div>';
+    grupo.id='menu-administrativo-grupo';
+    grupo.className='sigee-menu-grupo sigee-admin-menu';
+    grupo.innerHTML=`
+      <button type="button" id="menu-administrativo-titulo" class="sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer" aria-expanded="false">
+        <span>⚙️ Administrativo</span><span id="menu-administrativo-seta" aria-hidden="true" style="float:right">▼</span>
+      </button>
+      <div id="submenu-administracao" class="hidden" style="padding-left:.55rem;margin-top:.25rem;border-left:2px solid rgba(250,204,21,.75)"></div>`;
     nav.appendChild(grupo);
-    const titulo=grupo.querySelector('#menu-administrativo-titulo');
-    titulo.addEventListener('click',function(ev){
+    grupo.querySelector('#menu-administrativo-titulo').addEventListener('click',ev=>{
       ev.preventDefault(); ev.stopPropagation();
       const sub=grupo.querySelector('#submenu-administracao');
       const abrir=sub.classList.contains('hidden');
       sub.classList.toggle('hidden',!abrir);
-      titulo.setAttribute('aria-expanded',String(abrir));
+      grupo.querySelector('#menu-administrativo-titulo').setAttribute('aria-expanded',String(abrir));
+      grupo.querySelector('#menu-administrativo-seta').textContent=abrir?'▲':'▼';
     });
     return grupo;
   }
 
-  function criarBotaoDiagnostico(sub){
+  function criarDiagnostico(){
     let b=document.getElementById('menu-diagnostico');
     if(b) return b;
     b=document.createElement('button');
     b.id='menu-diagnostico'; b.type='button'; b.dataset.admin='diagnostico';
     b.className='sigee-menu-item w-full text-left px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition cursor-pointer';
     b.textContent='🩺 Centro de Diagnóstico';
-    b.addEventListener('click',function(ev){ev.preventDefault();window.SIGEE_DIAGNOSTICO?.abrir?.();});
-    sub.appendChild(b); return b;
+    b.addEventListener('click',ev=>{ev.preventDefault(); window.SIGEE_DIAGNOSTICO?.abrir?.();});
+    return b;
   }
 
-  function atualizarVisibilidade(grupo){
-    const sub=grupo.querySelector('#submenu-administracao');
-    const visiveis=[...sub.children].filter(el=>!el.classList.contains('hidden'));
-    grupo.classList.toggle('hidden',visiveis.length===0);
+  function ordenarGrupo(nav,grupo){
+    const sala=document.getElementById('menu-sala-situacao')||document.querySelector('[data-aba="sala-situacao"],[data-view="sala"]');
+    if(sala && sala.parentElement===nav && sala.nextElementSibling!==grupo){
+      sala.insertAdjacentElement('afterend',grupo);
+    } else if(grupo.parentElement!==nav) nav.appendChild(grupo);
   }
 
   function organizar(){
-    const nav=document.getElementById('sigee-menu-dinamico');
+    const nav=document.getElementById('sigee-menu-dinamico')||document.querySelector('.sigee-sidebar-nav');
     if(!nav) return false;
-    const grupo=criarGrupo(nav), sub=grupo.querySelector('#submenu-administracao');
-    criarBotaoDiagnostico(sub);
-    idsAdministrativos.forEach(id=>{
+    const grupo=criarGrupo(nav);
+    ordenarGrupo(nav,grupo);
+    const sub=grupo.querySelector('#submenu-administracao');
+
+    const diag=criarDiagnostico();
+    if(!document.getElementById('menu-diagnostico')) sub.appendChild(diag);
+
+    const logs=document.getElementById('menu-logs');
+    if(logs){
+      logs.innerHTML='📜 Histórico de Atividades';
+      logs.setAttribute('aria-label','Histórico de Atividades');
+    }
+
+    IDS.forEach(id=>{
       const el=document.getElementById(id);
-      if(el && el.parentElement!==sub) sub.appendChild(el);
+      if(!el) return;
+      classeSubitem(el);
+      if(el.parentElement!==sub) sub.appendChild(el);
     });
-    // Diagnóstico e controles sensíveis são exclusivos do Master.
-    const master=perfilAtual().includes('MASTER');
-    document.getElementById('menu-diagnostico')?.classList.toggle('hidden',!master);
-    document.getElementById('menu-controle-acesso-ntes')?.classList.toggle('hidden',!master);
-    document.getElementById('menu-migracao-historica')?.classList.toggle('hidden',!master);
-    atualizarVisibilidade(grupo);
-    return true;
+
+    document.getElementById('menu-diagnostico')?.classList.toggle('hidden',!master());
+    document.getElementById('menu-controle-acesso-ntes')?.classList.toggle('hidden',!master());
+    document.getElementById('menu-migracao-historica')?.classList.toggle('hidden',!master());
+
+    const visiveis=[...sub.children].filter(el=>!el.classList.contains('hidden'));
+    grupo.classList.toggle('hidden',visiveis.length===0);
+    return IDS.filter(id=>id!=='menu-diagnostico').every(id=>document.getElementById(id));
   }
 
-  window.SIGEE_ADMIN_MENU={organizar,versao:'RC7.0.3'};
-  document.addEventListener('DOMContentLoaded',()=>{setTimeout(organizar,250);setTimeout(organizar,900);});
-  window.addEventListener('load',()=>setTimeout(organizar,500));
-  document.addEventListener('sigee:usuario-logado',()=>setTimeout(organizar,150));
-  window.addEventListener('sigee:login-concluido',()=>setTimeout(organizar,150));
-  document.addEventListener('sigee:navegacao-concluida',()=>setTimeout(organizar,30));
+  function agendar(){
+    ciclo++;
+    const meuCiclo=ciclo;
+    timers.forEach(clearTimeout); timers=[];
+    [0,80,180,350,650,1100,1800,2800,4200].forEach(ms=>{
+      timers.push(setTimeout(()=>{
+        if(meuCiclo!==ciclo) return;
+        organizar();
+      },ms));
+    });
+  }
+
+  window.SIGEE_ADMIN_MENU={organizar,agendar,versao:'RC7.0.4'};
+  document.addEventListener('DOMContentLoaded',agendar,{once:true});
+  window.addEventListener('load',agendar,{once:true});
+  document.addEventListener('sigee:usuario-logado',agendar);
+  window.addEventListener('sigee:login-concluido',agendar);
+  document.addEventListener('sigee:navegacao-concluida',()=>{
+    organizar();
+    setTimeout(organizar,120);
+    setTimeout(organizar,420);
+  });
 })();
+
