@@ -1,5 +1,5 @@
 /**
- * SIGEE Enterprise RC7.3.0 — Menu nativo único por perfil.
+ * SIGEE Enterprise RC7.3.1 — Menu nativo único por perfil.
  * Autoridade exclusiva para menus, rotas e destino pós-login.
  */
 (function(window, document){
@@ -25,9 +25,9 @@ const ROTAS = Object.freeze({
 const MENU_PRINCIPAL = Object.freeze([
   { id:'menu-painel', rota:'painel', icone:'📊', rotulo:'Painel Gerencial', capacidade:'indicadores.visualizar', perfis:['Gestor'] },
   { id:'menu-central-processos', rota:'processos', icone:'📋', rotulo:'Central de Processos', capacidade:'processos.visualizar', perfis:['Master','SEC','Gestor','Administrador','Técnico','Atendimento','Estagiário','Consulta'] },
-  { id:'menu-catalogo-escolas', rota:'escolas', icone:'🏫', rotulo:'Catálogo de Escolas', capacidade:'escolas.visualizar' },
+  { id:'menu-catalogo-escolas', rota:'escolas', icone:'🏫', rotulo:'Catálogo de Escolas', capacidade:'escolas.visualizar', perfis:['Master','SEC','Administrador','Técnico','Atendimento','Estagiário','Consulta'] },
   { id:'menu-relatorios', tipo:'relatorios', icone:'📑', rotulo:'Relatórios', capacidade:'relatorios.visualizar', perfis:['Master','SEC','Gestor','Administrador','Técnico','Atendimento','Estagiário','Consulta'] },
-  { id:'menu-centro-inteligencia', rota:'centro-inteligencia', icone:'🧠', rotulo:'Centro de Inteligência', capacidade:'indicadores.visualizar', perfis:['Master','Gestor','Administrador'] },
+  { id:'menu-centro-inteligencia', rota:'centro-inteligencia', icone:'🧠', rotulo:'Centro de Inteligência', capacidade:'indicadores.visualizar', perfis:['Master','Administrador'] },
   { id:'menu-sala-situacao', rota:'sala-situacao', icone:'📡', rotulo:'Sala de Situação', capacidade:'indicadores.visualizar', perfis:['Master','SEC','Gestor'] }
 ]);
 
