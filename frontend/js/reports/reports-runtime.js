@@ -1,7 +1,7 @@
-/* SIGEE Enterprise RC6.5.0.1 — Central de Relatórios em abas oficiais */
+/* SIGEE Enterprise RC6.5.0.2 — Central de Relatórios em abas oficiais */
 (function(){
 'use strict';
-if(window.__SIGEE_REPORTS_6501__) return; window.__SIGEE_REPORTS_6501__=true;
+if(window.__SIGEE_REPORTS_6502__) return; window.__SIGEE_REPORTS_6502__=true;
 const txt=v=>v==null?'':String(v).trim(), norm=v=>txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase(), esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const R=()=>window.SIGEE_REGRAS_OPERACIONAIS;
 const tipos=[
@@ -19,6 +19,7 @@ function main(){return document.querySelector('#sistema-dashboard main');}
 function abasOficiais(){const m=main();return m?[...m.children].filter(el=>el.tagName==='SECTION'):[];}
 function ocultarModulo(el){if(!el)return;el.classList.add('hidden');el.setAttribute('aria-hidden','true');el.style.display='none';}
 function mostrarModulo(el){if(!el)return;el.classList.remove('hidden');el.removeAttribute('aria-hidden');el.style.display='block';}
+function garantirVisivel(el){if(!el)return;mostrarModulo(el);el.style.setProperty('display','block','important');el.style.setProperty('visibility','visible','important');el.style.setProperty('opacity','1','important');}
 function esconderTudo(){
   abasOficiais().forEach(ocultarModulo);
   document.querySelectorAll('.sigee-cio-page,[data-cio-root],#centro-inteligencia-container,#sigee-centro-inteligencia').forEach(ocultarModulo);
@@ -29,15 +30,21 @@ function abrir(tipo,forcar=false){
   state.tipo=tipo;
   esconderTudo();
   const h=host(tipo);
-  if(!h){console.error('[SIGEE RC6.5.0.1] Aba oficial não localizada:',tipo);return;}
-  mostrarModulo(h);
-  h.innerHTML='<div class="sig-rel-loading">Consolidando dados do relatório...</div>';
-  window.SIGEE_REPORTS_DATA.carregar(forcar).then(p=>{
+  if(!h){console.error('[SIGEE RC6.5.0.2] Aba oficial não localizada:',tipo);return;}
+  garantirVisivel(h);
+  h.innerHTML='<div class="sig-rel-loading" style="display:block;padding:24px;color:#0f172a">Consolidando dados do relatório...</div>';
+  const service=window.SIGEE_REPORTS_DATA;
+  if(!service?.carregar){
+    h.innerHTML='<div class="sig-rel-error" style="display:block;padding:24px;color:#991b1b"><h2>Serviço de relatórios indisponível</h2><p>O arquivo reports-data.service.js não foi carregado antes do runtime.</p></div>';
+    console.error('[SIGEE RC6.5.0.2] SIGEE_REPORTS_DATA indisponível.');
+    return;
+  }
+  service.carregar(forcar).then(p=>{
     state.payload=p;
     if(state.tipo!==tipo)return;
-    esconderTudo();mostrarModulo(h);render(h,tipo);
+    esconderTudo();garantirVisivel(h);render(h,tipo);setTimeout(()=>garantirVisivel(h),0);setTimeout(()=>garantirVisivel(h),150);
   }).catch(e=>{
-    esconderTudo();mostrarModulo(h);
+    esconderTudo();garantirVisivel(h);
     h.innerHTML='<div class="sig-rel-error"><h2>Não foi possível carregar o relatório</h2><p>'+esc(e.message)+'</p><button data-retry>Tentar novamente</button></div>';
     h.querySelector('[data-retry]')?.addEventListener('click',()=>abrir(tipo,true));
   });
@@ -72,17 +79,17 @@ function instalarMenu(){
   }
   const title=wrap.querySelector('.sig-rel-menu-title');
   title.onclick=e=>{e.preventDefault();e.stopPropagation();wrap.classList.toggle('open');title.setAttribute('aria-expanded',String(wrap.classList.contains('open')));};
-  wrap.querySelectorAll('[data-report-menu]').forEach(b=>b.onclick=e=>{e.preventDefault();e.stopPropagation();wrap.classList.add('open');abrir(b.dataset.reportMenu);});
+  wrap.querySelectorAll('[data-report-menu]').forEach(b=>b.onclick=e=>{e.preventDefault();e.stopPropagation();e.stopImmediatePropagation?.();wrap.classList.add('open');const tipo=b.dataset.reportMenu;setTimeout(()=>abrir(tipo),0);setTimeout(()=>{const h=host(tipo);if(state.tipo===tipo&&h)garantirVisivel(h);},180);});
   state.menuIntegrado=true;
 }
 function init(){
   document.querySelectorAll('[data-relatorio-legado="true"]').forEach(ocultarModulo);
-  tipos.forEach(x=>{if(!host(x[0]))console.error('[SIGEE RC6.5.0.1] Aba ausente:',x[0]);});
+  tipos.forEach(x=>{if(!host(x[0]))console.error('[SIGEE RC6.5.0.2] Aba ausente:',x[0]);});
   instalarMenu();
   setTimeout(instalarMenu,300);
   setTimeout(instalarMenu,1200);
 }
 document.readyState==='loading'?document.addEventListener('DOMContentLoaded',init):init();
-window.SIGEE_RELATORIOS={abrir,atualizar:()=>state.tipo&&abrir(state.tipo,true),versao:'RC6.5.0.1'};
-console.info('[SIGEE RC6.5.0.1] Central de Relatórios separada do CIO e integrada às abas oficiais.');
+window.SIGEE_RELATORIOS={abrir,atualizar:()=>state.tipo&&abrir(state.tipo,true),versao:'RC6.5.0.2'};
+console.info('[SIGEE RC6.5.0.2] Central de Relatórios separada do CIO e integrada às abas oficiais.');
 })();
