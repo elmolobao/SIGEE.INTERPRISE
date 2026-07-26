@@ -313,8 +313,14 @@
     }
 
     function processosVisiveis() {
-        const u = usuario();
         let lista = listaProcessos().slice();
+
+        // A página remota já chega do Supabase com escopo territorial, etapa,
+        // pesquisa e paginação aplicados. Reaplicar os mesmos filtros localmente
+        // eliminava linhas válidas quando o registro possuía apenas nte_id.
+        if (window.__SIGEE_PROCESSOS_ORIGEM__ === 'REMOTA_PAGINADA') return lista;
+
+        const u = usuario();
         if (!isGlobal(u)) lista = lista.filter(p => mesmoNte(nteUsuario(u), processoNte(p)));
         const filtroNte = texto(document.getElementById('filtro-processos-nte')?.value || 'TODOS');
         if (filtroNte && filtroNte !== 'TODOS') lista = lista.filter(p => normalizarNte(processoNte(p)) === normalizarNte(filtroNte));
@@ -1370,7 +1376,8 @@
       documento_tipo: r.documento_tipo || r.documento || '',
       etapa: r.etapa_atual || r.etapa || r.fase_atual || 'Desarquivamento',
       etapa_atual: r.etapa_atual || r.etapa || 'Desarquivamento',
-      nte: r.nte || r.nte_nome || r.grupo || '',
+      nte: r.nte || r.nte_nome || r.grupo || (Number(r.nte_id) ? `NTE-${String(Number(r.nte_id)).padStart(2,'0')}` : ''),
+      nte_id: Number(r.nte_id) || null,
       modalidade: r.modalidade || r.oferta_modalidade || r.modalidade_ensino || r.tipo_modalidade || r.nivel_oferta || r.oferta_nivel || r.ensino || r.nivel_ensino || '',
       prioridade: r.prioridade || 'Normal',
       tecnico_responsavel: r.tecnico_responsavel_nome || r.tecnico_responsavel || r.responsavel_nome || r.responsavel || r.usuario_responsavel_nome || r.usuario_responsavel || r.tecnico_nome || r.analista_nome || r.analista || r.analista_selecionado_nome || r.analista_selecionado || r.digitador_nome || r.digitador || r.conferente_nome || r.conferente || r.atribuido_para_nome || r.atribuido_para || '',
@@ -1422,6 +1429,7 @@
     const n=String(Number(m[1]));
     const p=n.padStart(2,'0');
     const filtros=[
+      `nte_id.eq.${Number(n)}`,
       `nte.eq.NTE-${p}`,
       `nte.eq.NTE ${p}`,
       `nte.eq.NTE${p}`,
@@ -1480,7 +1488,7 @@
       const inicio=(paginaAtualRemota-1)*processosPorPagina;
       const fim=inicio+processosPorPagina-1;
       let q=c.from(tabelaProcessos())
-        .select('id,codigo_sigee,aluno_nome,escola_id,escola_nome,cod_mec,documento_tipo,nivel_oferta,modalidade,etapa_atual,etapa_codigo,dias_decorridos,prioridade,nte,tecnico_responsavel,data_etapa,data_etapa_atual,prazo_etapa,prazo_inicio,prazo_fim,status,ativo,created_at,updated_at,workflow_instance_id,workflow_ciclo,ciclo,ultima_mensagem_workflow,pendencia_aberta,finalizado_em,deferido_em,retirado_em,processo_migrado', {count:'exact'})
+        .select('id,codigo_sigee,aluno_nome,escola_id,escola_nome,cod_mec,documento_tipo,nivel_oferta,modalidade,etapa_atual,etapa_codigo,dias_decorridos,prioridade,nte,nte_id,tecnico_responsavel,data_etapa,data_etapa_atual,prazo_etapa,prazo_inicio,prazo_fim,status,ativo,created_at,updated_at,workflow_instance_id,workflow_ciclo,ciclo,ultima_mensagem_workflow,pendencia_aberta,finalizado_em,deferido_em,retirado_em,processo_migrado', {count:'exact'})
         .order('created_at',{ascending:false})
         .range(inicio,fim);
       const u=window.SIGEE_SESSION?.getUser?.()||window.usuarioLogado||{};
@@ -1488,7 +1496,7 @@
       const filtroNte=String(document.getElementById('filtro-processos-nte')?.value||'').trim();
       let nteConsulta='';
       if(!['MASTER','SEC'].includes(perfil)){
-        nteConsulta=String(u.nte||u.nte_nome||u.grupo||'').trim();
+        nteConsulta=String(u.nte||u.nte_nome||u.grupo||(Number(u.nte_id)?`NTE-${String(Number(u.nte_id)).padStart(2,'0')}`:'')).trim();
         if(nteConsulta) q=aplicarFiltroNteRemoto(q,nteConsulta);
       } else if(filtroNte && filtroNte!=='TODOS') {
         nteConsulta=filtroNte;
@@ -2326,7 +2334,45 @@
 })(window);
 
 
-/* RC7.3.0 — Guarda legada removida. A autorização usa SIGEE_PERMISSOES e a abertura pertence ao nova-solicitacao-controller. */
+/* SIGEE 1.0.2.003B1 — Guarda da Nova Solicitação */
+(function(window){
+  'use strict';
+  function perfilAtual(){ return window.SIGEE_SESSION?.normalizarPerfil?.(window.SIGEE_SESSION?.getUser?.()?.perfil) || ''; }
+  function podeCriar(){
+    return ['Master','Administrador','Técnico','Estagiário'].includes(perfilAtual());
+  }
+  function aplicar(){
+    const original=window.abrirFormularioNovaSolicitacao;
+    if(typeof original==='function'&&!original.__SIGEE_NOVA_SOLICITACAO_GUARD__){
+      const protegido=function(){
+        if(!podeCriar()){
+          alert('Seu perfil não possui permissão para criar nova solicitação.');
+          return false;
+        }
+        return original.apply(this,arguments);
+      };
+      protegido.__SIGEE_NOVA_SOLICITACAO_GUARD__=true;
+      window.abrirFormularioNovaSolicitacao=protegido;
+      try{abrirFormularioNovaSolicitacao=protegido}catch(e){}
+    }
+
+    document.querySelectorAll(
+      '[onclick*="abrirFormularioNovaSolicitacao"],.btn-nova-solicitacao,#btn-nova-solicitacao,[data-acao="nova-solicitacao"]'
+    ).forEach(el=>{
+      const permitido=podeCriar();
+      el.classList.toggle('hidden',!permitido);
+      el.style.display=permitido?'':'none';
+      el.style.visibility=permitido?'visible':'hidden';
+      if('disabled' in el)el.disabled=!permitido;
+    });
+  }
+  window.addEventListener('load',()=>setTimeout(aplicar,0));
+  document.addEventListener('DOMContentLoaded',()=>{
+    aplicar();
+    setTimeout(aplicar,500);
+    setTimeout(aplicar,1500);
+  });
+})(window);
 
 
 /* =====================================================================
