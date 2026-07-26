@@ -33,7 +33,7 @@
 <link href="css/cio.css?v=RC6.3.1.1" rel="stylesheet"/>
 
 <link rel="stylesheet" href="css/sala-situacao-2.css?v=RC6.4.1">
-<link rel="stylesheet" href="css/reports.css?v=RC6.5.0"/>
+<link rel="stylesheet" href="css/reports.css?v=RC6.5.0.1"/>
 </head>
 <body class="bg-gray-100 font-sans text-gray-800 font-normal">
 <div class="min-h-screen flex items-center justify-center bg-blue-900 px-4" id="tela-login">
@@ -140,7 +140,7 @@
 <div class="bg-white p-4 rounded-xl shadow-sm border-t-4 border-cyan-500 text-center"><p class="text-[10px] text-gray-500 font-bold uppercase">Tempo Médio até Arquivo Recebido</p><p class="text-xl font-bold mt-1" id="dash-tec-media-arquivo-tempo">Sem dados</p></div>
 </div>
 </div>
-<section class="sigee-rel-atrasos" id="sigee-relatorio-atrasos-etapa" aria-labelledby="sigee-relatorio-atrasos-titulo">
+<section class="sigee-rel-atrasos hidden" data-relatorio-legado="true" id="sigee-relatorio-atrasos-etapa" aria-labelledby="sigee-relatorio-atrasos-titulo">
   <header>
     <div><span>RELATÓRIO OPERACIONAL</span><h2 id="sigee-relatorio-atrasos-titulo">Atrasos e pendências por etapa</h2><p>Processos cujo prazo da etapa atual já foi ultrapassado, conforme a abrangência selecionada.</p></div>
     <strong id="sigee-relatorio-atrasos-total">0 em atraso</strong>
@@ -149,6 +149,14 @@
   <div id="sigee-relatorio-atrasos-corpo"><p class="sigee-cig-vazio">Aguardando indicadores...</p></div>
 </section>
 </section>
+
+<!-- RC6.5.0.1 — Abas oficiais e independentes da Central de Relatórios -->
+<section class="hidden sig-rel-page" id="aba-relatorio-operacional" data-sigee-tab="relatorio-operacional"></section>
+<section class="hidden sig-rel-page" id="aba-relatorio-sla" data-sigee-tab="relatorio-sla"></section>
+<section class="hidden sig-rel-page" id="aba-relatorio-territorial" data-sigee-tab="relatorio-territorial"></section>
+<section class="hidden sig-rel-page" id="aba-relatorio-pendencias" data-sigee-tab="relatorio-pendencias"></section>
+<section class="hidden sig-rel-page" id="aba-relatorio-produtividade" data-sigee-tab="relatorio-produtividade"></section>
+<section class="hidden sig-rel-page" id="aba-relatorio-executivo" data-sigee-tab="relatorio-executivo"></section>
 <section class="hidden sigee-sala" id="aba-sala-situacao">
 <header class="sigee-sala-topo">
 <div class="sigee-sala-marca">
@@ -774,8 +782,8 @@ window.filtrarTabelaUsuariosSIGEE = function (termo) {
 <script src="js/ui/sigee-acabamento-visual.js?v=RC4.3.2"></script>
 <!-- RC6.4.0.2: módulo legado da Sala mantido no projeto, porém não executado -->
 <script src="js/core/regras-operacionais.js?v=RC6.5.0"></script>
-<script src="js/reports/reports-data.service.js?v=RC6.5.0"></script>
-<script src="js/reports/reports-runtime.js?v=RC6.5.0"></script>
+<script src="js/reports/reports-data.service.js?v=RC6.5.0.1"></script>
+<script src="js/reports/reports-runtime.js?v=RC6.5.0.1"></script>
 <script src="js/sala/sala-bootstrap.js?v=RC6.5.0"></script>
 <script src="js/admin/diagnostico-seguro.js?v=2.4.4A"></script>
 <script src="js/ui/workflow-design-system.js?v=RC4.3.2"></script>
