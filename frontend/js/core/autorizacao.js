@@ -1,11 +1,11 @@
 /**
- * SIGEE Enterprise RC7.2.0 — Menu nativo único por perfil.
+ * SIGEE Enterprise RC7.3.0 — Menu nativo único por perfil.
  * Autoridade exclusiva para menus, rotas e destino pós-login.
  */
 (function(window, document){
 'use strict';
-if (window.__SIGEE_AUTORIZACAO_RC720__) return;
-window.__SIGEE_AUTORIZACAO_RC720__ = true;
+if (window.__SIGEE_AUTORIZACAO_RC730__) return;
+window.__SIGEE_AUTORIZACAO_RC730__ = true;
 
 const ROTAS = Object.freeze({
   painel: 'indicadores.visualizar',
@@ -175,12 +175,8 @@ function garantirNovaSolicitacaoNaCentral(){
   central.querySelectorAll('#btn-nova-solicitacao-central').forEach(el=>el.remove());
 
   let botao = central.querySelector('#btn-nova-solicitacao, [data-acao="nova-solicitacao"]');
-  const perfilAtual = perfil();
-  const perfisComSolicitacao = new Set(['Master','Administrador','Técnico','Tecnico','Atendimento','Estagiário','Estagiario']);
-  // A capacidade oficial continua sendo a regra principal. O fallback por perfil
-  // evita que o botão desapareça durante a janela curta em que a sessão já existe,
-  // mas o serviço de permissões ainda não concluiu sua inicialização.
-  const autorizado = pode('processos.criar') || perfisComSolicitacao.has(perfilAtual);
+  // Fonte única: matriz oficial de capacidades.
+  const autorizado = pode('processos.criar');
 
   // Alguns módulos legados removem o botão do DOM. Recria somente quando autorizado.
   if(!botao && autorizado){
@@ -192,7 +188,7 @@ function garantirNovaSolicitacaoNaCentral(){
       botao.dataset.acao = 'nova-solicitacao';
       botao.className = 'bg-amber-500 hover:bg-amber-600 text-white font-bold px-4 py-2.5 rounded-lg text-xs flex items-center gap-1.5 shadow-md cursor-pointer transition';
       botao.textContent = '➕ Nova Solicitação';
-      botao.addEventListener('click', ()=>window.abrirFormularioNovaSolicitacao?.());
+      botao.addEventListener('click', () => window.SIGEE_NOVA_SOLICITACAO_CONTROLLER?.abrir?.() || window.abrirFormularioNovaSolicitacao?.());
       cabecalho.appendChild(botao);
     }
   }
