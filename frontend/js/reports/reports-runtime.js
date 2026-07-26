@@ -1,7 +1,7 @@
-/* SIGEE Enterprise RC6.6.3 — Relatórios com navegação contextual e filtros */
+/* SIGEE Enterprise RC6.6.4 — Relatórios com subabas independentes */
 (function(){
 'use strict';
-if(window.__SIGEE_REPORTS_663__) return; window.__SIGEE_REPORTS_663__=true;
+if(window.__SIGEE_REPORTS_664__) return; window.__SIGEE_REPORTS_664__=true;
 const txt=v=>v==null?'':String(v).trim(), norm=v=>txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase(), esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const R=()=>window.SIGEE_REGRAS_OPERACIONAIS;
 const tipos=[
@@ -45,29 +45,16 @@ function abrir(tipo,forcar=false){
   window.scrollTo({top:0,behavior:'auto'});
 }
 function marcarMenu(tipo){document.querySelectorAll('[data-report-menu]').forEach(b=>b.classList.toggle('active',b.dataset.reportMenu===tipo));}
-function filtroAttrs(f={}){return Object.entries(f).filter(([,v])=>v!==undefined&&v!==null&&v!=='').map(([k,v])=>' data-filtro-'+k.replace(/[A-Z]/g,m=>'-'+m.toLowerCase())+'="'+esc(v)+'"').join('');}
-function card(t,v,s,filtro){return '<article class="sig-rel-clickable" role="button" tabindex="0"'+filtroAttrs(filtro)+'><span>'+esc(t)+'</span><strong>'+esc(v)+'</strong><small>'+esc(s)+'</small></article>';}
-function tabela(arr){return '<div class="sig-rel-table"><table><thead><tr><th>Processo</th><th>Aluno / Escola</th><th>NTE</th><th>Etapa</th><th>Responsável</th></tr></thead><tbody>'+arr.map(p=>'<tr class="sig-rel-clickable" role="button" tabindex="0"'+filtroAttrs({codigo:p.codigo_sigee||p.id})+'><td>'+esc(p.codigo_sigee||p.id)+'</td><td><b>'+esc(p.aluno_nome||p.aluno||'')+'</b><small>'+esc(p.escola_nome||p.escola||'')+'</small></td><td>'+esc(window.SIGEE_REPORTS_DATA.nte(p.nte||p.nte_id))+'</td><td>'+esc(R().etapa(p))+'</td><td>'+esc(responsavel(p)||'Aguardando atribuição')+'</td></tr>').join('')+'</tbody></table></div>';}
-function abrirFiltroDoElemento(el){
-  if(!el||!window.SIGEE_PROCESSOS_CONTEXTUAL?.abrir)return;
-  const f={};
-  Object.entries(el.dataset||{}).forEach(([k,v])=>{if(k.startsWith('filtro')&&v!=='')f[k.slice(6,7).toLowerCase()+k.slice(7)]=v;});
-  window.SIGEE_PROCESSOS_CONTEXTUAL.abrir(f);
-}
-function instalarNavegacaoContextual(){
-  if(window.__SIGEE_REPORTS_CONTEXT_CLICK_663__)return;
-  window.__SIGEE_REPORTS_CONTEXT_CLICK_663__=true;
-  document.addEventListener('click',e=>{const el=e.target.closest('.sig-rel-clickable');if(!el)return;e.preventDefault();abrirFiltroDoElemento(el);});
-  document.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.matches('.sig-rel-clickable')){e.preventDefault();abrirFiltroDoElemento(e.target);}});
-}
+function card(t,v,s){return '<article><span>'+esc(t)+'</span><strong>'+esc(v)+'</strong><small>'+esc(s)+'</small></article>';}
+function tabela(arr){return '<div class="sig-rel-table"><table><thead><tr><th>Processo</th><th>Aluno / Escola</th><th>NTE</th><th>Etapa</th><th>Responsável</th></tr></thead><tbody>'+arr.map(p=>'<tr><td>'+esc(p.codigo_sigee||p.id)+'</td><td><b>'+esc(p.aluno_nome||'')+'</b><small>'+esc(p.escola_nome||'')+'</small></td><td>'+esc(window.SIGEE_REPORTS_DATA.nte(p.nte||p.nte_id))+'</td><td>'+esc(R().etapa(p))+'</td><td>'+esc(responsavel(p)||'Aguardando atribuição')+'</td></tr>').join('')+'</tbody></table></div>';}
 function header(tipo,titulo,desc){return '<header class="sig-rel-hero"><div><small>CENTRAL DE RELATÓRIOS</small><h1>'+esc(titulo)+'</h1><p>'+esc(desc)+'</p></div><div><span>'+esc(state.payload.contexto.global?'Estado da Bahia':state.payload.contexto.nte)+'</span><button data-refresh>↻ Atualizar</button></div></header>';}
 function render(h,tipo){const d=dados();let body='';
- if(tipo==='operacional'){const etapas={};d.operacionais.forEach(p=>{const e=R().etapa(p);etapas[e]=(etapas[e]||0)+1;});body='<section class="sig-rel-cards">'+card('Ativos operacionais',d.operacionais.length,'Exclui espera externa',{tipo:'operacionais'})+card('Em atraso',d.atrasados.length,'Com prazo controlado',{tipo:'atraso'})+card('Pendências externas',d.externas.length,'Sem prazo estimado',{tipo:'pendencia_externa'})+card('Sem responsável',d.operacionais.filter(p=>!responsavel(p)).length,'Aguardando atribuição',{tipo:'sem_responsavel'})+'</section><section class="sig-rel-panel"><h2>Distribuição operacional por etapa</h2><div class="sig-rel-bars">'+Object.entries(etapas).sort((a,b)=>b[1]-a[1]).map(([e,n])=>'<div class="sig-rel-clickable" role="button" tabindex="0"'+filtroAttrs({etapa:e})+'><span>'+esc(e)+'</span><b>'+n+'</b></div>').join('')+'</div></section>'+tabela(d.atrasados.slice(0,300));}
- if(tipo==='sla'){const sla=d.operacionais.length?Math.round((d.operacionais.length-d.atrasados.length)*100/d.operacionais.length):0;body='<section class="sig-rel-cards">'+card('SLA operacional',sla+'%','Somente etapas com prazo',{tipo:'sla_base'})+card('Base com SLA',d.operacionais.filter(p=>limite(R().etapa(p))!=null).length,'Processos elegíveis',{tipo:'sla_base'})+card('Vencidos',d.atrasados.length,'Fora do prazo',{tipo:'atraso'})+card('Espera externa',d.externas.length,'Fora do SLA',{tipo:'pendencia_externa'})+'</section><section class="sig-rel-note"><b>Regra aplicada:</b> Pendência do Aluno não possui prazo estimado e não entra no cálculo do SLA.</section>'+tabela(d.atrasados);}
- if(tipo==='territorial'){const map=new Map();d.operacionais.forEach(p=>{const n=window.SIGEE_REPORTS_DATA.nte(p.nte||p.nte_id);if(!map.has(n))map.set(n,[]);map.get(n).push(p);});body='<section class="sig-rel-territory">'+[...map].map(([n,arr])=>'<article class="sig-rel-clickable" role="button" tabindex="0"'+filtroAttrs({nte:n,tipo:'operacionais'})+'><h3>'+esc(n)+'</h3><strong>'+arr.length+'</strong><span>ativos operacionais</span><small>'+arr.filter(atraso).length+' atrasados · '+arr.filter(p=>!responsavel(p)).length+' sem responsável</small></article>').join('')+'</section>';}
- if(tipo==='pendencias'){const inst=d.ativos.filter(R().pendenciaInstitucional);body='<section class="sig-rel-cards">'+card('Pendências externas',d.externas.length,'Aluno/interessado',{tipo:'pendencia_externa'})+card('Pendências institucionais',inst.length,'Responsabilidade interna',{tipo:'pendencia_institucional'})+card('Externas no SLA',0,'Não contabilizadas',{tipo:'pendencia_externa'})+card('Institucionais monitoradas',inst.length,'Acompanhamento operacional',{tipo:'pendencia_institucional'})+'</section><section class="sig-rel-tabs"><h2>Pendência do Aluno — espera externa</h2><p>Sem prazo estimado, sem alerta de atraso e fora do ranking de criticidade.</p></section>'+tabela(d.externas);}
- if(tipo==='produtividade'){const map=new Map();d.operacionais.forEach(p=>{const r=responsavel(p)||'Aguardando atribuição';if(!map.has(r))map.set(r,[]);map.get(r).push(p);});body='<section class="sig-rel-team">'+[...map].sort((a,b)=>b[1].length-a[1].length).map(([r,arr])=>'<article class="sig-rel-clickable" role="button" tabindex="0"'+filtroAttrs({responsavel:r,tipo:'operacionais'})+'><h3>'+esc(r)+'</h3><strong>'+arr.length+'</strong><span>processos ativos</span><small>'+arr.filter(atraso).length+' em atraso</small></article>').join('')+'</section><section class="sig-rel-note">Indicadores destinados ao equilíbrio de carga, apoio e treinamento, sem finalidade punitiva.</section>';}
- if(tipo==='executivo'){body='<section class="sig-rel-cards">'+card('Processos ativos',d.ativos.length,'Total em tramitação',{tipo:'ativos'})+card('Operação controlável',d.operacionais.length,'Depende da equipe',{tipo:'operacionais'})+card('Espera externa',d.externas.length,'Depende do interessado',{tipo:'pendencia_externa'})+card('Em atraso',d.atrasados.length,'Somente operação controlável',{tipo:'atraso'})+'</section><section class="sig-rel-exec"><h2>Leitura executiva</h2><p>Existem <b>'+d.operacionais.length+'</b> processos sob gestão direta da operação e <b>'+d.externas.length+'</b> aguardando resposta externa. O total em atraso é <b>'+d.atrasados.length+'</b>, sem contabilizar Pendência do Aluno.</p></section>';}
+ if(tipo==='operacional'){const etapas={};d.operacionais.forEach(p=>{const e=R().etapa(p);etapas[e]=(etapas[e]||0)+1;});body='<section class="sig-rel-cards">'+card('Ativos operacionais',d.operacionais.length,'Exclui espera externa')+card('Em atraso',d.atrasados.length,'Com prazo controlado')+card('Pendências externas',d.externas.length,'Sem prazo estimado')+card('Sem responsável',d.operacionais.filter(p=>!responsavel(p)).length,'Aguardando atribuição')+'</section><section class="sig-rel-panel"><h2>Distribuição operacional por etapa</h2><div class="sig-rel-bars">'+Object.entries(etapas).sort((a,b)=>b[1]-a[1]).map(([e,n])=>'<div><span>'+esc(e)+'</span><b>'+n+'</b></div>').join('')+'</div></section>'+tabela(d.atrasados.slice(0,300));}
+ if(tipo==='sla'){const sla=d.operacionais.length?Math.round((d.operacionais.length-d.atrasados.length)*100/d.operacionais.length):0;body='<section class="sig-rel-cards">'+card('SLA operacional',sla+'%','Somente etapas com prazo')+card('Base com SLA',d.operacionais.filter(p=>limite(R().etapa(p))!=null).length,'Processos elegíveis')+card('Vencidos',d.atrasados.length,'Fora do prazo')+card('Espera externa',d.externas.length,'Fora do SLA')+'</section><section class="sig-rel-note"><b>Regra aplicada:</b> Pendência do Aluno não possui prazo estimado e não entra no cálculo do SLA.</section>'+tabela(d.atrasados);}
+ if(tipo==='territorial'){const map=new Map();d.operacionais.forEach(p=>{const n=window.SIGEE_REPORTS_DATA.nte(p.nte||p.nte_id);if(!map.has(n))map.set(n,[]);map.get(n).push(p);});body='<section class="sig-rel-territory">'+[...map].map(([n,arr])=>'<article><h3>'+esc(n)+'</h3><strong>'+arr.length+'</strong><span>ativos operacionais</span><small>'+arr.filter(atraso).length+' atrasados · '+arr.filter(p=>!responsavel(p)).length+' sem responsável</small></article>').join('')+'</section>';}
+ if(tipo==='pendencias'){const inst=d.ativos.filter(R().pendenciaInstitucional);body='<section class="sig-rel-cards">'+card('Pendências externas',d.externas.length,'Aluno/interessado')+card('Pendências institucionais',inst.length,'Responsabilidade interna')+card('Externas no SLA',0,'Não contabilizadas')+card('Institucionais monitoradas',inst.length,'Acompanhamento operacional')+'</section><section class="sig-rel-tabs"><h2>Pendência do Aluno — espera externa</h2><p>Sem prazo estimado, sem alerta de atraso e fora do ranking de criticidade.</p></section>'+tabela(d.externas);}
+ if(tipo==='produtividade'){const map=new Map();d.operacionais.forEach(p=>{const r=responsavel(p)||'Aguardando atribuição';if(!map.has(r))map.set(r,[]);map.get(r).push(p);});body='<section class="sig-rel-team">'+[...map].sort((a,b)=>b[1].length-a[1].length).map(([r,arr])=>'<article><h3>'+esc(r)+'</h3><strong>'+arr.length+'</strong><span>processos ativos</span><small>'+arr.filter(atraso).length+' em atraso</small></article>').join('')+'</section><section class="sig-rel-note">Indicadores destinados ao equilíbrio de carga, apoio e treinamento, sem finalidade punitiva.</section>';}
+ if(tipo==='executivo'){body='<section class="sig-rel-cards">'+card('Processos ativos',d.ativos.length,'Total em tramitação')+card('Operação controlável',d.operacionais.length,'Depende da equipe')+card('Espera externa',d.externas.length,'Depende do interessado')+card('Em atraso',d.atrasados.length,'Somente operação controlável')+'</section><section class="sig-rel-exec"><h2>Leitura executiva</h2><p>Existem <b>'+d.operacionais.length+'</b> processos sob gestão direta da operação e <b>'+d.externas.length+'</b> aguardando resposta externa. O total em atraso é <b>'+d.atrasados.length+'</b>, sem contabilizar Pendência do Aluno.</p></section>';}
  const meta=tipos.find(x=>x[0]===tipo);h.innerHTML=header(tipo,meta[2],descricao(tipo))+body;h.querySelector('[data-refresh]').onclick=()=>abrir(tipo,true);h.querySelector('[data-retry]')?.addEventListener('click',()=>abrir(tipo,true));}
 function descricao(t){return {operacional:'Visão do fluxo, atrasos e capacidade operacional.',sla:'Acompanhamento de prazos das etapas controladas pela equipe.',territorial:'Distribuição da operação e dos atrasos por NTE.',pendencias:'Separação entre pendência externa e institucional.',produtividade:'Carga e acompanhamento das equipes sem finalidade punitiva.',executivo:'Síntese estratégica para apoio à decisão.'}[t];}
 function localizarMenuRelatorios(){
@@ -158,10 +145,9 @@ function instalarPonteNavegacao(){
 }
 
 function init(){
-  instalarNavegacaoContextual();
   instalarBloqueioMenuPrincipal();
   document.querySelectorAll('[data-relatorio-legado="true"]').forEach(ocultarModulo);
-  tipos.forEach(x=>{if(!host(x[0]))console.error('[SIGEE RC6.6.2] Aba ausente:',x[0]);});
+  tipos.forEach(x=>{if(!host(x[0]))console.error('[SIGEE RC6.6.4] Aba ausente:',x[0]);});
   instalarMenu();
   instalarPonteNavegacao();
   observarMenu();
@@ -169,6 +155,6 @@ function init(){
   setTimeout(()=>{instalarMenu();instalarPonteNavegacao();},1200);
 }
 document.readyState==='loading'?document.addEventListener('DOMContentLoaded',init):init();
-window.SIGEE_RELATORIOS={abrir,atualizar:()=>state.tipo&&abrir(state.tipo,true),versao:'RC6.6.3'};
-console.info('[SIGEE RC6.6.3] Relatórios com navegação contextual e filtros aplicados na Central de Processos.');
+window.SIGEE_RELATORIOS={abrir,atualizar:()=>state.tipo&&abrir(state.tipo,true),versao:'RC6.6.4'};
+console.info('[SIGEE RC6.6.4] Menu Relatórios apenas expande subabas; abertura ocorre somente pelos submenus.');
 })();
