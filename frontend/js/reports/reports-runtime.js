@@ -1,7 +1,7 @@
-/* SIGEE Enterprise RC6.6.1 — Relatórios com subabas independentes */
+/* SIGEE Enterprise RC6.6.2 — Relatórios com subabas independentes */
 (function(){
 'use strict';
-if(window.__SIGEE_REPORTS_661__) return; window.__SIGEE_REPORTS_661__=true;
+if(window.__SIGEE_REPORTS_662__) return; window.__SIGEE_REPORTS_662__=true;
 const txt=v=>v==null?'':String(v).trim(), norm=v=>txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase(), esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const R=()=>window.SIGEE_REGRAS_OPERACIONAIS;
 const tipos=[
@@ -75,6 +75,25 @@ function criarMenuRelatorios(){
     </div>`;
   return wrap;
 }
+function alternarSubmenuRelatorios(wrap,title){
+  if(!wrap||!title)return false;
+  const aberta=wrap.classList.toggle('open');
+  title.setAttribute('aria-expanded',String(aberta));
+  return aberta;
+}
+function instalarBloqueioMenuPrincipal(){
+  if(window.__SIGEE_REPORTS_TITLE_CAPTURE_662__)return;
+  window.__SIGEE_REPORTS_TITLE_CAPTURE_662__=true;
+  window.addEventListener('click',event=>{
+    const title=event.target?.closest?.('#menu-relatorios-rc661 .sig-rel-menu-title');
+    if(!title)return;
+    const wrap=title.closest('#menu-relatorios-rc661');
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+    alternarSubmenuRelatorios(wrap,title);
+  },true);
+}
 function instalarMenu(){
   const nav=document.getElementById('sigee-menu-dinamico');
   if(!nav)return;
@@ -87,13 +106,9 @@ function instalarMenu(){
     if(original) original.replaceWith(wrap); else nav.appendChild(wrap);
   }
   const title=wrap.querySelector('.sig-rel-menu-title');
-  if(title && !title.dataset.bound){
-    title.dataset.bound='1';
-    title.addEventListener('click',e=>{
-      e.preventDefault();e.stopPropagation();
-      const aberta=wrap.classList.toggle('open');
-      title.setAttribute('aria-expanded',String(aberta));
-    });
+  if(title){
+    title.removeAttribute('onclick');
+    title.dataset.bound='capture-rc662';
   }
   wrap.querySelectorAll('[data-report-menu]').forEach(b=>{
     if(b.dataset.bound)return;
@@ -130,8 +145,9 @@ function instalarPonteNavegacao(){
 }
 
 function init(){
+  instalarBloqueioMenuPrincipal();
   document.querySelectorAll('[data-relatorio-legado="true"]').forEach(ocultarModulo);
-  tipos.forEach(x=>{if(!host(x[0]))console.error('[SIGEE RC6.6.1] Aba ausente:',x[0]);});
+  tipos.forEach(x=>{if(!host(x[0]))console.error('[SIGEE RC6.6.2] Aba ausente:',x[0]);});
   instalarMenu();
   instalarPonteNavegacao();
   observarMenu();
@@ -139,6 +155,6 @@ function init(){
   setTimeout(()=>{instalarMenu();instalarPonteNavegacao();},1200);
 }
 document.readyState==='loading'?document.addEventListener('DOMContentLoaded',init):init();
-window.SIGEE_RELATORIOS={abrir,atualizar:()=>state.tipo&&abrir(state.tipo,true),versao:'RC6.6.1'};
-console.info('[SIGEE RC6.6.1] Relatórios organizados em subabas independentes.');
+window.SIGEE_RELATORIOS={abrir,atualizar:()=>state.tipo&&abrir(state.tipo,true),versao:'RC6.6.2'};
+console.info('[SIGEE RC6.6.2] Menu Relatórios apenas expande subabas; abertura ocorre somente pelos submenus.');
 })();
