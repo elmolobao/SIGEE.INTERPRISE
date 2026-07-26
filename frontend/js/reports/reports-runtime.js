@@ -1,7 +1,7 @@
-/* SIGEE Enterprise RC6.6.5 — Relatórios com subabas independentes */
+/* SIGEE Enterprise RC7.0.0 — Relatórios registrados no Menu Manager */
 (function(){
 'use strict';
-if(window.__SIGEE_REPORTS_664__) return; window.__SIGEE_REPORTS_664__=true;
+if(window.__SIGEE_REPORTS_RC700__) return; window.__SIGEE_REPORTS_RC700__=true;
 const txt=v=>v==null?'':String(v).trim(), norm=v=>txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase(), esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const R=()=>window.SIGEE_REGRAS_OPERACIONAIS;
 const tipos=[
@@ -64,13 +64,13 @@ function localizarMenuRelatorios(){
 }
 function criarMenuRelatorios(){
   const wrap=document.createElement('div');
-  wrap.id='menu-relatorios-rc661';
+  wrap.id='menu-relatorios-rc700';
   wrap.className='sig-rel-menu';
   wrap.innerHTML=`
-    <button class="sig-rel-menu-title" type="button" aria-expanded="false" aria-controls="submenu-relatorios-rc661">
+    <button class="sig-rel-menu-title" type="button" aria-expanded="false" aria-controls="submenu-relatorios-rc700">
       <span>📑 Relatórios</span><span class="sig-rel-chevron" aria-hidden="true">▾</span>
     </button>
-    <div id="submenu-relatorios-rc661" class="sig-rel-submenu" role="group" aria-label="Subabas de Relatórios">
+    <div id="submenu-relatorios-rc700" class="sig-rel-submenu" role="group" aria-label="Subabas de Relatórios">
       ${tipos.map(x=>`<button type="button" class="sig-rel-subaba" data-report-menu="${x[0]}" data-view="aba-relatorio-${x[0]}"><span>${x[1]}</span><span>${x[2].replace('Relatório de ','').replace('Relatório ','')}</span></button>`).join('')}
     </div>`;
   return wrap;
@@ -85,9 +85,9 @@ function instalarBloqueioMenuPrincipal(){
   if(window.__SIGEE_REPORTS_TITLE_CAPTURE_662__)return;
   window.__SIGEE_REPORTS_TITLE_CAPTURE_662__=true;
   window.addEventListener('click',event=>{
-    const title=event.target?.closest?.('#menu-relatorios-rc661 .sig-rel-menu-title');
+    const title=event.target?.closest?.('#menu-relatorios-rc700 .sig-rel-menu-title');
     if(!title)return;
-    const wrap=title.closest('#menu-relatorios-rc661');
+    const wrap=title.closest('#menu-relatorios-rc700');
     event.preventDefault();
     event.stopPropagation();
     event.stopImmediatePropagation();
@@ -99,11 +99,12 @@ function instalarMenu(){
   if(!nav)return;
   document.getElementById('menu-relatorios-rc650')?.remove();
   document.getElementById('menu-relatorios-rc6501')?.remove();
-  let wrap=document.getElementById('menu-relatorios-rc661');
+  let wrap=document.getElementById('menu-relatorios-rc700');
   if(!wrap){
     const original=localizarMenuRelatorios();
     wrap=criarMenuRelatorios();
-    if(original) original.replaceWith(wrap); else nav.appendChild(wrap);
+    const raiz=original ? (()=>{let e=original;while(e.parentElement&&e.parentElement!==nav)e=e.parentElement;return e.parentElement===nav?e:original;})() : null;
+    if(raiz) raiz.replaceWith(wrap); else nav.appendChild(wrap);
   }
   const title=wrap.querySelector('.sig-rel-menu-title');
   if(title){
@@ -122,15 +123,6 @@ function instalarMenu(){
   });
   state.menuIntegrado=true;
 }
-let menuObserver=null;
-function observarMenu(){
-  const nav=document.getElementById('sigee-menu-dinamico');
-  if(!nav || menuObserver)return;
-  menuObserver=new MutationObserver(()=>{
-    if(!document.getElementById('menu-relatorios-rc661')) setTimeout(instalarMenu,0);
-  });
-  menuObserver.observe(nav,{childList:true,subtree:false});
-}
 function instalarPonteNavegacao(){
   const atual=window.navegar;
   if(typeof atual!=='function' || atual.__SIGEE_REPORTS_BRIDGE__) return;
@@ -147,14 +139,13 @@ function instalarPonteNavegacao(){
 function init(){
   instalarBloqueioMenuPrincipal();
   document.querySelectorAll('[data-relatorio-legado="true"]').forEach(ocultarModulo);
-  tipos.forEach(x=>{if(!host(x[0]))console.error('[SIGEE RC6.6.5] Aba ausente:',x[0]);});
+  tipos.forEach(x=>{if(!host(x[0]))console.error('[SIGEE RC7.0.0] Aba ausente:',x[0]);});
   instalarMenu();
   instalarPonteNavegacao();
-  observarMenu();
-  setTimeout(()=>{instalarMenu();instalarPonteNavegacao();observarMenu();},300);
-  setTimeout(()=>{instalarMenu();instalarPonteNavegacao();},1200);
+  setTimeout(()=>{instalarMenu();instalarPonteNavegacao();window.SIGEE_MENU?.organizar?.();},300);
+  setTimeout(()=>{instalarMenu();instalarPonteNavegacao();window.SIGEE_MENU?.organizar?.();},1200);
 }
 document.readyState==='loading'?document.addEventListener('DOMContentLoaded',init):init();
-window.SIGEE_RELATORIOS={abrir,atualizar:()=>state.tipo&&abrir(state.tipo,true),versao:'RC6.6.5'};
-console.info('[SIGEE RC6.6.5] Menu Relatórios apenas expande subabas; abertura ocorre somente pelos submenus.');
+window.SIGEE_RELATORIOS={abrir,instalarMenu,atualizar:()=>state.tipo&&abrir(state.tipo,true),versao:'RC7.0.0'};
+console.info('[SIGEE RC7.0.0] Relatórios integrados ao Menu Manager sem observadores concorrentes.');
 })();
