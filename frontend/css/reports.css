@@ -39,3 +39,14 @@
 #menu-administrativo-rc664 .sigee-admin-submenu{display:none;margin:.25rem 0 0 .55rem;padding-left:.55rem;border-left:2px solid #fbbf24}
 #menu-administrativo-rc664.open .sigee-admin-submenu{display:flex;flex-direction:column;gap:.2rem}
 #menu-administrativo-rc664 .sigee-admin-submenu>*,#menu-administrativo-rc664 .sigee-admin-submenu button,#menu-administrativo-rc664 .sigee-admin-submenu a{width:100%!important;margin:0!important}
+
+
+/* RC6.6.5 — estabilidade e agrupamento administrativo */
+#menu-administrativo-rc665{margin-top:.35rem}
+#menu-administrativo-rc665 .sigee-admin-menu-title{width:100%;display:flex;align-items:center;justify-content:space-between;border:0;background:transparent;color:#fff;padding:.78rem 1rem;border-radius:.75rem;font-weight:800;cursor:pointer}
+#menu-administrativo-rc665 .sigee-admin-menu-title:hover,#menu-administrativo-rc665.open .sigee-admin-menu-title{background:rgba(255,255,255,.10)}
+#menu-administrativo-rc665 .sigee-admin-submenu{display:none;margin:.25rem 0 .35rem .55rem;padding-left:.55rem;border-left:2px solid #f4bf19}
+#menu-administrativo-rc665.open .sigee-admin-submenu{display:block}
+#menu-administrativo-rc665 .sigee-admin-submenu>*{width:100%;margin:.2rem 0}
+#menu-administrativo-rc665 .sigee-admin-chevron{transition:transform .18s ease}
+#menu-administrativo-rc665.open .sigee-admin-chevron{transform:rotate(180deg)}
