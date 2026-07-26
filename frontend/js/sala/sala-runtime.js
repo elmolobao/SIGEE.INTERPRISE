@@ -3,7 +3,7 @@
 'use strict';
 if(window.__SIGEE_SALA_RUNTIME_6402__) return;
 window.__SIGEE_SALA_RUNTIME_6402__=true;
-const VERSION='RC6.4.0.3';
+const VERSION='RC6.4.0.4';
 const txt=v=>v==null?'':String(v).trim();
 const norm=v=>txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -28,7 +28,19 @@ function score(m){if(!m.ativos)return 0;return Math.min(100,Math.round((m.critic
 function classe(s){return s>=76?'CRITICO':s>=51?'ALTO':s>=26?'ATENCAO':'NORMAL';}
 function analisar(processos){const ativos=processos.filter(p=>!finalizado(p)),finalizados=processos.filter(finalizado),hoje=new Date().toDateString();const recebidosHoje=processos.filter(p=>data(p.created_at||p.data_solicitacao)?.toDateString()===hoje).length;const concluidosHoje=finalizados.filter(p=>data(p.finalizado_em||p.retirado_em||p.updated_at)?.toDateString()===hoje).length;const atrasados=ativos.filter(atraso),criticos=ativos.filter(p=>risco(p)==='CRITICO'),sem=ativos.filter(p=>!responsavel(p));const etapas={};ativos.forEach(p=>{const e=etapa(p);etapas[e]=(etapas[e]||0)+1;});const mapa=new Map();for(let i=1;i<=27;i++)mapa.set('NTE-'+String(i).padStart(2,'0'),[]);processos.forEach(p=>{const k=nte(p.nte||p.nte_nome||p.territorio||p.nte_id);if(!mapa.has(k))mapa.set(k,[]);mapa.get(k).push(p);});const territorios=[...mapa].map(([codigo,ps])=>{const a=ps.filter(p=>!finalizado(p));const m={codigo,ativos:a.length,total:ps.length,criticos:a.filter(p=>risco(p)==='CRITICO').length,altos:a.filter(p=>risco(p)==='ALTO').length,atrasados:a.filter(atraso).length,semResponsavel:a.filter(p=>!responsavel(p)).length,processos:a};m.indice=score(m);m.classe=classe(m.indice);return m;}).sort((a,b)=>b.indice-a.indice||b.criticos-a.criticos||b.ativos-a.ativos);const peso={CRITICO:4,ALTO:3,MEDIO:2,NORMAL:1};const fila=ativos.slice().sort((a,b)=>peso[risco(b)]-peso[risco(a)]||dias(b.data_etapa_atual||b.created_at)-dias(a.data_etapa_atual||a.created_at));return {processos,ativos,finalizados,recebidosHoje,concluidosHoje,atrasados,criticos,semResponsavel:sem,etapas,territorios,fila,risco,etapa,responsavel,atraso};}
 let state={payload:null,analise:null,active:false,rendering:false};
-function section(){return document.getElementById('aba-sala-situacao');}
+function section(){
+  let host=document.getElementById('aba-sala-situacao-2');
+  if(host&&host.isConnected)return host;
+  const legado=document.getElementById('aba-sala-situacao');
+  const parent=legado?.parentElement||document.querySelector('main')||document.querySelector('.main-content')||document.querySelector('#conteudo-principal');
+  if(!parent) return null;
+  host=document.createElement('section');
+  host.id='aba-sala-situacao-2';
+  host.className='hidden';
+  host.dataset.sala2Host='true';
+  if(legado?.nextSibling) parent.insertBefore(host,legado.nextSibling); else parent.appendChild(host);
+  return host;
+}
 function shell(){const s=section();if(!s)throw new Error('Área da Sala de Situação não localizada.');state.rendering=true;s.classList.remove('hidden');s.innerHTML=`<div class="sala2-root"><header class="sala2-hero"><div><small>CENTRO DE OPERAÇÕES</small><h1>Sala de Situação 2.0</h1><p>Monitoramento territorial, alertas e resposta rápida da operação.</p></div><div class="sala2-actions"><span id="sala2-sync">Carregando...</span><button id="sala2-refresh">↻ Atualizar</button><button id="sala2-full">⛶ Tela cheia</button></div></header><div id="sala2-content" class="sala2-content"><div class="sala2-loading">Consolidando a base completa...</div></div></div>`;state.rendering=false;s.querySelector('#sala2-refresh').onclick=abrir;s.querySelector('#sala2-full').onclick=()=>!document.fullscreenElement?s.requestFullscreen?.():document.exitFullscreen?.();return s;}
 function kpi(t,v,s,cls=''){return `<button class="sala2-kpi ${cls}" data-kpi="${esc(t)}"><span>${esc(t)}</span><strong>${esc(v)}</strong><small>${esc(s)}</small></button>`;}
 function prepararProntuario(p){if(!p)return;window.processosDB=Array.isArray(window.processosDB)?window.processosDB:[];const i=window.processosDB.findIndex(x=>String(x.id)===String(p.id));if(i>=0)window.processosDB[i]={...window.processosDB[i],...p};else window.processosDB.push(p);window.abrirProntuarioSIGEE?.(p.id);}
@@ -44,7 +56,11 @@ window.SIGEE_SALA_DATA={version:VERSION,carregar:carregarDados,nte,contexto};
 window.SIGEE_SALA_ENGINE={version:VERSION,analisar};
 function restaurarSeNecessario(){if(!state.active||state.rendering)return;const s=section();if(!s)return;const root=s.querySelector('.sala2-root');if(s.classList.contains('hidden')||!root){console.warn('[SIGEE Sala 2.0] Conteúdo removido por outro módulo; restaurando a tela.');s.classList.remove('hidden');if(state.analise&&state.payload){shell();render();}else abrir();}}
 let restoreTimer=null;const observer=new MutationObserver(()=>{if(!state.active)return;clearTimeout(restoreTimer);restoreTimer=setTimeout(restaurarSeNecessario,80);});observer.observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['class']});
-function desativar(){state.active=false;document.body.classList.remove('sigee-sala2-ativa');}
+function desativar(){
+  state.active=false;
+  document.body.classList.remove('sigee-sala2-ativa');
+  document.getElementById('aba-sala-situacao-2')?.classList.add('hidden');
+}
 window.SIGEE_SALA_2={version:VERSION,abrir,atualizar:abrir,restaurar:restaurarSeNecessario,desativar};
-console.info('[SIGEE RC6.4.0.3] Runtime protegido da Sala de Situação 2.0 pronto.');
+console.info('[SIGEE RC6.4.0.4] Sala 2.0 em host independente pronta.');
 })();
