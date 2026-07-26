@@ -1,11 +1,11 @@
 /**
- * SIGEE Enterprise RC5.4.2 — Menu dinâmico e navegação única por perfil.
+ * SIGEE Enterprise RC7.2.0 — Menu nativo único por perfil.
  * Autoridade exclusiva para menus, rotas e destino pós-login.
  */
 (function(window, document){
 'use strict';
-if (window.__SIGEE_AUTORIZACAO_RC542__) return;
-window.__SIGEE_AUTORIZACAO_RC542__ = true;
+if (window.__SIGEE_AUTORIZACAO_RC720__) return;
+window.__SIGEE_AUTORIZACAO_RC720__ = true;
 
 const ROTAS = Object.freeze({
   painel: 'indicadores.visualizar',
@@ -13,6 +13,8 @@ const ROTAS = Object.freeze({
   escolas: 'escolas.visualizar',
   usuarios: ['usuarios.gerenciar_global', 'usuarios.gerenciar_nte'],
   logs: 'logs.visualizar',
+  diagnostico: 'logs.visualizar',
+  'controle-acesso-ntes': 'usuarios.gerenciar_global',
   'sala-situacao': 'indicadores.visualizar',
   'centro-inteligencia': 'indicadores.visualizar',
   'nova-solicitacao': 'processos.criar',
@@ -20,16 +22,30 @@ const ROTAS = Object.freeze({
   'migracao-historica': 'migracao.executar'
 });
 
-const MENU = Object.freeze([
+const MENU_PRINCIPAL = Object.freeze([
   { id:'menu-painel', rota:'painel', icone:'📊', rotulo:'Painel Gerencial', capacidade:'indicadores.visualizar', perfis:['Gestor'] },
   { id:'menu-central-processos', rota:'processos', icone:'📋', rotulo:'Central de Processos', capacidade:'processos.visualizar', perfis:['Master','SEC','Gestor','Administrador','Técnico','Atendimento','Estagiário','Consulta'] },
   { id:'menu-catalogo-escolas', rota:'escolas', icone:'🏫', rotulo:'Catálogo de Escolas', capacidade:'escolas.visualizar' },
-  { id:'menu-relatorios', rota:'relatorios', icone:'📑', rotulo:'Relatórios', capacidade:'relatorios.visualizar', perfis:['Master','SEC','Gestor','Administrador','Técnico','Atendimento','Estagiário','Consulta'] },
-  { id:'menu-usuarios', rota:'usuarios', icone:'👥', rotulo:'Usuários do NTE', capacidade:['usuarios.gerenciar_global','usuarios.gerenciar_nte'], perfis:['Master','Administrador'] },
-  { id:'menu-centro-inteligencia', rota:'centro-inteligencia', icone:'🧠', rotulo:'Centro de Inteligência Operacional', capacidade:'indicadores.visualizar', perfis:['Master','Gestor','Administrador'] },
-  { id:'menu-sala-situacao', rota:'sala-situacao', icone:'📡', rotulo:'Sala de Situação', capacidade:'indicadores.visualizar', perfis:['Master','SEC','Gestor'] },
-  { id:'menu-logs', rota:'logs', icone:'⚙️', rotulo:'Configurações', capacidade:'logs.visualizar', perfis:['Master'] },
+  { id:'menu-relatorios', tipo:'relatorios', icone:'📑', rotulo:'Relatórios', capacidade:'relatorios.visualizar', perfis:['Master','SEC','Gestor','Administrador','Técnico','Atendimento','Estagiário','Consulta'] },
+  { id:'menu-centro-inteligencia', rota:'centro-inteligencia', icone:'🧠', rotulo:'Centro de Inteligência', capacidade:'indicadores.visualizar', perfis:['Master','Gestor','Administrador'] },
+  { id:'menu-sala-situacao', rota:'sala-situacao', icone:'📡', rotulo:'Sala de Situação', capacidade:'indicadores.visualizar', perfis:['Master','SEC','Gestor'] }
+]);
+
+const MENU_ADMIN = Object.freeze([
+  { id:'menu-usuarios', rota:'usuarios', icone:'👥', rotulo:'Usuários', capacidade:['usuarios.gerenciar_global','usuarios.gerenciar_nte'], perfis:['Master','Administrador'] },
+  { id:'menu-logs', rota:'logs', icone:'📜', rotulo:'Histórico de Atividades', capacidade:'logs.visualizar', perfis:['Master'] },
+  { id:'menu-diagnostico', rota:'diagnostico', icone:'🩺', rotulo:'Centro de Diagnóstico', capacidade:'logs.visualizar', perfis:['Master'] },
+  { id:'menu-controle-acesso-ntes', rota:'controle-acesso-ntes', icone:'⛔', rotulo:'Controle de Acesso dos NTEs', capacidade:'usuarios.gerenciar_global', perfis:['Master'] },
   { id:'menu-migracao-historica', rota:'migracao-historica', icone:'🧬', rotulo:'Migração Histórica', capacidade:'migracao.executar', perfis:['Master'] }
+]);
+
+const RELATORIOS = Object.freeze([
+  ['operacional','📊','Operacional'],
+  ['sla','⏱️','SLA'],
+  ['territorial','🗺️','Territorial'],
+  ['pendencias','⏸️','Pendências'],
+  ['produtividade','👥','Produtividade'],
+  ['executivo','📈','Executivo']
 ]);
 
 let navegacaoAutomatica = false;
@@ -75,20 +91,65 @@ function classeMenu(){
 function containerMenu(){
   return document.getElementById('sigee-menu-dinamico') || document.querySelector('.sigee-sidebar-nav');
 }
-function criarBotao(item){
+function criarBotao(item, classeExtra=''){
   const botao = document.createElement('button');
   botao.type = 'button';
   botao.id = item.id;
-  botao.className = classeMenu();
+  botao.className = `${classeMenu()} ${classeExtra}`.trim();
   botao.dataset.sigeeRota = item.rota;
   botao.dataset.sigeeCapacidade = Array.isArray(item.capacidade) ? item.capacidade.join('|') : item.capacidade;
-  const p = perfil();
   let rotulo = item.rotulo;
   if (item.rota === 'painel') rotulo = 'Painel Gerencial';
-  if (item.rota === 'usuarios' && p === 'Master') rotulo = 'Usuários';
   botao.textContent = `${item.icone} ${rotulo}`;
   botao.addEventListener('click', () => navegarPara(item.rota, { manual:true }));
   return botao;
+}
+
+function criarGrupoRelatorios(){
+  const wrap=document.createElement('div');
+  wrap.id='menu-relatorios-rc6501';
+  wrap.className='sig-rel-menu';
+  const titulo=document.createElement('button');
+  titulo.type='button';
+  titulo.id='menu-relatorios';
+  titulo.className='sig-rel-menu-title';
+  titulo.setAttribute('aria-expanded','false');
+  titulo.innerHTML='📑 Relatórios <span>▾</span>';
+  const sub=document.createElement('div');
+  RELATORIOS.forEach(([tipo,icone,rotulo])=>{
+    const b=document.createElement('button');
+    b.type='button'; b.dataset.reportMenu=tipo; b.textContent=`${icone} ${rotulo}`;
+    b.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();wrap.classList.add('open');titulo.setAttribute('aria-expanded','true');window.SIGEE_RELATORIOS?.abrir?.(tipo);});
+    sub.appendChild(b);
+  });
+  titulo.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();wrap.classList.toggle('open');titulo.setAttribute('aria-expanded',String(wrap.classList.contains('open')));});
+  wrap.append(titulo,sub);
+  return wrap;
+}
+
+function criarGrupoAdministrativo(itens){
+  const grupo=document.createElement('div');
+  grupo.id='menu-administrativo-grupo';
+  grupo.className='sigee-menu-grupo';
+  const titulo=document.createElement('button');
+  titulo.type='button'; titulo.id='menu-administrativo-titulo'; titulo.className=classeMenu();
+  titulo.setAttribute('aria-expanded','false'); titulo.innerHTML='<span>⚙️ Administrativo</span><span style="float:right">▼</span>';
+  const submenu=document.createElement('div');
+  submenu.id='submenu-administracao'; submenu.className='hidden';
+  submenu.style.cssText='padding-left:.55rem;margin-top:.25rem;border-left:2px solid rgba(250,204,21,.75)';
+  itens.forEach(item=>submenu.appendChild(criarBotao(item)));
+  titulo.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();const abrir=submenu.classList.contains('hidden');submenu.classList.toggle('hidden',!abrir);titulo.setAttribute('aria-expanded',String(abrir));titulo.lastElementChild.textContent=abrir?'▲':'▼';});
+  grupo.append(titulo,submenu);
+  return grupo;
+}
+
+function garantirTelaDiagnostico(){
+  let aba=document.getElementById('aba-diagnostico');
+  if(aba)return aba;
+  const main=document.querySelector('#sistema-dashboard main'); if(!main)return null;
+  aba=document.createElement('section'); aba.id='aba-diagnostico'; aba.className='hidden space-y-5';
+  aba.innerHTML=`<header class="sigee-admin-page-head"><div><span>ADMINISTRAÇÃO</span><h1>Centro de Diagnóstico</h1><p>Verificação dos componentes, conectividade e integração operacional do SIGEE.</p></div><button type="button" id="btn-atualizar-diagnostico">↻ Atualizar diagnóstico</button></header><section id="diagnostico-resumo" class="bg-white rounded-xl border shadow-sm p-5"><div class="grid grid-cols-1 md:grid-cols-3 gap-4"><article><small>Status geral</small><strong id="diag-status-geral">Aguardando</strong></article><article><small>Última atualização</small><strong id="diag-atualizado">—</strong></article><article><small>Conectividade</small><strong id="diag-conectividade">—</strong></article><article><small>Processos</small><strong id="diag-processos">0</strong></article><article><small>Escolas</small><strong id="diag-escolas">0</strong></article><article><small>Usuários</small><strong id="diag-usuarios">0</strong></article><article><small>Tempo de cálculo</small><strong id="diag-tempo-calculo">—</strong></article><article><small>Última sincronização</small><strong id="diag-ultima-sync">—</strong></article></div></section><section id="diag-componentes" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></section>`;
+  main.appendChild(aba); aba.querySelector('#btn-atualizar-diagnostico')?.addEventListener('click',()=>window.atualizarDiagnosticoSIGEE?.(true)); return aba;
 }
 function mostrarElemento(el, visivel){
   if(!el)return;
@@ -148,11 +209,18 @@ function renderizarMenu(){
   const u = usuario();
   const nav = containerMenu();
   if (!u || !nav) return false;
-  const permitidos = MENU.filter(item => itemPermitido(item, u));
-  const assinatura = `${perfil(u)}|${permitidos.map(i=>i.id).join(',')}`;
-  if (nav.dataset.sigeeMenuAssinatura === assinatura && nav.children.length === permitidos.length) return true;
+  const principais = MENU_PRINCIPAL.filter(item => itemPermitido(item, u));
+  const administrativos = MENU_ADMIN.filter(item => itemPermitido(item, u));
+  const assinatura = `${perfil(u)}|${principais.map(i=>i.id).join(',')}|ADMIN:${administrativos.map(i=>i.id).join(',')}`;
+  const estruturaIntegra = nav.dataset.sigeeMenuAssinatura === assinatura &&
+    document.getElementById('menu-relatorios-rc6501') &&
+    (!administrativos.length || (document.getElementById('menu-administrativo-grupo') && document.getElementById('submenu-administracao')));
+  if (estruturaIntegra) return true;
   instalando = true;
-  nav.replaceChildren(...permitidos.map(criarBotao));
+  const fragment=document.createDocumentFragment();
+  principais.forEach(item=>fragment.appendChild(item.tipo==='relatorios'?criarGrupoRelatorios():criarBotao(item)));
+  if(administrativos.length) fragment.appendChild(criarGrupoAdministrativo(administrativos));
+  nav.replaceChildren(fragment);
   nav.dataset.sigeeMenuAssinatura = assinatura;
   instalando = false;
   atualizarIdentidade();
@@ -206,7 +274,8 @@ function atualizarRotuloPerfilUsuario(){
 function garantirRotaVisivel(rota){
   const mapa={
     painel:'aba-painel', processos:'aba-processos', escolas:'aba-escolas',
-    usuarios:'aba-usuarios', logs:'aba-logs', relatorios:'aba-painel',
+    usuarios:'aba-usuarios', logs:'aba-logs', diagnostico:'aba-diagnostico',
+    'controle-acesso-ntes':'aba-controle-acesso-ntes', relatorios:'aba-painel',
     'sala-situacao':'aba-sala-situacao', 'centro-inteligencia':'aba-painel',
     'migracao-historica':'aba-migracao-historica'
   };
@@ -280,9 +349,24 @@ function navegarPara(rota, opcoes={}){
     return true;
   }
 
+  if (rota === 'diagnostico') {
+    const aba=garantirTelaDiagnostico();
+    if(!aba)return false;
+    document.querySelectorAll('#sistema-dashboard main > section[id^="aba-"]').forEach(sec=>sec.classList.add('hidden'));
+    aba.classList.remove('hidden'); aba.hidden=false; aba.style.removeProperty('display');
+    window.atualizarDiagnosticoSIGEE?.();
+    return true;
+  }
+
+  if (rota === 'controle-acesso-ntes') {
+    if(window.SIGEE_CONTROLE_ACESSO_NTES?.abrir){window.SIGEE_CONTROLE_ACESSO_NTES.abrir();return true;}
+    alert('O módulo Controle de Acesso dos NTEs ainda não concluiu o carregamento.');
+    return false;
+  }
+
   if (rota === 'migracao-historica') {
-    garantirRotaVisivel('migracao-historica');
-    queueMicrotask(renderizarMenu);
+    if(window.SIGEE_MIGRACAO_HISTORICA?.abrir) window.SIGEE_MIGRACAO_HISTORICA.abrir();
+    else garantirRotaVisivel('migracao-historica');
     return true;
   }
 
@@ -362,19 +446,11 @@ function instalarLogin(){
   try { globalThis.handleLogin = protegido; } catch (_) {}
   return true;
 }
-function observarMenu(){
-  const nav = containerMenu();
-  if (!nav || observer) return;
-  observer = new MutationObserver(() => {
-    if (!instalando) queueMicrotask(renderizarMenu);
-  });
-  observer.observe(nav, { childList:true });
-}
+
 function iniciar(){
   instalarNavegacao();
   instalarLogin();
   renderizarMenu();
-  observarMenu();
 }
 
 document.addEventListener('DOMContentLoaded', iniciar, { once:true });
@@ -383,7 +459,6 @@ document.addEventListener('sigee:usuario-logado', () => setTimeout(() => {
   aplicarRotaInicialForcada();
   setTimeout(aplicarRotaInicialForcada,120);
 }, 0));
-document.addEventListener('sigee:navegacao-concluida', renderizarMenu);
 window.addEventListener('sigee:login-concluido', () => setTimeout(iniciar, 0));
 window.addEventListener('load', () => setTimeout(iniciar, 50));
 
