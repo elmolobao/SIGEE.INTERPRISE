@@ -10392,146 +10392,107 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
   }, { once: true });
 })(window);
 
-/* =====================================================================
-   SIGEE RC6.6.3 — Navegação contextual dos Relatórios para Processos
-   Abre a Central de Processos com filtros definidos e preserva o shell.
-   ===================================================================== */
+/* SIGEE RC6.6.4 — Ordem institucional do menu e grupo Administrativo */
 (function(){
   'use strict';
-  if(window.__SIGEE_PROCESSOS_CONTEXTUAL_663__)return;
-  window.__SIGEE_PROCESSOS_CONTEXTUAL_663__=true;
+  if (window.__SIGEE_MENU_INSTITUCIONAL_664__) return;
+  window.__SIGEE_MENU_INSTITUCIONAL_664__ = true;
 
-  const norm=v=>String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toUpperCase();
-  let contexto=null;
-  let originalRender=null;
-  let originalContar=null;
+  const normalizar = valor => String(valor || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9 ]/g, ' ')
+    .replace(/\s+/g, ' ').trim().toUpperCase();
 
-  function etapa(p){return p?.etapa_atual||p?.etapa||'';}
-  function responsavel(p){return p?.tecnico_atribuido||p?.tecnico_responsavel||p?.responsavel_etapa||p?.analista||p?.digitador||p?.conferente||p?.responsavel||p?.usuario_lancamento||p?.criado_por_nome||'';}
-  function codigo(p){return p?.codigo_sigee||p?.codigo||p?.id||'';}
-  function nte(p){return p?.nte||p?.nte_nome||p?.nte_vinculado||p?.nte_id||'';}
-  function data(v){const d=v?new Date(v):null;return d&&!Number.isNaN(d.getTime())?d:null;}
-  function dias(v){const d=data(v);return d?Math.max(0,Math.floor((Date.now()-d.getTime())/86400000)):0;}
-  function limite(e){const x=norm(e);if(x.includes('DESARQ'))return 30;if(x.includes('ANAL'))return 7;if(x.includes('DIGIT'))return 15;if(x.includes('CONFER'))return 10;if(x.includes('ASSIN'))return 7;return null;}
-  function finalizado(p){const e=norm(etapa(p));return e.includes('RETIR')||e.includes('INDEFER')||e.includes('DEFERIDO')||e.includes('AGUARDANDO RETIRADA');}
-  function pendenciaAluno(p){try{return !!window.SIGEE_REGRAS_OPERACIONAIS?.pendenciaAluno?.(p);}catch(_){return norm(p?.tipo_pendencia||p?.pendencia_tipo||p?.pendencia_origem).includes('ALUNO');}}
-  function pendenciaInstitucional(p){try{return !!window.SIGEE_REGRAS_OPERACIONAIS?.pendenciaInstitucional?.(p);}catch(_){return norm(p?.tipo_pendencia||p?.pendencia_tipo||p?.pendencia_origem).includes('INSTIT');}}
-  function atrasado(p){if(finalizado(p)||pendenciaAluno(p))return false;const l=limite(etapa(p));return l!==null&&dias(p?.data_etapa_atual||p?.data_etapa||p?.created_at)>l;}
+  function itemRaiz(nav, elemento) {
+    if (!nav || !elemento) return null;
+    let atual = elemento;
+    while (atual.parentElement && atual.parentElement !== nav) atual = atual.parentElement;
+    return atual.parentElement === nav ? atual : null;
+  }
 
-  function filtrar(lista){
-    if(!contexto)return lista;
-    return (lista||[]).filter(p=>{
-      if(contexto.codigo&&norm(codigo(p))!==norm(contexto.codigo))return false;
-      if(contexto.nte&&norm(nte(p)).replace(/[^0-9]/g,'')!==norm(contexto.nte).replace(/[^0-9]/g,''))return false;
-      if(contexto.etapa&&norm(etapa(p))!==norm(contexto.etapa))return false;
-      if(contexto.responsavel){
-        const alvo=norm(contexto.responsavel);
-        if(alvo==='AGUARDANDO ATRIBUICAO'){if(norm(responsavel(p)))return false;}
-        else if(norm(responsavel(p))!==alvo)return false;
-      }
-      switch(contexto.tipo){
-        case 'ativos': if(finalizado(p))return false; break;
-        case 'operacionais': if(finalizado(p)||pendenciaAluno(p))return false; break;
-        case 'atraso': if(!atrasado(p))return false; break;
-        case 'pendencia_externa': if(!pendenciaAluno(p))return false; break;
-        case 'pendencia_institucional': if(!pendenciaInstitucional(p))return false; break;
-        case 'sem_responsavel': if(finalizado(p)||pendenciaAluno(p)||norm(responsavel(p)))return false; break;
-        case 'sla_base': if(finalizado(p)||pendenciaAluno(p)||limite(etapa(p))===null)return false; break;
-      }
-      return true;
+  function localizar(nav, termos, excluirDentroAdministrativo) {
+    const candidatos = [...nav.querySelectorAll('button,a,[role="button"]')];
+    const elemento = candidatos.find(el => {
+      if (excluirDentroAdministrativo && el.closest('#menu-administrativo-rc664')) return false;
+      const texto = normalizar(el.textContent);
+      return termos.some(termo => texto === termo || texto.includes(termo));
     });
+    return itemRaiz(nav, elemento);
   }
 
-  function tituloFiltro(){
-    if(!contexto)return '';
-    const partes=[];
-    const rotulos={ativos:'Processos ativos',operacionais:'Operação controlável',atraso:'Processos em atraso',pendencia_externa:'Pendência externa',pendencia_institucional:'Pendência institucional',sem_responsavel:'Sem responsável',sla_base:'Base elegível para SLA'};
-    if(contexto.tipo)partes.push(rotulos[contexto.tipo]||contexto.tipo);
-    if(contexto.etapa)partes.push('Etapa: '+contexto.etapa);
-    if(contexto.nte)partes.push('NTE: '+contexto.nte);
-    if(contexto.responsavel)partes.push('Responsável: '+contexto.responsavel);
-    if(contexto.codigo)partes.push('Processo: '+contexto.codigo);
-    return partes.join(' · ');
+  function criarAdministrativo(nav) {
+    let grupo = document.getElementById('menu-administrativo-rc664');
+    if (grupo) return grupo;
+
+    grupo = document.createElement('div');
+    grupo.id = 'menu-administrativo-rc664';
+    grupo.className = 'sigee-admin-menu';
+    grupo.innerHTML = `
+      <button type="button" class="sigee-admin-menu-title" aria-expanded="false">
+        <span>⚙️ Administrativo</span><span class="sigee-admin-chevron">▾</span>
+      </button>
+      <div class="sigee-admin-submenu" role="group" aria-label="Submenu Administrativo"></div>`;
+
+    const titulo = grupo.querySelector('.sigee-admin-menu-title');
+    titulo.addEventListener('click', function(event){
+      event.preventDefault();
+      event.stopPropagation();
+      grupo.classList.toggle('open');
+      titulo.setAttribute('aria-expanded', String(grupo.classList.contains('open')));
+    });
+    nav.appendChild(grupo);
+    return grupo;
   }
 
-  function atualizarFaixa(){
-    const aba=document.getElementById('aba-processos');if(!aba)return;
-    let faixa=document.getElementById('sigee-filtro-contextual-processos');
-    if(!contexto){faixa?.remove();return;}
-    if(!faixa){
-      faixa=document.createElement('div');faixa.id='sigee-filtro-contextual-processos';faixa.className='sigee-filtro-contextual-processos';
-      const topo=aba.firstElementChild;topo?.insertAdjacentElement('afterend',faixa);
+  let organizando = false;
+  function organizarMenu() {
+    if (organizando) return;
+    const nav = document.getElementById('sigee-menu-dinamico');
+    if (!nav || !nav.children.length) return;
+    organizando = true;
+    try {
+      const processos = localizar(nav, ['CENTRAL DE PROCESSOS'], true);
+      const escolas = localizar(nav, ['CATALOGO DE ESCOLAS'], true);
+      const relatorios = document.getElementById('menu-relatorios-rc661') || localizar(nav, ['RELATORIOS'], true);
+      const cio = localizar(nav, ['CENTRO DE INTELIGENCIA'], true);
+      const sala = localizar(nav, ['SALA DE SITUACAO'], true);
+
+      const administrativo = criarAdministrativo(nav);
+      const submenu = administrativo.querySelector('.sigee-admin-submenu');
+
+      const usuarios = localizar(nav, ['USUARIOS', 'CONTROLE DE USUARIOS'], true);
+      const migracao = localizar(nav, ['MIGRACAO HISTORICA'], true);
+
+      [usuarios, migracao].forEach(item => {
+        if (item && item !== administrativo && item.parentElement !== submenu) submenu.appendChild(item);
+      });
+
+      const ordem = [processos, escolas, relatorios, cio, sala, administrativo].filter(Boolean);
+      ordem.forEach(item => nav.appendChild(item));
+
+      const filhosVisiveis = [...submenu.children].filter(el => !el.classList.contains('hidden'));
+      administrativo.classList.toggle('hidden', filhosVisiveis.length === 0);
+    } finally {
+      organizando = false;
     }
-    faixa.innerHTML='<div><strong>Filtro originado dos Relatórios</strong><span>'+tituloFiltro()+'</span></div><button type="button" id="sigee-limpar-filtro-contextual">Limpar filtro</button>';
-    faixa.querySelector('button').onclick=limpar;
   }
 
-  function renderComContexto(fn,thisArg,args){
-    if(!contexto)return fn.apply(thisArg,args);
-    let antigoLocal,antigoWindow;
-    try{
-      antigoLocal=typeof processosDB!=='undefined'?processosDB:undefined;
-      antigoWindow=window.processosDB;
-      const base=Array.isArray(antigoLocal)?antigoLocal:(Array.isArray(antigoWindow)?antigoWindow:[]);
-      const reduzida=filtrar(base);
-      try{processosDB=reduzida;}catch(_){ }
-      window.processosDB=reduzida;
-      return fn.apply(thisArg,args);
-    }finally{
-      try{if(antigoLocal!==undefined)processosDB=antigoLocal;}catch(_){ }
-      window.processosDB=antigoWindow;
-      setTimeout(atualizarFaixa,0);
-    }
+  let timer = null;
+  function agendar(){
+    clearTimeout(timer);
+    timer = setTimeout(organizarMenu, 40);
   }
 
-  function instalarWrapper(){
-    const modulo=window.SIGEE_Processos;if(!modulo)return false;
-    if(typeof modulo.renderizar==='function'&&!modulo.renderizar.__SIGEE_CONTEXTUAL_663__){
-      originalRender=modulo.renderizar;
-      const wrap=function(){return renderComContexto(originalRender,modulo,arguments);};
-      wrap.__SIGEE_CONTEXTUAL_663__=true;modulo.renderizar=wrap;
-      window.renderizarProcessosFlutuantes=wrap;try{renderizarProcessosFlutuantes=wrap;}catch(_){ }
-    }
-    if(typeof modulo.contar==='function'&&!modulo.contar.__SIGEE_CONTEXTUAL_663__){
-      originalContar=modulo.contar;
-      const wrapCount=function(){return renderComContexto(originalContar,modulo,arguments);};
-      wrapCount.__SIGEE_CONTEXTUAL_663__=true;modulo.contar=wrapCount;
-      window.carregarEContarProcessosHorizontais=wrapCount;try{carregarEContarProcessosHorizontais=wrapCount;}catch(_){ }
-    }
-    return true;
+  function iniciar(){
+    organizarMenu();
+    const nav = document.getElementById('sigee-menu-dinamico');
+    if (nav) new MutationObserver(agendar).observe(nav, {childList:true, subtree:true, attributes:true, attributeFilter:['class']});
+    setTimeout(organizarMenu, 300);
+    setTimeout(organizarMenu, 1200);
+    setTimeout(organizarMenu, 2500);
   }
 
-  function sincronizarControles(){
-    const sel=document.getElementById('filtro-processos-nte');
-    if(sel)sel.value=contexto?.nte||'TODOS';
-    const busca=document.getElementById('busca-proc-nome');
-    if(busca)busca.value=contexto?.codigo||'';
-    try{etapaFiltroAtual=contexto?.etapa||'TODOS';}catch(_){ }
-  }
-
-  function abrir(filtros={}){
-    contexto={...filtros};
-    instalarWrapper();
-    if(typeof window.navegar==='function')window.navegar('processos');
-    sincronizarControles();
-    setTimeout(()=>{
-      instalarWrapper();sincronizarControles();atualizarFaixa();
-      window.SIGEE_Processos?.contar?.();
-      window.SIGEE_Processos?.renderizar?.();
-    },80);
-  }
-
-  function limpar(){
-    contexto=null;
-    const sel=document.getElementById('filtro-processos-nte');if(sel)sel.value='TODOS';
-    const busca=document.getElementById('busca-proc-nome');if(busca)busca.value='';
-    try{etapaFiltroAtual='TODOS';}catch(_){ }
-    atualizarFaixa();
-    window.SIGEE_Processos?.contar?.();window.SIGEE_Processos?.renderizar?.();
-  }
-
-  window.SIGEE_PROCESSOS_CONTEXTUAL={abrir,limpar,obter:()=>contexto,filtrar,versao:'RC6.6.3'};
-  document.addEventListener('DOMContentLoaded',()=>{instalarWrapper();setTimeout(instalarWrapper,600);});
-  setTimeout(instalarWrapper,1200);
-  console.info('[SIGEE RC6.6.3] Navegação contextual com filtros dos Relatórios instalada.');
+  document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', iniciar) : iniciar();
+  window.SIGEE_ORGANIZAR_MENU = organizarMenu;
+  console.info('[SIGEE RC6.6.4] Menu institucional organizado e grupo Administrativo instalado.');
 })();
