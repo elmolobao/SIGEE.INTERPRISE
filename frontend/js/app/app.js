@@ -1049,7 +1049,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             const elemento = document.getElementById(id);
             return Boolean(elemento && !elemento.classList.contains('hidden'));
         }
-        window.SIGEE_ABA_VISIVEL = abaVisivelSIGEE;
+        window.abaVisivelSIGEE = window.abaVisivelSIGEE || abaVisivelSIGEE;
 
         async function sincronizarSupabaseSegundoPlanoSIGEE() {
             try {
@@ -1211,20 +1211,19 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         }
 
         function navegar(aba) {
-            // RC6.6.0: relatórios e módulos modernos usam o registro central de views.
-            if (window.SIGEE_NAVIGATION?.abrir && window.SIGEE_VIEWS?.[aba]) {
-                window.SIGEE_NAVIGATION.abrir(aba);
-                return;
-            }
-            ['aba-painel','aba-escolas','aba-processos','aba-usuarios','aba-logs'].forEach(id => {
-                document.getElementById(id)?.classList.add('hidden');
-            });
-            
-            if (aba === 'painel') { document.getElementById('aba-painel').classList.remove('hidden'); carregarDadosDashboardReal(); } 
-            if (aba === 'escolas') { document.getElementById('aba-escolas').classList.remove('hidden'); renderizarListaEscolasBufferMemoria(); if (!sigEESupabaseOnline) setTimeout(() => sincronizarSupabaseSegundoPlanoSIGEE(), 50); } 
-            if (aba === 'processos') { document.getElementById('aba-processos').classList.remove('hidden'); carregarEContarProcessosHorizontais(); if (!sigEESupabaseOnline) setTimeout(() => sincronizarSupabaseSegundoPlanoSIGEE(), 50); }
-            if (aba === 'usuarios') { document.getElementById('aba-usuarios').classList.remove('hidden'); carregarListaUsuarios(); }
-            if (aba === 'logs') { document.getElementById('aba-logs').classList.remove('hidden'); carregarLogs(); }
+            const ocultar = id => document.getElementById(id)?.classList.add('hidden');
+            const mostrar = id => document.getElementById(id)?.classList.remove('hidden');
+
+            ['aba-painel','aba-escolas','aba-processos','aba-usuarios','aba-logs',
+             'aba-relatorio-operacional','aba-relatorio-sla','aba-relatorio-territorial',
+             'aba-relatorio-pendencias','aba-relatorio-produtividade','aba-relatorio-executivo']
+                .forEach(ocultar);
+
+            if (aba === 'painel') { mostrar('aba-painel'); carregarDadosDashboardReal(); }
+            if (aba === 'escolas') { mostrar('aba-escolas'); renderizarListaEscolasBufferMemoria(); if (!sigEESupabaseOnline) setTimeout(() => sincronizarSupabaseSegundoPlanoSIGEE(), 50); }
+            if (aba === 'processos') { mostrar('aba-processos'); carregarEContarProcessosHorizontais(); if (!sigEESupabaseOnline) setTimeout(() => sincronizarSupabaseSegundoPlanoSIGEE(), 50); }
+            if (aba === 'usuarios') { mostrar('aba-usuarios'); carregarListaUsuarios(); }
+            if (aba === 'logs') { mostrar('aba-logs'); carregarLogs(); }
         }
 
         function carregarDadosDashboardReal() {
