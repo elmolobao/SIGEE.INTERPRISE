@@ -8,6 +8,8 @@ const tipos=[
  ['operacional','📊','Relatório Operacional'],['sla','⏱️','Relatório de SLA'],['territorial','🗺️','Relatório Territorial'],['pendencias','⏸️','Relatório de Pendências'],['produtividade','👥','Relatório de Produtividade'],['executivo','📈','Relatório Executivo']
 ];
 let state={payload:null,tipo:null,menuIntegrado:false};
+function autorizado(){return window.SIGEE_PERMISSOES?.pode?.('relatorios.visualizar',window.SIGEE_AUTORIZACAO?.usuario?.()||window.usuarioLogado||window.usuarioAtual||null)===true;}
+function negarAcesso(){alert('Seu perfil não possui permissão para acessar os relatórios.');window.SIGEE_AUTORIZACAO?.navegarPara?.('processos',{silencioso:true});return false;}
 function finalizado(p){const e=norm(R().etapa(p));return e.includes('RETIR')||e.includes('INDEFER')||e.includes('DEFERIDO');}
 function data(v){if(!v)return null;const d=new Date(v);return Number.isNaN(d.getTime())?null:d;}
 function dias(v){const d=data(v);return d?Math.max(0,Math.floor((Date.now()-d)/86400000)):0;}
@@ -25,6 +27,7 @@ function esconderTudo(){
 }
 function host(tipo){return document.getElementById('aba-relatorio-'+tipo);}
 function abrir(tipo,forcar=false){
+  if(!autorizado()) return negarAcesso();
   if(!tipos.some(x=>x[0]===tipo)) return;
   state.tipo=tipo;
   esconderTudo();
@@ -97,6 +100,7 @@ function instalarBloqueioMenuPrincipal(){
 function instalarMenu(){
   const nav=document.getElementById('sigee-menu-dinamico');
   if(!nav)return;
+  if(!autorizado()){document.getElementById('menu-relatorios-rc650')?.remove();document.getElementById('menu-relatorios-rc6501')?.remove();document.getElementById('menu-relatorios-rc661')?.remove();state.menuIntegrado=false;return;}
   document.getElementById('menu-relatorios-rc650')?.remove();
   document.getElementById('menu-relatorios-rc6501')?.remove();
   let wrap=document.getElementById('menu-relatorios-rc661');
@@ -145,6 +149,7 @@ function instalarPonteNavegacao(){
 }
 
 function init(){
+  if(!autorizado()){instalarMenu();return;}
   instalarBloqueioMenuPrincipal();
   document.querySelectorAll('[data-relatorio-legado="true"]').forEach(ocultarModulo);
   tipos.forEach(x=>{if(!host(x[0]))console.error('[SIGEE RC6.6.2] Aba ausente:',x[0]);});
@@ -155,6 +160,6 @@ function init(){
   setTimeout(()=>{instalarMenu();instalarPonteNavegacao();},1200);
 }
 document.readyState==='loading'?document.addEventListener('DOMContentLoaded',init):init();
-window.SIGEE_RELATORIOS={abrir,atualizar:()=>state.tipo&&abrir(state.tipo,true),versao:'RC6.6.2'};
+window.SIGEE_RELATORIOS={abrir,atualizar:()=>state.tipo&&abrir(state.tipo,true),autorizado,versao:'RC7.4.1'};
 console.info('[SIGEE RC6.6.2] Menu Relatórios apenas expande subabas; abertura ocorre somente pelos submenus.');
 })();
