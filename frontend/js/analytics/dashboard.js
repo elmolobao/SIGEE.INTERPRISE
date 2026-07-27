@@ -1,9 +1,9 @@
-/* SIGEE RC7.4.0 — Dashboard Operacional com autoridade única de navegação */
+/* SIGEE RC7.4.1 — Dashboard territorial com técnicos por abrangência */
 (function(){
   'use strict';
   if(window.__SIGEE_DASHBOARD_RPC_510__) return;
   window.__SIGEE_DASHBOARD_RPC_510__=true;
-  window.SIGEE_DASHBOARD_AUTORIDADE='SNAPSHOT_TERRITORIAL_RC7.4.0';
+  window.SIGEE_DASHBOARD_AUTORIDADE='SNAPSHOT_TERRITORIAL_RC7.4.1';
 
   const CACHE_MS=180000;
   const BOOT_GUARD_MS=15000;
@@ -27,6 +27,43 @@
     const v=txt(document.getElementById('filtro-dashboard-nte')?.value||'TODOS');
     return (!norm(v) || norm(v)==='TODOS' || norm(v)==='GLOBAL' || norm(v).includes('TODOS OS NTES')) ? '' : nteNumero(v);
   }
+  const cacheTecnicos=new Map();
+  function nteCanonico(v){
+    const n=window.SIGEE_ESCOPO?.numeroNte?.(v) ?? Number(nteNumero(v)||0);
+    return n ? `NTE-${String(n).padStart(2,'0')}` : '';
+  }
+  function perfilTecnico(u){return norm(u?.perfil||u?.role||u?.tipo).includes('TECNIC');}
+  function usuarioAtivo(u){
+    if(u?.ativo===false)return false;
+    const situacao=norm(u?.status||u?.situacao||'ATIVO');
+    return !['INATIVO','BLOQUEADO','DESATIVADO','EXCLUIDO'].some(x=>situacao.includes(x));
+  }
+  async function contarTecnicosEscopo(nteAlvo,forcar=false){
+    const chave=nteAlvo?nteCanonico(nteAlvo):'GLOBAL';
+    const salvo=cacheTecnicos.get(chave);
+    if(!forcar&&salvo&&Date.now()-salvo.em<CACHE_MS)return salvo.total;
+    const c=cliente();
+    if(!c)return 0;
+    const {data,error}=await c.from('usuarios_sigee').select('*');
+    if(error)throw error;
+    let lista=Array.isArray(data)?data:[];
+    if(chave!=='GLOBAL'){
+      lista=lista.filter(u=>nteCanonico(window.SIGEE_ESCOPO?.nteRegistro?.(u)||u?.nte||u?.nte_nome||u?.grupo||u?.nte_id)===chave);
+    }else if(!global()){
+      lista=window.SIGEE_ESCOPO?.filtrar?.(lista,usuario())||[];
+    }
+    const total=lista.filter(u=>usuarioAtivo(u)&&perfilTecnico(u)).length;
+    cacheTecnicos.set(chave,{total,em:Date.now()});
+    return total;
+  }
+  async function complementarTecnicos(snapshot,nteAlvo,forcar=false){
+    const alvo=global()?nteAlvo:(window.SIGEE_ESCOPO?.nteIdUsuario?.(usuario())||window.SIGEE_ESCOPO?.nteUsuario?.(usuario())||nteAlvo);
+    const complemento={...(snapshot?.complemento||{})};
+    complemento.tecnicos_total=await contarTecnicosEscopo(alvo,forcar);
+    if(snapshot)snapshot.complemento=complemento;
+    return complemento;
+  }
+
   function configurarFiltro(){
     const box=document.getElementById('box-filtro-dashboard-master');
     const sel=document.getElementById('filtro-dashboard-nte');
@@ -141,16 +178,19 @@
     // Eventos automáticos de login, navegação e boot podem ocorrer em sequência.
     // Mesmo quando marcados como atualização, reutilizam o snapshot recém-concluído.
     if(salvo && ((!manual && agora-salvo.em<BOOT_GUARD_MS) || (!forcar && agora-salvo.em<CACHE_MS))){
-      window.__SIGEE_DASHBOARD_COMPLEMENTO__=salvo.complemento||{};
+      const snapshotSalvo=salvo.snapshot||{resumo:salvo.dados||{},complemento:salvo.complemento||{}};
+      const complementoSalvo=await complementarTecnicos(snapshotSalvo,nte,false);
+      salvo.complemento=complementoSalvo;
+      window.__SIGEE_DASHBOARD_COMPLEMENTO__=complementoSalvo;
       render(salvo.dados||{});
-      return salvo.snapshot||{resumo:salvo.dados||{},complemento:salvo.complemento||{}};
+      return snapshotSalvo;
     }
 
     // Uma única Promise global por NTE/período. Qualquer consumidor simultâneo aguarda a mesma RPC.
     if(estadoGlobal.emAndamento.has(chave)){
       const snapshot=await estadoGlobal.emAndamento.get(chave);
       const r=snapshot?.resumo||{};
-      const complemento=snapshot?.complemento||{};
+      const complemento=await complementarTecnicos(snapshot,nte,false);
       window.__SIGEE_DASHBOARD_COMPLEMENTO__=complemento;
       render(r);
       return snapshot;
@@ -169,7 +209,7 @@
     try{
       const snapshot=await requisicao;
       const r=snapshot.resumo||{};
-      const complemento=snapshot.complemento||{};
+      const complemento=await complementarTecnicos(snapshot,nte,manual||forcar);
       window.__SIGEE_DASHBOARD_COMPLEMENTO__=complemento;
       const registro={dados:r,complemento,snapshot,em:Date.now()};
       cache.set(chave,registro);
