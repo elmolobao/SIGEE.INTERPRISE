@@ -4309,7 +4309,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     };
 
     // Salvar usuário: mantém campos locais nte/grupo/senha mesmo quando a tabela usuarios_sigee não possui essas colunas.
-    window.salvarNovoUsuarioFormularioMaster = async function(event){
+    window.__SIGEE_LEGACY_salvarNovoUsuarioFormularioMaster = async function(event){
         event.preventDefault();
         const id = valorV31('user-form-id');
         const nome = semAcentoV31(document.getElementById('user-form-nome')?.value || '').trim();
@@ -4344,7 +4344,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         fecharModalUsuario();
         carregarListaUsuarios();
     };
-    try { salvarNovoUsuarioFormularioMaster = window.salvarNovoUsuarioFormularioMaster; } catch(e){}
+    /* RC8.0: alias legado de salvar usuário desativado */
 
     window.carregarListaUsuarios = function(){
         const corpo = document.getElementById('tabela-usuarios-corpo'); if(!corpo) return; corpo.innerHTML = '';
@@ -4639,7 +4639,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   };
 
   // Salvar usuário localmente com perfil e grupo SEC; tenta Supabase apenas com colunas seguras.
-  window.salvarNovoUsuarioFormularioMaster = async function(event){
+  window.__SIGEE_LEGACY_salvarNovoUsuarioFormularioMaster = async function(event){
     event.preventDefault();
     const id = txt(document.getElementById('user-form-id')?.value);
     const u = {
@@ -6852,7 +6852,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   }
 
   // Substitui salvamento do formulário para não perder perfil/NTE/senha ao sair do sistema.
-  window.salvarNovoUsuarioFormularioMaster = async function(event){
+  window.__SIGEE_LEGACY_salvarNovoUsuarioFormularioMaster = async function(event){
     if(event) event.preventDefault();
     const id = txt(document.getElementById('user-form-id')?.value);
     const novo = normalizarUsuarioV41({
@@ -6876,11 +6876,11 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     try{ if(typeof carregarListaUsuarios==='function') carregarListaUsuarios(); }catch(e){}
     alert('Usuário salvo. As informações complementares de perfil/NTE/senha foram preservadas no SIGEE.');
   };
-  try{ salvarNovoUsuarioFormularioMaster = window.salvarNovoUsuarioFormularioMaster; }catch(e){}
+  /* RC8.0: alias legado de salvar usuário desativado */
 
   // Desativar/ativar também persiste.
   const oldToggle = window.toggleStatusUsuarioMaster || (typeof toggleStatusUsuarioMaster!=='undefined'?toggleStatusUsuarioMaster:null);
-  window.toggleStatusUsuarioMaster = async function(id){
+  window.__SIGEE_LEGACY_toggleStatusUsuarioMaster = async function(id){
     const base = Array.isArray(window.usuariosDB) ? window.usuariosDB : (typeof usuariosDB!=='undefined'?usuariosDB:[]);
     const u = base.find(x => String(x.id)===String(id));
     if(!u){ if(typeof oldToggle==='function') return oldToggle.apply(this, arguments); return; }
@@ -6894,7 +6894,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
 
   // Resetar senha também persiste no cache local.
   const oldReset = window.resetarSenhaUsuarioMaster || (typeof resetarSenhaUsuarioMaster!=='undefined'?resetarSenhaUsuarioMaster:null);
-  window.resetarSenhaUsuarioMaster = async function(id){
+  window.__SIGEE_LEGACY_resetarSenhaUsuarioMaster = async function(id){
     const base = Array.isArray(window.usuariosDB) ? window.usuariosDB : (typeof usuariosDB!=='undefined'?usuariosDB:[]);
     const u = base.find(x => String(x.id)===String(id));
     if(!u){ if(typeof oldReset==='function') return oldReset.apply(this, arguments); return; }
@@ -6907,7 +6907,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     try{ carregarListaUsuarios(); }catch(e){}
     alert('Senha atualizada no SIGEE. Observação: a tabela usuarios_sigee não possui coluna senha; por isso a senha fica preservada na camada complementar local deste navegador.');
   };
-  try{ resetarSenhaUsuarioMaster = window.resetarSenhaUsuarioMaster; }catch(e){}
+  /* RC8.0: alias legado de reset de senha desativado */
 
   // Garante que o login considere os dados complementares salvos.
   const oldLogin = window.handleLogin || (typeof handleLogin!=='undefined'?handleLogin:null);
@@ -7102,7 +7102,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   try{ carregarListaUsuarios = window.carregarListaUsuarios; }catch(e){}
 
   // Cadastro/edição de usuário: Admin edita apenas NTE, mas não muda perfil; SEC/Master mudam tudo.
-  window.salvarNovoUsuarioFormularioMaster = async function(event){
+  window.__SIGEE_LEGACY_salvarNovoUsuarioFormularioMaster = async function(event){
     if(event) event.preventDefault();
     garantirBase();
     const uLog = usuarioAtual();
@@ -7134,7 +7134,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     try{ fecharModalUsuario(); }catch(e){ document.getElementById('modal-cadastro-usuario')?.classList.add('hidden'); }
     window.carregarListaUsuarios(); aplicarPermissoes();
   };
-  try{ salvarNovoUsuarioFormularioMaster = window.salvarNovoUsuarioFormularioMaster; }catch(e){}
+  /* RC8.0: alias legado de salvar usuário desativado */
 
   const oldAbrirEditar = window.abrirModalEditarUsuarioMaster || (typeof abrirModalEditarUsuarioMaster !== 'undefined' ? abrirModalEditarUsuarioMaster : null);
   window.abrirModalEditarUsuarioMaster = function(id){
@@ -7631,7 +7631,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   };
 
   const oldToggle = window.toggleStatusUsuarioMaster || (typeof toggleStatusUsuarioMaster !== 'undefined' ? toggleStatusUsuarioMaster : null);
-  window.toggleStatusUsuarioMaster = async function(id){
+  window.__SIGEE_LEGACY_toggleStatusUsuarioMaster = async function(id){
     if(!podeGerirUsuarios(user())){ alert('Apenas SEC e Master podem ativar/desativar usuários.'); return; }
     const u=listaUsuarios().find(x=>String(x.id)===String(id)); if(!u) return;
     u.ativo = !(u.ativo!==false);
@@ -7642,7 +7642,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   try{ toggleStatusUsuarioMaster=window.toggleStatusUsuarioMaster; }catch(e){}
 
   const oldReset = window.resetarSenhaUsuarioMaster || (typeof resetarSenhaUsuarioMaster !== 'undefined' ? resetarSenhaUsuarioMaster : null);
-  window.resetarSenhaUsuarioMaster = async function(id){
+  window.__SIGEE_LEGACY_resetarSenhaUsuarioMaster = async function(id){
     if(!podeGerirUsuarios(user())){ alert('Apenas SEC e Master podem resetar senha.'); return; }
     const u=listaUsuarios().find(x=>String(x.id)===String(id)); if(!u) return;
     const nova=prompt('Informe a nova senha provisória:', '123'); if(nova===null) return;
@@ -7652,7 +7652,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     alert('Senha atualizada.');
     refresh();
   };
-  try{ resetarSenhaUsuarioMaster=window.resetarSenhaUsuarioMaster; }catch(e){}
+  /* RC8.0: alias legado de reset de senha desativado */
 
   const oldCarregarUsuarios = window.carregarListaUsuarios || (typeof carregarListaUsuarios !== 'undefined' ? carregarListaUsuarios : null);
   window.carregarListaUsuarios = function(){
@@ -8208,7 +8208,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     set('novo-autofill-local-acervo', e.local_acervo);
   }
 
-  window.salvarNovoUsuarioFormularioMaster = async function(event){
+  window.__SIGEE_LEGACY_salvarNovoUsuarioFormularioMaster = async function(event){
     if(event) event.preventDefault();
     const u = usuario(); if(!isGlobal(u)){ alert('Apenas Master/SEC podem gerenciar usuários.'); return; }
     const id = txt(document.getElementById('user-form-id')?.value);
@@ -8234,7 +8234,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
       alert('Usuário salvo no Supabase.');
     }catch(e){ console.error('[SIGEE] salvar usuário', e); alert('Erro ao salvar usuário: ' + (e.message || e)); }
   };
-  try{ salvarNovoUsuarioFormularioMaster = window.salvarNovoUsuarioFormularioMaster; }catch(e){}
+  /* RC8.0: alias legado de salvar usuário desativado */
 
   function aplicarPermissoesCore(){
     const u = usuario(); if(!u) return;
@@ -9562,7 +9562,7 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
   }
 
   // Cadastro/edição consolidado para aceitar Estagiário e atualizar por e-mail.
-  window.salvarNovoUsuarioFormularioMaster = async function (event) {
+  window.__SIGEE_LEGACY_salvarNovoUsuarioFormularioMaster = async function (event) {
     if (event) event.preventDefault();
     if (!podeGerirUsuarios(user())) return alert('Operação permitida apenas para SEC e Master.');
 
@@ -9635,7 +9635,7 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     }, 30);
   };
 
-  window.resetarSenhaUsuarioMaster = async function (id) {
+  window.__SIGEE_LEGACY_resetarSenhaUsuarioMaster = async function (id) {
     if (!podeGerirUsuarios(user())) return alert('Operação permitida apenas para SEC e Master.');
     const base = baseUsuarios();
     const u = base.find(x => String(x.id) === String(id));
