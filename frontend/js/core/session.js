@@ -60,6 +60,12 @@
     const opts={persist:true,emit:true,source:'core',forceProfile:false,...(options||{})};
     let incoming=normalizeUser(user);
     const old=currentUser||read();
+    // RC8.0: somente logout/clear explícito pode destruir uma sessão ativa.
+    // Atribuições legadas nulas durante CRUD, sincronização ou rerenderização são ignoradas.
+    if(!incoming && old && !opts.allowClear && opts.source!=='logout' && !String(opts.source||'').toLowerCase().includes('logout')){
+      console.warn('[SIGEE SESSION] Tentativa não autorizada de limpar sessão ignorada.', opts.source);
+      return old;
+    }
     // Proteção contra módulos legados: o mesmo usuário não pode ser rebaixado/trocado
     // por atribuição indireta. Mudança de perfil só ocorre no login ou com forceProfile.
     if(incoming&&old&&sameIdentity(old,incoming)&&!opts.forceProfile&&opts.source!=='login'){
@@ -72,7 +78,7 @@
     return currentUser;
   }
   function patchUser(changes,options){return setUser({...getUser(),...(changes||{})},options);}
-  function clear(options){return setUser(null,{source:'logout',...(options||{})});}
+  function clear(options){return setUser(null,{source:'logout',allowClear:true,...(options||{})});}
 
   // Compatibilidade controlada com o legado. Atribuições a window.usuarioLogado
   // passam pela sessão e não podem transformar Gestor/SEC/etc. em Técnico.
