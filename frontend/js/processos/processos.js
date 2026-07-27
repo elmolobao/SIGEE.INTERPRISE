@@ -1,3 +1,4 @@
+/* SIGEE RC8.3.0 — Central autoritativa e estado visual estável */
 /* SIGEE RC4.6.6 — normalização territorial da Central de Processos */
 /* SIGEE RC4.5.27 — estabilidade e desempenho da Central de Processos */
 /* SIGEE RC4.5.2 — Edição de processo: NTE herdado do registro e bloqueado */
@@ -1201,6 +1202,7 @@
   let timer = null;
   let paginaAtualRemota = 1;
   const processosPorPagina = 25;
+  let recargaRemotaPendente = false;
   let totalProcessosRemotos = 0;
 
   function tabelaProcessos(){
@@ -1408,10 +1410,25 @@
       created_at: r.created_at
     };
   }
+  function capturarEstadoVisualCentral(){
+    const lista=document.querySelector('#aba-processos .sigee-central-lista');
+    const ativo=document.activeElement;
+    return {scrollTop:lista?.scrollTop||0,scrollLeft:lista?.scrollLeft||0,focoId:ativo?.id||''};
+  }
+  function restaurarEstadoVisualCentral(estado){
+    requestAnimationFrame(()=>{
+      const lista=document.querySelector('#aba-processos .sigee-central-lista');
+      if(lista){lista.scrollTop=estado.scrollTop;lista.scrollLeft=estado.scrollLeft;}
+      if(estado.focoId){const alvo=document.getElementById(estado.focoId);if(alvo&&document.activeElement!==alvo) alvo.focus({preventScroll:true});}
+    });
+  }
   function redesenhar(){
-    try { if(window.SIGEE_Processos && typeof window.SIGEE_Processos.contar==='function') window.SIGEE_Processos.contar();
+    const estado=capturarEstadoVisualCentral();
+    try {
+      if(window.SIGEE_Processos && typeof window.SIGEE_Processos.contar==='function') window.SIGEE_Processos.contar();
       else if(typeof window.carregarEContarProcessosHorizontais==='function') window.carregarEContarProcessosHorizontais();
-    } catch(e){ console.warn('[SIGEE] Falha ao redesenhar Central.',e); }
+    } catch(e){ console.warn('[SIGEE RC8.3.0] Falha ao redesenhar Central.',e); }
+    finally { restaurarEstadoVisualCentral(estado); }
   }
   function nteVariantes(valor){
     const bruto=String(valor||'').trim();
@@ -1477,7 +1494,7 @@
     barra.querySelector('[data-pag-proxima]')?.addEventListener('click',()=>{if(paginaAtualRemota<paginas){paginaAtualRemota++;recarregar(false);}});
   }
   async function recarregar(silencioso=true, resetarPagina=false){
-    if(atualizando) return;
+    if(atualizando){ recargaRemotaPendente = recargaRemotaPendente || !resetarPagina; return; }
     if(resetarPagina) paginaAtualRemota=1;
     const c=cliente();
     if(!c) { status('off','🔴 Cliente indisponível'); return; }
@@ -1515,7 +1532,7 @@
       totalProcessosRemotos=Number(count||0);
       const publicada=window.SIGEE_PROCESSOS_STORE?.publicarAutoritativo?.(lista,'CENTRAL_REMOTA_PAGINADA')||window.SIGEE_PROCESSOS_STORE?.publicar?.(lista,'CENTRAL_REMOTA_PAGINADA')||lista;
       window.__SIGEE_PROCESSOS_ORIGEM__='REMOTA_PAGINADA';
-      try { processosDB=publicada; } catch(e){}
+      // O Store já expõe o proxy em window.processosDB; não execute atribuição global legada.
       redesenhar();
       renderizarPaginacaoRemota();
       status('ok','🟢 Conectado');
@@ -1524,7 +1541,10 @@
       status('off','🔴 Falha na consulta');
       console.error('[SIGEE RC4.6.1] Falha ao reconectar a Central de Processos:',e);
       if(!silencioso && typeof window.mostrarToast==='function') window.mostrarToast('Não foi possível carregar os processos. Verifique o console.');
-    }finally{ atualizando=false; }
+    }finally{
+      atualizando=false;
+      if(recargaRemotaPendente){recargaRemotaPendente=false;setTimeout(()=>recarregar(true,false),80);}
+    }
   }
   function usuarioRealtime(){
     return window.SIGEE_SESSION?.getUser?.()||window.usuarioLogado||{};
@@ -1541,48 +1561,18 @@
     const m=String(registro.nte||registro.nte_nome||registro.nte_id||'').match(/(\d{1,2})/);
     return idUsuario>0 && m && Number(m[1])===idUsuario;
   }
+  let timerRealtimeCentral=0;
   function aplicarEventoRealtime(payload){
-    const evento=payload?.eventType||payload?.type||'';
-    const novo=payload?.new && Object.keys(payload.new).length ? payload.new : null;
-    const antigo=payload?.old && Object.keys(payload.old).length ? payload.old : null;
-    const registro=novo||antigo;
+    const registro=(payload?.new&&Object.keys(payload.new).length?payload.new:null)||(payload?.old&&Object.keys(payload.old).length?payload.old:null);
     if(!registro || registro.id==null) return;
-    const lista=Array.isArray(window.processosDB)?window.processosDB.slice():[];
-    const idx=lista.findIndex(x=>String(x.id)===String(registro.id));
-
-    // DELETE ou atualização que retirou o processo do NTE atual: remove da memória.
-    if(evento==='DELETE' || (novo && !registroPermitidoRealtime(novo))){
-      if(idx>=0){
-        lista.splice(idx,1);
-        const store=window.SIGEE_PROCESSOS_STORE;
-        if(store?.remover) store.remover(registro.id,'REALTIME_REMOCAO');
-        const publicada=store?.obter?.()||lista;
-        try{ processosDB=publicada; }catch(e){}
-        redesenhar();
-      }
-      return;
-    }
-
-    // INSERT/UPDATE de outro NTE nunca entra na Central territorial.
-    if(!registroPermitidoRealtime(registro)) return;
-
-    const convertido=mapear(registro);
-    if(idx>=0) lista[idx]={...lista[idx],...convertido};
-    else lista.unshift(convertido);
-    if(lista.length>processosPorPagina) lista.length=processosPorPagina;
-    const store=window.SIGEE_PROCESSOS_STORE;
-    if(store?.upsert){
-      store.upsert(convertido,'REALTIME_UPSERT');
-      const atual=store.snapshot();
-      if(atual.length>processosPorPagina) store.publicarAutoritativo(atual.slice(0,processosPorPagina),'REALTIME_LIMITE_PAGINA');
-    }
-    const publicada=store?.obter?.()||lista;
-    try{ processosDB=publicada; }catch(e){}
-    redesenhar();
+    // RC8.3.0: não altera manualmente a página em memória. A consulta remota
+    // reaplica o escopo, a etapa, a pesquisa e a página atuais em uma única operação.
+    clearTimeout(timerRealtimeCentral);
+    timerRealtimeCentral=setTimeout(()=>recarregar(true,false),220);
   }
   function agendar(payload){
     clearTimeout(timer);
-    timer=setTimeout(()=>payload?.eventType?aplicarEventoRealtime(payload):recarregar(true),180);
+    timer=setTimeout(()=>payload?.eventType?aplicarEventoRealtime(payload):recarregar(true,false),180);
   }
   function iniciarRealtime(){
     const c=cliente(); if(!c || typeof c.channel!=='function') return;
@@ -1622,18 +1612,14 @@
   window.recarregarCentralProcessosSIGEE=(silencioso=true,resetarPagina=false)=>recarregar(silencioso,resetarPagina);
   window.irParaPaginaCentralProcessosSIGEE=(pagina)=>{paginaAtualRemota=Math.max(1,Number(pagina)||1);return recarregar(false);};
   window.iniciarRealtimeProcessosSIGEE=iniciarRealtime;
-  let __timerStoreCentral=null;
-  window.addEventListener('sigee:processos-store',()=>{
-    clearTimeout(__timerStoreCentral);
-    __timerStoreCentral=setTimeout(()=>{try{redesenhar();}catch(_){ }},40);
-  });
+  // RC8.3.0: eventos do Store não redesenham a Central. A publicação remota e o Realtime já acionam uma única atualização.
 
   window.addEventListener('online',()=>{ iniciarRealtime(); recarregar(true); });
   window.addEventListener('offline',()=>status('off','🔴 Offline'));
   window.addEventListener('load',()=>{ indicador(); iniciarRealtime(); setTimeout(()=>recarregar(true,true),400); });
   document.addEventListener('sigee:navegacao-concluida',ev=>{
     const rota=ev?.detail?.rota||ev?.detail?.aba||'';
-    if(rota==='processos') recarregar(true,true);
+    if(rota==='processos') recarregar(true,false);
   });
 })();
 
