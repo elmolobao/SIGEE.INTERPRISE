@@ -1526,18 +1526,48 @@
       if(!silencioso && typeof window.mostrarToast==='function') window.mostrarToast('Não foi possível carregar os processos. Verifique o console.');
     }finally{ atualizando=false; }
   }
+  function usuarioRealtime(){
+    return window.SIGEE_SESSION?.getUser?.()||window.usuarioLogado||{};
+  }
+  function registroPermitidoRealtime(registro){
+    if(!registro) return false;
+    const u=usuarioRealtime();
+    if(window.SIGEE_ESCOPO?.validarRegistro){
+      return window.SIGEE_ESCOPO.validarRegistro(registro,u)===true;
+    }
+    const perfil=String(u.perfil||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
+    if(['MASTER','SEC'].includes(perfil)) return true;
+    const idUsuario=Number(u.nte_id||u.nteId||u.id_nte||0);
+    const m=String(registro.nte||registro.nte_nome||registro.nte_id||'').match(/(\d{1,2})/);
+    return idUsuario>0 && m && Number(m[1])===idUsuario;
+  }
   function aplicarEventoRealtime(payload){
     const evento=payload?.eventType||payload?.type||'';
-    const registro=payload?.new && Object.keys(payload.new).length ? payload.new : payload?.old;
+    const novo=payload?.new && Object.keys(payload.new).length ? payload.new : null;
+    const antigo=payload?.old && Object.keys(payload.old).length ? payload.old : null;
+    const registro=novo||antigo;
     if(!registro || registro.id==null) return;
     const lista=Array.isArray(window.processosDB)?window.processosDB.slice():[];
     const idx=lista.findIndex(x=>String(x.id)===String(registro.id));
-    if(evento==='DELETE') { if(idx>=0) lista.splice(idx,1); }
-    else {
-      const convertido=mapear(registro);
-      if(idx>=0) lista[idx]={...lista[idx],...convertido}; else lista.unshift(convertido);
-      if(lista.length>processosPorPagina) lista.length=processosPorPagina;
+
+    // DELETE ou atualização que retirou o processo do NTE atual: remove da memória.
+    if(evento==='DELETE' || (novo && !registroPermitidoRealtime(novo))){
+      if(idx>=0){
+        lista.splice(idx,1);
+        window.processosDB=lista;
+        try{ processosDB=lista; }catch(e){}
+        redesenhar();
+      }
+      return;
     }
+
+    // INSERT/UPDATE de outro NTE nunca entra na Central territorial.
+    if(!registroPermitidoRealtime(registro)) return;
+
+    const convertido=mapear(registro);
+    if(idx>=0) lista[idx]={...lista[idx],...convertido};
+    else lista.unshift(convertido);
+    if(lista.length>processosPorPagina) lista.length=processosPorPagina;
     window.processosDB=lista;
     try{ processosDB=lista; }catch(e){}
     redesenhar();
@@ -1549,8 +1579,13 @@
   function iniciarRealtime(){
     const c=cliente(); if(!c || typeof c.channel!=='function') return;
     try { if(canal) c.removeChannel(canal); } catch(e){}
-    canal=c.channel('sigee-processos-central-v321')
-      .on('postgres_changes',{event:'*',schema:'public',table:tabelaProcessos()},aplicarEventoRealtime)
+    const u=usuarioRealtime();
+    const contexto=window.SIGEE_ESCOPO?.contexto?.(u);
+    const config={event:'*',schema:'public',table:tabelaProcessos()};
+    // O filtro no canal reduz tráfego; a validação em aplicarEventoRealtime permanece como defesa obrigatória.
+    if(contexto && !contexto.global && contexto.nte) config.filter=`nte=eq.${contexto.nte}`;
+    canal=c.channel('sigee-processos-central-v322')
+      .on('postgres_changes',config,aplicarEventoRealtime)
       .subscribe((estado)=>{
         if(estado==='SUBSCRIBED') status('ok','🟢 Sincronizado');
         else if(estado==='CHANNEL_ERROR' || estado==='TIMED_OUT' || estado==='CLOSED') status('off','🔴 Sem conexão');
