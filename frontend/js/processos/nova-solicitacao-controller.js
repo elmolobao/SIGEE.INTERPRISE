@@ -1,4 +1,4 @@
-/* SIGEE RC4.5.29 — Controlador único da Nova Solicitação: escola, acervo, duplicidade e gravação */
+/* SIGEE RC4.5.31 — Controlador único da Nova Solicitação: escola, acervo, duplicidade e gravação */
 (function () {
   'use strict';
 
@@ -432,17 +432,84 @@
     resetarFormulario();
   }
 
+  async function recuperarEscolaSelecionadaOficial() {
+    const hidden = campo('novo-proc-escola-id');
+    const input = campo('novo-proc-escola-busca-v23');
+    const select = campo('novo-proc-escola');
+    const global = window.SIGEE_ESCOLA_NOVA_SOLICITACAO || {};
+
+    const id = texto(
+      hidden?.value ||
+      escolaSelecionada?.id ||
+      global.id ||
+      global.escola_id ||
+      input?.dataset?.escolaId ||
+      select?.dataset?.escolaId ||
+      window.SIGEE_NOVA_SOLICITACAO_ESCOLA_ID
+    );
+
+    if (!id) return null;
+
+    // Quando outro módulo homologado concluiu a seleção, reconstrói o estado
+    // interno usando o mesmo ID oficial, sem depender apenas do texto exibido.
+    const candidata = formatarEscola({
+      ...global,
+      id,
+      escola_id: id,
+      nome_escola: global.nome_escola || global.nome || input?.value || select?.value,
+      nome: global.nome || global.nome_escola || input?.value || select?.value,
+      cod_mec: global.cod_mec || input?.dataset?.codMec || select?.dataset?.codMec || campo(IDS_AUTOFILL.mec)?.value,
+      nte: global.nte || campo(IDS_AUTOFILL.nte)?.value,
+      municipio: global.municipio || campo(IDS_AUTOFILL.municipio)?.value,
+      dependencia_adm: global.dependencia_adm || global.dependencia || campo(IDS_AUTOFILL.dependencia)?.value,
+      situacao_funcional: global.situacao_funcional || global.situacao || campo(IDS_AUTOFILL.situacao)?.value,
+      status_acervo: global.status_acervo || global.acervo || campo(IDS_AUTOFILL.acervo)?.value,
+      local_acervo: global.local_acervo || campo(IDS_AUTOFILL.local)?.value
+    });
+
+    // A autoridade final é o catálogo: consulta pelo ID para impedir que uma
+    // escola digitada ou um estado antigo seja gravado no processo.
+    try {
+      const client = clienteSupabase();
+      if (client && typeof client.from === 'function') {
+        const { data, error } = await client
+          .from('escolas_sigee')
+          .select('id,cod_mec,nome_escola,nome,municipio,nte_id,nte,dependencia_adm,dependencia,situacao_funcional,situacao,status_acervo,acervo,local_acervo,ativo')
+          .eq('id', Number(id) || id)
+          .maybeSingle();
+        if (error) throw error;
+        if (!data) return null;
+        const oficial = formatarEscola(data);
+        if (texto(oficial.id) !== id) return null;
+        selecionarEscola(oficial);
+        return oficial;
+      }
+    } catch (erro) {
+      console.warn('[SIGEE RC4.5.31] Não foi possível reconfirmar a escola no catálogo:', erro);
+    }
+
+    // Em indisponibilidade transitória, só aceita o estado já homologado se
+    // houver ID, nome e código MEC coerentes. Nunca resolve escola apenas por nome.
+    if (candidata.id && candidata.nome && candidata.cod_mec && texto(candidata.id) === id) {
+      selecionarEscola(candidata);
+      return candidata;
+    }
+    return null;
+  }
+
   async function enviar(event) {
     event.preventDefault();
     event.stopPropagation();
     event.stopImmediatePropagation();
     if (!form || form.dataset.sigeeEnviando === '1') return false;
 
-    const id = texto(campo('novo-proc-escola-id')?.value || escolaSelecionada?.id);
-    if (!id || !escolaSelecionada || texto(escolaSelecionada.id) !== id) {
+    const escolaOficial = await recuperarEscolaSelecionadaOficial();
+    const id = texto(campo('novo-proc-escola-id')?.value || escolaOficial?.id);
+    if (!id || !escolaOficial || texto(escolaOficial.id) !== id) {
       alert('Selecione a instituição de ensino na lista antes de cadastrar.');
       return false;
     }
+    escolaSelecionada = escolaOficial;
 
     const duplicidade = window.SIGEE_DUPLICIDADE_NOVA_SOLICITACAO;
     if (!duplicidade || typeof duplicidade.validar !== 'function') {
