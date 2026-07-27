@@ -33,8 +33,7 @@
           if(consulta?.data)completo={...origem,...consulta.data};
         }
         global.SIGEE_ESCOPO?.exigirRegistro?.(completo,usuario());
-        if(!Array.isArray(global.processosDB))global.processosDB=[];
-        global.processosDB.push(completo);
+        global.SIGEE_PROCESSOS_STORE?.upsert?.(completo,'CIO_PRONTUARIO');
       }
       await Promise.resolve(fn(id));
       return true;
