@@ -1,9 +1,9 @@
-/* SIGEE RC5.7.3 — Dashboard Operacional com autoridade única de navegação */
+/* SIGEE RC7.4.0 — Dashboard Operacional com autoridade única de navegação */
 (function(){
   'use strict';
   if(window.__SIGEE_DASHBOARD_RPC_510__) return;
   window.__SIGEE_DASHBOARD_RPC_510__=true;
-  window.SIGEE_DASHBOARD_AUTORIDADE='SNAPSHOT_RC5.6.0';
+  window.SIGEE_DASHBOARD_AUTORIDADE='SNAPSHOT_TERRITORIAL_RC7.4.0';
 
   const CACHE_MS=180000;
   const BOOT_GUARD_MS=15000;
@@ -20,7 +20,10 @@
   const global=()=>window.SIGEE_ESCOPO?.ehGlobal?.(usuario())===true;
   const nteNumero=v=>txt(v).match(/\d{1,2}/)?.[0]||'';
   function alvoNte(){
-    if(!global()) return nteNumero(usuario()?.nte||usuario()?.nte_nome||usuario()?.grupo);
+    if(!global()) {
+      const id=window.SIGEE_ESCOPO?.nteIdUsuario?.(usuario());
+      return id==null ? nteNumero(window.SIGEE_ESCOPO?.nteUsuario?.(usuario())||usuario()?.nte||usuario()?.nte_nome||usuario()?.grupo) : String(id);
+    }
     const v=txt(document.getElementById('filtro-dashboard-nte')?.value||'TODOS');
     return (!norm(v) || norm(v)==='TODOS' || norm(v)==='GLOBAL' || norm(v).includes('TODOS OS NTES')) ? '' : nteNumero(v);
   }
@@ -105,7 +108,7 @@
     set('dash-tec-media-entrega',`${Number(r.media_atendimento||0).toLocaleString('pt-BR',{maximumFractionDigits:1})} dias`);set('dash-ger-media-atendimento',`${Number(r.media_atendimento||0).toLocaleString('pt-BR',{maximumFractionDigits:1})} dias`);set('dash-ger-processos-concluidos',r.concluidos||0);
     const comp=window.__SIGEE_DASHBOARD_COMPLEMENTO__||{};
     renderizarAtrasosPorEtapa(comp);
-    set('dash-municipios',Number(comp.municipios_total??417).toLocaleString('pt-BR'));
+    set('dash-municipios',Number(comp.municipios_total??0).toLocaleString('pt-BR'));
     set('dash-usuarios',Number(comp.tecnicos_total||0).toLocaleString('pt-BR'));
     set('dash-tec-media-pedidos-dia',Number(comp.pedidos_abertos_periodo||0).toLocaleString('pt-BR'));
     set('dash-tec-media-pasta-dia',Number(comp.arquivos_recebidos_periodo||0).toLocaleString('pt-BR'));
@@ -191,6 +194,6 @@
   document.addEventListener('sigee:usuario-logado',()=>agendar(false,'login'));
   window.carregarDadosDashboardReal=()=>agendar(true,'manual');
   window.carregarDadosDashboardRealImediato=()=>carregar(true,'manual');
-  window.SIGEE_DASHBOARD_RPC={carregar:(forcar=false)=>carregar(forcar,forcar?'manual':'api'),limparCache:()=>{cache.clear();estadoGlobal.ultimo.clear();},versao:'RC5.7.3'};
+  window.SIGEE_DASHBOARD_RPC={carregar:(forcar=false)=>carregar(forcar,forcar?'manual':'api'),limparCache:()=>{cache.clear();estadoGlobal.ultimo.clear();},versao:'RC7.4.0'};
   // Sem carga no DOMContentLoaded: o primeiro snapshot nasce somente após login ou navegação real ao painel.
 })();
