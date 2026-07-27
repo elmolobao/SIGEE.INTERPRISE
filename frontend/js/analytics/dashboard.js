@@ -3,10 +3,29 @@
   'use strict';
   if(window.__SIGEE_DASHBOARD_RPC_510__) return;
   window.__SIGEE_DASHBOARD_RPC_510__=true;
-  window.SIGEE_DASHBOARD_AUTORIDADE='SNAPSHOT_TERRITORIAL_RC7.4.1';
+  window.SIGEE_DASHBOARD_AUTORIDADE='SNAPSHOT_TERRITORIAL_RC7.4.2';
 
   const CACHE_MS=180000;
   const BOOT_GUARD_MS=15000;
+
+  function perfilAtual(){
+    const u=window.SIGEE_AUTORIZACAO?.usuario?.()||window.SIGEE_SESSION?.getUser?.()||window.usuarioLogado||window.usuarioAtual||null;
+    return window.SIGEE_PERFIS?.normalizar?.(u?.perfil)||window.SIGEE_SESSION?.normalizarPerfil?.(u?.perfil)||String(u?.perfil||'');
+  }
+  function dashboardAutorizado(){
+    const u=window.SIGEE_AUTORIZACAO?.usuario?.()||window.SIGEE_SESSION?.getUser?.()||window.usuarioLogado||window.usuarioAtual||null;
+    return ['Master','Gestor','Administrador','SEC'].includes(perfilAtual()) &&
+      window.SIGEE_PERMISSOES?.pode?.('relatorios.visualizar',u)===true;
+  }
+  function protegerTelaDashboard(){
+    if(dashboardAutorizado()) return true;
+    const painel=document.getElementById('aba-painel');
+    if(painel){painel.classList.add('hidden');painel.hidden=true;}
+    const processos=document.getElementById('aba-processos');
+    if(processos){processos.classList.remove('hidden');processos.hidden=false;processos.style.removeProperty('display');}
+    return false;
+  }
+
   const estadoGlobal=window.__SIGEE_DASHBOARD_SNAPSHOT_STATE__||(window.__SIGEE_DASHBOARD_SNAPSHOT_STATE__={cache:new Map(),emAndamento:new Map(),ultimo:new Map()});
   const cache=estadoGlobal.cache;
   let timer=0, carregando=false;
@@ -234,6 +253,6 @@
   document.addEventListener('sigee:usuario-logado',()=>agendar(false,'login'));
   window.carregarDadosDashboardReal=()=>agendar(true,'manual');
   window.carregarDadosDashboardRealImediato=()=>carregar(true,'manual');
-  window.SIGEE_DASHBOARD_RPC={carregar:(forcar=false)=>carregar(forcar,forcar?'manual':'api'),limparCache:()=>{cache.clear();estadoGlobal.ultimo.clear();},versao:'RC7.4.0'};
+  window.SIGEE_DASHBOARD_RPC={carregar:(forcar=false)=>carregar(forcar,forcar?'manual':'api'),limparCache:()=>{cache.clear();estadoGlobal.ultimo.clear();},versao:'RC7.4.2'};
   // Sem carga no DOMContentLoaded: o primeiro snapshot nasce somente após login ou navegação real ao painel.
 })();
