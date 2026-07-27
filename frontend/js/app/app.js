@@ -799,7 +799,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 carregarSeguro('usuarios', SIGEE_SUPABASE_TABELAS.usuarios, null, usuarioDoSupabaseParaLocalSIGEE, u => u.email && u.nome, dados => { usuariosDB = dados; }),
                 carregarSeguro('escolas', SIGEE_SUPABASE_TABELAS.escolas, null, escolaDoSupabaseParaLocalSIGEE, e => e.cod_mec && e.nome, dados => { escolasDB = dados; }),
                 carregarSeguro('processos', SIGEE_SUPABASE_TABELAS.processos, null, processoDoSupabaseParaLocalSIGEE, p => p.aluno || p.escola, dados => {
-                    processosDB = window.SIGEE_ESCOPO?.filtrar ? window.SIGEE_ESCOPO.filtrar(dados, window.usuarioLogado || usuarioLogado) : dados;
+                    processosDB = window.SIGEE_PROCESSOS_STORE?.publicar?.(dados,'APP_CARGA_INICIAL') || (window.SIGEE_ESCOPO?.filtrar ? window.SIGEE_ESCOPO.filtrar(dados, window.usuarioLogado || usuarioLogado) : dados);
                     window.processosDB = processosDB;
                 }),
                 // RC5.6.1: não carregar o histórico integral de solicitacoes_sigee no login.
@@ -1880,7 +1880,8 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                     id: novoId, aluno: nomeAluno, escola: escolaNome, documento: docTipo,
                     etapa: "Desarquivamento", data_etapa_atual: dataHoje, nte: nteVinculo, municipio: mun
                 };
-                processosDB.push(novaSolicitacaoSIGEE);
+                window.SIGEE_PROCESSOS_STORE?.upsert?.(novaSolicitacaoSIGEE,'NOVA_SOLICITACAO_LEGADA');
+                processosDB = window.SIGEE_PROCESSOS_STORE?.obter?.() || processosDB;
                 solicitacoesDB.push({...novaSolicitacaoSIGEE});
 
                 registrarLog(`Nova solicitação cadastrada para ${nomeAluno}. Data de Início: ${dataHoje}`);
@@ -3368,7 +3369,8 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                      * Somente agora o registro entra na memória local.
                      * Isso impede sincronização geral de enviar IDs provisórios.
                      */
-                    processosDB.unshift(processoSalvo);
+                    window.SIGEE_PROCESSOS_STORE?.upsert?.(processoSalvo,'NOVA_SOLICITACAO_CONFIRMADA');
+                    processosDB = window.SIGEE_PROCESSOS_STORE?.obter?.() || processosDB;
 
                     novaSol.id = processoSalvo.id;
                     novaSol.codigo_sigee = processoSalvo.codigo_sigee;
