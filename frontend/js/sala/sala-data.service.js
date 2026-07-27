@@ -7,14 +7,14 @@
  function usuario(){return window.SIGEE_AUTORIZACAO?.usuario?.()||window.usuarioLogado||window.usuarioAtual||{};}
  function perfil(){return norm(usuario().perfil||usuario().role||usuario().tipo);}
  function nteUsuario(){const u=usuario();return nte(window.SIGEE_ESCOPO?.nteUsuario?.(u)||window.SIGEE_ESCOPO?.nteIdUsuario?.(u)||u.nte||u.nte_nome||u.nte_id);}
- function contexto(){const p=perfil();const global=p==='MASTER';return {permitido:['MASTER','GESTOR','ADMINISTRADOR'].includes(p),perfil:p,global,nte:global?null:nteUsuario(),escopo:global?'ESTADUAL':'NTE'};}
+ function contexto(){const p=perfil();const oficial=window.SIGEE_ESCOPO?.contexto?.(usuario());const global=oficial?oficial.global:['MASTER','SEC'].includes(p);return {permitido:['MASTER','SEC','GESTOR','ADMINISTRADOR'].includes(p),perfil:p,global,nte:global?null:nteUsuario(),escopo:global?'ESTADUAL':'NTE'};}
  function supabase(){try{return window.obterSupabaseSIGEE?.()||window.criarClienteSupabaseSIGEE?.()||window.SIGEE_SUPABASE?.criarCliente?.()||window.supabaseClient||null;}catch(_){return null;}}
  async function buscarTodos(){
    const cli=supabase();
    if(!cli){const local=Array.isArray(window.processosDB)?window.processosDB:[];return {dados:local.slice(),fonte:'MEMORIA_LOCAL'};}
    const lote=1000;let de=0;let todos=[];
    while(true){
-     const {data,error}=await cli.from('processos').select('*').range(de,de+lote-1);
+     let q=cli.from('processos').select('*');q=window.SIGEE_ESCOPO?.aplicarQueryProcessos?window.SIGEE_ESCOPO.aplicarQueryProcessos(q,usuario()):q;const {data,error}=await q.range(de,de+lote-1);
      if(error)throw error;
      const arr=Array.isArray(data)?data:[];todos=todos.concat(arr);
      if(arr.length<lote)break;de+=lote;
