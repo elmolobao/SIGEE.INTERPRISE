@@ -8,7 +8,7 @@ function user(t){return t||window.SIGEE_SESSION?.getUser?.()||{};}
 function norm(v){return String(v??'').trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();}
 function number(v){if(v===0||v==='0')return 0;if(typeof v==='number'&&Number.isFinite(v))return v;const m=String(v??'').match(/(?:NTE\s*[-–— ]?)?(\d{1,2})/i);return m?Number(m[1]):null;}
 function profile(t){return window.SIGEE_PERFIS?.normalizar?.(user(t)?.perfil)||'';}
-function isGlobal(t){return window.SIGEE_PERFIS?.ehGlobal?.(profile(t))===true;}
+function isGlobal(t){const p=norm(profile(t)||user(t)?.perfil);return p==='MASTER'||p==='SEC';}
 function userNteId(t){const u=user(t);const direct=u.nte_id??u.id_nte??u.territorio_id;const n=number(direct);if(n!==null)return n;return number(u.nte??u.nte_nome??u.nte_vinculado??u.grupo??u.territorio);}
 function userNte(t){const u=user(t);return u.nte||u.nte_nome||u.nte_vinculado||u.grupo||u.territorio||u.nte_id||u.id_nte||u.territorio_id||'';}
 function recordNteId(r){const direct=r?.nte_id??r?.id_nte??r?.territorio_id;const n=number(direct);if(n!==null)return n;return number(r?.nte??r?.nte_nome??r?.nte_vinculado??r?.grupo??r?.territorio??r?.NTE);}
@@ -19,6 +19,6 @@ function filter(list,t){const arr=Array.isArray(list)?list:[];return isGlobal(t)
 function assertRecord(r,t,message){if(validateRecord(r,t))return true;throw new Error(message||'Acesso negado: o registro não pertence ao NTE vinculado ao usuário.');}
 function scopeType(t){return isGlobal(t)?'GLOBAL':'NTE';}
 function context(t){const u=user(t),global=isGlobal(u),id=userNteId(u);return Object.freeze({usuario:u,global,territorial:!global,tipo:global?'GLOBAL':'NTE',nte:global?null:(id===null?userNte(u):`NTE-${String(id).padStart(2,'0')}`),nteId:global?null:id});}
-function queryFilter(query,t,field){if(isGlobal(t))return query;const id=userNteId(t);if(id===null)throw new Error('Usuário territorial sem NTE válido.');return query.eq(field||'nte_id',id);}
-window.SIGEE_ESCOPO=Object.freeze({usuario:user,contexto:context,tipo:scopeType,ehGlobal:isGlobal,ehTerritorial:t=>!isGlobal(t),nteUsuario:userNte,nteIdUsuario:userNteId,numeroNte:number,mesmoNte:same,nteRegistro:recordNte,nteIdRegistro:recordNteId,validarRegistro:validateRecord,exigirRegistro:assertRecord,filtrar:filter,aplicarQuery:queryFilter,versao:'RC7.4.0'});
+function queryFilter(query,t,field){if(isGlobal(t))return query;const id=userNteId(t);if(id===null)throw new Error('Usuário territorial sem NTE válido.');const campo=field||'nte_id';return query.eq(campo,campo==='nte'?`NTE-${String(id).padStart(2,'0')}`:id);}
+window.SIGEE_ESCOPO=Object.freeze({usuario:user,contexto:context,tipo:scopeType,ehGlobal:isGlobal,ehTerritorial:t=>!isGlobal(t),nteUsuario:userNte,nteIdUsuario:userNteId,numeroNte:number,mesmoNte:same,nteRegistro:recordNte,nteIdRegistro:recordNteId,validarRegistro:validateRecord,exigirRegistro:assertRecord,filtrar:filter,aplicarQuery:queryFilter,versao:'RC7.4.1-SEGURANCA-TERRITORIAL'});
 })(window);
