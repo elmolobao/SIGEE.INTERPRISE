@@ -1,14 +1,14 @@
 /**
- * SIGEE Enterprise RC7.3.1 — Menu nativo único por perfil.
+ * SIGEE Enterprise RC7.4.2 — Menu nativo único por perfil.
  * Autoridade exclusiva para menus, rotas e destino pós-login.
  */
 (function(window, document){
 'use strict';
-if (window.__SIGEE_AUTORIZACAO_RC730__) return;
-window.__SIGEE_AUTORIZACAO_RC730__ = true;
+if (window.__SIGEE_AUTORIZACAO_RC742__) return;
+window.__SIGEE_AUTORIZACAO_RC742__ = true;
 
 const ROTAS = Object.freeze({
-  painel: 'indicadores.visualizar',
+  painel: 'relatorios.visualizar',
   processos: 'processos.visualizar',
   escolas: 'escolas.visualizar',
   usuarios: ['usuarios.gerenciar_global', 'usuarios.gerenciar_nte'],
@@ -72,8 +72,8 @@ function capacidadeRota(rota){ return ROTAS[String(rota || '').trim()] || null; 
 function autorizarRota(rota, silencioso=false){
   const chave = String(rota || '').trim();
   const u = usuario();
-  if (chave === 'painel' && perfil(u) !== 'Gestor') {
-    if (!silencioso) alert('O Painel Gerencial é exclusivo do perfil Gestor.');
+  if (chave === 'painel' && !['Master','Gestor','Administrador','SEC'].includes(perfil(u))) {
+    if (!silencioso) alert('Seu perfil não possui permissão para acessar painéis e relatórios.');
     return false;
   }
   const cap = capacidadeRota(chave);
@@ -441,6 +441,8 @@ function instalarLogin(){
         aplicarRotaInicialForcada();
         setTimeout(aplicarRotaInicialForcada,120);
         setTimeout(aplicarRotaInicialForcada,320);
+        setTimeout(aplicarRotaInicialForcada,900);
+        setTimeout(aplicarRotaInicialForcada,1800);
       }
       return resultado;
     } finally {
@@ -465,6 +467,8 @@ document.addEventListener('sigee:usuario-logado', () => setTimeout(() => {
   renderizarMenu();
   aplicarRotaInicialForcada();
   setTimeout(aplicarRotaInicialForcada,120);
+  setTimeout(aplicarRotaInicialForcada,900);
+  setTimeout(aplicarRotaInicialForcada,1800);
   // Passagens curtas e finitas para cobrir a finalização assíncrona da sessão.
   setTimeout(aplicarControlesDaInterface,180);
   setTimeout(aplicarControlesDaInterface,650);
