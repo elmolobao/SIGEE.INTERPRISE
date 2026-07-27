@@ -19,6 +19,7 @@
 
   function aplicarEscopo(lista,ctx){
     const dados=Array.isArray(lista)?lista:[];
+    if(global.SIGEE_ESCOPO?.filtrar) return global.SIGEE_ESCOPO.filtrar(dados,ctx?.usuario);
     if(ctx.escopo==='ESTADUAL') return dados.slice();
     return dados.filter(item=>nteProc(item)===ctx.nte);
   }
@@ -58,7 +59,7 @@
   async function carregar(ctx,{force=false}={}){
     if(!ctx?.permitido) throw new Error('Acesso ao CIO não autorizado.');
 
-    const key=`dados:v6202:${ctx.escopo}:${ctx.nte||'TODOS'}`;
+    const key=`dados:v740:${ctx.escopo}:${ctx.nte||'TODOS'}`;
     if(!force){
       const cached=NS.cache?.get(key);
       if(cached) return cached;
@@ -70,11 +71,9 @@
     ]);
 
     const processosEscopo=aplicarEscopo(processos,ctx);
-    const usuariosEscopo=ctx.escopo==='ESTADUAL'
-      ? usuarios
-      : usuarios.filter(u=>NS.context.nteCanonico(
-          u?.nte || u?.grupo || (u?.nte_id ? `NTE-${u.nte_id}` : '')
-        )===ctx.nte);
+    const usuariosEscopo=global.SIGEE_ESCOPO?.filtrar
+      ? global.SIGEE_ESCOPO.filtrar(usuarios,ctx.usuario)
+      : (ctx.escopo==='ESTADUAL' ? usuarios : usuarios.filter(u=>NS.context.nteCanonico(u?.nte || u?.grupo || (u?.nte_id ? `NTE-${u.nte_id}` : ''))===ctx.nte));
 
     const dados={
       contexto:ctx,
