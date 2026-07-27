@@ -1513,7 +1513,7 @@
       if(error) throw error;
       const lista=(data||[]).map(mapear).filter(Boolean);
       totalProcessosRemotos=Number(count||0);
-      const publicada=window.SIGEE_PROCESSOS_STORE?.publicar?.(lista,'CENTRAL_REMOTA')||lista;
+      const publicada=window.SIGEE_PROCESSOS_STORE?.publicarAutoritativo?.(lista,'CENTRAL_REMOTA_PAGINADA')||window.SIGEE_PROCESSOS_STORE?.publicar?.(lista,'CENTRAL_REMOTA_PAGINADA')||lista;
       window.__SIGEE_PROCESSOS_ORIGEM__='REMOTA_PAGINADA';
       try { processosDB=publicada; } catch(e){}
       redesenhar();
@@ -1554,7 +1554,9 @@
     if(evento==='DELETE' || (novo && !registroPermitidoRealtime(novo))){
       if(idx>=0){
         lista.splice(idx,1);
-        const publicada=window.SIGEE_PROCESSOS_STORE?.publicar?.(lista,'REALTIME_REMOCAO')||lista;
+        const store=window.SIGEE_PROCESSOS_STORE;
+        if(store?.remover) store.remover(registro.id,'REALTIME_REMOCAO');
+        const publicada=store?.obter?.()||lista;
         try{ processosDB=publicada; }catch(e){}
         redesenhar();
       }
@@ -1568,7 +1570,13 @@
     if(idx>=0) lista[idx]={...lista[idx],...convertido};
     else lista.unshift(convertido);
     if(lista.length>processosPorPagina) lista.length=processosPorPagina;
-    const publicada=window.SIGEE_PROCESSOS_STORE?.publicar?.(lista,'REALTIME_UPSERT')||lista;
+    const store=window.SIGEE_PROCESSOS_STORE;
+    if(store?.upsert){
+      store.upsert(convertido,'REALTIME_UPSERT');
+      const atual=store.snapshot();
+      if(atual.length>processosPorPagina) store.publicarAutoritativo(atual.slice(0,processosPorPagina),'REALTIME_LIMITE_PAGINA');
+    }
+    const publicada=store?.obter?.()||lista;
     try{ processosDB=publicada; }catch(e){}
     redesenhar();
   }
