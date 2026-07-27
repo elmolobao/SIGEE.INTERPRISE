@@ -1,9 +1,9 @@
 /**
- * SIGEE Enterprise RC4.7.0 — Autoridade territorial única.
+ * SIGEE Enterprise RC7.4.0 — Autoridade territorial única.
  * Master e SEC: GLOBAL. Todos os demais perfis: NTE vinculado.
  */
 (function(window){'use strict';
-if(window.__SIGEE_ESCOPO_RC470__)return;window.__SIGEE_ESCOPO_RC470__=true;
+if(window.__SIGEE_ESCOPO_RC740__)return;window.__SIGEE_ESCOPO_RC740__=true;
 function user(t){return t||window.SIGEE_SESSION?.getUser?.()||{};}
 function norm(v){return String(v??'').trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();}
 function number(v){if(v===0||v==='0')return 0;if(typeof v==='number'&&Number.isFinite(v))return v;const m=String(v??'').match(/(?:NTE\s*[-–— ]?)?(\d{1,2})/i);return m?Number(m[1]):null;}
@@ -18,6 +18,7 @@ function validateRecord(r,t){if(isGlobal(t))return true;const own=userNteId(t),r
 function filter(list,t){const arr=Array.isArray(list)?list:[];return isGlobal(t)?arr.slice():arr.filter(r=>validateRecord(r,t));}
 function assertRecord(r,t,message){if(validateRecord(r,t))return true;throw new Error(message||'Acesso negado: o registro não pertence ao NTE vinculado ao usuário.');}
 function scopeType(t){return isGlobal(t)?'GLOBAL':'NTE';}
+function context(t){const u=user(t),global=isGlobal(u),id=userNteId(u);return Object.freeze({usuario:u,global,territorial:!global,tipo:global?'GLOBAL':'NTE',nte:global?null:(id===null?userNte(u):`NTE-${String(id).padStart(2,'0')}`),nteId:global?null:id});}
 function queryFilter(query,t,field){if(isGlobal(t))return query;const id=userNteId(t);if(id===null)throw new Error('Usuário territorial sem NTE válido.');return query.eq(field||'nte_id',id);}
-window.SIGEE_ESCOPO=Object.freeze({usuario:user,tipo:scopeType,ehGlobal:isGlobal,ehTerritorial:t=>!isGlobal(t),nteUsuario:userNte,nteIdUsuario:userNteId,numeroNte:number,mesmoNte:same,nteRegistro:recordNte,nteIdRegistro:recordNteId,validarRegistro:validateRecord,exigirRegistro:assertRecord,filtrar:filter,aplicarQuery:queryFilter});
+window.SIGEE_ESCOPO=Object.freeze({usuario:user,contexto:context,tipo:scopeType,ehGlobal:isGlobal,ehTerritorial:t=>!isGlobal(t),nteUsuario:userNte,nteIdUsuario:userNteId,numeroNte:number,mesmoNte:same,nteRegistro:recordNte,nteIdRegistro:recordNteId,validarRegistro:validateRecord,exigirRegistro:assertRecord,filtrar:filter,aplicarQuery:queryFilter,versao:'RC7.4.0'});
 })(window);
