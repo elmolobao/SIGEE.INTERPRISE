@@ -2555,19 +2555,14 @@
     const id = Number(processoId);
     if (!Number.isFinite(id)) throw new Error('ID do processo inválido.');
 
-    let queryProcesso = c
+    const { data: processo, error: erroLeitura } = await c
       .from('processos')
       .select('id,codigo_sigee,nte,etapa_atual,workflow_instance_id,workflow_ciclo,ciclo,tecnico_responsavel,ultimo_evento_workflow,ultima_mensagem_workflow,contexto_analise,updated_at')
-      .eq('id', id);
-    const usuarioAtual = usuario();
-    if (!window.SIGEE_ESCOPO?.ehGlobal?.(usuarioAtual)) {
-      const nteId = window.SIGEE_ESCOPO?.nteIdUsuario?.(usuarioAtual);
-      if (nteId == null) throw new Error('Usuário territorial sem NTE válido.');
-      queryProcesso = queryProcesso.eq('nte', `NTE-${String(nteId).padStart(2, '0')}`);
-    }
-    const { data: processo, error: erroLeitura } = await queryProcesso.maybeSingle();
+      .eq('id', id)
+      .maybeSingle();
     if (erroLeitura) throw erroLeitura;
     if (!processo) throw new Error('Processo não localizado.');
+    window.SIGEE_ESCOPO?.exigirRegistro?.(processo, usuario());
 
     const etapa = txt(processo.etapa_atual).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
     if (etapa !== 'ANALISE') {
@@ -2588,17 +2583,14 @@
     const ciclo = Math.max(1, Number(processo.workflow_ciclo || processo.ciclo || 1));
 
     // Atualização parcial: somente campos operacionais já existentes na tabela.
-    let queryUpdate = c.from('processos').update({
+    let updateQuery = c.from('processos').update({
       ultimo_evento_workflow: 'DOCUMENTO_RECEBIDO',
       ultima_mensagem_workflow: '02',
       contexto_analise: 'DOCUMENTO_RECEBIDO',
       updated_at: instante
     }).eq('id', id);
-    if (!window.SIGEE_ESCOPO?.ehGlobal?.(usuarioAtual)) {
-      const nteId = window.SIGEE_ESCOPO?.nteIdUsuario?.(usuarioAtual);
-      queryUpdate = queryUpdate.eq('nte', `NTE-${String(nteId).padStart(2, '0')}`);
-    }
-    const { error: erroUpdate } = await queryUpdate;
+    updateQuery = window.SIGEE_ESCOPO?.aplicarQueryProcessos ? window.SIGEE_ESCOPO.aplicarQueryProcessos(updateQuery, usuario()) : updateQuery;
+    const { error: erroUpdate } = await updateQuery;
     if (erroUpdate) throw erroUpdate;
 
     const base = {
