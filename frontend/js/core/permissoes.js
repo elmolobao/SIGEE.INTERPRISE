@@ -29,16 +29,16 @@ const C=Object.freeze({
   }),
   'Técnico':Object.freeze({
     'processos.visualizar':1,'processos.criar':1,'processos.movimentar':1,
-    'indicadores.visualizar':1,'relatorios.visualizar':1,'escolas.visualizar':1,'escolas.editar_operacional':1
+    'indicadores.visualizar':1,'escolas.visualizar':1,'escolas.editar_operacional':1
   }),
   Atendimento:Object.freeze({
-    'processos.visualizar':1,'processos.criar':1,'indicadores.visualizar':1,'relatorios.visualizar':1,'escolas.visualizar':1
+    'processos.visualizar':1,'processos.criar':1,'indicadores.visualizar':1,'escolas.visualizar':1
   }),
   'Estagiário':Object.freeze({
-    'processos.visualizar':1,'processos.criar':1,'indicadores.visualizar':1,'relatorios.visualizar':1,'escolas.visualizar':1
+    'processos.visualizar':1,'processos.criar':1,'indicadores.visualizar':1,'escolas.visualizar':1
   }),
   Consulta:Object.freeze({
-    'processos.visualizar':1,'indicadores.visualizar':1,'relatorios.visualizar':1,'escolas.visualizar':1
+    'processos.visualizar':1,'indicadores.visualizar':1,'escolas.visualizar':1
   })
 });
 
