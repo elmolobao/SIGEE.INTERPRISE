@@ -301,11 +301,10 @@ function garantirRotaVisivel(rota){
     window.carregarDadosDashboardReal?.();
     window.atualizarDashboardPeloMotorSIGEE?.();
   }
-  document.dispatchEvent(new CustomEvent('sigee:navegacao-concluida',{detail:{rota,origem:'autorizacao-rc542'}}));
+  document.dispatchEvent(new CustomEvent('sigee:navegacao-concluida',{detail:{rota,origem:'autorizacao-rc743'}}));
 }
 function primeiraRota(u=usuario()){
-  const p = perfil(u);
-  if (p === 'Gestor' && pode('indicadores.visualizar',u)) return 'painel';
+  // RC7.4.3: a Central de Processos é a tela inicial institucional para todos os perfis.
   if (pode('processos.visualizar',u)) return 'processos';
   if (pode('relatorios.visualizar',u)) return 'relatorios';
   if (pode('escolas.visualizar',u)) return 'escolas';
@@ -314,7 +313,7 @@ function primeiraRota(u=usuario()){
 function aplicarRotaInicialForcada(){
   const u = usuario();
   if(!u)return false;
-  const destino = perfil(u)==='Gestor' ? 'painel' : 'processos';
+  const destino = 'processos';
   if(destino==='processos' && !pode('processos.visualizar',u)) return false;
   navegarPara(destino,{silencioso:true});
   setTimeout(()=>garantirRotaVisivel(destino),40);
