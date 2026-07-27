@@ -1,7 +1,7 @@
-/* SIGEE Enterprise RC6.6.2 — Relatórios com subabas independentes */
+/* SIGEE Enterprise RC7.4.0 — Relatórios com subabas independentes */
 (function(){
 'use strict';
-if(window.__SIGEE_REPORTS_662__) return; window.__SIGEE_REPORTS_662__=true;
+if(window.__SIGEE_REPORTS_740__) return; window.__SIGEE_REPORTS_740__=true;
 const txt=v=>v==null?'':String(v).trim(), norm=v=>txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase(), esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const R=()=>window.SIGEE_REGRAS_OPERACIONAIS;
 const tipos=[
