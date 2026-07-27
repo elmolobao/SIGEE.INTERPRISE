@@ -280,10 +280,10 @@
     }
 
     function listaProcessos() {
+        const store = window.SIGEE_PROCESSOS_STORE;
+        if (store?.obter) return store.obter();
         const base = Array.isArray(window.processosDB) ? window.processosDB : (typeof processosDB !== 'undefined' && Array.isArray(processosDB) ? processosDB : []);
-        window.processosDB = base;
-        try { processosDB = base; } catch (e) {}
-        return base;
+        return window.SIGEE_ESCOPO?.filtrar ? window.SIGEE_ESCOPO.filtrar(base, usuario()) : [];
     }
 
     function configurarFiltroNteCentral() {
@@ -1513,9 +1513,9 @@
       if(error) throw error;
       const lista=(data||[]).map(mapear).filter(Boolean);
       totalProcessosRemotos=Number(count||0);
-      window.processosDB=lista;
+      const publicada=window.SIGEE_PROCESSOS_STORE?.publicar?.(lista,'CENTRAL_REMOTA')||lista;
       window.__SIGEE_PROCESSOS_ORIGEM__='REMOTA_PAGINADA';
-      try { processosDB=lista; } catch(e){}
+      try { processosDB=publicada; } catch(e){}
       redesenhar();
       renderizarPaginacaoRemota();
       status('ok','🟢 Conectado');
@@ -1554,8 +1554,8 @@
     if(evento==='DELETE' || (novo && !registroPermitidoRealtime(novo))){
       if(idx>=0){
         lista.splice(idx,1);
-        window.processosDB=lista;
-        try{ processosDB=lista; }catch(e){}
+        const publicada=window.SIGEE_PROCESSOS_STORE?.publicar?.(lista,'REALTIME_REMOCAO')||lista;
+        try{ processosDB=publicada; }catch(e){}
         redesenhar();
       }
       return;
@@ -1568,8 +1568,8 @@
     if(idx>=0) lista[idx]={...lista[idx],...convertido};
     else lista.unshift(convertido);
     if(lista.length>processosPorPagina) lista.length=processosPorPagina;
-    window.processosDB=lista;
-    try{ processosDB=lista; }catch(e){}
+    const publicada=window.SIGEE_PROCESSOS_STORE?.publicar?.(lista,'REALTIME_UPSERT')||lista;
+    try{ processosDB=publicada; }catch(e){}
     redesenhar();
   }
   function agendar(payload){
@@ -1614,6 +1614,11 @@
   window.recarregarCentralProcessosSIGEE=(silencioso=true,resetarPagina=false)=>recarregar(silencioso,resetarPagina);
   window.irParaPaginaCentralProcessosSIGEE=(pagina)=>{paginaAtualRemota=Math.max(1,Number(pagina)||1);return recarregar(false);};
   window.iniciarRealtimeProcessosSIGEE=iniciarRealtime;
+  let __timerStoreCentral=null;
+  window.addEventListener('sigee:processos-store',()=>{
+    clearTimeout(__timerStoreCentral);
+    __timerStoreCentral=setTimeout(()=>{try{redesenhar();}catch(_){ }},40);
+  });
 
   window.addEventListener('online',()=>{ iniciarRealtime(); recarregar(true); });
   window.addEventListener('offline',()=>status('off','🔴 Offline'));
