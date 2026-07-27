@@ -6,6 +6,8 @@
    ===================================================================== */
 (function(){
   'use strict';
+  // RC8.0: implementação legada desativada. A autoridade CRUD está no módulo 2.6.1 abaixo.
+  return;
 
   const GRUPO_SEC = 'SEC - TODOS OS NTEs';
   const EMAIL_SEC = 'sec@enova.educacao.ba.gov.br';
@@ -320,6 +322,8 @@
    ========================================================================== */
 (function(){
   'use strict';
+  // RC8.0: persistência duplicada desativada; o módulo 2.6.1 é a única autoridade.
+  return;
 
   const TABELA_USUARIOS_SIGEE = 'usuarios_sigee';
 
@@ -801,6 +805,7 @@
     const modal = document.getElementById('modal-cadastro-usuario'); if (modal) modal.classList.remove('hidden');
   };
   window.salvarNovoUsuarioFormularioMaster = async function(ev){
+    const sessaoAntes = window.SIGEE_SESSION?.getUser?.() || null;
     if (ev) { ev.preventDefault(); ev.stopPropagation(); if (ev.stopImmediatePropagation) ev.stopImmediatePropagation(); }
     if (!podeGerir()) return alert('Apenas o perfil Master pode salvar usuários.');
     const u = formUsuario();
@@ -812,6 +817,11 @@
       const salvo = await salvarUsuario(u, u.id ? 'editar' : 'criar');
       await atualizarListaUsuarios();
       const modal = document.getElementById('modal-cadastro-usuario'); if (modal) modal.classList.add('hidden');
+      const sessaoDepois = window.SIGEE_SESSION?.getUser?.() || null;
+      if (sessaoAntes?.email && sessaoDepois?.email && String(sessaoAntes.email).toLowerCase() !== String(sessaoDepois.email).toLowerCase()) {
+        console.error('[SIGEE USUÁRIOS] CRUD tentou alterar a identidade da sessão; sessão original restaurada.');
+        window.SIGEE_SESSION?.setUser?.(sessaoAntes,{source:'usuarios-crud-restore',persist:true,emit:false});
+      }
       alert('Usuário salvo com sucesso.');
       return salvo;
     } catch(e) {
