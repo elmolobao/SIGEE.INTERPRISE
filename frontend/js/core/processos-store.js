@@ -1,18 +1,19 @@
 /**
- * SIGEE Enterprise RC8.2.0 — Store autoritativo de processos.
+ * SIGEE Enterprise RC8.3.0 — Store autoritativo de processos.
  * A Central paginada/Realtime é a única autoridade após o primeiro carregamento.
  * Escritas legadas continuam aceitas apenas durante o bootstrap, antes do lock.
  */
 (function (window) {
   'use strict';
-  if (window.__SIGEE_PROCESSOS_STORE_RC820__) return;
-  window.__SIGEE_PROCESSOS_STORE_RC820__ = true;
+  if (window.__SIGEE_PROCESSOS_STORE_RC830__) return;
+  window.__SIGEE_PROCESSOS_STORE_RC830__ = true;
 
   let dados = [];
   let proxy = null;
   let publicando = false;
   let autoridadeBloqueada = false;
   let ultimaOrigem = 'BOOTSTRAP';
+  let avisoSubstituicaoGlobalEmitido = false;
 
   function usuario() {
     return window.SIGEE_SESSION?.getUser?.() ||
@@ -158,7 +159,10 @@
       set(valor) {
         if (publicando) return;
         if (autoridadeBloqueada) {
-          console.warn('[SIGEE STORE] Substituição global legada ignorada após lock autoritativo.');
+          if (!avisoSubstituicaoGlobalEmitido) {
+            avisoSubstituicaoGlobalEmitido = true;
+            console.info('[SIGEE STORE] Substituição global legada ignorada após lock autoritativo.');
+          }
           return;
         }
         publicando = true;
@@ -173,6 +177,6 @@
 
   window.SIGEE_PROCESSOS_STORE = Object.freeze({
     usuario, permitido, sanitizar, publicar, publicarAutoritativo, upsert, remover,
-    obter, snapshot, estaBloqueado, desbloquearBootstrap, versao: 'RC8.2.0'
+    obter, snapshot, estaBloqueado, desbloquearBootstrap, versao: 'RC8.3.0'
   });
 })(window);

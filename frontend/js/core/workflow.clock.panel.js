@@ -1,4 +1,4 @@
-/* SIGEE — Painel de Homologação Temporal (somente Master). */
+/* SIGEE RC8.3.0 — Painel de Homologação Temporal (somente Master). */
 (function (window, document) {
   'use strict';
 
@@ -24,20 +24,19 @@
 
 
   function refreshOperationalViews() {
+    /* RC8.3.0: o relógio não redesenha mais a Central diretamente.
+       A Central paginada mantém página, filtros e posição de rolagem. */
     window.setTimeout(function () {
-      const refreshers = [
-        'carregarEContarProcessosHorizontais',
-        'renderizarProcessosFlutuantes',
-        'carregarDadosDashboardReal',
-        'atualizarDashboard'
-      ];
-      refreshers.forEach(function (name) {
+      ['carregarDadosDashboardReal', 'atualizarDashboard'].forEach(function (name) {
         try {
           if (typeof window[name] === 'function') window[name]();
         } catch (error) {
           console.warn('SIGEE WorkflowClock: falha ao atualizar ' + name + '.', error);
         }
       });
+      try {
+        document.dispatchEvent(new CustomEvent('sigee:workflow-clock-alterado'));
+      } catch (_) {}
     }, 30);
   }
 
