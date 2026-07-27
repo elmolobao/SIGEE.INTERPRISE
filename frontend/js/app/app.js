@@ -738,7 +738,13 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             const tamanhoPagina = Math.min(1000, teto);
             while (inicio < teto) {
                 const fim = Math.min(inicio + tamanhoPagina - 1, teto - 1);
-                let query = client.from(nomeTabela).select(selectCampos).range(inicio, fim);
+                let query = client.from(nomeTabela).select(selectCampos);
+                if (nomeTabela === SIGEE_SUPABASE_TABELAS.processos || nomeTabela === 'processos') {
+                    query = window.SIGEE_ESCOPO?.aplicarQueryProcessos
+                        ? window.SIGEE_ESCOPO.aplicarQueryProcessos(query, window.usuarioLogado || usuarioLogado)
+                        : query;
+                }
+                query = query.range(inicio, fim);
                 if (ordenarPor) query = query.order(ordenarPor, { ascending: true });
                 const { data, error } = await query;
                 if (error) throw error;
@@ -792,7 +798,10 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             await Promise.all([
                 carregarSeguro('usuarios', SIGEE_SUPABASE_TABELAS.usuarios, null, usuarioDoSupabaseParaLocalSIGEE, u => u.email && u.nome, dados => { usuariosDB = dados; }),
                 carregarSeguro('escolas', SIGEE_SUPABASE_TABELAS.escolas, null, escolaDoSupabaseParaLocalSIGEE, e => e.cod_mec && e.nome, dados => { escolasDB = dados; }),
-                carregarSeguro('processos', SIGEE_SUPABASE_TABELAS.processos, null, processoDoSupabaseParaLocalSIGEE, p => p.aluno || p.escola, dados => { processosDB = dados; }),
+                carregarSeguro('processos', SIGEE_SUPABASE_TABELAS.processos, null, processoDoSupabaseParaLocalSIGEE, p => p.aluno || p.escola, dados => {
+                    processosDB = window.SIGEE_ESCOPO?.filtrar ? window.SIGEE_ESCOPO.filtrar(dados, window.usuarioLogado || usuarioLogado) : dados;
+                    window.processosDB = processosDB;
+                }),
                 // RC5.6.1: não carregar o histórico integral de solicitacoes_sigee no login.
                 // A tabela já possui milhares de linhas e a paginação profunda (offset alto)
                 // provoca statement timeout no PostgREST e concorre com o snapshot analítico.
@@ -1181,6 +1190,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             
             if (u) {
                 usuarioLogado = u;
+                window.usuarioLogado = u;
                 document.getElementById('tela-login').classList.add('hidden');
                 document.getElementById('sistema-dashboard').classList.remove('hidden');
                 document.getElementById('user-nome').innerText = u.nome;
@@ -2185,7 +2195,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             });
         }
 
-        function logout() { usuarioLogado = null; document.getElementById('sistema-dashboard').classList.add('hidden'); document.getElementById('tela-login').classList.remove('hidden'); }
+        function logout() { usuarioLogado = null; window.usuarioLogado = null; document.getElementById('sistema-dashboard').classList.add('hidden'); document.getElementById('tela-login').classList.remove('hidden'); }
 
         // =========================================================================
         // ✅ AJUSTES V19 - NOVA SOLICITAÇÃO, DASHBOARD, PERFIS, LOGS E PERFORMANCE
