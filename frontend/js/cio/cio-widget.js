@@ -28,10 +28,11 @@
       else{
         const sb=global.obterSupabaseSIGEE?.()||global.criarClienteSupabaseSIGEE?.()||global.SIGEE_SUPABASE?.criarCliente?.()||null;
         if(sb){
-          const consulta=await sb.from('processos').select('*').eq('id',id).maybeSingle();
+          let q=sb.from('processos').select('*').eq('id',id);q=global.SIGEE_ESCOPO?.aplicarQueryProcessos?global.SIGEE_ESCOPO.aplicarQueryProcessos(q,usuario()):q;const consulta=await q.maybeSingle();
           if(consulta?.error)throw consulta.error;
           if(consulta?.data)completo={...origem,...consulta.data};
         }
+        global.SIGEE_ESCOPO?.exigirRegistro?.(completo,usuario());
         if(!Array.isArray(global.processosDB))global.processosDB=[];
         global.processosDB.push(completo);
       }
