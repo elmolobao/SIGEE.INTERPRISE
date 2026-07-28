@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  const VERSION = 'RC7.3.0';
+  const VERSION = 'RC7.3.1';
   const LIMITE_FUTURO_DIAS = 1;
   const DATA_PADRAO_ANO = 2000;
 
@@ -1496,42 +1496,114 @@
     return resultado()?.processos?.find(p=>p.migration_key===chave) || null;
   }
 
-  function tiposDataInvalidos(p) {
+  function ordemEventoMigracao(e, indice) {
+    const rotulo = norm(`${e.evento||''} ${e.etapa||''} ${e.aba||''}`);
+    const regras = [
+      [/NOVA SOLICITACAO|SOLICITACAO/, 10],
+      [/DOCUMENTO RECEBIDO(?!.*TRIAGEM)/, 20],
+      [/TRIAGEM|IMPRESSAO/, 30],
+      [/ENTRADA EM ANALISE|ENVIO ANALISE/, 40],
+      [/SAIDA DA ANALISE|RETORNO ANALISE/, 50],
+      [/PENDENCIA|RETORNO DA PENDENCIA/, 60],
+      [/ENTRADA EM DIGITACAO|ENVIO DIGITACAO/, 70],
+      [/SAIDA DA DIGITACAO|RETORNO DIGITACAO/, 80],
+      [/ENTRADA EM CONFERENCIA|ENVIO CONFERENCIA/, 90],
+      [/SAIDA DA CONFERENCIA|RETORNO CONFERENCIA/, 100],
+      [/ENVIO PARA ASSINATURA|ENVIO ASSINATURA/, 110],
+      [/RETORNO DA ASSINATURA|RETORNO ASSINATURA/, 120],
+      [/DEFERIDO|DATA ASSINATURA/, 130],
+      [/RETIRADO|RETIRADA/, 140]
+    ];
+    const achou = regras.find(([rx])=>rx.test(rotulo));
+    return achou ? achou[1] : 1000 + indice;
+  }
+
+  function rotuloEventoMigracao(e, indice) {
+    const evento = txt(e.evento);
+    if (evento) return evento;
+    const etapa = norm(e.etapa);
+    const aba = norm(e.aba);
+    const seq = ordemEventoMigracao(e, indice);
+    const mapa = {
+      10:'Nova Solicitação',20:'Documento Recebido',30:'Documento Recebido / Triagem',
+      40:'Entrada em Análise',50:'Saída da Análise',60:'Retorno da Pendência',
+      70:'Entrada em Digitação',80:'Saída da Digitação',90:'Entrada em Conferência',
+      100:'Saída da Conferência',110:'Envio para Assinatura',120:'Retorno da Assinatura',
+      130:'Deferido',140:'Documento Retirado'
+    };
+    if (mapa[seq]) return mapa[seq];
+    if (aba.includes('IMPRESSAO')) return 'Documento Recebido / Triagem';
+    return txt(e.etapa||e.aba)||`Evento ${indice+1}`;
+  }
+
+  function diagnosticarDatasAuditadas(p) {
     const eventos = Array.isArray(p.eventos) ? p.eventos : [];
+    const ordenados = eventos.map((e,i)=>({e,i,ordem:ordemEventoMigracao(e,i)}))
+      .sort((a,b)=>a.ordem-b.ordem || a.i-b.i);
     const erros=[];
     let anterior=null;
-    eventos.forEach((e,i)=>{
+    for (const item of ordenados) {
+      const e=item.e;
       const s=txt(e.data);
       const valida=/^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(new Date(s+'T12:00:00').getTime());
-      if(!valida) erros.push({tipo:'DATA_INVALIDA',indice:i,descricao:`Data inválida em ${e.etapa||e.aba||'evento'}.`});
-      if(valida && anterior && s < anterior) erros.push({tipo:'ORDEM_DATAS_CRITICA',indice:i,descricao:`${e.etapa||e.aba||'Evento'} anterior ao evento precedente.`});
-      if(valida) anterior=s;
-    });
+      const ficticia=norm(e.tipo_data).includes('FICT');
+      e.sequencia=item.ordem;
+      e.historico_reconstruido=true;
+      e.processo_migrado=true;
+      e.valido_cronologia=ficticia || valida;
+      if(!valida) {
+        erros.push({tipo:'DATA_INVALIDA',indice:item.i,descricao:`Data inválida em ${rotuloEventoMigracao(e,item.i)}.`});
+        continue;
+      }
+      if(!ficticia && new Date(s+'T12:00:00').getTime() > Date.now()) {
+        erros.push({tipo:'DATA_FUTURA',indice:item.i,descricao:`Data futura ${s} em ${rotuloEventoMigracao(e,item.i)}.`});
+      }
+      // Datas iguais são válidas. Só existe inversão quando a etapa seguinte é anterior.
+      if(anterior && s < anterior.data) {
+        erros.push({tipo:'ORDEM_DATAS_CRITICA',indice:item.i,descricao:`${rotuloEventoMigracao(e,item.i)} (${s}) anterior a ${anterior.rotulo} (${anterior.data}).`});
+      }
+      anterior={data:s,rotulo:rotuloEventoMigracao(e,item.i)};
+    }
+    p.eventos = ordenados.map(x=>x.e);
     return erros;
   }
 
   function revalidar(p) {
+    const tiposRecalculados = new Set(['DATA_INVALIDA','DATA_FUTURA','ORDEM_DATAS_CRITICA','DATA_ABERTURA_FICTICIA','DATA_ABERTURA_RECONSTRUIDA']);
     const manter=(p.inconsistencias||[]).filter(i=>{
-      const t=norm(i.tipo);
-      if(t.includes('ESCOLA') && p.escola_id) return false;
-      if(['DATA INVALIDA','DATA FUTURA','ORDEM DATAS CRITICA'].includes(t.replaceAll('_',' '))) return false;
-      return true;
+      const tipo=String(i.tipo||'').toUpperCase();
+      if(tipo==='ESCOLA_NAO_LOCALIZADA' && p.escola_id) return false;
+      return !tiposRecalculados.has(tipo);
     });
-    const errosDatas=tiposDataInvalidos(p).map(e=>({
+    const errosDatas=diagnosticarDatasAuditadas(p).map(e=>({
       aluno:p.aluno_nome,tipo:e.tipo,gravidade:'Alta',descricao:e.descricao,origem:'Auditoria M5.3'
     }));
+
+    const eventos=p.eventos||[];
+    const primeiraReal=eventos.find(e=>/^\d{4}-\d{2}-\d{2}$/.test(txt(e.data)) && !norm(e.tipo_data).includes('FICT'));
+    const primeiraQualquer=eventos.find(e=>/^\d{4}-\d{2}-\d{2}$/.test(txt(e.data)));
+    const abertura=(primeiraReal||primeiraQualquer)?.data||'';
+    p.data_abertura=abertura;
+    p.data_solicitacao=abertura;
+    p.created_at=abertura;
+    p.data_etapa_atual=[...eventos].reverse().find(e=>txt(e.data))?.data||abertura;
+
     p.inconsistencias=[...manter,...errosDatas];
-    p.eventos_validos=(p.eventos||[]).filter(e=>/^\d{4}-\d{2}-\d{2}$/.test(txt(e.data)));
+    p.eventos_validos=eventos.filter(e=>e.valido_cronologia!==false && /^\d{4}-\d{2}-\d{2}$/.test(txt(e.data)));
     p.quantidade_datas_reais=p.eventos_validos.filter(e=>norm(e.tipo_data)==='REAL').length;
     p.quantidade_datas_ficticias=p.eventos_validos.filter(e=>norm(e.tipo_data).includes('FICT')).length;
     p.possui_data_ficticia=p.quantidade_datas_ficticias>0;
+    p.diagnostico_cronologia=p.inconsistencias.filter(i=>['DATA_INVALIDA','DATA_FUTURA','ORDEM_DATAS_CRITICA','VARIACAO_FLUXO_HISTORICO'].includes(String(i.tipo||'').toUpperCase()));
     p.status_validacao = p.ignorar_migracao ? 'IGNORADO' :
       (p.inconsistencias.some(i=>norm(i.gravidade)==='ALTA') ? 'PENDENTE' : 'PRONTO');
+    if(p.status_validacao==='PRONTO' && p.decisao_m53==='PENDENTE') p.decisao_m53='';
 
     const r=resultado();
     if(r){
       r.inconsistencias=r.processos.flatMap(x=>x.inconsistencias||[]);
-      r.eventos=r.processos.filter(x=>!x.ignorar_migracao).flatMap(x=>x.eventos_validos||[]);
+      r.eventos=r.processos.filter(x=>!x.ignorar_migracao).flatMap(x=>(x.eventos_validos||[]).map(e=>({migration_key:x.migration_key,aluno_nome:x.aluno_nome,escola_nome:x.escola_nome,...e})));
+      r.simulacao_executada=false;
+      delete r.lote_importacao;
       r.validacao_final={executada:false,qualidade_percentual:0};
     }
     atualizarPainel();
@@ -1598,7 +1670,7 @@
       <header><h3>Corrigir datas do processo</h3><button data-fechar>✕</button></header>
       <div class="mig-m53-eventos">${eventos.map((e,i)=>`
         <div class="mig-m53-evento">
-          <div><b>${esc(e.etapa||e.evento||e.aba||('Evento '+(i+1)))}</b><small>${esc(e.aba||'')}</small></div>
+          <div><b>${esc(rotuloEventoMigracao(e,i))}</b><small>${esc(e.aba||'')}</small></div>
           <input type="date" data-data="${i}" value="${esc(e.data)}">
           <select data-tipo="${i}"><option value="REAL" ${norm(e.tipo_data)==='REAL'?'selected':''}>REAL</option><option value="FICTICIA" ${norm(e.tipo_data).includes('FICT')?'selected':''}>FICTÍCIA</option></select>
         </div>`).join('')}</div>
@@ -1613,6 +1685,7 @@
         e.data=bg.querySelector(`[data-data="${i}"]`).value;
         e.tipo_data=bg.querySelector(`[data-tipo="${i}"]`).value;
       });
+      // A data de abertura e a data da etapa atual serão reconstruídas na revalidação.
       p.data_solicitacao=eventos.find(e=>txt(e.data))?.data||p.data_solicitacao;
       p.data_etapa_atual=[...eventos].reverse().find(e=>txt(e.data))?.data||p.data_etapa_atual;
       registrar(p,'CORRECAO_DATAS','eventos',antes,eventos.map(e=>({data:e.data,tipo_data:e.tipo_data})),motivo);
