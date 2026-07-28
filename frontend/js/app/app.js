@@ -4396,6 +4396,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
    ========================================================================== */
 (function(){
   'use strict';
+  const ARQUITETURA_DADOS_MODERNA = window.__SIGEE_ARQUITETURA_DADOS_MODERNA__ === true;
   const GRUPO_SEC_V32 = 'SEC - TODOS OS NTES';
   const EMAIL_SEC_V32 = 'sec@enova.educacao.ba.gov.br';
   const EMAIL_ADMIN_V32 = 'administrativo@enova.educacao.ba.gov.br';
@@ -4589,7 +4590,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     try{ registrarLog('Acesso realizado ao painel operacional.'); }catch(e){}
     try{ navegar('painel'); }catch(e){}
     // Sincronização final em segundo plano para preencher processos/escolas do Técnico sem travar login.
-    setTimeout(async()=>{ await carregarDadosOperacionais(); aplicarPermissoes(); try{ navegar('painel'); }catch(e){} }, 250);
+    if(!ARQUITETURA_DADOS_MODERNA) setTimeout(async()=>{ await carregarDadosOperacionais(); aplicarPermissoes(); try{ navegar('painel'); }catch(e){} }, 250);
   };
   try{ handleLogin = window.handleLogin; }catch(e){}
 
@@ -4680,7 +4681,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
 
   window.addEventListener('load', function(){
     garantirListaNtes(); garantirUsuariosBase(); inicializarSelectsNteEcosystem(); aplicarPermissoes();
-    setTimeout(()=>{ carregarDadosOperacionais().then(()=>{ aplicarPermissoes(); try{ if(!document.getElementById('aba-processos')?.classList.contains('hidden')) carregarEContarProcessosHorizontais(); }catch(e){}; }); }, 300);
+    if(!ARQUITETURA_DADOS_MODERNA) setTimeout(()=>{ carregarDadosOperacionais().then(()=>{ aplicarPermissoes(); try{ if(!document.getElementById('aba-processos')?.classList.contains('hidden')) carregarEContarProcessosHorizontais(); }catch(e){}; }); }, 300);
   });
 })();
 
@@ -5008,7 +5009,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     if(!filtradas.length && !window.__SIGEE_V34_RECARREGANDO_ESCOLAS){
       window.__SIGEE_V34_RECARREGANDO_ESCOLAS = true;
       atualizarInfoEscolas(0);
-      setTimeout(async()=>{
+      if(!window.__SIGEE_ARQUITETURA_DADOS_MODERNA__) setTimeout(async()=>{
         await carregarOperacionalSilencioso();
         window.__SIGEE_V34_RECARREGANDO_ESCOLAS = false;
         renderizarListaEscolasBufferMemoria();
@@ -5059,13 +5060,13 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
       aplicarPermissoes();
       if(aba === 'escolas'){
         setTimeout(()=>{ try{ renderizarListaEscolasBufferMemoria(); }catch(e){} }, 50);
-        setTimeout(async()=>{ await carregarOperacionalSilencioso(); aplicarPermissoes(); try{ renderizarListaEscolasBufferMemoria(); }catch(e){} }, 300);
+        if(!window.__SIGEE_ARQUITETURA_DADOS_MODERNA__) setTimeout(async()=>{ await carregarOperacionalSilencioso(); aplicarPermissoes(); try{ renderizarListaEscolasBufferMemoria(); }catch(e){} }, 300);
       }
       if(aba === 'processos'){
-        setTimeout(async()=>{ await carregarOperacionalSilencioso(); aplicarPermissoes(); try{ carregarEContarProcessosHorizontais(); }catch(e){} }, 300);
+        if(!window.__SIGEE_ARQUITETURA_DADOS_MODERNA__) setTimeout(async()=>{ await carregarOperacionalSilencioso(); aplicarPermissoes(); try{ carregarEContarProcessosHorizontais(); }catch(e){} }, 300);
       }
       if(aba === 'painel'){
-        setTimeout(async()=>{ await carregarOperacionalSilencioso(); aplicarPermissoes(); try{ carregarDadosDashboardReal(); }catch(e){} }, 300);
+        if(!window.__SIGEE_ARQUITETURA_DADOS_MODERNA__) setTimeout(async()=>{ await carregarOperacionalSilencioso(); aplicarPermissoes(); try{ carregarDadosDashboardReal(); }catch(e){} }, 300);
       }
       return r;
     };
@@ -5092,7 +5093,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   window.addEventListener('load', function(){
     garantirSec();
     setTimeout(aplicarPermissoes, 100);
-    setTimeout(async()=>{ await carregarOperacionalSilencioso(); aplicarPermissoes(); }, 600);
+    if(!window.__SIGEE_ARQUITETURA_DADOS_MODERNA__) setTimeout(async()=>{ await carregarOperacionalSilencioso(); aplicarPermissoes(); }, 600);
   });
 })();
 
