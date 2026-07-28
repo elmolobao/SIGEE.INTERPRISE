@@ -6,7 +6,7 @@
   if(window.__SIGEE_M52_IMPORTACAO_OFICIAL__) return;
   window.__SIGEE_M52_IMPORTACAO_OFICIAL__=true;
 
-  const VERSION='M5.2.0';
+  const VERSION = 'M5.2.1';
   let payloadPreparado=null;
   let preflightConfirmado=null;
   let resultadoImportacao=null;
@@ -64,7 +64,7 @@
       versao:VERSION,nte:`NTE-${nte}`,arquivo:file.name,hash_sha256:hash,qualidade_m4:100,
       executor:{nome:window.usuarioLogado?.nome||'Master',email:window.usuarioLogado?.email||'',perfil:window.usuarioLogado?.perfil||''},
       processos:processos.map(p=>({
-        migration_key:p.migration_key,aluno_nome:p.aluno_nome,escola_nome:p.escola_nome||p.escola_nome_original,
+        migration_key:p.migration_key,migration_key_base:p.migration_key_base||'',aluno_nome:p.aluno_nome,escola_nome:p.escola_nome||p.escola_nome_original,
         escola_id:p.escola_id,cod_mec:p.codigo_mec||p.cod_mec||'',documento_tipo:p.documento_tipo||'Histórico',
         nivel_oferta:p.nivel_oferta||'',modalidade:p.modalidade||'',prioridade:p.prioridade||'Normal',
         etapa_atual:p.etapa_atual||'Desarquivamento',
