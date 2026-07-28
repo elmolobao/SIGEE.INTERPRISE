@@ -628,12 +628,14 @@
     const n = Number(m[1]);
     return Number.isFinite(n) && n >= 1 && n <= 27 ? n : null;
   }
+  function ehVinculoGlobal(v){ const n=up(v); return n.includes('SEC') && n.includes('TODOS'); }
   function formatarNte(v, perfil){
-    if (perfilCanonico(perfil) === 'SEC') return 'SEC - TODOS OS NTEs';
+    const p=perfilCanonico(perfil);
+    if (p === 'SEC' || (p === 'Gestor' && ehVinculoGlobal(v))) return 'SEC - TODOS OS NTEs';
     const n = numeroNte(v);
     return n ? `NTE ${String(n).padStart(2,'0')}` : txt(v);
   }
-  function nteId(v, perfil){ return perfilCanonico(perfil) === 'SEC' ? null : numeroNte(v); }
+  function nteId(v, perfil){ const p=perfilCanonico(perfil); return (p === 'SEC' || (p === 'Gestor' && ehVinculoGlobal(v))) ? null : numeroNte(v); }
   function ativo(u){ return u && u.ativo !== false && u.Ativo !== false; }
   function podeGerir(){ const p = perfilCanonico((usuarioAtual()||{}).perfil); return p === 'Master'; }
   function isEstagiario(u){ return perfilCanonico((u||usuarioAtual()||{}).perfil) === 'Estagiário'; }
@@ -671,12 +673,22 @@
     try { localStorage.setItem('SIGEE_USUARIOS_COMPLETO_V41', JSON.stringify(window.usuariosDB)); } catch(e) {}
     return window.usuariosDB;
   }
-  async function carregarUsuariosSupabase(){
+  let consultaUsuariosEmAndamento = null;
+  let ultimaConsultaUsuarios = 0;
+  const TTL_USUARIOS_MS = 30000;
+  async function carregarUsuariosSupabase(opcoes={}){
+    const agora=Date.now();
+    if(!opcoes.forcar && baseUsuarios().length && (agora-ultimaConsultaUsuarios)<TTL_USUARIOS_MS) return baseUsuarios();
+    if(consultaUsuariosEmAndamento) return consultaUsuariosEmAndamento;
     const c = client();
     if (!c) return baseUsuarios();
-    const { data, error } = await c.from(TABELA).select('*').order('nome', { ascending:true });
-    if (error) throw error;
-    return sincronizarBase(data || []);
+    consultaUsuariosEmAndamento=(async()=>{
+      const { data, error } = await c.from(TABELA).select('*').order('nome', { ascending:true });
+      if (error) throw error;
+      ultimaConsultaUsuarios=Date.now();
+      return sincronizarBase(data || []);
+    })();
+    try{return await consultaUsuariosEmAndamento;}finally{consultaUsuariosEmAndamento=null;}
   }
   function payload(u, modo){
     const n = normalizarUsuario(u);
@@ -766,7 +778,7 @@
     if (pf && !pf.dataset.sigee26Change) {
       pf.dataset.sigee26Change = '1';
       pf.addEventListener('change', () => {
-        if (perfilCanonico(pf.value) === 'SEC') { if (nt) nt.value = 'SEC - TODOS OS NTEs'; }
+        if (['SEC','Gestor'].includes(perfilCanonico(pf.value)) && nt && !nt.value) nt.value = 'SEC - TODOS OS NTEs';
       });
     }
   }
@@ -837,7 +849,8 @@
     if (!u.nome) return alert('Informe o nome do usuário.');
     if (!u.email) return alert('Informe o e-mail do usuário.');
     if (!u.perfil) return alert('Selecione o Perfil.');
-    if (u.perfil !== 'SEC' && !u.nte_id) return alert('Selecione o NTE.');
+    const gestorGlobal = u.perfil === 'Gestor' && ehVinculoGlobal(u.nte);
+    if (!['SEC','Master'].includes(u.perfil) && !gestorGlobal && !u.nte_id) return alert('Selecione um NTE específico ou, para Gestor SEC, use SEC - TODOS OS NTEs.');
     const botao = document.querySelector('#form-cadastro-usuario button[type="submit"]');
     salvamentoEmAndamento = true;
     if (botao) { botao.disabled = true; botao.dataset.textoOriginal = botao.textContent; botao.textContent = 'Salvando...'; }
