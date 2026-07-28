@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  const VERSION = 'RC7.1.1';
+  const VERSION = 'RC7.1.2';
   const LIMITE_FUTURO_DIAS = 1;
   const DATA_PADRAO_ANO = 2000;
 
@@ -35,6 +35,7 @@
   let resultadoAtual = null;
   let geracaoLeitura = 0;
   let arquivoSelecionadoAtual = '';
+  let resetarMigracaoHistorica = () => {};
   let escolasMestres = [];
   let usuariosMestres = [];
   let ntesMestres = [];
@@ -327,7 +328,7 @@
 
     main.appendChild(sec);
     const input = sec.querySelector('#mig-arquivo');
-    function resetarMigracaoHistorica({manterArquivo=false, mensagem=true} = {}) {
+    resetarMigracaoHistorica = function({manterArquivo=false, mensagem=true} = {}) {
       geracaoLeitura += 1;
       resultadoAtual = null;
       arquivoSelecionadoAtual = manterArquivo ? (input.files?.[0]?.name || '') : '';
@@ -378,7 +379,7 @@
           'ok'
         );
       }
-    }
+    };
 
     input.addEventListener('change', () => {
       resetarMigracaoHistorica({manterArquivo:true});
