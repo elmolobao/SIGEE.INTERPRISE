@@ -1167,10 +1167,13 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 btnLogin.classList.remove('opacity-60');
             }
 
-            // V17: login ultrarrápido. Carrega apenas usuários no início e adia o banco pesado.
-            // As demais tabelas sincronizam em segundo plano após a entrada no sistema ou quando a aba for aberta.
+            // RC8.6.2: a arquitetura moderna possui controlador próprio de autenticação.
+            // Não executar a leitura legada de usuarios_sigee na abertura da página,
+            // pois ela duplicava a consulta realizada pelo login-controller.
             sigEEBancoCarregado = true;
-            sigEEBancoPromessa = carregarUsuariosRapidoSupabaseSIGEE();
+            sigEEBancoPromessa = window.__SIGEE_ARQUITETURA_DADOS_MODERNA__
+                ? Promise.resolve(true)
+                : carregarUsuariosRapidoSupabaseSIGEE();
         };
 
         async function handleLogin(event) {
