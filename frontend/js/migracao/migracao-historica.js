@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  const VERSION = 'RC7.2.1';
+  const VERSION = 'RC7.3.0';
   const LIMITE_FUTURO_DIAS = 1;
   const DATA_PADRAO_ANO = 2000;
 
@@ -77,17 +77,27 @@
   function tipoData(d) {
     return d && d.getFullYear() === DATA_PADRAO_ANO ? 'FICTICIA' : 'REAL';
   }
-  function chaveBase(nome, escola, data) {
-    return [normalizar(nome), normalizar(escola), iso(data)].join('|');
+  function chave(nome, escola, data, nte, linha) {
+    return [numeroNte(nte), normalizar(nome), normalizar(escola), iso(excelData(data) || data), Number(linha) || 0].join('|');
   }
-  function chave(nome, escola, data, nte, linhaOrigem) {
-    // A linha de origem diferencia solicitações historicamente distintas que
-    // possuem o mesmo aluno, escola e data de abertura. O prefixo territorial
-    // evita colisões entre planilhas de NTEs diferentes.
-    const base = chaveBase(nome, escola, data);
-    const territorio = numeroNte(nte) ? `NTE-${numeroNte(nte)}` : 'NTE-00';
-    const linha = Number(linhaOrigem) > 0 ? `L${Number(linhaOrigem)}` : 'L0';
-    return [territorio, base, linha].join('|');
+  function nomeAbaCanonico(nome) {
+    const n = normalizar(nome).replace(/[^A-Z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+    if (/^00\s+DESARQUIV/.test(n)) return '00 - DESARQUIVAR';
+    if (/^01\s+IMPRESS/.test(n)) return '01 - IMPRESSÃO';
+    if (/^02\s+ANALISE/.test(n)) return '02 - ANÁLISE';
+    if (/^03\s+PENDENCIA/.test(n)) return '03 - PENDÊNCIA';
+    if (/^04\s+DIGITACAO/.test(n)) return '04- DIGITAÇÃO';
+    if (/^05\s+CONFER/.test(n)) return '05 - CONFERENCIA';
+    if (/^06\s+ASSINATURA/.test(n)) return '06 - ASSINATURA';
+    if (/^07\s+DEFERIDO/.test(n)) return '07 - DEFERIDO';
+    return '';
+  }
+  function cabecalhoCanonico(valor, indice) {
+    const n = normalizar(valor).replace(/[^A-Z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+    if (indice === 0 || n === 'NOME' || n === 'ALUNO' || n === 'REQUERENTE') return 'NOME';
+    if (indice === 1 || n.includes('INSTITUICAO') || n === 'ESCOLA') return 'INSTITUIÇÃO';
+    if (n === 'COD MEC' || n === 'CODIGO MEC' || n === 'MEC') return 'COD. MEC';
+    return texto(valor).trim();
   }
   function html(v) {
     return texto(v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
@@ -515,13 +525,27 @@
   }
   function sheetJson(wb, name) {
     const ws = wb.Sheets[name];
-    return ws ? XLSX.utils.sheet_to_json(ws, { defval: null, raw: true }) : [];
+    if (!ws) return [];
+    const matriz = XLSX.utils.sheet_to_json(ws, { header:1, defval:null, raw:true, blankrows:false });
+    if (!matriz.length) return [];
+    let cabLinha = matriz.findIndex((linha, i) => i < 15 && Array.isArray(linha) && linha.some(v => /INSTITUI|ESCOLA/i.test(texto(v))));
+    if (cabLinha < 0) cabLinha = 0;
+    const cabecalhos = (matriz[cabLinha] || []).map((v,i) => cabecalhoCanonico(v,i));
+    return matriz.slice(cabLinha + 1).map((linha, offset) => {
+      const obj = { __linha_excel: cabLinha + offset + 2 };
+      cabecalhos.forEach((cab,i) => { if (cab) obj[cab] = linha[i] ?? null; });
+      // Compatibilidade definitiva: nas planilhas homologadas A=Aluno e B=Escola,
+      // mesmo quando o título da célula A1 foi alterado acidentalmente por fórmula ou edição.
+      obj.NOME = linha[0] ?? obj.NOME ?? null;
+      obj['INSTITUIÇÃO'] = linha[1] ?? obj['INSTITUIÇÃO'] ?? null;
+      return obj;
+    });
   }
 
   function processarWorkbook(wb, arquivo) {
     const nomes = wb.SheetNames || [];
     const abas = nomes.map(n => {
-      const canon = Object.keys(OPERACIONAIS).find(k => normalizar(k) === normalizar(n));
+      const canon = nomeAbaCanonico(n) || Object.keys(OPERACIONAIS).find(k => normalizar(k) === normalizar(n));
       const ignorada = IGNORADAS.some(k => normalizar(k) === normalizar(n));
       return {
         nome: n,
@@ -531,13 +555,13 @@
       };
     });
 
-    const origemNome = nomes.find(n => normalizar(n) === normalizar('00 - DESARQUIVAR'));
+    const origemNome = nomes.find(n => nomeAbaCanonico(n) === '00 - DESARQUIVAR');
     if (!origemNome) throw new Error('A aba 00 - DESARQUIVAR não foi localizada.');
 
     const origem = sheetJson(wb, origemNome).filter(r => texto(r.NOME));
     const indices = {};
     nomes.forEach(n => {
-      if (!Object.keys(OPERACIONAIS).some(k => normalizar(k) === normalizar(n))) return;
+      if (!nomeAbaCanonico(n)) return;
       const map = new Map();
       sheetJson(wb, n).forEach(r => {
         const nome = r.NOME;
@@ -556,14 +580,14 @@
 
     origem.forEach((r, linhaBase) => {
       const nome = texto(r.NOME);
-      const escola = texto(r['INSTITUIÇÃO']);
+      const escola = texto(r['INSTITUIÇÃO'] || r['Instituição'] || r.ESCOLA);
       const abertura = excelData(r['DATA ENVIO']);
       const recebimento = excelData(r['DATA RETORNO']);
       const nte = numeroNte(texto(r['LOCAL ARQUIVO'])) || nteSelecionado();
       const k2 = [normalizar(nome), normalizar(escola)].join('|');
 
       const get = alvo => {
-        const real = nomes.find(n => normalizar(n) === normalizar(alvo));
+        const real = nomes.find(n => nomeAbaCanonico(n) === alvo);
         return real && indices[real] && (indices[real].get(k2) || [])[0];
       };
 
@@ -756,15 +780,13 @@
       const ultimoEventoEtapa = eventosEtapaReais[eventosEtapaReais.length - 1] || null;
       const dataEtapaAtual = ultimoEventoEtapa ? ultimoEventoEtapa.data : dataAberturaConsolidada;
 
-      const linhaOrigemProcesso = linhaBase + 2;
       processos.push({
-        migration_key: chave(nome, escola, abertura, nte, linhaOrigemProcesso),
-        migration_key_base: chaveBase(nome, escola, abertura),
+        migration_key: chave(nome, escola, abertura, nte, r.__linha_excel || linhaBase + 2),
         origem_registro: 'MIGRACAO_PLANILHA',
         processo_migrado: true,
         selo_origem: 'PROCESSO MIGRADO',
         arquivo_origem: arquivo,
-        linha_origem: linhaOrigemProcesso,
+        linha_origem: r.__linha_excel || linhaBase + 2,
         nte_origem: nte,
         aluno_nome: nome,
         escola_nome_original: escola,
@@ -969,19 +991,8 @@
     p.auditado_em = new Date().toISOString();
 
     // A chave acompanha os dados efetivamente homologados.
-    const novaChave = chave(
-      p.aluno_nome,
-      p.escola_nome || p.escola_nome_original,
-      p.data_abertura || p.data_solicitacao,
-      p.nte_origem || nteSelecionado(),
-      p.linha_origem
-    );
+    const novaChave = chave(p.aluno_nome, p.escola_nome || p.escola_nome_original, p.data_abertura || p.data_solicitacao, p.nte_origem, p.linha_origem);
     p.migration_key = novaChave;
-    p.migration_key_base = chaveBase(
-      p.aluno_nome,
-      p.escola_nome || p.escola_nome_original,
-      p.data_abertura || p.data_solicitacao
-    );
 
     resultadoAtual.eventos = resultadoAtual.processos.flatMap(proc => (proc.eventos_validos || []).map(e => ({
       aluno_nome: proc.aluno_nome,

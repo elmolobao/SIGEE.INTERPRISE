@@ -4,12 +4,10 @@
 (function () {
   'use strict';
 
-  const VERSION = 'M5.3.1';
+  const VERSION = 'M5.3.1-RC7.3.0';
   let hashArquivo = '';
   let ultimoArquivo = null;
   let ultimoDiagnostico = null;
-  let ultimosConflitos = [];
-  const decisoesImportacao = new Map();
   let ultimoPreflightBanco = null;
 
   const texto = v => v == null ? '' : String(v).trim();
@@ -124,18 +122,6 @@
     return [normalizar(p.aluno_nome), normalizar(p.escola_nome || p.escola_nome_original)].join('|');
   }
 
-  function chaveDecisao(p) {
-    return texto(p?.migration_key) || [normalizar(p?.aluno_nome), normalizar(p?.escola_nome || p?.escola_nome_original), texto(p?.linha_origem)].join('|');
-  }
-
-  function deveImportarProcesso(p) {
-    const chave = chaveDecisao(p);
-    if (decisoesImportacao.has(chave)) return decisoesImportacao.get(chave) === true;
-    const conflito = ultimosConflitos.find(x => chaveDecisao(x.processo) === chave);
-    if (conflito) return conflito.resultado === 'NOVO';
-    return true;
-  }
-
   function classificarConflitos(lote, atuais) {
     const porMigrationKey = new Map(atuais.filter(a => texto(a.migration_key)).map(a => [texto(a.migration_key), a]));
     const porAlunoEscola = new Map();
@@ -145,20 +131,11 @@
       porAlunoEscola.get(k).push(a);
     });
     return lote.map(p => {
-      const chave = chaveDecisao(p);
       const exato = porMigrationKey.get(texto(p.migration_key));
-      if (exato) {
-        decisoesImportacao.set(chave, false);
-        return { processo:p, resultado:'DUPLICADO', importar:false, bloqueado:true, observacao:`migration_key já incorporada em ${exato.codigo_sigee || ('ID ' + exato.id)}. Este registro será excluído do lote.` };
-      }
+      if (exato) return { processo:p, resultado:'DUPLICADO', observacao:`migration_key já incorporada em ${exato.codigo_sigee || ('ID ' + exato.id)}.` };
       const similares = porAlunoEscola.get(chaveSemData(p)) || [];
-      if (!similares.length) {
-        if (!decisoesImportacao.has(chave)) decisoesImportacao.set(chave, true);
-        return { processo:p, resultado:'NOVO', importar:decisoesImportacao.get(chave), bloqueado:false, observacao:'Nenhum processo atual com o mesmo aluno e escola no NTE.' };
-      }
-      // Segurança: registro semelhante começa desmarcado. O Master pode autorizar sua importação conscientemente.
-      if (!decisoesImportacao.has(chave)) decisoesImportacao.set(chave, false);
-      return { processo:p, resultado:'REVISAR', importar:decisoesImportacao.get(chave), bloqueado:false, observacao:`${similares.length} registro(s) atual(is) semelhante(s): ${similares.map(x=>x.codigo_sigee || ('ID '+x.id)).join(', ')}. Desmarcado por segurança.` };
+      if (!similares.length) return { processo:p, resultado:'NOVO', observacao:'Nenhum processo atual com o mesmo aluno e escola no NTE.' };
+      return { processo:p, resultado:'REVISAR', observacao:`${similares.length} registro(s) atual(is) semelhante(s): ${similares.map(x=>x.codigo_sigee || ('ID '+x.id)).join(', ')}` };
     });
   }
 
@@ -174,9 +151,8 @@
         email: window.usuarioLogado?.email || '',
         perfil: window.usuarioLogado?.perfil || ''
       },
-      processos: (r.processos || []).filter(p => p.status_validacao === 'PRONTO' && !p.ignorar_migracao && deveImportarProcesso(p)).map(p => ({
+      processos: (r.processos || []).filter(p => p.status_validacao === 'PRONTO' && !p.ignorar_migracao && p.importar_migracao !== false).map(p => ({
         migration_key: p.migration_key,
-        migration_key_base: p.migration_key_base || '',
         aluno_nome: p.aluno_nome,
         linha_origem: p.linha_origem || null,
         aba_origem: p.aba_origem || '00 - DESARQUIVAR',
@@ -244,9 +220,10 @@
 
       const lote = r.processos || [];
       const conflitos = classificarConflitos(lote, atuais);
-      ultimosConflitos = conflitos;
-      const selecionados = conflitos.filter(x => x.importar === true).length;
-      const excluidos = conflitos.length - selecionados;
+      conflitos.forEach(x => {
+        if (typeof x.processo.importar_migracao !== 'boolean') x.processo.importar_migracao = x.resultado === 'NOVO';
+        if (x.resultado === 'DUPLICADO') x.processo.importar_migracao = false;
+      });
       const novos = conflitos.filter(x => x.resultado === 'NOVO').length;
       const revisar = conflitos.filter(x => x.resultado === 'REVISAR').length;
       const duplicados = conflitos.filter(x => x.resultado === 'DUPLICADO').length;
@@ -262,9 +239,8 @@
         ['Coluna processo_migrado', colMigrado.existe, colMigrado.existe ? 'Disponível' : 'Execute o SQL M5.1'],
         ['Coluna migracao_lote_id', colLote.existe, colLote.existe ? 'Disponível' : 'Execute o SQL M5.1'],
         ['Coluna origem_registro', colOrigem.existe, colOrigem.existe ? 'Disponível' : 'Execute o SQL M5.1'],
-        ['Duplicidades exatas excluídas', conflitos.filter(x=>x.resultado==='DUPLICADO' && x.importar).length === 0, duplicados ? `${duplicados} já incorporado(s), removido(s) do lote` : 'Nenhuma migration_key repetida'],
-        ['Registros semelhantes decididos', true, revisar ? `${revisar} semelhante(s); desmarcados por padrão, salvo autorização do Master` : 'Nenhum conflito aparente'],
-        ['Processos selecionados para importação', selecionados > 0, `${selecionados} selecionado(s) • ${excluidos} não será(ão) importado(s)`]
+        ['Duplicidades exatas excluídas', !conflitos.some(x => x.resultado === 'DUPLICADO' && x.processo.importar_migracao !== false), duplicados ? `${duplicados} excluído(s) automaticamente` : 'Nenhuma duplicidade exata'],
+        ['Semelhantes sob decisão do Master', true, revisar ? `${revisar} desmarcado(s) por padrão; marque somente se for nova solicitação` : 'Nenhum conflito aparente']
       ];
       const estruturaPronta = colMigration.existe && colMigrado.existe && colLote.existe && colOrigem.existe;
       const autorizadoPreflightBanco = checks.every(x => x[1]);
@@ -282,12 +258,10 @@
         novos_aparentes: novos,
         revisar,
         duplicados,
-        selecionados_para_importar: selecionados,
-        excluidos_da_importacao: excluidos,
         estrutura_m51_pronta: estruturaPronta,
         autorizado_preflight_banco: autorizadoPreflightBanco,
         checks: checks.map(([nome,ok,detalhe])=>({nome,ok,detalhe})),
-        conflitos: conflitos.map(x=>({migration_key:x.processo.migration_key, aluno:x.processo.aluno_nome, escola:x.processo.escola_nome_original, data:x.processo.data_solicitacao, resultado:x.resultado, importar:x.importar===true, observacao:x.observacao}))
+        conflitos: conflitos.map(x=>({migration_key:x.processo.migration_key, aluno:x.processo.aluno_nome, escola:x.processo.escola_nome_original, data:x.processo.data_solicitacao, resultado:x.resultado, observacao:x.observacao}))
       };
 
       renderizar(checks, conflitos, ultimoDiagnostico);
@@ -332,8 +306,6 @@
       <article><span>Novos aparentes</span><strong>${d.novos_aparentes}</strong></article>
       <article><span>Revisar</span><strong>${d.revisar}</strong></article>
       <article><span>Duplicados</span><strong>${d.duplicados}</strong></article>
-      <article><span>Selecionados</span><strong id="m5-total-selecionados">${d.selecionados_para_importar}</strong></article>
-      <article><span>Não importar</span><strong id="m5-total-excluidos">${d.excluidos_da_importacao}</strong></article>
       <article><span>Qualidade M4</span><strong>${d.qualidade_m4}%</strong></article>`;
 
     const box = document.getElementById('m5-checks-box');
@@ -346,38 +318,23 @@
 
     const cbox = document.getElementById('m5-conflitos-box');
     cbox.classList.remove('hidden');
-    document.getElementById('m5-conflitos-resumo').textContent = `${d.novos_aparentes} novos • ${d.revisar} revisar • ${d.duplicados} duplicados • ${d.selecionados_para_importar} selecionados`;
-    const corpoConflitos = document.getElementById('m5-conflitos');
-    corpoConflitos.innerHTML = conflitos.map(x => {
-      const chave = chaveDecisao(x.processo);
-      const titulo = x.bloqueado ? 'Duplicidade exata: não pode ser importada' : (x.resultado === 'REVISAR' ? 'Marque somente se confirmar que é uma nova solicitação' : 'Processo novo selecionado');
-      return `<tr data-chave="${html(chave)}"><td><label title="${html(titulo)}"><input type="checkbox" data-m5-importar="${html(chave)}" ${x.importar?'checked':''} ${x.bloqueado?'disabled':''}> ${x.importar?'SIM':'NÃO'}</label></td><td>${html(x.processo.aluno_nome)}</td><td>${html(x.processo.escola_nome_original)}</td><td>${html(x.processo.data_solicitacao)}</td><td><span class="m5-badge ${x.resultado.toLowerCase()}">${html(x.resultado)}</span></td><td>${html(x.observacao)}</td></tr>`;
-    }).join('');
-    corpoConflitos.querySelectorAll('[data-m5-importar]').forEach(input => {
-      input.addEventListener('change', () => {
-        const chave = input.dataset.m5Importar;
-        decisoesImportacao.set(chave, input.checked);
-        const conflito = ultimosConflitos.find(x => chaveDecisao(x.processo) === chave);
-        if (conflito) conflito.importar = input.checked;
-        const label = input.parentElement;
-        if (label) label.lastChild.textContent = input.checked ? ' SIM' : ' NÃO';
-        const selecionados = ultimosConflitos.filter(x => x.importar).length;
-        const excluidos = ultimosConflitos.length - selecionados;
-        if (ultimoDiagnostico) {
-          ultimoDiagnostico.selecionados_para_importar = selecionados;
-          ultimoDiagnostico.excluidos_da_importacao = excluidos;
-          ultimoDiagnostico.conflitos = ultimosConflitos.map(y=>({migration_key:y.processo.migration_key,aluno:y.processo.aluno_nome,escola:y.processo.escola_nome_original,data:y.processo.data_solicitacao,resultado:y.resultado,importar:y.importar===true,observacao:y.observacao}));
-          ultimoDiagnostico.autorizado_preflight_banco = selecionados > 0 && ultimoDiagnostico.estrutura_m51_pronta;
-        }
-        const ts = document.getElementById('m5-total-selecionados'); if (ts) ts.textContent=String(selecionados);
-        const te = document.getElementById('m5-total-excluidos'); if (te) te.textContent=String(excluidos);
-        document.getElementById('m5-conflitos-resumo').textContent = `${d.novos_aparentes} novos • ${d.revisar} revisar • ${d.duplicados} duplicados • ${selecionados} selecionados`;
-        const btn = document.getElementById('m5-preflight-banco'); if (btn) btn.disabled = selecionados === 0 || !ultimoDiagnostico?.estrutura_m51_pronta;
-        const auth = document.getElementById('m5-autorizacao');
-        if (auth) { auth.textContent = selecionados > 0 ? 'PREFLIGHT LIBERADO' : 'NENHUM PROCESSO SELECIONADO'; auth.className = selecionados > 0 ? 'ok' : 'pendente'; }
-        status(`${selecionados} processo(s) selecionado(s); ${excluidos} não será(ão) importado(s).`, selecionados > 0 ? 'ok' : 'atencao');
-      });
-    });
+    document.getElementById('m5-conflitos-resumo').textContent = `${d.novos_aparentes} novos • ${d.revisar} revisar • ${d.duplicados} duplicados`;
+    const corpo = document.getElementById('m5-conflitos');
+    corpo.innerHTML = conflitos.map(x => `
+      <tr><td><label><input type="checkbox" data-m5-importar="${html(x.processo.migration_key)}" ${x.processo.importar_migracao!==false?'checked':''} ${x.resultado==='DUPLICADO'?'disabled':''}> ${x.processo.importar_migracao!==false?'SIM':'NÃO'}</label></td><td>${html(x.processo.aluno_nome)}</td><td>${html(x.processo.escola_nome_original)}</td><td>${html(x.processo.data_solicitacao)}</td><td><span class="m5-badge ${x.resultado.toLowerCase()}">${html(x.resultado)}</span></td><td>${html(x.observacao)}</td></tr>`).join('');
+    corpo.querySelectorAll('[data-m5-importar]').forEach(input => input.addEventListener('change', () => {
+      const item = conflitos.find(x => x.processo.migration_key === input.dataset.m5Importar);
+      if (!item) return;
+      item.processo.importar_migracao = input.checked;
+      input.parentElement.lastChild.textContent = input.checked ? ' SIM' : ' NÃO';
+      if (ultimoDiagnostico) {
+        ultimoDiagnostico.selecionados_para_importar = conflitos.filter(x=>x.processo.importar_migracao!==false).length;
+        ultimoDiagnostico.excluidos_da_importacao = conflitos.filter(x=>x.processo.importar_migracao===false).map(x=>x.processo.migration_key);
+      }
+      ultimoPreflightBanco = null;
+      document.getElementById('m5-preflight-banco').disabled = false;
+      status('Seleção atualizada. Execute novamente “Validar infraestrutura e lote”.', 'atencao');
+    }));
   }
 
   function renderizarPreflight(d) {
@@ -421,9 +378,7 @@
     executarPreVerificacao,
     executarPreflightBanco,
     diagnostico: () => ultimoDiagnostico,
-    preflightBanco: () => ultimoPreflightBanco,
-    deveImportar: p => deveImportarProcesso(p),
-    selecionados: () => ultimosConflitos.filter(x=>x.importar).map(x=>x.processo.migration_key)
+    preflightBanco: () => ultimoPreflightBanco
   };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar);

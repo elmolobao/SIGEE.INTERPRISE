@@ -6,7 +6,7 @@
   if(window.__SIGEE_M52_IMPORTACAO_OFICIAL__) return;
   window.__SIGEE_M52_IMPORTACAO_OFICIAL__=true;
 
-  const VERSION = 'M5.2.2';
+  const VERSION='M5.2.1-RC7.3.0';
   let payloadPreparado=null;
   let preflightConfirmado=null;
   let resultadoImportacao=null;
@@ -57,15 +57,14 @@
     if(!file) throw new Error('Selecione novamente a planilha homologada.');
     const nte=numeroNte(document.getElementById('mig-nte')?.value||r.nte_selecionado||r.processos?.[0]?.nte_origem);
     if(!nte) throw new Error('NTE do lote não identificado.');
-    const decisor=window.SIGEE_IMPORTACAO_OFICIAL?.deveImportar;
-    const processos=(r.processos||[]).filter(p=>p.status_validacao==='PRONTO' && (typeof decisor!=='function' || decisor(p)));
-    if(!processos.length) throw new Error('Nenhum processo está selecionado para importação. Volte à pré-verificação e marque apenas os registros desejados.');
+    const processos=(r.processos||[]).filter(p=>p.status_validacao==='PRONTO' && !p.ignorar_migracao && p.importar_migracao!==false);
+    if(!processos.length) throw new Error('Nenhum processo apto no lote.');
     const hash=await sha256(file);
     return {
       versao:VERSION,nte:`NTE-${nte}`,arquivo:file.name,hash_sha256:hash,qualidade_m4:100,
       executor:{nome:window.usuarioLogado?.nome||'Master',email:window.usuarioLogado?.email||'',perfil:window.usuarioLogado?.perfil||''},
       processos:processos.map(p=>({
-        migration_key:p.migration_key,migration_key_base:p.migration_key_base||'',aluno_nome:p.aluno_nome,escola_nome:p.escola_nome||p.escola_nome_original,
+        migration_key:p.migration_key,aluno_nome:p.aluno_nome,escola_nome:p.escola_nome||p.escola_nome_original,
         escola_id:p.escola_id,cod_mec:p.codigo_mec||p.cod_mec||'',documento_tipo:p.documento_tipo||'Histórico',
         nivel_oferta:p.nivel_oferta||'',modalidade:p.modalidade||'',prioridade:p.prioridade||'Normal',
         etapa_atual:p.etapa_atual||'Desarquivamento',

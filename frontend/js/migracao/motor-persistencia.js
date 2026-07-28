@@ -1,7 +1,7 @@
 /* SIGEE Enterprise — M5.3.0 | Motor de Persistência Segura */
 (function(){
   'use strict';
-  const VERSION='M5.3.1';
+  const VERSION='M5.3.0';
   const RPC_PREFLIGHT='sigee_migracao_preflight';
   const RPC_IMPORTAR='sigee_migracao_importar';
   const txt=v=>v==null?'':String(v).trim();
@@ -16,7 +16,7 @@
     if(payload.qualidade_m4!==100) throw new Error('Homologação M4 diferente de 100%.');
     if(!Array.isArray(payload.processos)||!payload.processos.length) throw new Error('Lote sem processos.');
     const keys=new Set();
-    payload.processos.forEach((p,i)=>{if(!txt(p.migration_key))throw new Error(`Processo ${i+1} sem migration_key.`);if(keys.has(p.migration_key))throw new Error(`Identificador interno repetido no lote: ${p.migration_key} (linha ${p.linha_origem||'não informada'}).`);keys.add(p.migration_key);if(!p.escola_id)throw new Error(`Processo ${i+1} sem escola_id.`);if(!txt(p.workflow_instance_id))throw new Error(`Processo ${i+1} sem workflow_instance_id.`);const abertura=txt(p.data_abertura||p.data_solicitacao||p.created_at);if(!abertura)throw new Error(`Processo ${i+1} sem data de abertura.`);if(!Array.isArray(p.eventos)||!p.eventos.length)throw new Error(`Processo ${i+1} sem histórico reconstruído.`);});
+    payload.processos.forEach((p,i)=>{if(!txt(p.migration_key))throw new Error(`Processo ${i+1} sem migration_key.`);if(keys.has(p.migration_key))throw new Error(`migration_key duplicada: ${p.migration_key}`);keys.add(p.migration_key);if(!p.escola_id)throw new Error(`Processo ${i+1} sem escola_id.`);if(!txt(p.workflow_instance_id))throw new Error(`Processo ${i+1} sem workflow_instance_id.`);const abertura=txt(p.data_abertura||p.data_solicitacao||p.created_at);if(!abertura)throw new Error(`Processo ${i+1} sem data de abertura.`);if(!Array.isArray(p.eventos)||!p.eventos.length)throw new Error(`Processo ${i+1} sem histórico reconstruído.`);});
     return true;
   }
   async function rpc(nome,payload){
