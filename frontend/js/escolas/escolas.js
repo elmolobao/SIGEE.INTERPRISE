@@ -1572,8 +1572,16 @@ Esta ação não pode ser desfeita.`)) return;
     }
   }
 
+  // RC8.6.1 — A normalização do legado é uma manutenção administrativa
+  // pontual. Ela permanece disponível para execução manual, mas nunca deve
+  // percorrer toda a tabela durante login, inicialização ou navegação.
   window.SIGEE_NORMALIZAR_STATUS_ACERVO = normalizarStatusAcervoLegado;
-  function iniciar() { setTimeout(normalizarStatusAcervoLegado, 1200); }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar);
-  else iniciar();
+  window.SIGEE_EXECUTAR_MANUTENCAO_STATUS_ACERVO = async function () {
+    const usuario = window.usuarioLogado || window.SIGEE_SESSION?.getUser?.() || {};
+    const perfil = normalizar(usuario.perfil || usuario.role);
+    if (!(perfil.includes('MASTER') || perfil.includes('ADMIN'))) {
+      throw new Error('A manutenção do status do acervo exige perfil Master ou Administrador.');
+    }
+    return normalizarStatusAcervoLegado();
+  };
 })();
