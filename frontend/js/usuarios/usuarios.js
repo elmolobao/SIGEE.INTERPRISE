@@ -680,6 +680,8 @@
   }
   function payload(u, modo){
     const n = normalizarUsuario(u);
+    // RC8.5.0: somente colunas canônicas. Campos legados não podem invalidar
+    // toda a operação quando ausentes no schema atual do Supabase.
     const p = {
       nome: n.nome,
       email: n.email,
@@ -687,32 +689,50 @@
       nte: n.nte,
       nte_id: n.nte_id,
       ativo: n.ativo,
-      Ativo: n.ativo,
-      senha: n.senha,
-      senha_hash: n.senha_hash,
-      forcar_troca_senha: n.forcar_troca_senha,
       pode_editar: n.pode_editar
     };
-    if (modo === 'editar' && n.id) p.id = n.id;
+    if (modo === 'criar') {
+      p.senha = n.senha;
+      p.senha_hash = n.senha_hash;
+      p.forcar_troca_senha = true;
+    }
     return p;
   }
-  async function salvarUsuario(u, modo){
+  function erroColunaAusente(error){
+    const msg = String(error?.message || error?.details || error || '').toLowerCase();
+    return error?.code === 'PGRST204' || msg.includes('column') || msg.includes('coluna') || msg.includes('schema cache');
+  }
+  async function executarMutacaoCompativel(c, modo, filtro, p){
+    const tentativas = [
+      p,
+      Object.fromEntries(Object.entries(p).filter(([k]) => !['pode_editar'].includes(k))),
+      Object.fromEntries(Object.entries(p).filter(([k]) => ['nome','email','perfil','nte_id','ativo','senha','senha_hash','forcar_troca_senha'].includes(k))),
+      Object.fromEntries(Object.entries(p).filter(([k]) => ['nome','email','perfil','nte_id','ativo'].includes(k)))
+    ];
+    let ultimoErro = null;
+    for (const candidato of tentativas) {
+      let q = modo === 'criar' ? c.from(TABELA).insert(candidato) : c.from(TABELA).update(candidato);
+      if (modo !== 'criar') q = filtro.id ? q.eq('id', filtro.id) : q.eq('email', filtro.emailOriginal || filtro.email);
+      const { data, error } = await q.select('*').maybeSingle();
+      if (!error) return normalizarUsuario(data || { ...filtro, ...candidato });
+      ultimoErro = error;
+      if (!erroColunaAusente(error)) break;
+    }
+    throw ultimoErro || new Error('A alteração do usuário não foi confirmada pelo Supabase.');
+  }
+  async function salvarUsuario(u, modo, original){
     const c = client();
     if (!c) throw new Error('Cliente Supabase indisponível.');
     const p = payload(u, modo);
     if (modo === 'criar') {
-      const { data: existente, error: errConsulta } = await c.from(TABELA).select('*').eq('email', p.email).maybeSingle();
+      const { data: existente, error: errConsulta } = await c.from(TABELA).select('id,email').eq('email', p.email).maybeSingle();
       if (errConsulta) throw errConsulta;
       if (existente) throw new Error('E-mail já cadastrado. Use outro e-mail ou edite o usuário existente.');
-      delete p.id;
-      const { data, error } = await c.from(TABELA).insert(p).select('*').single();
-      if (error) throw error;
-      return normalizarUsuario(data || p);
+      return executarMutacaoCompativel(c, 'criar', {}, p);
     }
-    const q = p.id ? c.from(TABELA).update(p).eq('id', p.id) : c.from(TABELA).update(p).eq('email', p.email);
-    const { data, error } = await q.select('*').single();
-    if (error) throw error;
-    return normalizarUsuario(data || p);
+    const filtro = { id: u.id || original?.id, email: p.email, emailOriginal: low(original?.email || p.email) };
+    if (!filtro.id && !filtro.emailOriginal) throw new Error('Identificador do usuário não localizado.');
+    return executarMutacaoCompativel(c, 'editar', filtro, p);
   }
   async function excluirUsuario(u){
     const c = client(); if (!c) throw new Error('Cliente Supabase indisponível.');
@@ -758,8 +778,10 @@
     const nteRaw = txt(document.getElementById('user-form-nte')?.value);
     const senhaInformada = txt(document.getElementById('user-form-senha')?.value);
     const modo = id ? 'editar' : 'criar';
-    const senha = modo === 'criar' ? SENHA_PADRAO : (senhaInformada || SENHA_PADRAO);
-    return { id, nome, email, perfil, nte: formatarNte(nteRaw, perfil), nte_id: nteId(nteRaw, perfil), senha, senha_hash: senha, ativo:true, Ativo:true, forcar_troca_senha: modo === 'criar', pode_editar: perfil !== 'Estagiario' && perfil !== 'Consulta' };
+    const existente = id ? normalizarUsuario(baseUsuarios().find(x => String(x.id) === String(id)) || {}) : null;
+    const senha = modo === 'criar' ? SENHA_PADRAO : (senhaInformada || existente?.senha || existente?.senha_hash || SENHA_PADRAO);
+    const estaAtivo = modo === 'criar' ? true : (existente ? existente.ativo !== false : true);
+    return { id, nome, email, perfil, nte: formatarNte(nteRaw, perfil), nte_id: nteId(nteRaw, perfil), senha, senha_hash: senha, ativo:estaAtivo, forcar_troca_senha: modo === 'criar', pode_editar: perfil !== 'Estagiário' && perfil !== 'Consulta' };
   }
   function renderTabelaUsuarios(){
     const corpo = document.getElementById('tabela-usuarios-corpo');
@@ -804,36 +826,49 @@
     set('user-form-id', u.id); set('user-form-nome', u.nome); set('user-form-email', u.email); set('user-form-senha', u.senha || u.senha_hash || SENHA_PADRAO);
     const modal = document.getElementById('modal-cadastro-usuario'); if (modal) modal.classList.remove('hidden');
   };
+  let salvamentoEmAndamento = false;
   window.salvarNovoUsuarioFormularioMaster = async function(ev){
-    const sessaoAntes = window.SIGEE_SESSION?.getUser?.() || null;
     if (ev) { ev.preventDefault(); ev.stopPropagation(); if (ev.stopImmediatePropagation) ev.stopImmediatePropagation(); }
+    if (salvamentoEmAndamento) return false;
     if (!podeGerir()) return alert('Apenas o perfil Master pode salvar usuários.');
+    const sessaoAntes = window.SIGEE_SESSION?.getUser?.() || window.usuarioLogado || null;
     const u = formUsuario();
+    const original = u.id ? normalizarUsuario(baseUsuarios().find(x => String(x.id) === String(u.id)) || {}) : null;
     if (!u.nome) return alert('Informe o nome do usuário.');
     if (!u.email) return alert('Informe o e-mail do usuário.');
     if (!u.perfil) return alert('Selecione o Perfil.');
     if (u.perfil !== 'SEC' && !u.nte_id) return alert('Selecione o NTE.');
+    const botao = document.querySelector('#form-cadastro-usuario button[type="submit"]');
+    salvamentoEmAndamento = true;
+    if (botao) { botao.disabled = true; botao.dataset.textoOriginal = botao.textContent; botao.textContent = 'Salvando...'; }
     try {
-      const salvo = await salvarUsuario(u, u.id ? 'editar' : 'criar');
+      const salvo = await salvarUsuario(u, u.id ? 'editar' : 'criar', original);
       const base=baseUsuarios();
-      const indice=base.findIndex(x=>String(x.id||'')===String(salvo.id||'') || low(x.email)===low(salvo.email));
-      if(indice>=0) base[indice]=normalizarUsuario({...base[indice],...salvo}); else base.push(normalizarUsuario(salvo));
+      const indice=base.findIndex(x=>String(x.id||'')===String(salvo.id||u.id||'') || low(x.email)===low(original?.email || salvo.email));
+      const consolidado=normalizarUsuario({...(indice>=0?base[indice]:{}),...u,...salvo});
+      if(indice>=0) base[indice]=consolidado; else base.push(consolidado);
       sincronizarBase(base);
       renderTabelaUsuarios();
-      const modal = document.getElementById('modal-cadastro-usuario'); if (modal) modal.classList.add('hidden');
-      const sessaoDepois = window.SIGEE_SESSION?.getUser?.() || null;
-      if (sessaoAntes?.email && sessaoDepois?.email && String(sessaoAntes.email).toLowerCase() !== String(sessaoDepois.email).toLowerCase()) {
-        console.error('[SIGEE USUÁRIOS] CRUD tentou alterar a identidade da sessão; sessão original restaurada.');
-        window.SIGEE_SESSION?.setUser?.(sessaoAntes,{source:'usuarios-crud-restore',persist:true,emit:false});
-      }
-      document.getElementById('tela-login')?.classList.add('hidden');
-      document.getElementById('sistema-dashboard')?.classList.remove('hidden');
-      window.SIGEE_AUTORIZACAO?.aplicarMenus?.();
+      document.getElementById('modal-cadastro-usuario')?.classList.add('hidden');
       alert('Usuário salvo com sucesso.');
       return salvo;
     } catch(e) {
       console.error('[SIGEE 2.6] Erro ao salvar usuário:', e);
-      alert('Erro ao salvar usuário: ' + (e.message || e));
+      alert('Não foi possível salvar o usuário. A sessão Master foi preservada.\n\n' + (e.message || e));
+      return false;
+    } finally {
+      salvamentoEmAndamento = false;
+      if (botao) { botao.disabled = false; botao.textContent = botao.dataset.textoOriginal || 'Salvar Configurações'; }
+      if (sessaoAntes?.email) {
+        const atual = window.SIGEE_SESSION?.getUser?.() || window.usuarioLogado || null;
+        if (!atual?.email || low(atual.email) !== low(sessaoAntes.email)) {
+          window.SIGEE_SESSION?.setUser?.(sessaoAntes,{source:'usuarios-crud-invariant',persist:true,emit:false});
+          window.usuarioLogado = sessaoAntes;
+        }
+        document.getElementById('tela-login')?.classList.add('hidden');
+        document.getElementById('sistema-dashboard')?.classList.remove('hidden');
+        window.SIGEE_AUTORIZACAO?.aplicarMenus?.();
+      }
     }
   };
   window.resetarSenhaUsuarioMaster = async function(id){
@@ -867,7 +902,12 @@
     prepararSelectsUsuario(document.getElementById('user-form-perfil')?.value || '', document.getElementById('user-form-nte')?.value || '');
     if (form && form.dataset.sigee26Submit !== '1') {
       form.dataset.sigee26Submit = '1';
-      // RC4.1.6: listener legado desativado; o submit é ligado uma única vez ao final do arquivo.
+      form.addEventListener('submit', function(event){
+        event.preventDefault();
+        event.stopPropagation();
+        if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+        return window.salvarNovoUsuarioFormularioMaster(event);
+      }, true);
     }
   }
   document.addEventListener('DOMContentLoaded', function(){ setTimeout(capturarSubmit, 300); setTimeout(atualizarListaUsuarios, 700); });
