@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  const VERSION = 'M4.2.0';
+  const VERSION = 'RC7.1.1';
   const LIMITE_FUTURO_DIAS = 1;
   const DATA_PADRAO_ANO = 2000;
 
@@ -33,6 +33,8 @@
   };
 
   let resultadoAtual = null;
+  let geracaoLeitura = 0;
+  let arquivoSelecionadoAtual = '';
   let escolasMestres = [];
   let usuariosMestres = [];
   let ntesMestres = [];
@@ -325,8 +327,11 @@
 
     main.appendChild(sec);
     const input = sec.querySelector('#mig-arquivo');
-    function resetarMigracaoHistorica({manterArquivo=false} = {}) {
+    function resetarMigracaoHistorica({manterArquivo=false, mensagem=true} = {}) {
+      geracaoLeitura += 1;
       resultadoAtual = null;
+      arquivoSelecionadoAtual = manterArquivo ? (input.files?.[0]?.name || '') : '';
+
       if (!manterArquivo) input.value = '';
       const nte = sec.querySelector('#mig-nte');
       if (nte && !manterArquivo) nte.value = '';
@@ -336,23 +341,49 @@
         if (btn) btn.disabled = true;
       });
 
-      document.getElementById('mig-auditoria-processo-box')?.classList.add('hidden');
-      document.getElementById('mig-simulacao-box')?.classList.add('hidden');
+      ['mig-kpis','mig-conteudo','mig-qualidade-box','mig-auditoria-processo-box',
+       'mig-auditoria-tecnica-box','mig-simulacao-box'].forEach(id => {
+        document.getElementById(id)?.classList.add('hidden');
+      });
 
-      const resumo = document.getElementById('mig-resumo');
-      if (resumo) resumo.innerHTML = '';
-      const previa = document.getElementById('mig-previa-processos');
-      if (previa) previa.innerHTML = '';
-      const inconsistencias = document.getElementById('mig-inconsistencias');
-      if (inconsistencias) inconsistencias.innerHTML = '';
+      ['mig-kpi-processos','mig-kpi-prontos','mig-kpi-pendentes','mig-kpi-eventos',
+       'mig-kpi-escolas','mig-kpi-tecnicos','mig-kpi-datas-reais','mig-kpi-datas-ficticias'
+      ].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = '0';
+      });
 
-      atualizarStatus('Pronto para selecionar e analisar uma nova planilha.', 'ok');
+      const qv = document.getElementById('mig-qualidade-valor');
+      if (qv) qv.textContent = '0%';
+      const qb = document.getElementById('mig-qualidade-barra');
+      if (qb) qb.style.width = '0%';
+      const qs = document.getElementById('mig-qualidade-status');
+      if (qs) { qs.textContent = 'Aguardando validação'; qs.className = ''; }
+
+      ['mig-resumo','mig-previa-processos','mig-inconsistencias','mig-abas','mig-etapas',
+       'mig-qualidade-itens','mig-auditoria-processo','mig-auditoria-tecnica-corpo','mig-simulacao'
+      ].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = '';
+      });
+
+      const ar = document.getElementById('mig-auditoria-tecnica-resumo');
+      if (ar) ar.textContent = '0 pendentes';
+
+      if (mensagem) {
+        atualizarStatus(
+          manterArquivo
+            ? 'Novo arquivo selecionado. Clique em “Ler e validar” para iniciar a análise.'
+            : 'Pronto para selecionar e analisar uma nova planilha.',
+          'ok'
+        );
+      }
     }
 
     input.addEventListener('change', () => {
-      // Um novo arquivo invalida integralmente o lote e a autorização anteriores.
       resetarMigracaoHistorica({manterArquivo:true});
       const nome = input.files?.[0]?.name || '';
+      arquivoSelecionadoAtual = nome;
       const inferido = numeroNte(nome);
       if (inferido) sec.querySelector('#mig-nte').value = inferido;
       window.dispatchEvent(new CustomEvent('sigee:migracao-arquivo-alterado', {
@@ -415,23 +446,61 @@
     el.className = 'mig-status ' + (tipo || '');
   }
   async function analisarArquivo(file) {
-    if (!window.XLSX) {
-      atualizarStatus('A biblioteca XLSX não está disponível no projeto.', 'erro');
-      return;
-    }
-    atualizarStatus('Lendo, normalizando e validando a planilha...', 'carregando');
+    if (!window.XLSX) return atualizarStatus('A biblioteca XLSX não está disponível no projeto.', 'erro');
+    if (!file) return atualizarStatus('Selecione uma planilha antes de continuar.', 'erro');
+
+    const leituraAtual = ++geracaoLeitura;
+    const nomeArquivo = file.name || '';
+    arquivoSelecionadoAtual = nomeArquivo;
+
+    ['mig-simular','mig-validar-final','mig-exportar'].forEach(id => {
+      const btn = document.getElementById(id);
+      if (btn) btn.disabled = true;
+    });
+    const analisar = document.getElementById('mig-analisar');
+    if (analisar) analisar.disabled = true;
+
+    atualizarStatus(`Lendo e validando ${nomeArquivo}...`, 'carregando');
+
     try {
       const buffer = await file.arrayBuffer();
+      if (leituraAtual !== geracaoLeitura || arquivoSelecionadoAtual !== nomeArquivo) return;
+
       const wb = XLSX.read(buffer, { type: 'array', cellDates: true });
-      resultadoAtual = processarWorkbook(wb, file.name);
+      const novoResultado = processarWorkbook(wb, nomeArquivo);
+
+      if (leituraAtual !== geracaoLeitura || arquivoSelecionadoAtual !== nomeArquivo) return;
+
+      if (!novoResultado || !Array.isArray(novoResultado.processos) || novoResultado.processos.length === 0) {
+        resultadoAtual = null;
+        resetarMigracaoHistorica({manterArquivo:true, mensagem:false});
+        atualizarStatus('Nenhum processo foi identificado. Verifique as abas e os cabeçalhos da planilha.', 'erro');
+        return;
+      }
+
+      resultadoAtual = novoResultado;
       renderizar(resultadoAtual);
-      atualizarStatus(`Validação M2 concluída: ${resultadoAtual.processos.length} processos, ${resultadoAtual.inconsistencias.length} ocorrências para revisão.`, 'ok');
-      document.getElementById('mig-simular').disabled = false;
-      document.getElementById('mig-validar-final').disabled = false;
-      document.getElementById('mig-exportar').disabled = false;
+
+      ['mig-simular','mig-validar-final','mig-exportar'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) btn.disabled = false;
+      });
+
+      atualizarStatus(
+        `Leitura concluída: ${resultadoAtual.processos.length} processos e ${resultadoAtual.eventos.length} eventos identificados.`,
+        'ok'
+      );
     } catch (e) {
-      console.error('[SIGEE Migração M2]', e);
+      if (leituraAtual !== geracaoLeitura) return;
+      console.error('[SIGEE Migração M4]', e);
+      resultadoAtual = null;
+      resetarMigracaoHistorica({manterArquivo:true, mensagem:false});
       atualizarStatus('Falha ao analisar a planilha: ' + (e.message || e), 'erro');
+    } finally {
+      if (leituraAtual === geracaoLeitura) {
+        const btn = document.getElementById('mig-analisar');
+        if (btn) btn.disabled = false;
+      }
     }
   }
   function sheetJson(wb, name) {
@@ -1066,7 +1135,10 @@
   }
 
   function validarFinal() {
-    if (!resultadoAtual) return;
+    if (!resultadoAtual || !Array.isArray(resultadoAtual.processos) || resultadoAtual.processos.length === 0) {
+      atualizarStatus('Execute “Ler e validar” antes da validação final.', 'erro');
+      return;
+    }
 
     const processos = resultadoAtual.processos;
     const total = processos.length || 1;
@@ -1138,7 +1210,10 @@
   }
 
   function simularMigracao() {
-    if (!resultadoAtual) return;
+    if (!resultadoAtual || !Array.isArray(resultadoAtual.processos) || resultadoAtual.processos.length === 0) {
+      atualizarStatus('Execute “Ler e validar” antes de simular a migração.', 'erro');
+      return;
+    }
     const prontos = resultadoAtual.processos.filter(p => p.status_validacao === 'PRONTO');
     const pendentes = resultadoAtual.processos.filter(p => p.status_validacao !== 'PRONTO');
     const eventos = prontos.reduce((s,p) => s + p.eventos_validos.length, 0);
@@ -1175,7 +1250,10 @@
   }
 
   function exportarResultado() {
-    if (!resultadoAtual) return;
+    if (!resultadoAtual || !Array.isArray(resultadoAtual.processos) || resultadoAtual.processos.length === 0) {
+      atualizarStatus('Não existe lote válido para exportação. Execute “Ler e validar” primeiro.', 'erro');
+      return;
+    }
     if (!resultadoAtual.simulacao_executada) simularMigracao();
     const blob = new Blob([JSON.stringify(resultadoAtual, null, 2)], {type:'application/json;charset=utf-8'});
     const a = document.createElement('a');
