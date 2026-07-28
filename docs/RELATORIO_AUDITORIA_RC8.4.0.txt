@@ -1,0 +1,41 @@
+SIGEE ENTERPRISE — AUDITORIA E CORREÇÃO RC8.4.0
+
+ESCOPO
+1. Consumo elevado do Supabase.
+2. Perfil Master retornando à tela de login após editar usuário.
+3. Botão Nova Solicitação intermitente após login.
+
+DIAGNÓSTICO
+- O login disparava carregamento da Central e sincronização em segundo plano ao mesmo tempo.
+- A autorização repetia a rota inicial em cinco momentos diferentes por login.
+- A Central de Processos iniciava consulta e canal Realtime no evento load, inclusive antes da autenticação.
+- Eventos de navegação repetidos podiam provocar recargas remotas muito próximas.
+- A visibilidade da Nova Solicitação era aplicada antes e depois de reconstruções tardias do DOM, sem uma autoridade observando apenas a Central.
+- O CRUD de usuários relia toda a tabela imediatamente após cada gravação e ficava exposto a módulos legados que alteravam a interface de sessão durante o rerender.
+
+CORREÇÕES DEFINITIVAS
+- Criado evento único sigee:session-ready após autenticação concluída.
+- Removidos carregamentos de dados concorrentes do login-controller.
+- Rota inicial aplicada uma vez, sem cascata de timeouts.
+- Realtime e primeira consulta da Central somente começam com sessão ativa e Central visível.
+- Canal Realtime é removido no logout.
+- Recargas provocadas por navegação recebem janela de deduplicação.
+- Nova Solicitação passa a ser garantida pela autorização central e por MutationObserver restrito à Central de Processos.
+- CRUD de usuário atualiza o cache local com o registro retornado pelo Supabase, sem nova leitura integral imediata.
+- Sessão e área autenticada são preservadas após salvar usuário.
+
+ARQUIVOS PARA CARREGAMENTO
+frontend/index.html
+frontend/js/core/login-controller.js
+frontend/js/core/autorizacao.js
+frontend/js/processos/processos.js
+frontend/js/usuarios/usuarios.js
+
+NÃO É NECESSÁRIO
+- SQL
+- alteração de tabelas
+- alteração de RLS
+- arquivos CSS
+
+VALIDAÇÃO
+Os quatro arquivos JavaScript foram validados com node --check sem erros de sintaxe.
