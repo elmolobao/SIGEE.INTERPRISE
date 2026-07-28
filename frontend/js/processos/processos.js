@@ -1,5 +1,6 @@
 /* SIGEE RC9.0.0 — Pipeline territorial único: consulta, Store, contadores, paginação e Realtime */
 /* SIGEE RC9.0.1 — Escopo territorial pela coluna processos.nte */
+/* SIGEE RC9.0.3 — página remota autoritativa, sem dupla filtragem incompatível */
 /* SIGEE RC9.0.2 — coerência territorial por campo nte e total único */
 /* SIGEE RC8.3.0 — Central autoritativa e estado visual estável */
 /* SIGEE RC4.6.6 — normalização territorial da Central de Processos */
@@ -1539,14 +1540,13 @@
       const {data,error,count}=resultado||{};
       if(error) throw error;
       const listaMapeada=(data||[]).map(mapear).filter(Boolean);
-      // Defesa em profundidade: mesmo com filtro remoto, nenhum registro fora
-      // do escopo territorial pode ser publicado no navegador.
-      const lista=window.SIGEE_ESCOPO?.filtrar
-        ? window.SIGEE_ESCOPO.filtrar(listaMapeada,u)
-        : listaMapeada;
-      if(contexto && !contexto.global && lista.length!==listaMapeada.length){
-        console.error('[SIGEE RC9.0.2] Registros externos ao NTE foram descartados antes da publicação.',{recebidos:listaMapeada.length,autorizados:lista.length,nteId:contexto.nteId});
-      }
+      /* RC9.0.3 — a página remota já foi territorialmente restringida na
+       * própria consulta Supabase pela coluna public.processos.nte. Não se
+       * reaplica SIGEE_ESCOPO.filtrar aqui, pois conversores legados podem
+       * representar o mesmo NTE de formas diferentes e eliminar a página
+       * válida. A validação local permanece obrigatória para fontes locais,
+       * operações diretas e eventos Realtime. */
+      const lista=listaMapeada;
       // RC9.0.2: paginação e indicadores usam a mesma autoridade territorial.
       // O RPC já calcula o total após escopo e busca; o count bruto fica apenas
       // como fallback para ambientes sem o contador atualizado.
