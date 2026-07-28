@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  const VERSION = 'RC7.1.2';
+  const VERSION = 'RC7.2.0';
   const LIMITE_FUTURO_DIAS = 1;
   const DATA_PADRAO_ANO = 2000;
 
@@ -17,6 +17,69 @@
     '05 - CONFERENCIA': { tipo: 'etapa', etapa: 'Conferência' },
     '06 - ASSINATURA': { tipo: 'etapa', etapa: 'Assinatura' },
     '07 - DEFERIDO': { tipo: 'fechamento', etapa: 'Aguardando Retirada / Retirado' }
+  };
+
+  // Compatibilidade definitiva com as planilhas históricas dos NTEs.
+  // Cada etapa possui um nome canônico e variantes aceitas sem depender de
+  // acentos, espaços, hífens ou da forma DESARQUIVAR/DESARQUIVAMENTO.
+  const ABA_ALIASES = {
+    '00 - DESARQUIVAR': ['00 - DESARQUIVAR', '00 - DESARQUIVAMENTO', '00-DESARQUIVAR', '00-DESARQUIVAMENTO'],
+    '01 - IMPRESSÃO': ['01 - IMPRESSÃO', '01 - IMPRESSAO', '01-IMPRESSÃO', '01-IMPRESSAO'],
+    '02 - ANÁLISE': ['02 - ANÁLISE', '02 - ANALISE', '02-ANÁLISE', '02-ANALISE'],
+    '03 - PENDÊNCIA': ['03 - PENDÊNCIA', '03 - PENDENCIA', '03-PENDÊNCIA', '03-PENDENCIA'],
+    '04- DIGITAÇÃO': ['04- DIGITAÇÃO', '04 - DIGITAÇÃO', '04- DIGITACAO', '04 - DIGITACAO'],
+    '05 - CONFERENCIA': ['05 - CONFERENCIA', '05 - CONFERÊNCIA', '05-CONFERENCIA', '05-CONFERÊNCIA'],
+    '06 - ASSINATURA': ['06 - ASSINATURA', '06-ASSINATURA'],
+    '07 - DEFERIDO': ['07 - DEFERIDO', '07 - DEFERIDOS', '07-DEFERIDO', '07-DEFERIDOS']
+  };
+
+  // Cabeçalhos aceitos por etapa. O primeiro campo da aba de origem recebe
+  // fallback posicional para NOME porque alguns arquivos antigos trazem apenas
+  // vírgula, célula vazia ou outro rótulo corrompido em A1.
+  const CABECALHOS = {
+    '00 - DESARQUIVAR': {
+      NOME: ['NOME', 'ALUNO', 'REQUERENTE'],
+      'INSTITUIÇÃO': ['INSTITUIÇÃO', 'INSTITUICAO', 'INSTITUIÇÃO/ESCOLA', 'ESCOLA'],
+      'COD. MEC': ['COD. MEC', 'COD MEC', 'CÓD. MEC', 'CÓD MEC', 'CODIGO MEC', 'CÓDIGO MEC'],
+      'DATA ENVIO': ['DATA ENVIO', 'DATA DE ENVIO', 'DATA SOLICITAÇÃO', 'DATA SOLICITACAO'],
+      'DATA RETORNO': ['DATA RETORNO', 'DATA DE RETORNO', 'DOCUMENTO RECEBIDO'],
+      'LOCAL ARQUIVO': ['LOCAL ARQUIVO', 'LOCAL DO ARQUIVO'],
+      'SITUAÇÃO': ['SITUAÇÃO', 'SITUACAO', 'STATUS DESARQUIVAR', 'STATUS DESARQUIVAMENTO']
+    },
+    '01 - IMPRESSÃO': {
+      NOME: ['NOME', 'ALUNO'], 'INSTITUIÇÃO': ['INSTITUIÇÃO', 'INSTITUICAO', 'INSTITUIÇÃO/ESCOLA', 'ESCOLA'],
+      'Data de Chegada': ['DATA DE CHEGADA', 'DATA CHEGADA'], 'DATA IMPRESSÃO': ['DATA IMPRESSÃO', 'DATA IMPRESSAO'], STATUS: ['STATUS']
+    },
+    '02 - ANÁLISE': {
+      NOME: ['NOME', 'ALUNO'], 'INSTITUIÇÃO': ['INSTITUIÇÃO', 'INSTITUICAO', 'ESCOLA'],
+      'ENVIO ANÁLISE': ['ENVIO ANÁLISE', 'ENVIO ANALISE', 'DATA ENVIO ANÁLISE', 'DATA ENVIO ANALISE'],
+      RETORNO: ['RETORNO', 'DATA RETORNO'], ANALISTA: ['ANALISTA'], STATUS: ['STATUS']
+    },
+    '03 - PENDÊNCIA': {
+      NOME: ['NOME', 'ALUNO'], 'INSTITUIÇÃO': ['INSTITUIÇÃO', 'INSTITUICAO', 'ESCOLA'],
+      'Data de Retorno': ['DATA DE RETORNO', 'DATA RETORNO'], STATUS: ['STATUS']
+    },
+    '04- DIGITAÇÃO': {
+      NOME: ['NOME', 'ALUNO'], 'INSTITUIÇÃO': ['INSTITUIÇÃO', 'INSTITUICAO', 'ESCOLA'],
+      'data de envio': ['DATA DE ENVIO', 'DATA ENVIO'], 'data de retorno': ['DATA DE RETORNO', 'DATA RETORNO'],
+      DIGITADOR: ['DIGITADOR'], STATUS: ['STATUS']
+    },
+    '05 - CONFERENCIA': {
+      NOME: ['NOME', 'ALUNO'], 'INSTITUIÇÃO': ['INSTITUIÇÃO', 'INSTITUICAO', 'ESCOLA'],
+      'Data envio': ['DATA ENVIO', 'DATA DE ENVIO'], 'Data Retorno': ['DATA RETORNO', 'DATA DE RETORNO'],
+      'Conferente 01': ['CONFERENTE 01', 'CONFERENTE', 'CONFERENTE 1'], 'DIG.': ['DIG.', 'DIG', 'DIGITADOR'], STATUS: ['STATUS']
+    },
+    '06 - ASSINATURA': {
+      NOME: ['NOME', 'ALUNO'], 'INSTITUIÇÃO': ['INSTITUIÇÃO', 'INSTITUICAO', 'ESCOLA'],
+      'ENVIO ASSINATURA': ['ENVIO ASSINATURA', 'DATA ENVIO ASSINATURA'],
+      'RETORNO ASSINATURA': ['RETORNO ASSINATURA', 'DATA RETORNO ASSINATURA'],
+      'Situação': ['SITUAÇÃO', 'SITUACAO', 'STATUS']
+    },
+    '07 - DEFERIDO': {
+      NOME: ['NOME', 'ALUNO'], 'INSTITUIÇÃO': ['INSTITUIÇÃO', 'INSTITUICAO', 'ESCOLA'],
+      'DATA ASSINATURA': ['DATA ASSINATURA', 'DATA DA ASSINATURA'],
+      'DATA DA RETIRADA': ['DATA DA RETIRADA', 'DATA RETIRADA'], STATUS: ['STATUS', 'SITUAÇÃO', 'SITUACAO']
+    }
   };
 
   const IGNORADAS = ['CONSULTA PROCESSO', 'CONSULTA ACERVO', 'ACERVO', 'DADOS'];
@@ -46,6 +109,29 @@
     return texto(v).normalize('NFD').replace(/[\u0300-\u036f]/g, '')
       .toUpperCase().replace(/\s+/g, ' ').trim();
   }
+  function canonicoAba(nome) {
+    const alvo = normalizar(nome).replace(/\s*-\s*/g, '-');
+    for (const [canonico, aliases] of Object.entries(ABA_ALIASES)) {
+      if (aliases.some(alias => normalizar(alias).replace(/\s*-\s*/g, '-') === alvo)) return canonico;
+    }
+    return '';
+  }
+  function resolverAba(wb, canonico) {
+    return (wb.SheetNames || []).find(nome => canonicoAba(nome) === canonico) || '';
+  }
+  function normalizarCabecalho(v) {
+    return normalizar(v).replace(/[._:;]+/g, ' ').replace(/\s+/g, ' ').trim();
+  }
+  function mapaCabecalhos(canonico) {
+    const defs = CABECALHOS[canonico] || {};
+    const mapa = new Map();
+    Object.entries(defs).forEach(([destino, aliases]) => {
+      aliases.forEach(alias => mapa.set(normalizarCabecalho(alias), destino));
+      mapa.set(normalizarCabecalho(destino), destino);
+    });
+    return mapa;
+  }
+
   function nomeProprio(v) {
     const s = texto(v).toLocaleLowerCase('pt-BR').replace(/\s+/g, ' ');
     if (!s) return '';
@@ -504,15 +590,37 @@
       }
     }
   }
-  function sheetJson(wb, name) {
+  function sheetJson(wb, name, canonicoInformado) {
     const ws = wb.Sheets[name];
-    return ws ? XLSX.utils.sheet_to_json(ws, { defval: null, raw: true }) : [];
+    if (!ws) return [];
+
+    const canonico = canonicoInformado || canonicoAba(name);
+    const matriz = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: true });
+    if (!matriz.length) return [];
+
+    const cabecalhosOriginais = matriz[0] || [];
+    const alias = mapaCabecalhos(canonico);
+    const cabecalhos = cabecalhosOriginais.map((valor, indice) => {
+      const reconhecido = alias.get(normalizarCabecalho(valor));
+      if (reconhecido) return reconhecido;
+      // Regra estrutural histórica: a primeira coluna de todas as abas operacionais é o nome.
+      if (indice === 0 && canonico) return 'NOME';
+      // A segunda coluna das abas operacionais é a instituição.
+      if (indice === 1 && canonico) return 'INSTITUIÇÃO';
+      return texto(valor) || `__COLUNA_${indice + 1}`;
+    });
+
+    return matriz.slice(1).map((linha, indiceLinha) => {
+      const obj = { __linha_excel: indiceLinha + 2 };
+      cabecalhos.forEach((cab, indice) => { obj[cab] = linha[indice] ?? null; });
+      return obj;
+    });
   }
 
   function processarWorkbook(wb, arquivo) {
     const nomes = wb.SheetNames || [];
     const abas = nomes.map(n => {
-      const canon = Object.keys(OPERACIONAIS).find(k => normalizar(k) === normalizar(n));
+      const canon = canonicoAba(n);
       const ignorada = IGNORADAS.some(k => normalizar(k) === normalizar(n));
       return {
         nome: n,
@@ -522,15 +630,18 @@
       };
     });
 
-    const origemNome = nomes.find(n => normalizar(n) === normalizar('00 - DESARQUIVAR'));
-    if (!origemNome) throw new Error('A aba 00 - DESARQUIVAR não foi localizada.');
+    const origemNome = resolverAba(wb, '00 - DESARQUIVAR');
+    if (!origemNome) {
+      throw new Error('A aba inicial não foi localizada. Aceitos: 00 - DESARQUIVAR ou 00 - DESARQUIVAMENTO.');
+    }
 
-    const origem = sheetJson(wb, origemNome).filter(r => texto(r.NOME));
+    const origem = sheetJson(wb, origemNome, '00 - DESARQUIVAR').filter(r => texto(r.NOME));
     const indices = {};
     nomes.forEach(n => {
-      if (!Object.keys(OPERACIONAIS).some(k => normalizar(k) === normalizar(n))) return;
+      const canonico = canonicoAba(n);
+      if (!canonico) return;
       const map = new Map();
-      sheetJson(wb, n).forEach(r => {
+      sheetJson(wb, n, canonico).forEach(r => {
         const nome = r.NOME;
         const escola = r['INSTITUIÇÃO'] || r['Instituição'];
         if (!texto(nome)) return;
@@ -554,7 +665,7 @@
       const k2 = [normalizar(nome), normalizar(escola)].join('|');
 
       const get = alvo => {
-        const real = nomes.find(n => normalizar(n) === normalizar(alvo));
+        const real = resolverAba(wb, alvo);
         return real && indices[real] && (indices[real].get(k2) || [])[0];
       };
 
@@ -753,7 +864,7 @@
         processo_migrado: true,
         selo_origem: 'PROCESSO MIGRADO',
         arquivo_origem: arquivo,
-        linha_origem: linhaBase + 2,
+        linha_origem: r.__linha_excel || (linhaBase + 2),
         nte_origem: nte,
         aluno_nome: nome,
         escola_nome_original: escola,
