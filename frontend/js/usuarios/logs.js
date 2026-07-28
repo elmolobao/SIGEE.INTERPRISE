@@ -6,11 +6,12 @@
 (function () {
   'use strict';
 
-  const VERSION = '3.3.11-LOGS-CONSUMO-OTIMIZADO';
+  const VERSION = '3.3.12-PRESENCA-EVENTOS-RC8.6.3';
   const TABELA_LOGS = 'logs_sigee';
   const TABELA_ONLINE = 'usuarios_online_sigee';
-  const HEARTBEAT_MS = 60 * 1000;
-  const ONLINE_LIMITE_MS = 3 * 60 * 1000;
+  const HEARTBEAT_MS = 10 * 60 * 1000;
+  const PRESENCA_MIN_INTERVAL_MS = 2 * 60 * 1000;
+  const ONLINE_LIMITE_MS = 12 * 60 * 1000;
   const MAX_LOCAL = 2000;
   const SESSION_ID = sessionStorage.getItem('SIGEE_SESSION_ID') ||
     ((window.crypto && crypto.randomUUID) ? crypto.randomUUID() : `sigee-${Date.now()}-${Math.random().toString(16).slice(2)}`);
@@ -169,7 +170,7 @@
     const agora = Date.now();
     // RC8.6.2: deduplica gravações simultâneas disparadas por login,
     // visibilitychange e instalação tardia do módulo.
-    if (!opcoes.forcar && status === 'online' && agora - ultimaPresencaTs < 5000) return true;
+    if (!opcoes.forcar && status === 'online' && agora - ultimaPresencaTs < PRESENCA_MIN_INTERVAL_MS) return true;
     if (presencaEmAndamento) return presencaEmAndamento;
     const payload = {
       sessao_id: SESSION_ID,
@@ -204,11 +205,18 @@
     } catch (_) {}
   }
 
+  function registrarAtividadePresenca() {
+    if (!usuarioAtual() || document.visibilityState === 'hidden') return;
+    atualizarPresenca('online');
+  }
+
   function iniciarHeartbeat() {
     if (heartbeatTimer) return;
     atualizarPresenca('online');
     heartbeatTimer = setInterval(() => {
-      if (usuarioAtual() && document.visibilityState !== 'hidden') atualizarPresenca('online', { forcar: true });
+      if (usuarioAtual() && document.visibilityState !== 'hidden') {
+        atualizarPresenca('online', { forcar: true });
+      }
     }, HEARTBEAT_MS);
   }
 
@@ -246,7 +254,7 @@
       if (secao && tabelaLogs) {
         const bloco = document.createElement('div');
         bloco.className = 'bg-white rounded-xl shadow-sm border overflow-hidden';
-        bloco.innerHTML = `<div class="p-4 border-b"><h2 class="font-bold text-blue-900">Usuários conectados no sistema</h2><p class="text-xs text-gray-500">Sessões com atividade nos últimos 3 minutos, registradas no Supabase.</p></div><div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead class="bg-gray-100"><tr><th class="p-3">Usuário</th><th class="p-3">Perfil</th><th class="p-3">NTE</th><th class="p-3">Última atividade</th><th class="p-3">Situação</th></tr></thead><tbody id="tabela-tecnicos-online-sigee"></tbody></table></div>`;
+        bloco.innerHTML = `<div class="p-4 border-b"><h2 class="font-bold text-blue-900">Usuários conectados no sistema</h2><p class="text-xs text-gray-500">Sessões com atividade nos últimos 12 minutos, registradas no Supabase.</p></div><div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead class="bg-gray-100"><tr><th class="p-3">Usuário</th><th class="p-3">Perfil</th><th class="p-3">NTE</th><th class="p-3">Última atividade</th><th class="p-3">Situação</th></tr></thead><tbody id="tabela-tecnicos-online-sigee"></tbody></table></div>`;
         tabelaLogs.parentNode.insertBefore(bloco, tabelaLogs);
         corpo = document.getElementById('tabela-tecnicos-online-sigee');
       }
@@ -318,12 +326,14 @@
       if (!el || el.closest('#tela-login')) return;
       const d = descreverClique(el);
       if (d) registrarLogSIGEE(d.acao, d.detalhes, d.contexto);
+      registrarAtividadePresenca();
     }, true);
 
     document.addEventListener('submit', e => {
       if (e.target?.id === 'form-login') return;
       const ctx = obterContextoElemento(e.submitter || e.target);
       registrarLogSIGEE(`FORMULÁRIO ENVIADO: ${ctx.formulario || ctx.modulo || 'sem identificação'}`, ctx.rotulo, ctx);
+      registrarAtividadePresenca();
     }, true);
 
     document.addEventListener('change', e => {
@@ -332,10 +342,11 @@
       const ctx = obterContextoElemento(el);
       const valor = el.type === 'checkbox' || el.type === 'radio' ? (el.checked ? 'marcado' : 'desmarcado') : (el.type === 'file' ? `${el.files?.length || 0} arquivo(s)` : txt(el.value));
       registrarLogSIGEE(`ALTERAÇÃO DE CAMPO: ${ctx.rotulo || ctx.elemento}`, valor.slice(0, 300), ctx);
+      registrarAtividadePresenca();
     }, true);
 
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible' && usuarioAtual()) atualizarPresenca('online');
+      if (document.visibilityState === 'visible' && usuarioAtual()) registrarAtividadePresenca();
       if (!logsTelaAtiva) return;
       if (document.visibilityState === 'visible') iniciarMonitoramentoLogsSIGEE();
       else if (logsTimer) { clearInterval(logsTimer); logsTimer = null; }
