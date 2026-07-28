@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  const VERSION = 'M5.3.1';
+  const VERSION = 'M5.3.0';
   let hashArquivo = '';
   let ultimoArquivo = null;
   let ultimoDiagnostico = null;
@@ -153,7 +153,6 @@
       },
       processos: (r.processos || []).filter(p => p.status_validacao === 'PRONTO' && !p.ignorar_migracao).map(p => ({
         migration_key: p.migration_key,
-        migration_key_base: p.migration_key_base || '',
         aluno_nome: p.aluno_nome,
         linha_origem: p.linha_origem || null,
         aba_origem: p.aba_origem || '00 - DESARQUIVAR',
