@@ -1,11 +1,11 @@
 /**
- * SIGEE Enterprise RC7.4.2 — Menu nativo único por perfil.
+ * SIGEE Enterprise RC8.4.0 — Menu nativo único por perfil.
  * Autoridade exclusiva para menus, rotas e destino pós-login.
  */
 (function(window, document){
 'use strict';
-if (window.__SIGEE_AUTORIZACAO_RC742__) return;
-window.__SIGEE_AUTORIZACAO_RC742__ = true;
+if (window.__SIGEE_AUTORIZACAO_RC840__) return;
+window.__SIGEE_AUTORIZACAO_RC840__ = true;
 
 const ROTAS = Object.freeze({
   painel: 'relatorios.visualizar',
@@ -438,10 +438,7 @@ function instalarLogin(){
       if (u && !document.getElementById('sistema-dashboard')?.classList.contains('hidden')) {
         renderizarMenu();
         aplicarRotaInicialForcada();
-        setTimeout(aplicarRotaInicialForcada,120);
-        setTimeout(aplicarRotaInicialForcada,320);
-        setTimeout(aplicarRotaInicialForcada,900);
-        setTimeout(aplicarRotaInicialForcada,1800);
+        requestAnimationFrame(() => aplicarControlesDaInterface());
       }
       return resultado;
     } finally {
@@ -455,27 +452,34 @@ function instalarLogin(){
   return true;
 }
 
+function observarCentral(){
+  const central=document.getElementById('aba-processos');
+  if(!central || central.dataset.sigeeControleObserver==='1') return;
+  central.dataset.sigeeControleObserver='1';
+  let agendado=0;
+  const obs=new MutationObserver(()=>{
+    clearTimeout(agendado);
+    agendado=setTimeout(()=>{
+      if(usuario() && !central.classList.contains('hidden')) garantirNovaSolicitacaoNaCentral();
+    },40);
+  });
+  obs.observe(central,{childList:true,subtree:true});
+}
 function iniciar(){
   instalarNavegacao();
   instalarLogin();
   renderizarMenu();
+  observarCentral();
 }
 
 document.addEventListener('DOMContentLoaded', iniciar, { once:true });
 document.addEventListener('sigee:usuario-logado', () => setTimeout(() => {
   renderizarMenu();
   aplicarRotaInicialForcada();
-  setTimeout(aplicarRotaInicialForcada,120);
-  setTimeout(aplicarRotaInicialForcada,900);
-  setTimeout(aplicarRotaInicialForcada,1800);
-  // Passagens curtas e finitas para cobrir a finalização assíncrona da sessão.
-  setTimeout(aplicarControlesDaInterface,180);
-  setTimeout(aplicarControlesDaInterface,650);
+  requestAnimationFrame(() => aplicarControlesDaInterface());
 }, 0));
 window.addEventListener('sigee:login-concluido', () => {
-  setTimeout(iniciar, 0);
-  setTimeout(aplicarControlesDaInterface,180);
-  setTimeout(aplicarControlesDaInterface,650);
+  setTimeout(() => { iniciar(); aplicarControlesDaInterface(); }, 0);
 });
 window.addEventListener('load', () => setTimeout(iniciar, 50));
 

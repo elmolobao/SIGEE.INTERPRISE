@@ -1,5 +1,5 @@
 /**
- * SIGEE RC4.4.0 — Autenticação oficial centralizada e recadastramento auditado.
+ * SIGEE RC8.4.0 — Autenticação oficial centralizada e recadastramento auditado.
  *
  * Regras:
  * - o registro oficial de usuarios_sigee é a única autoridade para login;
@@ -165,11 +165,8 @@
       renderizarUsuario(canonico);
 
       try { window.registrarLog?.('Acesso realizado ao SIGEE.'); } catch (_) {}
-      try { window.carregarEContarProcessosHorizontais?.(); } catch (_) {}
-
-      setTimeout(function () {
-        try { window.sincronizarSupabaseSegundoPlanoSIGEE?.(); } catch (_) {}
-      }, 300);
+      // RC8.4: dados são carregados pelo ciclo de vida da rota inicial.
+      // O login não dispara sincronizações paralelas ou dashboards ocultos.
 
       // O login-controller é o último script que redefine handleLogin. Portanto,
       // ele deve marcar o login manual e enviar explicitamente o usuário oficial
@@ -185,6 +182,7 @@
       };
       await window.SIGEE_AUTH?.verificarPrimeiroAcesso?.(contextoPrimeiroAcesso);
       document.dispatchEvent(new CustomEvent('sigee:login-concluido', contextoPrimeiroAcesso));
+      window.dispatchEvent(new CustomEvent('sigee:session-ready', { detail:{ usuario:canonico, rotaInicial:'processos' } }));
       return true;
     } catch (erro) {
       console.error('[SIGEE RC4.3.0] Falha na autenticação oficial.', erro);
