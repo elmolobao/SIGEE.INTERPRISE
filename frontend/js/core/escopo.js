@@ -10,9 +10,9 @@ function number(v){if(v===0||v==='0')return 0;if(typeof v==='number'&&Number.isF
 function profile(t){return window.SIGEE_PERFIS?.normalizar?.(user(t)?.perfil)||'';}
 function gestorSecGlobal(t){const u=user(t),p=profile(u);if(p!=='Gestor')return false;const vinc=norm(u.nte??u.nte_nome??u.nte_vinculado??u.grupo??u.territorio??'');const id=number(u.nte_id??u.id_nte??u.territorio_id);return id===null&&(vinc.includes('TODOS')||vinc.includes('SEC'));}
 function isGlobal(t){return window.SIGEE_PERFIS?.ehGlobal?.(profile(t))===true||gestorSecGlobal(t);}
-function userNteId(t){const u=user(t);const direct=u.nte_id??u.id_nte??u.territorio_id;const n=number(direct);if(n!==null)return n;return number(u.nte??u.nte_nome??u.nte_vinculado??u.grupo??u.territorio);}
+function userNteId(t){const u=user(t);const direct=u.nte_id??u.id_nte??u.territorio_id;const n=number(direct);if(n!==null&&n>0)return n;const textual=number(u.nte??u.nte_nome??u.nte_vinculado??u.grupo??u.territorio);return textual!==null&&textual>0?textual:null;}
 function userNte(t){const u=user(t);return u.nte||u.nte_nome||u.nte_vinculado||u.grupo||u.territorio||u.nte_id||u.id_nte||u.territorio_id||'';}
-function recordNteId(r){const direct=r?.nte_id??r?.id_nte??r?.territorio_id;const n=number(direct);if(n!==null)return n;return number(r?.nte??r?.nte_nome??r?.nte_vinculado??r?.grupo??r?.territorio??r?.NTE);}
+function recordNteId(r){const direct=r?.nte_id??r?.id_nte??r?.territorio_id;const n=number(direct);if(n!==null&&n>0)return n;const textual=number(r?.nte??r?.nte_nome??r?.nte_vinculado??r?.grupo??r?.territorio??r?.NTE);return textual!==null&&textual>0?textual:null;}
 function recordNte(r){return r?.nte||r?.nte_nome||r?.nte_vinculado||r?.grupo||r?.territorio||r?.NTE||r?.nte_id||r?.id_nte||r?.territorio_id||'';}
 function same(a,b){const x=number(a),y=number(b);return x!==null&&y!==null?x===y:norm(a)===norm(b);}
 function validateRecord(r,t){if(isGlobal(t))return true;const own=userNteId(t),rid=recordNteId(r);return own!==null&&rid!==null&&own===rid;}
