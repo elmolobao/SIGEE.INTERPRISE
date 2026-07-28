@@ -1,5 +1,5 @@
 /**
- * SIGEE Enterprise RC8.4.0 — Menu nativo único por perfil.
+ * SIGEE Enterprise RC9.1.0 — Menu e controles de ação autoritativos por sessão.
  * Autoridade exclusiva para menus, rotas e destino pós-login.
  */
 (function(window, document){
@@ -151,13 +151,33 @@ function garantirTelaDiagnostico(){
   aba.innerHTML=`<header class="sigee-admin-page-head"><div><span>ADMINISTRAÇÃO</span><h1>Centro de Diagnóstico</h1><p>Verificação dos componentes, conectividade e integração operacional do SIGEE.</p></div><button type="button" id="btn-atualizar-diagnostico">↻ Atualizar diagnóstico</button></header><section id="diagnostico-resumo" class="bg-white rounded-xl border shadow-sm p-5"><div class="grid grid-cols-1 md:grid-cols-3 gap-4"><article><small>Status geral</small><strong id="diag-status-geral">Aguardando</strong></article><article><small>Última atualização</small><strong id="diag-atualizado">—</strong></article><article><small>Conectividade</small><strong id="diag-conectividade">—</strong></article><article><small>Processos</small><strong id="diag-processos">0</strong></article><article><small>Escolas</small><strong id="diag-escolas">0</strong></article><article><small>Usuários</small><strong id="diag-usuarios">0</strong></article><article><small>Tempo de cálculo</small><strong id="diag-tempo-calculo">—</strong></article><article><small>Última sincronização</small><strong id="diag-ultima-sync">—</strong></article></div></section><section id="diag-componentes" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></section>`;
   main.appendChild(aba); aba.querySelector('#btn-atualizar-diagnostico')?.addEventListener('click',()=>window.atualizarDiagnosticoSIGEE?.(true)); return aba;
 }
-function mostrarElemento(el, visivel){
+function mostrarElemento(el, visivel, displayVisivel=''){
   if(!el)return;
-  el.classList.toggle('hidden', !visivel);
-  el.hidden = !visivel;
-  el.setAttribute('aria-hidden', visivel ? 'false' : 'true');
-  el.style.setProperty('display', visivel ? '' : 'none', 'important');
-  if('disabled' in el) el.disabled = !visivel;
+  const permitido=visivel===true;
+  el.classList.toggle('hidden', !permitido);
+  el.hidden = !permitido;
+  el.setAttribute('aria-hidden', permitido ? 'false' : 'true');
+  el.style.setProperty('display', permitido ? displayVisivel : 'none', 'important');
+  el.style.setProperty('visibility', permitido ? 'visible' : 'hidden', 'important');
+  el.style.setProperty('opacity', permitido ? '1' : '0', 'important');
+  el.style.setProperty('pointer-events', permitido ? 'auto' : 'none', 'important');
+  if('disabled' in el) el.disabled = !permitido;
+}
+function garantirEstiloControlesAutoritativos(){
+  if(document.getElementById('sigee-controles-autoritativos-rc910'))return;
+  const style=document.createElement('style');
+  style.id='sigee-controles-autoritativos-rc910';
+  style.textContent=`
+    body[data-sigee-processos-criar="true"] #btn-nova-solicitacao,
+    body[data-sigee-processos-criar="true"] [data-acao="nova-solicitacao"]{
+      display:flex!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;
+    }
+    body[data-sigee-processos-criar="false"] #btn-nova-solicitacao,
+    body[data-sigee-processos-criar="false"] [data-acao="nova-solicitacao"]{
+      display:none!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important;
+    }
+  `;
+  document.head.appendChild(style);
 }
 function aplicarControlesCatalogo(){
   const podeCadastrar = pode('escolas.editar_cadastral');
@@ -175,8 +195,10 @@ function garantirNovaSolicitacaoNaCentral(){
   central.querySelectorAll('#btn-nova-solicitacao-central').forEach(el=>el.remove());
 
   let botao = central.querySelector('#btn-nova-solicitacao, [data-acao="nova-solicitacao"]');
-  // Fonte única: matriz oficial de capacidades.
-  const autorizado = pode('processos.criar');
+  // Fonte única: matriz oficial de capacidades e sessão já resolvida.
+  const autorizado = pode('processos.criar') === true;
+  garantirEstiloControlesAutoritativos();
+  if(document.body) document.body.dataset.sigeeProcessosCriar = autorizado ? 'true' : 'false';
 
   // Alguns módulos legados removem o botão do DOM. Recria somente quando autorizado.
   if(!botao && autorizado){
@@ -192,7 +214,10 @@ function garantirNovaSolicitacaoNaCentral(){
       cabecalho.appendChild(botao);
     }
   }
-  if(botao) mostrarElemento(botao, autorizado);
+  if(botao){
+    botao.dataset.sigeeAutoridadeAcao='processos.criar';
+    mostrarElemento(botao, autorizado, 'flex');
+  }
 }
 function aplicarControlesExportacao(){
   const podeExportar = pode('relatorios.exportar');
@@ -457,23 +482,45 @@ function observarCentral(){
   if(!central || central.dataset.sigeeControleObserver==='1') return;
   central.dataset.sigeeControleObserver='1';
   let agendado=0;
-  const obs=new MutationObserver(()=>{
+  let corrigindo=false;
+  const reconciliar=()=>{
+    if(corrigindo)return;
+    corrigindo=true;
+    try{
+      if(usuario()) garantirNovaSolicitacaoNaCentral();
+    }finally{
+      queueMicrotask(()=>{corrigindo=false;});
+    }
+  };
+  const obs=new MutationObserver((mutacoes)=>{
+    const relevante=mutacoes.some(m=>{
+      if(m.type==='childList')return true;
+      const alvo=m.target;
+      return alvo?.id==='btn-nova-solicitacao' || alvo?.matches?.('[data-acao="nova-solicitacao"]');
+    });
+    if(!relevante)return;
     clearTimeout(agendado);
-    agendado=setTimeout(()=>{
-      if(usuario() && !central.classList.contains('hidden')) garantirNovaSolicitacaoNaCentral();
-    },40);
+    agendado=setTimeout(reconciliar,20);
   });
-  obs.observe(central,{childList:true,subtree:true});
+  obs.observe(central,{childList:true,subtree:true,attributes:true,attributeFilter:['class','style','hidden','disabled','aria-hidden']});
 }
 function iniciar(){
+  garantirEstiloControlesAutoritativos();
   instalarNavegacao();
   instalarLogin();
   renderizarMenu();
   observarCentral();
+  aplicarControlesDaInterface();
 }
 
 document.addEventListener('DOMContentLoaded', iniciar, { once:true });
 document.addEventListener('sigee:usuario-logado', () => setTimeout(() => {
+  renderizarMenu();
+  aplicarRotaInicialForcada();
+  requestAnimationFrame(() => aplicarControlesDaInterface());
+}, 0));
+window.addEventListener('sigee:session-ready', () => setTimeout(() => {
+  iniciar();
   renderizarMenu();
   aplicarRotaInicialForcada();
   requestAnimationFrame(() => aplicarControlesDaInterface());
