@@ -1,7 +1,7 @@
+/* SIGEE RC9.0.5 — Mapeador oficial de etapas na consulta remota e paginação */
 /* SIGEE RC9.0.0 — Pipeline territorial único: consulta, Store, contadores, paginação e Realtime */
 /* SIGEE RC9.0.1 — Escopo territorial pela coluna processos.nte */
 /* SIGEE RC9.0.2 — coerência territorial por campo nte e total único */
-/* SIGEE RC9.0.4 — filtros remotos equivalentes por etapa e paginação filtrada */
 /* SIGEE RC8.3.0 — Central autoritativa e estado visual estável */
 /* SIGEE RC4.6.6 — normalização territorial da Central de Processos */
 /* SIGEE RC4.5.27 — estabilidade e desempenho da Central de Processos */
@@ -1475,35 +1475,50 @@
     return String(window.__SIGEE_ETAPA_FILTRO_ATUAL__||'TODOS').trim();
   }
   function normalizarEtapaRemota(valor){
-    return String(valor||'').trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
+    return String(valor||'').trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/\s+/g,' ');
+  }
+  function chaveContadorEtapa(etapa){
+    const e=normalizarEtapaRemota(etapa);
+    if(!e || e==='TODOS') return 'todos';
+    if(e==='DESARQUIVAMENTO' || e.includes('REITERAC') || e.includes('CONFIRMAC') || e.includes('PEDIDO DE ATAS')) return 'desarquivamento';
+    if(e.includes('ANAL')) return 'analise';
+    if(e.includes('PEND')) return 'pendencia';
+    if(e.includes('DIGIT')) return 'digitacao';
+    if(e.includes('CONFER')) return 'conferencia';
+    if(e.includes('ASSIN')) return 'assinatura';
+    if(e.includes('AGUARD') || e==='DEFERIDO') return 'aguardando_retirada';
+    if(e.includes('RETIR')) return 'retirado';
+    if(e.includes('INDEFER')) return 'indeferido';
+    return 'todos';
   }
   function aplicarFiltroEtapaRemoto(query, etapa){
-    const chave=normalizarEtapaRemota(etapa);
-    if(!chave || chave==='TODOS') return query;
-
-    // Desarquivamento é um ciclo composto, não uma etapa textual única.
-    if(chave==='DESARQUIVAMENTO'){
+    const e=normalizarEtapaRemota(etapa);
+    if(!e || e==='TODOS') return query;
+    if(e==='DESARQUIVAMENTO'){
       return query.or([
         'etapa_codigo.in.(DES,RET,REU,CFD)',
         'etapa_atual.ilike.%Desarquivamento%',
-        'etapa_atual.ilike.%Reiteração%',
-        'etapa_atual.ilike.%Reiteracao%',
-        'etapa_atual.ilike.%Confirmação dos Dados%',
-        'etapa_atual.ilike.%Confirmacao dos Dados%',
-        'etapa_atual.ilike.%Confirmar Dados%',
+        'etapa_atual.ilike.%Reitera%',
+        'etapa_atual.ilike.%Confirma%',
         'etapa_atual.ilike.%Pedido de Atas%'
       ].join(','));
     }
-
-    // Registros históricos podem conter grafia sem acento ou espaços residuais.
-    if(chave==='ANALISE'){
-      return query.or('etapa_atual.ilike.%Análise%,etapa_atual.ilike.%Analise%');
+    if(e.includes('ANAL')){
+      return query.or('etapa_codigo.eq.ANA,etapa_atual.ilike.%Análise%,etapa_atual.ilike.%Analise%');
     }
-    if(chave==='PENDENCIA'){
-      return query.or('etapa_atual.ilike.%Pendência%,etapa_atual.ilike.%Pendencia%');
+    if(e.includes('PEND')){
+      return query.or('etapa_codigo.eq.PEN,etapa_atual.ilike.%Pendência%,etapa_atual.ilike.%Pendencia%');
     }
-
-    return query.eq('etapa_atual',etapa);
+    const canonicas={
+      DIGITACAO:'Digitação',
+      CONFERENCIA:'Conferência',
+      ASSINATURA:'Assinatura',
+      'AGUARDANDO RETIRADA':'Aguardando Retirada',
+      DEFERIDO:'Aguardando Retirada',
+      RETIRADO:'Retirado',
+      INDEFERIDO:'Indeferido'
+    };
+    return query.eq('etapa_atual',canonicas[e]||etapa);
   }
   async function carregarContadoresGlobais(c, nteValor, busca){
     const {data,error}=await c.rpc('sigee_processos_contadores',{p_nte:nteValor||null,p_busca:busca||null});
@@ -1582,11 +1597,9 @@
       // RC9.0.2: paginação e indicadores usam a mesma autoridade territorial.
       // O RPC já calcula o total após escopo e busca; o count bruto fica apenas
       // como fallback para ambientes sem o contador atualizado.
-      const etapaNormalizada=normalizarEtapaRemota(etapaAtual);
-      const totalAutorizado=etapaNormalizada && etapaNormalizada!=='TODOS'
-        ? Number(count||0)
-        : Number(contadoresTerritoriais?.todos);
-      totalProcessosRemotos=Number.isFinite(totalAutorizado)?totalAutorizado:Number(count||0);
+      const chaveTotal=chaveContadorEtapa(etapaAtual);
+      const totalEtapa=Number(contadoresTerritoriais?.[chaveTotal]);
+      totalProcessosRemotos=Number.isFinite(totalEtapa)?totalEtapa:Number(count||0);
       const publicada=window.SIGEE_PROCESSOS_STORE?.publicarAutoritativo?.(lista,'CENTRAL_REMOTA_PAGINADA')||window.SIGEE_PROCESSOS_STORE?.publicar?.(lista,'CENTRAL_REMOTA_PAGINADA')||lista;
       window.__SIGEE_PROCESSOS_ORIGEM__='REMOTA_PAGINADA';
       // O Store já expõe o proxy em window.processosDB; não execute atribuição global legada.
