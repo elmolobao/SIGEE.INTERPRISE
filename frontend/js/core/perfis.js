@@ -1,5 +1,5 @@
 /**
- * SIGEE Enterprise RC5.4.2 — Catálogo oficial de perfis.
+ * SIGEE Enterprise RC8.6.0 — Catálogo oficial de perfis.
  * Autoridade única para nomenclatura, apresentação, natureza e rota inicial.
  */
 (function (window) {
@@ -10,7 +10,7 @@
   const PERFIS = Object.freeze([
     Object.freeze({ key:'MASTER', value:'Master', label:'Master', titulo:'MASTER', subtitulo:'SEC - TODOS OS NTEs', escopo:'GLOBAL', natureza:'ADMINISTRACAO_GLOBAL', rotaInicial:'processos' }),
     Object.freeze({ key:'SEC', value:'SEC', label:'SEC', titulo:'VISÃO ESTADUAL', subtitulo:'SEC / BA', escopo:'GLOBAL', natureza:'ACOMPANHAMENTO_ESTADUAL', rotaInicial:'processos' }),
-    Object.freeze({ key:'GESTOR', value:'Gestor', label:'Gestor Territorial', titulo:'GESTOR TERRITORIAL', subtitulo:'NTE vinculado', escopo:'NTE', natureza:'GESTAO_TERRITORIAL', rotaInicial:'painel' }),
+    Object.freeze({ key:'GESTOR', value:'Gestor', label:'Gestor Territorial', titulo:'GESTOR', subtitulo:'NTE vinculado ou SEC - TODOS OS NTEs', escopo:'DINAMICO', natureza:'GESTAO_TERRITORIAL_OU_ESTADUAL', rotaInicial:'processos' }),
     Object.freeze({ key:'ADMINISTRADOR', value:'Administrador', label:'Administrador Territorial', titulo:'ADMINISTRADOR TERRITORIAL', subtitulo:'NTE vinculado', escopo:'NTE', natureza:'ADMINISTRACAO_TERRITORIAL', rotaInicial:'processos' }),
     Object.freeze({ key:'TECNICO', value:'Técnico', label:'Técnico', titulo:'TÉCNICO DO NTE', subtitulo:'NTE vinculado', escopo:'NTE', natureza:'OPERACAO_TECNICA', rotaInicial:'processos' }),
     Object.freeze({ key:'ATENDIMENTO', value:'Atendimento', label:'Atendimento', titulo:'ATENDIMENTO TERRITORIAL', subtitulo:'NTE vinculado', escopo:'NTE', natureza:'ATENDIMENTO_PROTOCOLO', rotaInicial:'processos' }),
