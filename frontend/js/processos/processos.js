@@ -1,4 +1,5 @@
 /* SIGEE RC9.0.0 — Pipeline territorial único: consulta, Store, contadores, paginação e Realtime */
+/* SIGEE RC9.0.1 — Escopo territorial pela coluna processos.nte */
 /* SIGEE RC8.3.0 — Central autoritativa e estado visual estável */
 /* SIGEE RC4.6.6 — normalização territorial da Central de Processos */
 /* SIGEE RC4.5.27 — estabilidade e desempenho da Central de Processos */
@@ -1504,7 +1505,7 @@
       const inicio=(paginaAtualRemota-1)*processosPorPagina;
       const fim=inicio+processosPorPagina-1;
       let q=c.from(tabelaProcessos())
-        .select('id,codigo_sigee,aluno_nome,escola_id,escola_nome,cod_mec,documento_tipo,nivel_oferta,modalidade,etapa_atual,etapa_codigo,dias_decorridos,prioridade,nte,nte_id,tecnico_responsavel,data_etapa,data_etapa_atual,prazo_etapa,prazo_inicio,prazo_fim,status,ativo,created_at,updated_at,workflow_instance_id,workflow_ciclo,ciclo,ultima_mensagem_workflow,pendencia_aberta,finalizado_em,deferido_em,retirado_em,processo_migrado', {count:'exact'})
+        .select('id,codigo_sigee,aluno_nome,escola_id,escola_nome,cod_mec,documento_tipo,nivel_oferta,modalidade,etapa_atual,etapa_codigo,dias_decorridos,prioridade,nte,tecnico_responsavel,data_etapa,data_etapa_atual,prazo_etapa,prazo_inicio,prazo_fim,status,ativo,created_at,updated_at,workflow_instance_id,workflow_ciclo,ciclo,ultima_mensagem_workflow,pendencia_aberta,finalizado_em,deferido_em,retirado_em,processo_migrado', {count:'exact'})
         .order('created_at',{ascending:false})
         .range(inicio,fim);
       const u=window.SIGEE_SESSION?.getUser?.()||window.usuarioLogado||{};
@@ -1512,19 +1513,18 @@
       const filtroNte=String(document.getElementById('filtro-processos-nte')?.value||'').trim();
       let nteConsulta='';
 
-      /* RC9.0.0 — o escopo é aplicado na origem pelo nte_id. Isso impede que
-       * um NTE receba linhas de outro território e evita divergência entre a
-       * contagem remota e a página publicada no Store. Gestor SEC permanece
-       * global porque SIGEE_ESCOPO.contexto() é a autoridade desta decisão. */
+      /* RC9.0.1 — a tabela public.processos utiliza a coluna territorial
+       * `nte` (texto), não `nte_id`. O filtro remoto aceita as variações
+       * históricas de grafia e a validação local continua obrigatória. */
       if(contexto && !contexto.global){
-        if(contexto.nteId==null) throw new Error('Usuário territorial sem NTE válido.');
-        q=q.eq('nte_id',contexto.nteId);
-        nteConsulta=contexto.nte || `NTE-${String(contexto.nteId).padStart(2,'0')}`;
+        if(!contexto.nte) throw new Error('Usuário territorial sem NTE válido.');
+        nteConsulta=contexto.nte;
+        q=aplicarFiltroNteRemoto(q,nteConsulta);
       } else if(filtroNte && filtroNte!=='TODOS') {
         const idFiltro=window.SIGEE_ESCOPO?.numeroNte?.(filtroNte);
         if(idFiltro==null) throw new Error('Filtro territorial inválido.');
-        q=q.eq('nte_id',idFiltro);
         nteConsulta=`NTE-${String(idFiltro).padStart(2,'0')}`;
+        q=aplicarFiltroNteRemoto(q,nteConsulta);
       }
       const busca=termoSeguroBusca(document.getElementById('busca-proc-nome')?.value);
       if(busca) q=q.or(`codigo_sigee.ilike.%${busca}%,aluno_nome.ilike.%${busca}%,escola_nome.ilike.%${busca}%`);
@@ -1539,7 +1539,7 @@
         ? window.SIGEE_ESCOPO.filtrar(listaMapeada,u)
         : listaMapeada;
       if(contexto && !contexto.global && lista.length!==listaMapeada.length){
-        console.error('[SIGEE RC9.0.0] Registros externos ao NTE foram descartados antes da publicação.',{recebidos:listaMapeada.length,autorizados:lista.length,nteId:contexto.nteId});
+        console.error('[SIGEE RC9.0.1] Registros externos ao NTE foram descartados antes da publicação.',{recebidos:listaMapeada.length,autorizados:lista.length,nteId:contexto.nteId});
       }
       totalProcessosRemotos=Number(count||0);
       const publicada=window.SIGEE_PROCESSOS_STORE?.publicarAutoritativo?.(lista,'CENTRAL_REMOTA_PAGINADA')||window.SIGEE_PROCESSOS_STORE?.publicar?.(lista,'CENTRAL_REMOTA_PAGINADA')||lista;
@@ -1598,10 +1598,10 @@
     const u=usuarioRealtime();
     const contexto=window.SIGEE_ESCOPO?.contexto?.(u);
     const config={event:'*',schema:'public',table:tabelaProcessos()};
-    // O canal usa nte_id, a mesma chave territorial da consulta principal.
-    // aplicarEventoRealtime mantém a segunda validação obrigatória.
-    if(contexto && !contexto.global && contexto.nteId!=null) config.filter=`nte_id=eq.${contexto.nteId}`;
-    canal=c.channel('sigee-processos-central-v322')
+    // A tabela processos utiliza `nte`. O canal recebe a grafia canônica do
+    // vínculo e aplicarEventoRealtime mantém a validação territorial local.
+    if(contexto && !contexto.global && contexto.nte) config.filter=`nte=eq.${contexto.nte}`;
+    canal=c.channel('sigee-processos-central-v323')
       .on('postgres_changes',config,aplicarEventoRealtime)
       .subscribe((estado)=>{
         if(estado==='SUBSCRIBED') status('ok','🟢 Sincronizado');
