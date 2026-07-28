@@ -6,7 +6,12 @@
 
   const TABELA='controle_acesso_ntes';
   const TABELA_NTES='ntes_sigee';
-  const INTERVALO_VALIDACAO=60000;
+  // RC7.2.0 Performance: evita leitura idêntica a cada minuto por sessão.
+  // A suspensão continua sendo validada no login, no retorno à aba e por varredura de segurança.
+  const INTERVALO_VALIDACAO=5*60*1000;
+  const TTL_CONTROLE=4*60*1000;
+  const cacheValidacao=new Map();
+  const consultasEmCurso=new Map();
   let controleCache=[];
   let timerSessao=null;
 
@@ -30,15 +35,30 @@
   function esconderAbas(){document.querySelectorAll('#sistema-dashboard main > section[id^="aba-"]').forEach(s=>s.classList.add('hidden'));}
   function mensagemRegistro(r){return texto(r?.mensagem)||`O acesso ao SIGEE encontra-se temporariamente suspenso para ${nteCanonico(r?.nte)}. Procure a Coordenação de Legalização Escolar — CLO.`;}
 
-  async function buscarControle(nte){
-    const c=cliente(); if(!c) throw new Error('Cliente Supabase indisponível.');
+  async function buscarControle(nte,opcoes={}){
     const chave=nteCanonico(nte); if(!chave) return null;
-    const {data,error}=await c.from(TABELA).select('*').eq('nte',chave).maybeSingle();
-    if(error){
-      if(String(error.code||'')==='42P01'||/does not exist|não existe/i.test(error.message||'')) throw new Error('A infraestrutura do Controle de Acesso ainda não foi instalada no Supabase.');
-      throw error;
-    }
-    return data||null;
+    const forcar=opcoes?.forcar===true;
+    const agora=Date.now();
+    const salvo=cacheValidacao.get(chave);
+    if(!forcar&&salvo&&(agora-salvo.em)<TTL_CONTROLE) return salvo.dado;
+    if(!forcar&&consultasEmCurso.has(chave)) return consultasEmCurso.get(chave);
+
+    const promessa=(async()=>{
+      const c=cliente(); if(!c) throw new Error('Cliente Supabase indisponível.');
+      const {data,error}=await c.from(TABELA)
+        .select('nte,acesso_ativo,motivo,mensagem,alterado_em,alterado_por')
+        .eq('nte',chave)
+        .maybeSingle();
+      if(error){
+        if(String(error.code||'')==='42P01'||/does not exist|não existe/i.test(error.message||'')) throw new Error('A infraestrutura do Controle de Acesso ainda não foi instalada no Supabase.');
+        throw error;
+      }
+      const dado=data||null;
+      cacheValidacao.set(chave,{dado,em:Date.now()});
+      return dado;
+    })();
+    consultasEmCurso.set(chave,promessa);
+    try{return await promessa;}finally{consultasEmCurso.delete(chave);}
   }
 
   async function consultarUsuarioPorEmail(email){
@@ -55,7 +75,7 @@
     try{
       const usuario=await consultarUsuarioPorEmail(email);
       if(!usuario||perfilMaster(usuario)) return original?.call(window,event);
-      const registro=await buscarControle(usuario.nte||usuario.nte_nome||usuario.nte_id);
+      const registro=await buscarControle(usuario.nte||usuario.nte_nome||usuario.nte_id,{forcar:true});
       if(registro&&registro.acesso_ativo===false){
         alert(`ACESSO TEMPORARIAMENTE SUSPENSO\n\n${mensagemRegistro(registro)}${registro.motivo?`\n\nMotivo: ${registro.motivo}`:''}`);
         window.SIGEE_SESSION?.clear?.({persist:true,emit:true});
@@ -69,10 +89,10 @@
     }
   }
 
-  async function validarSessaoAtual(){
+  async function validarSessaoAtual(opcoes={}){
     const u=usuarioAtual(); if(!u||perfilMaster(u)) return true;
     try{
-      const r=await buscarControle(u.nte||u.nte_nome||u.nte_id);
+      const r=await buscarControle(u.nte||u.nte_nome||u.nte_id,opcoes);
       if(r&&r.acesso_ativo===false){
         window.SIGEE_SESSION?.clear?.({persist:true,emit:true});
         document.getElementById('sistema-dashboard')?.classList.add('hidden');
@@ -139,7 +159,7 @@
 
       const [resNtes,resControle]=await Promise.all([
         c.from(TABELA_NTES).select('id,numero,nome,email_institucional,ativo').order('numero'),
-        c.from(TABELA).select('*')
+        c.from(TABELA).select('nte,acesso_ativo,motivo,mensagem,alterado_em,alterado_por')
       ]);
 
       if(resNtes.error) throw resNtes.error;
@@ -197,6 +217,7 @@
     const payload={acesso_ativo:!estaAtivo,motivo:estaAtivo?motivo:null,mensagem:estaAtivo?mensagem:null,alterado_em:new Date().toISOString(),alterado_por:texto(u?.email||u?.nome)};
     const {error}=await c.from(TABELA).upsert({nte,...payload},{onConflict:'nte'});
     if(error) return alert(`Não foi possível concluir: ${error.message}`);
+    cacheValidacao.delete(nteCanonico(nte));
     try{window.registrarLog?.(`${estaAtivo?'Suspendeu':'Reativou'} o acesso territorial do ${nte}. ${motivo?`Motivo: ${motivo}`:''}`);}catch(_){ }
     alert(`Acesso do ${nte} ${estaAtivo?'suspenso':'reativado'} com sucesso.`); carregarPainel();
   }
@@ -208,7 +229,10 @@
   document.addEventListener('DOMContentLoaded',()=>setTimeout(iniciar,200));
   let tentativasMenu=0; const retryMenu=setInterval(()=>{tentativasMenu++; if(garantirItemMenu()||tentativasMenu>=30) clearInterval(retryMenu);},500);
   window.addEventListener('load',()=>setTimeout(iniciar,600));
-  document.addEventListener('sigee:usuario-logado',()=>setTimeout(()=>{garantirItemMenu();validarSessaoAtual();},200));
-  window.addEventListener('sigee:login-concluido',()=>setTimeout(()=>{garantirItemMenu();validarSessaoAtual();},200));
+  document.addEventListener('sigee:usuario-logado',()=>setTimeout(()=>{garantirItemMenu();validarSessaoAtual({forcar:true});},200));
+  window.addEventListener('sigee:login-concluido',()=>setTimeout(()=>{garantirItemMenu();validarSessaoAtual({forcar:true});},200));
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='visible'&&usuarioAtual()) validarSessaoAtual({forcar:true});
+  });
   window.SIGEE_CONTROLE_ACESSO_NTES={abrir:abrirPainel,recarregar:carregarPainel,validarSessao:validarSessaoAtual};
 })(window,document);
