@@ -17,6 +17,8 @@
   sessionStorage.setItem('SIGEE_SESSION_ID', SESSION_ID);
 
   let heartbeatTimer = null;
+  let ultimaPresencaTs = 0;
+  let presencaEmAndamento = null;
   let ultimoUsuarioEmail = '';
   let ultimoLog = { chave: '', ts: 0 };
   let instalando = false;
@@ -160,10 +162,15 @@
     return true;
   }
 
-  async function atualizarPresenca(status = 'online') {
+  async function atualizarPresenca(status = 'online', opcoes = {}) {
     const u = usuarioAtual();
     const c = cliente();
     if (!u || !c || !u.email) return false;
+    const agora = Date.now();
+    // RC8.6.2: deduplica gravações simultâneas disparadas por login,
+    // visibilitychange e instalação tardia do módulo.
+    if (!opcoes.forcar && status === 'online' && agora - ultimaPresencaTs < 5000) return true;
+    if (presencaEmAndamento) return presencaEmAndamento;
     const payload = {
       sessao_id: SESSION_ID,
       usuario_id: u.id || null,
@@ -176,12 +183,17 @@
       ultimo_acesso: new Date().toISOString(),
       user_agent: navigator.userAgent.slice(0, 500)
     };
-    const { error } = await c.from(TABELA_ONLINE).upsert(payload, { onConflict: 'sessao_id' });
-    if (error) {
-      console.warn('[SIGEE Presença] Tabela indisponível ou sem permissão:', error.message);
-      return false;
-    }
-    return true;
+    presencaEmAndamento = (async () => {
+      const { error } = await c.from(TABELA_ONLINE).upsert(payload, { onConflict: 'sessao_id' });
+      if (error) {
+        console.warn('[SIGEE Presença] Tabela indisponível ou sem permissão:', error.message);
+        return false;
+      }
+      ultimaPresencaTs = Date.now();
+      return true;
+    })();
+    try { return await presencaEmAndamento; }
+    finally { presencaEmAndamento = null; }
   }
 
   async function marcarOffline() {
@@ -193,10 +205,10 @@
   }
 
   function iniciarHeartbeat() {
-    if (heartbeatTimer) clearInterval(heartbeatTimer);
+    if (heartbeatTimer) return;
     atualizarPresenca('online');
     heartbeatTimer = setInterval(() => {
-      if (usuarioAtual() && document.visibilityState !== 'hidden') atualizarPresenca('online');
+      if (usuarioAtual() && document.visibilityState !== 'hidden') atualizarPresenca('online', { forcar: true });
     }, HEARTBEAT_MS);
   }
 
@@ -351,17 +363,29 @@
   }
 
   function observarLogin() {
-    setInterval(() => {
+    if (document.documentElement.dataset.sigeeLogsSessao === '1') return;
+    document.documentElement.dataset.sigeeLogsSessao = '1';
+
+    const ativarSessao = () => {
       const u = usuarioAtual();
       const email = txt(u?.email).toLowerCase();
-      if (email && email !== ultimoUsuarioEmail) {
+      if (!email) return;
+      if (email !== ultimoUsuarioEmail) {
         ultimoUsuarioEmail = email;
         registrarLogSIGEE('LOGIN', `Perfil ${perfilCanonico(u.perfil)} | ${nteUsuario(u)}`);
-        iniciarHeartbeat();
-      } else if (!email) {
-        ultimoUsuarioEmail = '';
       }
-    }, 800);
+      iniciarHeartbeat();
+    };
+
+    document.addEventListener('sigee:session-ready', ativarSessao);
+    document.addEventListener('sigee:login-concluido', ativarSessao);
+    document.addEventListener('sigee:logout-concluido', () => {
+      ultimoUsuarioEmail = '';
+      if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
+    });
+
+    // Compatibilidade com sessão restaurada antes do carregamento deste módulo.
+    if (usuarioAtual()) queueMicrotask(ativarSessao);
   }
 
   function instalar() {
@@ -381,7 +405,6 @@
     if (usuarioAtual()) iniciarHeartbeat();
     // RC4.7: sem varredura paralela. A tela de Logs é atualizada exclusivamente
     // pelo monitor iniciado na entrada da rota e encerrado ao sair dela.
-    envolverLogout();
     instalando = false;
   }
 
