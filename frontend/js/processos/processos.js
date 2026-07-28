@@ -1,5 +1,6 @@
 /* SIGEE RC9.0.0 — Pipeline territorial único: consulta, Store, contadores, paginação e Realtime */
 /* SIGEE RC9.0.1 — Escopo territorial pela coluna processos.nte */
+/* SIGEE RC9.0.2 — coerência territorial por campo nte e total único */
 /* SIGEE RC8.3.0 — Central autoritativa e estado visual estável */
 /* SIGEE RC4.6.6 — normalização territorial da Central de Processos */
 /* SIGEE RC4.5.27 — estabilidade e desempenho da Central de Processos */
@@ -1279,6 +1280,10 @@
           ...r,
           ...convertido,
           id: Number(convertido.id ?? r.id) || convertido.id || r.id,
+          // RC9.0.2: conversores legados podem produzir nte_id=0. Zero não é
+          // território válido; preserva o campo textual autoritativo do banco.
+          nte: r.nte || convertido.nte || convertido.nte_nome || convertido.grupo || '',
+          nte_id: (()=>{const d=Number(convertido.nte_id ?? r.nte_id);if(Number.isFinite(d)&&d>0)return d;const m=String(r.nte||convertido.nte||'').match(/(?:NTE\s*[- ]?\s*)?(\d{1,2})/i);return m?Number(m[1]):null;})(),
           modalidade:
             convertido.modalidade ||
             convertido.oferta_modalidade ||
@@ -1530,7 +1535,8 @@
       if(busca) q=q.or(`codigo_sigee.ilike.%${busca}%,aluno_nome.ilike.%${busca}%,escola_nome.ilike.%${busca}%`);
       const etapaAtual=etapaFiltroRemoto();
       if(etapaAtual && etapaAtual.toUpperCase()!=='TODOS') q=q.eq('etapa_atual',etapaAtual);
-      const [{data,error,count}]=await Promise.all([q,carregarContadoresGlobais(c,nteConsulta,busca)]);
+      const [resultado,contadoresTerritoriais]=await Promise.all([q,carregarContadoresGlobais(c,nteConsulta,busca)]);
+      const {data,error,count}=resultado||{};
       if(error) throw error;
       const listaMapeada=(data||[]).map(mapear).filter(Boolean);
       // Defesa em profundidade: mesmo com filtro remoto, nenhum registro fora
@@ -1539,9 +1545,13 @@
         ? window.SIGEE_ESCOPO.filtrar(listaMapeada,u)
         : listaMapeada;
       if(contexto && !contexto.global && lista.length!==listaMapeada.length){
-        console.error('[SIGEE RC9.0.1] Registros externos ao NTE foram descartados antes da publicação.',{recebidos:listaMapeada.length,autorizados:lista.length,nteId:contexto.nteId});
+        console.error('[SIGEE RC9.0.2] Registros externos ao NTE foram descartados antes da publicação.',{recebidos:listaMapeada.length,autorizados:lista.length,nteId:contexto.nteId});
       }
-      totalProcessosRemotos=Number(count||0);
+      // RC9.0.2: paginação e indicadores usam a mesma autoridade territorial.
+      // O RPC já calcula o total após escopo e busca; o count bruto fica apenas
+      // como fallback para ambientes sem o contador atualizado.
+      const totalAutorizado=Number(contadoresTerritoriais?.todos);
+      totalProcessosRemotos=Number.isFinite(totalAutorizado)?totalAutorizado:Number(count||0);
       const publicada=window.SIGEE_PROCESSOS_STORE?.publicarAutoritativo?.(lista,'CENTRAL_REMOTA_PAGINADA')||window.SIGEE_PROCESSOS_STORE?.publicar?.(lista,'CENTRAL_REMOTA_PAGINADA')||lista;
       window.__SIGEE_PROCESSOS_ORIGEM__='REMOTA_PAGINADA';
       // O Store já expõe o proxy em window.processosDB; não execute atribuição global legada.
