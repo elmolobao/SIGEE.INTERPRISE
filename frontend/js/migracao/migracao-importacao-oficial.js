@@ -6,7 +6,7 @@
   if(window.__SIGEE_M52_IMPORTACAO_OFICIAL__) return;
   window.__SIGEE_M52_IMPORTACAO_OFICIAL__=true;
 
-  const VERSION = 'M5.2.1';
+  const VERSION = 'M5.2.2';
   let payloadPreparado=null;
   let preflightConfirmado=null;
   let resultadoImportacao=null;
@@ -57,8 +57,9 @@
     if(!file) throw new Error('Selecione novamente a planilha homologada.');
     const nte=numeroNte(document.getElementById('mig-nte')?.value||r.nte_selecionado||r.processos?.[0]?.nte_origem);
     if(!nte) throw new Error('NTE do lote não identificado.');
-    const processos=(r.processos||[]).filter(p=>p.status_validacao==='PRONTO');
-    if(!processos.length) throw new Error('Nenhum processo apto no lote.');
+    const decisor=window.SIGEE_IMPORTACAO_OFICIAL?.deveImportar;
+    const processos=(r.processos||[]).filter(p=>p.status_validacao==='PRONTO' && (typeof decisor!=='function' || decisor(p)));
+    if(!processos.length) throw new Error('Nenhum processo está selecionado para importação. Volte à pré-verificação e marque apenas os registros desejados.');
     const hash=await sha256(file);
     return {
       versao:VERSION,nte:`NTE-${nte}`,arquivo:file.name,hash_sha256:hash,qualidade_m4:100,
