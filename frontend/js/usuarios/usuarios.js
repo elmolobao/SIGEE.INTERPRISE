@@ -815,13 +815,20 @@
     if (u.perfil !== 'SEC' && !u.nte_id) return alert('Selecione o NTE.');
     try {
       const salvo = await salvarUsuario(u, u.id ? 'editar' : 'criar');
-      await atualizarListaUsuarios();
+      const base=baseUsuarios();
+      const indice=base.findIndex(x=>String(x.id||'')===String(salvo.id||'') || low(x.email)===low(salvo.email));
+      if(indice>=0) base[indice]=normalizarUsuario({...base[indice],...salvo}); else base.push(normalizarUsuario(salvo));
+      sincronizarBase(base);
+      renderTabelaUsuarios();
       const modal = document.getElementById('modal-cadastro-usuario'); if (modal) modal.classList.add('hidden');
       const sessaoDepois = window.SIGEE_SESSION?.getUser?.() || null;
       if (sessaoAntes?.email && sessaoDepois?.email && String(sessaoAntes.email).toLowerCase() !== String(sessaoDepois.email).toLowerCase()) {
         console.error('[SIGEE USUÁRIOS] CRUD tentou alterar a identidade da sessão; sessão original restaurada.');
         window.SIGEE_SESSION?.setUser?.(sessaoAntes,{source:'usuarios-crud-restore',persist:true,emit:false});
       }
+      document.getElementById('tela-login')?.classList.add('hidden');
+      document.getElementById('sistema-dashboard')?.classList.remove('hidden');
+      window.SIGEE_AUTORIZACAO?.aplicarMenus?.();
       alert('Usuário salvo com sucesso.');
       return salvo;
     } catch(e) {
