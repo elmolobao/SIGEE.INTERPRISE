@@ -1,3 +1,4 @@
+/* SIGEE RC9.0.0 — Pipeline territorial único: consulta, Store, contadores, paginação e Realtime */
 /* SIGEE RC8.3.0 — Central autoritativa e estado visual estável */
 /* SIGEE RC4.6.6 — normalização territorial da Central de Processos */
 /* SIGEE RC4.5.27 — estabilidade e desempenho da Central de Processos */
@@ -1503,24 +1504,27 @@
       const inicio=(paginaAtualRemota-1)*processosPorPagina;
       const fim=inicio+processosPorPagina-1;
       let q=c.from(tabelaProcessos())
-        .select('id,codigo_sigee,aluno_nome,escola_id,escola_nome,cod_mec,documento_tipo,nivel_oferta,modalidade,etapa_atual,etapa_codigo,dias_decorridos,prioridade,nte,tecnico_responsavel,data_etapa,data_etapa_atual,prazo_etapa,prazo_inicio,prazo_fim,status,ativo,created_at,updated_at,workflow_instance_id,workflow_ciclo,ciclo,ultima_mensagem_workflow,pendencia_aberta,finalizado_em,deferido_em,retirado_em,processo_migrado', {count:'exact'})
+        .select('id,codigo_sigee,aluno_nome,escola_id,escola_nome,cod_mec,documento_tipo,nivel_oferta,modalidade,etapa_atual,etapa_codigo,dias_decorridos,prioridade,nte,nte_id,tecnico_responsavel,data_etapa,data_etapa_atual,prazo_etapa,prazo_inicio,prazo_fim,status,ativo,created_at,updated_at,workflow_instance_id,workflow_ciclo,ciclo,ultima_mensagem_workflow,pendencia_aberta,finalizado_em,deferido_em,retirado_em,processo_migrado', {count:'exact'})
         .order('created_at',{ascending:false})
         .range(inicio,fim);
       const u=window.SIGEE_SESSION?.getUser?.()||window.usuarioLogado||{};
-      const perfil=String(u.perfil||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
+      const contexto=window.SIGEE_ESCOPO?.contexto?.(u);
       const filtroNte=String(document.getElementById('filtro-processos-nte')?.value||'').trim();
       let nteConsulta='';
-      if(!['MASTER','SEC'].includes(perfil)){
-        const idNte=Number(u.nte_id||u.nteId||u.id_nte||0);
-        nteConsulta=String(
-          u.nte||u.nte_nome||u.nte_vinculado||u.grupo||u.territorio||
-          (idNte?`NTE-${String(idNte).padStart(2,'0')}`:'')||
-          (filtroNte&&filtroNte!=='TODOS'?filtroNte:'')
-        ).trim();
-        if(nteConsulta) q=aplicarFiltroNteRemoto(q,nteConsulta);
+
+      /* RC9.0.0 — o escopo é aplicado na origem pelo nte_id. Isso impede que
+       * um NTE receba linhas de outro território e evita divergência entre a
+       * contagem remota e a página publicada no Store. Gestor SEC permanece
+       * global porque SIGEE_ESCOPO.contexto() é a autoridade desta decisão. */
+      if(contexto && !contexto.global){
+        if(contexto.nteId==null) throw new Error('Usuário territorial sem NTE válido.');
+        q=q.eq('nte_id',contexto.nteId);
+        nteConsulta=contexto.nte || `NTE-${String(contexto.nteId).padStart(2,'0')}`;
       } else if(filtroNte && filtroNte!=='TODOS') {
-        nteConsulta=filtroNte;
-        q=aplicarFiltroNteRemoto(q,filtroNte);
+        const idFiltro=window.SIGEE_ESCOPO?.numeroNte?.(filtroNte);
+        if(idFiltro==null) throw new Error('Filtro territorial inválido.');
+        q=q.eq('nte_id',idFiltro);
+        nteConsulta=`NTE-${String(idFiltro).padStart(2,'0')}`;
       }
       const busca=termoSeguroBusca(document.getElementById('busca-proc-nome')?.value);
       if(busca) q=q.or(`codigo_sigee.ilike.%${busca}%,aluno_nome.ilike.%${busca}%,escola_nome.ilike.%${busca}%`);
@@ -1528,7 +1532,15 @@
       if(etapaAtual && etapaAtual.toUpperCase()!=='TODOS') q=q.eq('etapa_atual',etapaAtual);
       const [{data,error,count}]=await Promise.all([q,carregarContadoresGlobais(c,nteConsulta,busca)]);
       if(error) throw error;
-      const lista=(data||[]).map(mapear).filter(Boolean);
+      const listaMapeada=(data||[]).map(mapear).filter(Boolean);
+      // Defesa em profundidade: mesmo com filtro remoto, nenhum registro fora
+      // do escopo territorial pode ser publicado no navegador.
+      const lista=window.SIGEE_ESCOPO?.filtrar
+        ? window.SIGEE_ESCOPO.filtrar(listaMapeada,u)
+        : listaMapeada;
+      if(contexto && !contexto.global && lista.length!==listaMapeada.length){
+        console.error('[SIGEE RC9.0.0] Registros externos ao NTE foram descartados antes da publicação.',{recebidos:listaMapeada.length,autorizados:lista.length,nteId:contexto.nteId});
+      }
       totalProcessosRemotos=Number(count||0);
       const publicada=window.SIGEE_PROCESSOS_STORE?.publicarAutoritativo?.(lista,'CENTRAL_REMOTA_PAGINADA')||window.SIGEE_PROCESSOS_STORE?.publicar?.(lista,'CENTRAL_REMOTA_PAGINADA')||lista;
       window.__SIGEE_PROCESSOS_ORIGEM__='REMOTA_PAGINADA';
@@ -1568,6 +1580,8 @@
   function aplicarEventoRealtime(payload){
     const registro=(payload?.new&&Object.keys(payload.new).length?payload.new:null)||(payload?.old&&Object.keys(payload.old).length?payload.old:null);
     if(!registro || registro.id==null) return;
+    // Eventos de outro NTE são descartados antes de qualquer recarga.
+    if(!registroPermitidoRealtime(registro)) return;
     // RC8.3.0: não altera manualmente a página em memória. A consulta remota
     // reaplica o escopo, a etapa, a pesquisa e a página atuais em uma única operação.
     clearTimeout(timerRealtimeCentral);
@@ -1584,8 +1598,9 @@
     const u=usuarioRealtime();
     const contexto=window.SIGEE_ESCOPO?.contexto?.(u);
     const config={event:'*',schema:'public',table:tabelaProcessos()};
-    // O filtro no canal reduz tráfego; a validação em aplicarEventoRealtime permanece como defesa obrigatória.
-    if(contexto && !contexto.global && contexto.nte) config.filter=`nte=eq.${contexto.nte}`;
+    // O canal usa nte_id, a mesma chave territorial da consulta principal.
+    // aplicarEventoRealtime mantém a segunda validação obrigatória.
+    if(contexto && !contexto.global && contexto.nteId!=null) config.filter=`nte_id=eq.${contexto.nteId}`;
     canal=c.channel('sigee-processos-central-v322')
       .on('postgres_changes',config,aplicarEventoRealtime)
       .subscribe((estado)=>{
