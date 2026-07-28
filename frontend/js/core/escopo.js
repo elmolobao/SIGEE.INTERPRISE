@@ -1,6 +1,7 @@
 /**
  * SIGEE Enterprise RC7.4.0 — Autoridade territorial única.
  * Master e SEC: GLOBAL. Todos os demais perfis: NTE vinculado.
+ * RC9.0.3 — processos usam a coluna territorial textual `nte`.
  */
 (function(window){'use strict';
 if(window.__SIGEE_ESCOPO_RC800__)return;window.__SIGEE_ESCOPO_RC800__=true;
@@ -21,7 +22,7 @@ function assertRecord(r,t,message){if(validateRecord(r,t))return true;throw new 
 function scopeType(t){return isGlobal(t)?'GLOBAL':'NTE';}
 function context(t){const u=user(t),global=isGlobal(u),id=userNteId(u);return Object.freeze({usuario:u,global,territorial:!global,tipo:global?'GLOBAL':'NTE',nte:global?null:(id===null?userNte(u):`NTE-${String(id).padStart(2,'0')}`),nteId:global?null:id});}
 function queryFilter(query,t,field){if(isGlobal(t))return query;const id=userNteId(t);if(id===null)throw new Error('Usuário territorial sem NTE válido.');const campo=field||'nte_id';const valor=campo==='nte'||campo==='nte_nome'||campo==='grupo'||campo==='territorio'?`NTE-${String(id).padStart(2,'0')}`:id;return query.eq(campo,valor);}
-function processQuery(query,t){return queryFilter(query,t,'nte_id');}
+function processQuery(query,t){return queryFilter(query,t,'nte');}
 function processNte(t){const c=context(t);if(c.global)return null;if(!c.nte)throw new Error('Usuário territorial sem NTE válido.');return c.nte;}
-window.SIGEE_ESCOPO=Object.freeze({usuario:user,contexto:context,tipo:scopeType,ehGlobal:isGlobal,gestorSecGlobal,ehTerritorial:t=>!isGlobal(t),nteUsuario:userNte,nteIdUsuario:userNteId,numeroNte:number,mesmoNte:same,nteRegistro:recordNte,nteIdRegistro:recordNteId,validarRegistro:validateRecord,exigirRegistro:assertRecord,filtrar:filter,aplicarQuery:queryFilter,aplicarQueryProcessos:processQuery,nteProcessosUsuario:processNte,versao:'RC9.0.0'});
+window.SIGEE_ESCOPO=Object.freeze({usuario:user,contexto:context,tipo:scopeType,ehGlobal:isGlobal,gestorSecGlobal,ehTerritorial:t=>!isGlobal(t),nteUsuario:userNte,nteIdUsuario:userNteId,numeroNte:number,mesmoNte:same,nteRegistro:recordNte,nteIdRegistro:recordNteId,validarRegistro:validateRecord,exigirRegistro:assertRecord,filtrar:filter,aplicarQuery:queryFilter,aplicarQueryProcessos:processQuery,nteProcessosUsuario:processNte,versao:'RC9.0.3'});
 })(window);
