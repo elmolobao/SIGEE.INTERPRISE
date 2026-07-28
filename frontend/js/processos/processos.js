@@ -1,7 +1,7 @@
 /* SIGEE RC9.0.0 — Pipeline territorial único: consulta, Store, contadores, paginação e Realtime */
 /* SIGEE RC9.0.1 — Escopo territorial pela coluna processos.nte */
-/* SIGEE RC9.0.3 — página remota autoritativa, sem dupla filtragem incompatível */
 /* SIGEE RC9.0.2 — coerência territorial por campo nte e total único */
+/* SIGEE RC9.0.4 — filtros remotos equivalentes por etapa e paginação filtrada */
 /* SIGEE RC8.3.0 — Central autoritativa e estado visual estável */
 /* SIGEE RC4.6.6 — normalização territorial da Central de Processos */
 /* SIGEE RC4.5.27 — estabilidade e desempenho da Central de Processos */
@@ -1474,6 +1474,37 @@
   function etapaFiltroRemoto(){
     return String(window.__SIGEE_ETAPA_FILTRO_ATUAL__||'TODOS').trim();
   }
+  function normalizarEtapaRemota(valor){
+    return String(valor||'').trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
+  }
+  function aplicarFiltroEtapaRemoto(query, etapa){
+    const chave=normalizarEtapaRemota(etapa);
+    if(!chave || chave==='TODOS') return query;
+
+    // Desarquivamento é um ciclo composto, não uma etapa textual única.
+    if(chave==='DESARQUIVAMENTO'){
+      return query.or([
+        'etapa_codigo.in.(DES,RET,REU,CFD)',
+        'etapa_atual.ilike.%Desarquivamento%',
+        'etapa_atual.ilike.%Reiteração%',
+        'etapa_atual.ilike.%Reiteracao%',
+        'etapa_atual.ilike.%Confirmação dos Dados%',
+        'etapa_atual.ilike.%Confirmacao dos Dados%',
+        'etapa_atual.ilike.%Confirmar Dados%',
+        'etapa_atual.ilike.%Pedido de Atas%'
+      ].join(','));
+    }
+
+    // Registros históricos podem conter grafia sem acento ou espaços residuais.
+    if(chave==='ANALISE'){
+      return query.or('etapa_atual.ilike.%Análise%,etapa_atual.ilike.%Analise%');
+    }
+    if(chave==='PENDENCIA'){
+      return query.or('etapa_atual.ilike.%Pendência%,etapa_atual.ilike.%Pendencia%');
+    }
+
+    return query.eq('etapa_atual',etapa);
+  }
   async function carregarContadoresGlobais(c, nteValor, busca){
     const {data,error}=await c.rpc('sigee_processos_contadores',{p_nte:nteValor||null,p_busca:busca||null});
     if(error) throw error;
@@ -1535,22 +1566,26 @@
       const busca=termoSeguroBusca(document.getElementById('busca-proc-nome')?.value);
       if(busca) q=q.or(`codigo_sigee.ilike.%${busca}%,aluno_nome.ilike.%${busca}%,escola_nome.ilike.%${busca}%`);
       const etapaAtual=etapaFiltroRemoto();
-      if(etapaAtual && etapaAtual.toUpperCase()!=='TODOS') q=q.eq('etapa_atual',etapaAtual);
+      q=aplicarFiltroEtapaRemoto(q,etapaAtual);
       const [resultado,contadoresTerritoriais]=await Promise.all([q,carregarContadoresGlobais(c,nteConsulta,busca)]);
       const {data,error,count}=resultado||{};
       if(error) throw error;
       const listaMapeada=(data||[]).map(mapear).filter(Boolean);
-      /* RC9.0.3 — a página remota já foi territorialmente restringida na
-       * própria consulta Supabase pela coluna public.processos.nte. Não se
-       * reaplica SIGEE_ESCOPO.filtrar aqui, pois conversores legados podem
-       * representar o mesmo NTE de formas diferentes e eliminar a página
-       * válida. A validação local permanece obrigatória para fontes locais,
-       * operações diretas e eventos Realtime. */
-      const lista=listaMapeada;
+      // Defesa em profundidade: mesmo com filtro remoto, nenhum registro fora
+      // do escopo territorial pode ser publicado no navegador.
+      const lista=window.SIGEE_ESCOPO?.filtrar
+        ? window.SIGEE_ESCOPO.filtrar(listaMapeada,u)
+        : listaMapeada;
+      if(contexto && !contexto.global && lista.length!==listaMapeada.length){
+        console.error('[SIGEE RC9.0.2] Registros externos ao NTE foram descartados antes da publicação.',{recebidos:listaMapeada.length,autorizados:lista.length,nteId:contexto.nteId});
+      }
       // RC9.0.2: paginação e indicadores usam a mesma autoridade territorial.
       // O RPC já calcula o total após escopo e busca; o count bruto fica apenas
       // como fallback para ambientes sem o contador atualizado.
-      const totalAutorizado=Number(contadoresTerritoriais?.todos);
+      const etapaNormalizada=normalizarEtapaRemota(etapaAtual);
+      const totalAutorizado=etapaNormalizada && etapaNormalizada!=='TODOS'
+        ? Number(count||0)
+        : Number(contadoresTerritoriais?.todos);
       totalProcessosRemotos=Number.isFinite(totalAutorizado)?totalAutorizado:Number(count||0);
       const publicada=window.SIGEE_PROCESSOS_STORE?.publicarAutoritativo?.(lista,'CENTRAL_REMOTA_PAGINADA')||window.SIGEE_PROCESSOS_STORE?.publicar?.(lista,'CENTRAL_REMOTA_PAGINADA')||lista;
       window.__SIGEE_PROCESSOS_ORIGEM__='REMOTA_PAGINADA';
