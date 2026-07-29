@@ -1,4 +1,4 @@
-/* SIGEE RC4.6.2 — Controle territorial de acesso dos NTEs */
+/* SIGEE RC8.8.0 — Controle territorial de acesso dos NTEs com cache compartilhado */
 (function(window, document){
   'use strict';
   if(window.__SIGEE_CONTROLE_ACESSO_NTES_RC462__) return;
@@ -10,8 +10,34 @@
   // A suspensão continua sendo validada no login, no retorno à aba e por varredura de segurança.
   const INTERVALO_VALIDACAO=15*60*1000;
   const TTL_CONTROLE=15*60*1000;
+  const CACHE_STORAGE_KEY='sigee_controle_acesso_ntes_cache_v1';
   const cacheValidacao=new Map();
   const consultasEmCurso=new Map();
+
+  function carregarCacheCompartilhado(){
+    try{
+      const bruto=sessionStorage.getItem(CACHE_STORAGE_KEY);
+      const dados=bruto?JSON.parse(bruto):{};
+      const agora=Date.now();
+      Object.entries(dados||{}).forEach(([chave,item])=>{
+        if(item&&Number(item.em)>0&&(agora-Number(item.em))<TTL_CONTROLE){
+          cacheValidacao.set(chave,item);
+        }
+      });
+    }catch(_){ }
+  }
+  function salvarCacheCompartilhado(){
+    try{
+      const dados={};
+      cacheValidacao.forEach((item,chave)=>{dados[chave]=item;});
+      sessionStorage.setItem(CACHE_STORAGE_KEY,JSON.stringify(dados));
+    }catch(_){ }
+  }
+  function invalidarCache(chave){
+    if(chave) cacheValidacao.delete(nteCanonico(chave)); else cacheValidacao.clear();
+    salvarCacheCompartilhado();
+  }
+  carregarCacheCompartilhado();
   let controleCache=[];
   let timerSessao=null;
 
@@ -55,6 +81,7 @@
       }
       const dado=data||null;
       cacheValidacao.set(chave,{dado,em:Date.now()});
+      salvarCacheCompartilhado();
       return dado;
     })();
     consultasEmCurso.set(chave,promessa);
@@ -64,7 +91,7 @@
   async function consultarUsuarioPorEmail(email){
     const c=cliente(); if(!c) throw new Error('Cliente Supabase indisponível.');
     const tabela=window.SIGEE_CONFIG?.tabelas?.usuarios||window.SIGEE_SUPABASE_TABELAS?.usuarios||'usuarios_sigee';
-    const {data,error}=await c.from(tabela).select('*').ilike('email',texto(email).toLowerCase()).limit(1).maybeSingle();
+    const {data,error}=await c.from(tabela).select('id,nome,email,perfil,nte,nte_id,nte_nome,ativo,status').ilike('email',texto(email).toLowerCase()).limit(1).maybeSingle();
     if(error) throw error; return data||null;
   }
 
@@ -217,7 +244,7 @@
     const payload={acesso_ativo:!estaAtivo,motivo:estaAtivo?motivo:null,mensagem:estaAtivo?mensagem:null,alterado_em:new Date().toISOString(),alterado_por:texto(u?.email||u?.nome)};
     const {error}=await c.from(TABELA).upsert({nte,...payload},{onConflict:'nte'});
     if(error) return alert(`Não foi possível concluir: ${error.message}`);
-    cacheValidacao.delete(nteCanonico(nte));
+    invalidarCache(nte);
     try{window.registrarLog?.(`${estaAtivo?'Suspendeu':'Reativou'} o acesso territorial do ${nte}. ${motivo?`Motivo: ${motivo}`:''}`);}catch(_){ }
     alert(`Acesso do ${nte} ${estaAtivo?'suspenso':'reativado'} com sucesso.`); carregarPainel();
   }
@@ -234,5 +261,5 @@
   document.addEventListener('visibilitychange',()=>{
     if(document.visibilityState==='visible'&&usuarioAtual()) validarSessaoAtual();
   });
-  window.SIGEE_CONTROLE_ACESSO_NTES={abrir:abrirPainel,recarregar:carregarPainel,validarSessao:validarSessaoAtual};
+  window.SIGEE_CONTROLE_ACESSO_NTES={abrir:abrirPainel,recarregar:carregarPainel,validarSessao:validarSessaoAtual,invalidarCache};
 })(window,document);
