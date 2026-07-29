@@ -8,8 +8,8 @@
   const TABELA_NTES='ntes_sigee';
   // RC7.2.0 Performance: evita leitura idêntica a cada minuto por sessão.
   // A suspensão continua sendo validada no login, no retorno à aba e por varredura de segurança.
-  const INTERVALO_VALIDACAO=5*60*1000;
-  const TTL_CONTROLE=4*60*1000;
+  const INTERVALO_VALIDACAO=15*60*1000;
+  const TTL_CONTROLE=15*60*1000;
   const cacheValidacao=new Map();
   const consultasEmCurso=new Map();
   let controleCache=[];
@@ -232,7 +232,7 @@
   document.addEventListener('sigee:usuario-logado',()=>setTimeout(()=>{garantirItemMenu();validarSessaoAtual({forcar:true});},200));
   window.addEventListener('sigee:login-concluido',()=>setTimeout(()=>{garantirItemMenu();validarSessaoAtual({forcar:true});},200));
   document.addEventListener('visibilitychange',()=>{
-    if(document.visibilityState==='visible'&&usuarioAtual()) validarSessaoAtual({forcar:true});
+    if(document.visibilityState==='visible'&&usuarioAtual()) validarSessaoAtual();
   });
   window.SIGEE_CONTROLE_ACESSO_NTES={abrir:abrirPainel,recarregar:carregarPainel,validarSessao:validarSessaoAtual};
 })(window,document);
