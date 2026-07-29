@@ -6,7 +6,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '3.3.12-PRESENCA-EVENTOS-RC8.6.3';
+  const VERSION = '3.3.13-AUDITORIA-ESSENCIAL-RC8.7.0';
   const TABELA_LOGS = 'logs_sigee';
   const TABELA_ONLINE = 'usuarios_online_sigee';
   const HEARTBEAT_MS = 10 * 60 * 1000;
@@ -321,27 +321,23 @@
     if (document.documentElement.dataset.sigeeLogsCaptura === '1') return;
     document.documentElement.dataset.sigeeLogsCaptura = '1';
 
+    // RC8.7.0: cliques, abertura de telas e alterações intermediárias de campos
+    // atualizam somente a presença. A auditoria persistente permanece nos eventos
+    // explícitos de negócio (login, logout, criação, edição, transição, importação etc.).
     document.addEventListener('click', e => {
       const el = e.target.closest('button, a, [role="button"]');
       if (!el || el.closest('#tela-login')) return;
-      const d = descreverClique(el);
-      if (d) registrarLogSIGEE(d.acao, d.detalhes, d.contexto);
       registrarAtividadePresenca();
     }, true);
 
     document.addEventListener('submit', e => {
       if (e.target?.id === 'form-login') return;
-      const ctx = obterContextoElemento(e.submitter || e.target);
-      registrarLogSIGEE(`FORMULÁRIO ENVIADO: ${ctx.formulario || ctx.modulo || 'sem identificação'}`, ctx.rotulo, ctx);
       registrarAtividadePresenca();
     }, true);
 
     document.addEventListener('change', e => {
       const el = e.target;
       if (!el || !el.matches('select, input[type="checkbox"], input[type="radio"], input[type="file"]')) return;
-      const ctx = obterContextoElemento(el);
-      const valor = el.type === 'checkbox' || el.type === 'radio' ? (el.checked ? 'marcado' : 'desmarcado') : (el.type === 'file' ? `${el.files?.length || 0} arquivo(s)` : txt(el.value));
-      registrarLogSIGEE(`ALTERAÇÃO DE CAMPO: ${ctx.rotulo || ctx.elemento}`, valor.slice(0, 300), ctx);
       registrarAtividadePresenca();
     }, true);
 
