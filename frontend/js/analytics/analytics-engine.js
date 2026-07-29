@@ -167,11 +167,11 @@
   });
 
   if (window.SIGEE_PERFORMANCE?.aCada) {
-    window.SIGEE_PERFORMANCE.aCada('analytics-engine:sincronizar', sincronizar, 30000, { somenteVisivel:true });
+    window.SIGEE_PERFORMANCE.aCada('analytics-engine:sincronizar', sincronizar, 5*60*1000, { somenteVisivel:true });
   } else {
-    setInterval(()=>{ if(!document.hidden) sincronizar(); },30000);
+    setInterval(()=>{ if(!document.hidden) sincronizar(); },5*60*1000);
   }
   window.addEventListener('sigee:processos-atualizados',()=>window.SIGEE_Analytics.invalidar());
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)sincronizar()});
-  console.info('[SIGEE] Motor Analítico Unificado RC5.8.6 carregado.');
+  console.info('[SIGEE] Motor Analítico Unificado RC7.2.1 Performance carregado.');
 })();

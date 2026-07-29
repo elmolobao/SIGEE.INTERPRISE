@@ -63,7 +63,7 @@
     if(!forcar&&salvo&&Date.now()-salvo.em<CACHE_MS)return salvo.total;
     const c=cliente();
     if(!c)return 0;
-    const {data,error}=await c.from('usuarios_sigee').select('*');
+    const {data,error}=await c.from('usuarios_sigee').select('perfil,role,tipo,ativo,status,situacao,nte,nte_nome,grupo,nte_id');
     if(error)throw error;
     let lista=Array.isArray(data)?data:[];
     if(chave!=='GLOBAL'){
