@@ -9765,7 +9765,7 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
   if (window.SIGEE_PERFORMANCE?.aCada) {
     window.SIGEE_PERFORMANCE.aCada('app:permissoes-estagiario', aplicarPermissoesEstagiario, 30000, { somenteVisivel:true });
   } else {
-    setInterval(()=>{ if(!document.hidden) aplicarPermissoesEstagiario(); },30000);
+    setInterval(()=>{ if(!document.hidden) aplicarPermissoesEstagiario(); },120000);
   }
 })();
 
@@ -10364,7 +10364,7 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
   if (window.SIGEE_PERFORMANCE?.aCada) {
     window.SIGEE_PERFORMANCE.aCada('app:perfil-senha', manterControlesPerfilSenha, 30000, { somenteVisivel:true });
   } else {
-    setInterval(()=>{ if(!document.hidden) manterControlesPerfilSenha(); },30000);
+    setInterval(()=>{ if(!document.hidden) manterControlesPerfilSenha(); },120000);
   }
   document.addEventListener('sigee:navegacao-concluida', manterControlesPerfilSenha);
   document.addEventListener('sigee:usuario-logado', manterControlesPerfilSenha);
