@@ -1209,6 +1209,19 @@
   let recargaRemotaPendente = false;
   let totalProcessosRemotos = 0;
 
+  // RC9.1.0 — cache curto e deduplicação dos contadores remotos.
+  // A chave inclui NTE e termo, preservando integralmente o escopo territorial.
+  const CACHE_CONTADORES_TTL_MS = 120000;
+  const cacheContadoresRemotos = new Map();
+  const contadoresEmAndamento = new Map();
+  function chaveContadores(nteValor, busca){
+    return `${String(nteValor||'GLOBAL').trim().toUpperCase()}|${String(busca||'').trim().toUpperCase()}`;
+  }
+  function invalidarCacheContadores(){
+    cacheContadoresRemotos.clear();
+    contadoresEmAndamento.clear();
+  }
+
   function tabelaProcessos(){
     return (window.SIGEE_SUPABASE_TABELAS && window.SIGEE_SUPABASE_TABELAS.processos) || 'processos';
   }
@@ -1512,26 +1525,25 @@
     const numero=Number(contadores?.[campo]);
     return Number.isFinite(numero)?numero:null;
   }
-  const CACHE_CONTADORES_TTL=2*60*1000;
-  const cacheContadoresRemotos=new Map();
-  const consultasContadoresEmCurso=new Map();
-  function chaveContadores(nteValor,busca){return `${String(nteValor||'GLOBAL')}|${String(busca||'').trim().toUpperCase()}`;}
-  function invalidarCacheContadores(){cacheContadoresRemotos.clear();}
-  async function carregarContadoresGlobais(c, nteValor, busca, opcoes={}){
+  async function carregarContadoresGlobais(c, nteValor, busca, forcar=false){
     const chave=chaveContadores(nteValor,busca);
+    const agora=Date.now();
     const salvo=cacheContadoresRemotos.get(chave);
-    if(!opcoes.forcar && salvo && (Date.now()-salvo.em)<CACHE_CONTADORES_TTL) return salvo.dado;
-    if(!opcoes.forcar && consultasContadoresEmCurso.has(chave)) return consultasContadoresEmCurso.get(chave);
+    if(!forcar && salvo && (agora-salvo.em)<CACHE_CONTADORES_TTL_MS){
+      window.__SIGEE_CONTADORES_PROCESSOS_REMOTOS__=salvo.valor;
+      return salvo.valor;
+    }
+    if(!forcar && contadoresEmAndamento.has(chave)) return contadoresEmAndamento.get(chave);
     const promessa=(async()=>{
       const {data,error}=await c.rpc('sigee_processos_contadores',{p_nte:nteValor||null,p_busca:busca||null});
       if(error) throw error;
       const obj=typeof data==='string'?JSON.parse(data):data||{};
-      cacheContadoresRemotos.set(chave,{dado:obj,em:Date.now()});
+      cacheContadoresRemotos.set(chave,{em:Date.now(),valor:obj});
       window.__SIGEE_CONTADORES_PROCESSOS_REMOTOS__=obj;
       return obj;
-    })();
-    consultasContadoresEmCurso.set(chave,promessa);
-    try{return await promessa;}finally{consultasContadoresEmCurso.delete(chave);}
+    })().finally(()=>contadoresEmAndamento.delete(chave));
+    contadoresEmAndamento.set(chave,promessa);
+    return promessa;
   }
   function renderizarPaginacaoRemota(){
     const aba=document.getElementById('aba-processos');
@@ -1645,11 +1657,11 @@
   function aplicarEventoRealtime(payload){
     const registro=(payload?.new&&Object.keys(payload.new).length?payload.new:null)||(payload?.old&&Object.keys(payload.old).length?payload.old:null);
     if(!registro || registro.id==null) return;
-    invalidarCacheContadores();
     // Eventos de outro NTE são descartados antes de qualquer recarga.
     if(!registroPermitidoRealtime(registro)) return;
     // RC8.3.0: não altera manualmente a página em memória. A consulta remota
     // reaplica o escopo, a etapa, a pesquisa e a página atuais em uma única operação.
+    invalidarCacheContadores();
     clearTimeout(timerRealtimeCentral);
     timerRealtimeCentral=setTimeout(()=>recarregar(true,false),220);
   }
@@ -1695,6 +1707,7 @@
   });
   window.copiarCodigoSIGEE=copiar;
   window.recarregarCentralProcessosSIGEE=(silencioso=true,resetarPagina=false)=>recarregar(silencioso,resetarPagina);
+  window.invalidarCacheContadoresProcessosSIGEE=invalidarCacheContadores;
   window.irParaPaginaCentralProcessosSIGEE=(pagina)=>{paginaAtualRemota=Math.max(1,Number(pagina)||1);return recarregar(false);};
   window.iniciarRealtimeProcessosSIGEE=iniciarRealtime;
   // RC8.3.0: eventos do Store não redesenham a Central. A publicação remota e o Realtime já acionam uma única atualização.

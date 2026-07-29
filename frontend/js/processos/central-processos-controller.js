@@ -1,8 +1,8 @@
-/* SIGEE RC8.3.0 — Central autoritativa, fila única e preservação do estado visual. */
+/* SIGEE RC9.1.0 — Pesquisa consolidada, debounce efetivo e fila única. */
 (function (window, document) {
   'use strict';
-  if (window.__SIGEE_CENTRAL_PROCESSOS_RC830__) return;
-  window.__SIGEE_CENTRAL_PROCESSOS_RC830__ = true;
+  if (window.__SIGEE_CENTRAL_PROCESSOS_RC910__) return;
+  window.__SIGEE_CENTRAL_PROCESSOS_RC910__ = true;
 
   let timer = 0;
   let executando = false;
@@ -101,13 +101,22 @@
     try { carregarEContarProcessosHorizontais = window.carregarEContarProcessosHorizontais; } catch (_) {}
 
     const busca = document.getElementById('busca-proc-nome');
-    if (busca && busca.dataset.sigeeCentral830 !== '1') {
-      busca.dataset.sigeeCentral830 = '1';
+    if (busca && busca.dataset.sigeeCentral910 !== '1') {
+      busca.dataset.sigeeCentral910 = '1';
       busca.removeAttribute('oninput');
       let buscaTimer = 0;
+      let ultimoTermoExecutado = null;
       busca.addEventListener('input', () => {
         clearTimeout(buscaTimer);
-        buscaTimer = setTimeout(() => recarregar(true), 500);
+        const termo = String(busca.value || '').trim().replace(/\s+/g, ' ');
+        // Evita consultar o Supabase para termos incompletos de 1–2 caracteres.
+        // O campo vazio continua recarregando a listagem completa.
+        if (termo.length > 0 && termo.length < 3) return;
+        buscaTimer = setTimeout(() => {
+          if (termo === ultimoTermoExecutado) return;
+          ultimoTermoExecutado = termo;
+          recarregar(true);
+        }, 700);
       });
     }
 
@@ -124,7 +133,7 @@
       renderizar: () => agendar(false, 0),
       recarregar: (resetarPagina = false) => recarregar(resetarPagina),
       instalar,
-      versao: 'RC8.3.0'
+      versao: 'RC9.1.0'
     });
     agendar(true, 0);
     return true;
