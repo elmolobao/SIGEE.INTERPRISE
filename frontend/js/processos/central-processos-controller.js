@@ -107,7 +107,7 @@
       let buscaTimer = 0;
       busca.addEventListener('input', () => {
         clearTimeout(buscaTimer);
-        buscaTimer = setTimeout(() => recarregar(true), 350);
+        buscaTimer = setTimeout(() => recarregar(true), 500);
       });
     }
 

@@ -1512,12 +1512,26 @@
     const numero=Number(contadores?.[campo]);
     return Number.isFinite(numero)?numero:null;
   }
-  async function carregarContadoresGlobais(c, nteValor, busca){
-    const {data,error}=await c.rpc('sigee_processos_contadores',{p_nte:nteValor||null,p_busca:busca||null});
-    if(error) throw error;
-    const obj=typeof data==='string'?JSON.parse(data):data||{};
-    window.__SIGEE_CONTADORES_PROCESSOS_REMOTOS__=obj;
-    return obj;
+  const CACHE_CONTADORES_TTL=2*60*1000;
+  const cacheContadoresRemotos=new Map();
+  const consultasContadoresEmCurso=new Map();
+  function chaveContadores(nteValor,busca){return `${String(nteValor||'GLOBAL')}|${String(busca||'').trim().toUpperCase()}`;}
+  function invalidarCacheContadores(){cacheContadoresRemotos.clear();}
+  async function carregarContadoresGlobais(c, nteValor, busca, opcoes={}){
+    const chave=chaveContadores(nteValor,busca);
+    const salvo=cacheContadoresRemotos.get(chave);
+    if(!opcoes.forcar && salvo && (Date.now()-salvo.em)<CACHE_CONTADORES_TTL) return salvo.dado;
+    if(!opcoes.forcar && consultasContadoresEmCurso.has(chave)) return consultasContadoresEmCurso.get(chave);
+    const promessa=(async()=>{
+      const {data,error}=await c.rpc('sigee_processos_contadores',{p_nte:nteValor||null,p_busca:busca||null});
+      if(error) throw error;
+      const obj=typeof data==='string'?JSON.parse(data):data||{};
+      cacheContadoresRemotos.set(chave,{dado:obj,em:Date.now()});
+      window.__SIGEE_CONTADORES_PROCESSOS_REMOTOS__=obj;
+      return obj;
+    })();
+    consultasContadoresEmCurso.set(chave,promessa);
+    try{return await promessa;}finally{consultasContadoresEmCurso.delete(chave);}
   }
   function renderizarPaginacaoRemota(){
     const aba=document.getElementById('aba-processos');
@@ -1631,6 +1645,7 @@
   function aplicarEventoRealtime(payload){
     const registro=(payload?.new&&Object.keys(payload.new).length?payload.new:null)||(payload?.old&&Object.keys(payload.old).length?payload.old:null);
     if(!registro || registro.id==null) return;
+    invalidarCacheContadores();
     // Eventos de outro NTE são descartados antes de qualquer recarga.
     if(!registroPermitidoRealtime(registro)) return;
     // RC8.3.0: não altera manualmente a página em memória. A consulta remota
