@@ -4,6 +4,7 @@
 if(window.SIGEE_REPORTS_DATA) return;
 const CACHE_MS=5*60*1000;
 const cache=new Map();
+const emAndamento=new Map();
 const txt=v=>v==null?'':String(v).trim();
 const norm=v=>txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
 function nte(v){const s=txt(v);const m=s.match(/NTE\s*[- ]?\s*(\d{1,2})/i);if(m)return 'NTE-'+String(Number(m[1])).padStart(2,'0');if(/^\d{1,2}$/.test(s))return 'NTE-'+String(Number(s)).padStart(2,'0');return s||'SEM NTE';}
@@ -13,7 +14,7 @@ function autorizado(){return window.SIGEE_PERMISSOES?.pode?.('relatorios.visuali
 function exigirAcesso(){if(autorizado())return true;throw new Error('Seu perfil não possui permissão para acessar os relatórios.');}
 function supabase(){try{return window.obterSupabaseSIGEE?.()||window.criarClienteSupabaseSIGEE?.()||window.SIGEE_SUPABASE?.criarCliente?.()||window.supabaseClient||null;}catch(_){return null;}}
 async function buscarTodos(){exigirAcesso();const u=usuario(),cli=supabase();if(!cli){const local=Array.isArray(window.processosDB)?window.processosDB.slice():[];return {dados:window.SIGEE_ESCOPO?.filtrar?window.SIGEE_ESCOPO.filtrar(local,u):local,fonte:'MEMORIA_LOCAL'};}let todos=[],de=0,lote=1000;while(true){let q=cli.from('processos').select('*');q=window.SIGEE_ESCOPO?.aplicarQueryProcessos?window.SIGEE_ESCOPO.aplicarQueryProcessos(q,u):q;const {data,error}=await q.range(de,de+lote-1);if(error)throw error;const arr=Array.isArray(data)?data:[];todos.push(...arr);if(arr.length<lote)break;de+=lote;}return {dados:window.SIGEE_ESCOPO?.filtrar?window.SIGEE_ESCOPO.filtrar(todos,u):todos,fonte:'SUPABASE_PAGINADO_TERRITORIAL'};}
-async function carregar(forcar=false){exigirAcesso();const ctx=contexto(),key=`${ctx.global?'GLOBAL':ctx.nte}`;const salvo=cache.get(key);if(!forcar&&salvo&&Date.now()-salvo.at<CACHE_MS)return {...salvo.data,cache:true};const r=await buscarTodos();const dados=window.SIGEE_ESCOPO?.filtrar?window.SIGEE_ESCOPO.filtrar(r.dados,usuario()):(ctx.global?r.dados:r.dados.filter(p=>nte(p.nte||p.nte_nome||p.nte_id)===ctx.nte));const data={processos:dados,totalCarregado:r.dados.length,fonte:r.fonte,contexto:ctx,cache:false};cache.set(key,{at:Date.now(),data});return data;}
-function limpar(){cache.clear();}
-window.SIGEE_REPORTS_DATA={carregar,limpar,nte,contexto,autorizado,versao:'RC7.4.1'};
+async function carregar(forcar=false){exigirAcesso();const ctx=contexto(),key=`${ctx.global?'GLOBAL':ctx.nte}`;const salvo=cache.get(key);if(!forcar&&salvo&&Date.now()-salvo.at<CACHE_MS)return {...salvo.data,cache:true};if(!forcar&&emAndamento.has(key))return emAndamento.get(key);const tarefa=(async()=>{const r=await buscarTodos();const dados=window.SIGEE_ESCOPO?.filtrar?window.SIGEE_ESCOPO.filtrar(r.dados,usuario()):(ctx.global?r.dados:r.dados.filter(p=>nte(p.nte||p.nte_nome||p.nte_id)===ctx.nte));const data={processos:dados,totalCarregado:r.dados.length,fonte:r.fonte,contexto:ctx,cache:false};cache.set(key,{at:Date.now(),data});return data;})();emAndamento.set(key,tarefa);try{return await tarefa;}finally{if(emAndamento.get(key)===tarefa)emAndamento.delete(key);}}
+function limpar(){cache.clear();emAndamento.clear();}
+window.SIGEE_REPORTS_DATA={carregar,limpar,nte,contexto,autorizado,versao:'RC7.4.2-PERFORMANCE'};
 })();
