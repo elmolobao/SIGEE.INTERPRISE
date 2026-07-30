@@ -245,6 +245,13 @@
     });
   }
 
+  function homologacaoAtiva() {
+    try {
+      const status = window.SIGEE_WORKFLOW_CLOCK?.status?.();
+      return status?.enabled === true && status?.master === true;
+    } catch (_) { return false; }
+  }
+
   async function loadExecutedActions(process, force) {
     const instanceId = workflowInstanceId(process);
     if (!instanceId) {
@@ -253,6 +260,17 @@
     }
     const cycle = currentCycle(process);
     const prefix = instanceId + '::' + String(cycle) + '::';
+
+    /*
+     * RC10.4.0 — No Modo Homologação, bloqueios persistidos em testes
+     * anteriores não podem impedir a validação de uma nova projeção temporal.
+     * A regra oficial permanece inalterada fora da homologação.
+     */
+    if (homologacaoAtiva()) {
+      if (force) clearProcessActionCache(process);
+      return actionHistoryCache;
+    }
+
     if (!force && Array.from(actionHistoryCache.keys()).some(function (key) { return key.startsWith(prefix); })) {
       return actionHistoryCache;
     }
