@@ -1,3 +1,4 @@
+/* SIGEE RC9.2.1 — Sincronização autoritativa da etapa e ação temporal */
 /* SIGEE RC9.0.6 — Gestor territorial: NTE canônico + filtro composto de etapas */
 /* SIGEE RC9.0.0 — Pipeline territorial único: consulta, Store, contadores, paginação e Realtime */
 /* SIGEE RC9.0.1 — Escopo territorial pela coluna processos.nte */
@@ -36,14 +37,14 @@
         const p = etapaOuProcesso && typeof etapaOuProcesso === 'object' ? etapaOuProcesso : null;
         const codigo = normalizar(p && p.etapa_codigo);
         if (['DES', 'RET', 'REU', 'CFD'].includes(codigo)) return true;
-        const etapa = p ? processoEtapa(p) : etapaOuProcesso;
+        const etapa = p ? processoEtapaPersistida(p) : etapaOuProcesso;
         const e = normalizar(etapa);
         return CICLO_DESARQUIVAMENTO.includes(e);
     }
 
     function deslocamentoEstadoCiclo(p) {
         const codigo = normalizar(p && p.etapa_codigo);
-        const etapa = normalizar(processoEtapa(p));
+        const etapa = normalizar(processoEtapaPersistida(p));
         if (codigo === 'RET' || etapa === 'REITERACAO') return 30;
         if (codigo === 'REU' || etapa.includes('REITERACAO URG')) return 37;
         if (codigo === 'CFD' || etapa.includes('CONFIRMACAO') || etapa.includes('CONFIRMAR DADOS')) return 44;
@@ -171,7 +172,32 @@
         const id = Number(p.nte_id || p.territorio_id || p.nte_codigo || 0);
         return id > 0 ? `NTE-${String(id).padStart(2, '0')}` : '';
     }
-    function processoEtapa(p) { return texto(p && (p.etapa || p.etapa_atual || p.fase_atual)) || 'Desarquivamento'; }
+    function processoEtapaPersistida(p) {
+        return texto(p && (p.etapa || p.etapa_atual || p.fase_atual)) || 'Desarquivamento';
+    }
+
+    /*
+     * RC9.2.1 — Fonte visual única do Workflow Externo.
+     * Durante o ciclo de Desarquivamento, a etapa apresentada na Central é
+     * derivada do mesmo calendário absoluto usado para definir a ação vigente.
+     * O valor persistido continua intacto no banco e volta a ser usado assim
+     * que o processo deixa o ciclo externo (Análise e etapas posteriores).
+     */
+    function etapaTemporalDesarquivamento(p) {
+        const persistida = processoEtapaPersistida(p);
+        if (!pertenceCicloDesarquivamento(p || persistida)) return persistida;
+
+        const dias = diasDesde(dataInicioCiclo(p));
+        if (dias >= 52) return 'Pedido de Atas sem Pasta';
+        if (dias >= 45) return 'Confirmação dos Dados da Busca';
+        if (dias >= 38) return 'Reiteração Urgente';
+        if (dias >= 31) return 'Reiteração';
+        return 'Desarquivamento';
+    }
+
+    function processoEtapa(p) {
+        return etapaTemporalDesarquivamento(p);
+    }
     function processoAluno(p) { return texto(p && (p.aluno || p.aluno_nome || p.nome_solicitante)); }
     function processoEscola(p) { return texto(p && (p.escola || p.escola_nome || p.nome_escola || p.instituicao)); }
     function processoCodigoSec(p) { return texto(p && (p.codigo_sec || p.cod_sec || p.codigo_sec_escola || p.escola_codigo_sec || p.codigo_escola || p.cod_escola)); }
@@ -612,11 +638,10 @@
         if (e.includes('RETIR')) return '<span class="text-gray-300 font-bold">Finalizado</span>';
 
         const codigoEtapa = normalizar(p.etapa_codigo);
-        const alertaPorEtapa = codigoEtapa === 'RET' ? 'REITERACAO'
-            : codigoEtapa === 'REU' ? 'REITERACAO_URGENTE'
-            : codigoEtapa === 'CFD' ? 'CONFIRMAR_DADOS'
-            : null;
-        const alerta = alertaPorEtapa || alertaChave(p);
+        /* RC9.2.1: a ação da tabela é sempre resolvida pelo calendário do
+         * ciclo. etapa_codigo permanece apenas para compatibilidade e para
+         * autorizar Retificação, nunca para sobrescrever o ato temporal. */
+        const alerta = alertaChave(p);
         const permiteRetificacao = ['RET', 'REU', 'CFD'].includes(codigoEtapa) || retificacaoDisponivel(alerta);
         const executada = acaoJaExecutada(p, alerta);
         const botaoRetificacao = permiteRetificacao ? `<button onclick="abrirRetificacaoDadosSIGEE(${p.id})" class="sigee-btn-acao sigee-acao-retificacao">Retificação dos Dados</button>` : '';
