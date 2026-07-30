@@ -244,7 +244,6 @@
       process.data_inicio_ciclo ||
       process.inicio_ciclo ||
       process.prazo_inicio_ciclo ||
-      inferLegacyCycleStart(process) ||
       process.prazo_inicio ||
       process.created_at ||
       process.criado_em ||
@@ -253,10 +252,10 @@
   }
 
   function temporalEventForElapsed(elapsed) {
-    if (!Number.isFinite(elapsed) || elapsed < 30) return null;
-    if (elapsed < 37) return 'SEND_REITERACAO';
-    if (elapsed < 44) return 'SEND_REITERACAO_URGENTE';
-    if (elapsed < 51) return 'CONFIRMAR_DADOS';
+    if (!Number.isFinite(elapsed) || elapsed < 31) return null;
+    if (elapsed < 38) return 'SEND_REITERACAO';
+    if (elapsed < 45) return 'SEND_REITERACAO_URGENTE';
+    if (elapsed < 52) return 'CONFIRMAR_DADOS';
     return 'PEDIDO_ATAS_DESARQUIVAMENTO';
   }
 
@@ -347,7 +346,6 @@
       process.data_inicio_ciclo ||
       process.inicio_ciclo ||
       process.prazo_inicio_ciclo ||
-      inferLegacyCycleStart(process) ||
       process.prazo_inicio ||
       process.created_at ||
       process.criado_em ||
