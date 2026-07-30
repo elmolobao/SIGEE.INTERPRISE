@@ -1,4 +1,4 @@
-/* SIGEE RC10.0.0 — resolvedor temporal único do ciclo externo */
+/* SIGEE RC10.1.0 — resolvedor temporal único do ciclo externo */
 (function (window) {
   'use strict';
   if (window.SIGEE_WORKFLOW_TEMPORAL) return;
@@ -88,7 +88,7 @@
   }
 
   window.SIGEE_WORKFLOW_TEMPORAL = Object.freeze({
-    version: 'RC10.0.0',
+    version: 'RC10.1.0',
     resolve,
     elapsedDays,
     stateForDays,
