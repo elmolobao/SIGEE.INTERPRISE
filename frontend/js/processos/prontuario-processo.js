@@ -1,12 +1,12 @@
 /* =====================================================================
-   SIGEE Enterprise — RC10.8.6
+   SIGEE Enterprise — RC10.8.7
    Prontuário Eletrônico do Processo
    Camada aditiva: não altera regras, transições ou persistência do workflow.
    ===================================================================== */
 (function () {
   'use strict';
-  if (window.__SIGEE_PRONTUARIO_RC1086__) return;
-  window.__SIGEE_PRONTUARIO_RC1086__ = true;
+  if (window.__SIGEE_PRONTUARIO_RC1087__) return;
+  window.__SIGEE_PRONTUARIO_RC1087__ = true;
 
   const ETAPAS = Object.freeze([
     { tipo:'SOLICITACAO', label:'Solicitação' },
@@ -77,15 +77,33 @@
 
   function dataValida(v) {
     if (!v) return null;
-    const br = texto(v).match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-    const d = br ? new Date(`${br[3]}-${br[2]}-${br[1]}T00:00:00`) : new Date(v);
+    if (v instanceof Date) return Number.isNaN(v.getTime()) ? null : new Date(v.getTime());
+    const t = texto(v);
+
+    // Datas civis sem horário não podem ser interpretadas como UTC,
+    // pois isso desloca 00:00 UTC para 21:00 do dia anterior na Bahia.
+    let m = t.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 0, 0, 0, 0);
+
+    m = t.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (m) return new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]), 0, 0, 0, 0);
+
+    const d = new Date(t);
     return Number.isNaN(d.getTime()) ? null : d;
+  }
+
+  function temHorarioReal(v) {
+    if (!v) return false;
+    if (v instanceof Date) return true;
+    const t = texto(v);
+    return /[T ]\d{2}:\d{2}(?::\d{2})?/.test(t) || /^\d{2}\/\d{2}\/\d{4}[, ]+\d{2}:\d{2}/.test(t);
   }
 
   function formatarData(v, hora = true) {
     const d = dataValida(v);
     if (!d) return 'Data não informada';
-    return d.toLocaleString('pt-BR', hora
+    const mostrarHora = hora && temHorarioReal(v);
+    return d.toLocaleString('pt-BR', mostrarHora
       ? { dateStyle:'short', timeStyle:'short' }
       : { dateStyle:'short' });
   }
@@ -226,14 +244,9 @@
     'DOCUMENTO_RECEBIDO', 'CIENCIA_ALERTA_ETAPA_LOGIN'
   ]);
 
-  function ehCienciaEvento(ev) {
-    if (payloadCiencia(ev)) return true;
-    const base = normalizar(`${ev?.acao || ''} ${ev?.evento || ''} ${ev?.tipo || ''} ${ev?.observacao || ''} ${ev?.descricao || ''}`);
-    return base.includes('CIENCIA') && (base.includes('LOGIN') || base.includes('VENCIMENTO') || base.includes('ALERTA'));
-  }
-
   function codigoAcao(ev) {
-    if (ehCienciaEvento(ev)) return 'CIENCIA_ALERTA_ETAPA_LOGIN';
+    const ciencia = payloadCiencia(ev);
+    if (ciencia) return 'CIENCIA_ALERTA_ETAPA_LOGIN';
     return normalizar(ev?.acao || ev?.evento || ev?.tipo || '').replace(/\s+/g, '_');
   }
 
@@ -251,15 +264,12 @@
   function etapaOperacionalEvento(ev) {
     const acao = codigoAcao(ev);
     const base = normalizar(`${ev?.etapa || ''} ${ev?.acao || ''} ${ev?.evento || ''} ${ev?.tipo || ''}`);
-    // Eventos de abertura devem permanecer em Solicitação, ainda que o campo etapa
-    // já tenha sido persistido como Desarquivamento no momento da criação.
-    if (/SOLICITACAO REGISTRADA|SOLICITACAO CRIADA|NOVA SOLICITACAO/.test(base)) return 'SOLICITACAO';
+    if (ACOES_DESARQUIVAMENTO.includes(acao)
+      || /REITER|CONFIRMACAO DOS DADOS|PEDIDO DE ATAS|RETIFIC|DESARQUIV/.test(base)
+      || payloadCiencia(ev)) return 'DESARQUIVAMENTO';
     if (/DOCUMENTO SOLICITADO/.test(base)) return 'DOCUMENTO_SOLICITADO';
     if (/PASTA LOCALIZADA/.test(base)) return 'PASTA_LOCALIZADA';
     if (/PASTA RECEBIDA|DOCUMENTO RECEBIDO/.test(base)) return 'PASTA_RECEBIDA';
-    if (ACOES_DESARQUIVAMENTO.includes(acao)
-      || /REITER|CONFIRMACAO DOS DADOS|PEDIDO DE ATAS|RETIFIC|DESARQUIV/.test(base)
-      || ehCienciaEvento(ev)) return 'DESARQUIVAMENTO';
     if (/SOLICIT/.test(base)) return 'SOLICITACAO';
     if (/ANALISE/.test(base)) return 'ANALISE';
     if (/PENDENCIA/.test(base)) return 'PENDENCIA';
@@ -272,7 +282,7 @@
   }
 
   function naturezaEvento(ev) {
-    if (ehCienciaEvento(ev)) return 'CIENCIA';
+    if (payloadCiencia(ev)) return 'CIENCIA';
     const acao = codigoAcao(ev);
     if (['SEND_REITERACAO','SEND_REITERACAO_URGENTE','CONFIRMAR_DADOS','PEDIDO_ATAS_DESARQUIVAMENTO','RETIFICAR_DADOS','PASTA_RECEBIDA','DOCUMENTO_RECEBIDO'].includes(acao)) return 'ACAO_EXECUTADA';
     const origem = normalizar(Array.isArray(ev?.fontes) ? ev.fontes.join(' ') : ev?.origem || '');
@@ -283,10 +293,7 @@
   function chaveSemanticaEvento(ev) {
     const data = dataValida(ev?.created_at || ev?.data || ev?.data_hora);
     const minuto = data ? data.toISOString().slice(0,16) : '';
-    const etapaCiencia = ehCienciaEvento(ev)
-      ? normalizar(etapaPayloadCiencia(payloadCiencia(ev) || {}, ev))
-      : '';
-    return [etapaOperacionalEvento(ev), cicloEvento(ev), codigoAcao(ev), etapaCiencia, minuto,
+    return [etapaOperacionalEvento(ev), cicloEvento(ev), codigoAcao(ev), minuto,
       normalizar(ev?.usuario_nome || ev?.responsavel || ev?.executado_por || '')].join('|');
   }
 
@@ -308,83 +315,29 @@
   }
 
   function dataEvento(ev) {
-    return ev?.created_at || ev?.data || ev?.data_hora || ev?.executado_em || ev?.updated_at || null;
+    return ev?.created_at || ev?.data || ev?.data_hora || ev?.executado_em || null;
   }
 
-  function nomeAutorEvento(ev) {
-    return texto(ev?.usuario_nome || ev?.executado_por_nome || ev?.executado_por || ev?.responsavel_nome || ev?.responsavel || ev?.tecnico_nome || ev?.usuario_email);
+  function responsavelEvento(ev) {
+    return texto(ev?.tecnico_responsavel || ev?.responsavel_etapa || ev?.executado_por_nome || ev?.usuario_nome || ev?.responsavel || ev?.executado_por);
   }
 
-  function responsavelPersistidoEtapa(p, etapaTipo) {
+  function responsavelPersistidoPorEtapa(p, etapaTipo) {
     const campos = {
-      SOLICITACAO:['tecnico_lancamento','criado_por_nome','criado_por','responsavel'],
-      DOCUMENTO_SOLICITADO:['tecnico_responsavel','responsavel','usuario_responsavel'],
-      PASTA_LOCALIZADA:['tecnico_responsavel','responsavel','usuario_responsavel'],
-      PASTA_RECEBIDA:['tecnico_responsavel','responsavel','usuario_responsavel'],
+      SOLICITACAO:['criado_por_nome','criado_por','usuario_lancamento_nome','responsavel'],
+      DOCUMENTO_SOLICITADO:['responsavel','tecnico_responsavel'],
+      PASTA_LOCALIZADA:['responsavel','tecnico_responsavel'],
+      PASTA_RECEBIDA:['responsavel','tecnico_responsavel'],
       DESARQUIVAMENTO:['tecnico_responsavel','responsavel','usuario_responsavel'],
-      ANALISE:['analista_nome','analista','tecnico_responsavel','responsavel'],
-      PENDENCIA:['analista_nome','analista','tecnico_responsavel','responsavel'],
-      DIGITACAO:['digitador_nome','digitador','responsavel_digitacao','responsavel'],
-      CONFERENCIA:['conferente_nome','conferente','responsavel_conferencia','responsavel'],
-      ASSINATURA:['assinante_nome','responsavel_assinatura','responsavel'],
+      ANALISE:['analista_nome','analista','responsavel'],
+      PENDENCIA:['analista_nome','analista','responsavel'],
+      DIGITACAO:['digitador_nome','digitador','responsavel'],
+      CONFERENCIA:['conferente_nome','conferente','responsavel'],
+      ASSINATURA:['responsavel_assinatura','responsavel'],
       DEFERIDO:['responsavel','tecnico_responsavel'],
-      RETIRADO:['responsavel_retirada','responsavel','tecnico_responsavel']
+      RETIRADO:['responsavel','tecnico_responsavel']
     };
     return valor(p, ...(campos[etapaTipo] || ['tecnico_responsavel','responsavel','usuario_responsavel']));
-  }
-
-  function responsavelGrupo(grupo, p) {
-    const selecionado = responsavelPersistidoEtapa(p, grupo.etapaTipo);
-    // Para etapa atual, o selecionado no processo é a fonte prioritária.
-    if (grupo.atual && selecionado) return selecionado;
-    const executores = grupo.eventos
-      .filter(ev => naturezaEvento(ev) === 'ACAO_EXECUTADA')
-      .map(nomeAutorEvento).filter(Boolean);
-    if (executores.length) return executores[executores.length - 1];
-    const autoresOperacionais = grupo.eventos
-      .filter(ev => naturezaEvento(ev) !== 'CIENCIA')
-      .map(nomeAutorEvento).filter(Boolean);
-    if (autoresOperacionais.length) return autoresOperacionais[autoresOperacionais.length - 1];
-    return selecionado || 'Não identificado';
-  }
-
-  function inicioEtapaPersistido(p, etapaTipo) {
-    if (etapaTipo !== tipoEtapaAtual(p)) return null;
-    return valor(p, 'data_etapa_atual','prazo_inicio','etapa_iniciada_em','updated_at');
-  }
-
-  function garantirEtapaAtual(grupos, p) {
-    const atual = tipoEtapaAtual(p);
-    if (!atual) return grupos;
-    let grupo = grupos.find(g => g.etapaTipo === atual && (atual !== 'DESARQUIVAMENTO' || g.ciclo === (Number(p?.workflow_ciclo || p?.ciclo || 1) || 1)));
-    if (!grupo) {
-      grupo = {
-        etapaTipo: atual,
-        ciclo: atual === 'DESARQUIVAMENTO' ? (Number(p?.workflow_ciclo || p?.ciclo || 1) || 1) : 1,
-        eventos: [],
-        sintetico: true
-      };
-      grupos.push(grupo);
-    }
-    grupo.atual = true;
-    return grupos;
-  }
-
-  function consolidarMetadadosGrupos(grupos, p) {
-    const ordem = new Map(ETAPAS.map((e,i) => [e.tipo, i]));
-    grupos.sort((a,b) => (ordem.get(a.etapaTipo) ?? 99) - (ordem.get(b.etapaTipo) ?? 99) || a.ciclo - b.ciclo);
-    grupos.forEach((grupo, i) => {
-      const datas = grupo.eventos.map(dataEvento).map(dataValida).filter(Boolean).sort((a,b) => a-b);
-      const persistida = dataValida(inicioEtapaPersistido(p, grupo.etapaTipo));
-      grupo.enviadoEm = datas[0] || persistida || null;
-      const proximo = grupos.slice(i + 1).find(g => (ordem.get(g.etapaTipo) ?? 99) > (ordem.get(grupo.etapaTipo) ?? 99));
-      const dataProximo = proximo?.eventos?.map(dataEvento).map(dataValida).filter(Boolean).sort((a,b)=>a-b)[0]
-        || dataValida(inicioEtapaPersistido(p, proximo?.etapaTipo));
-      grupo.concluidoEm = grupo.atual ? null : (dataProximo || (datas.length > 1 ? datas[datas.length - 1] : null));
-      grupo.responsavel = responsavelGrupo(grupo, p);
-      grupo.situacao = grupo.atual ? 'Em andamento' : 'Concluída';
-    });
-    return grupos;
   }
 
   function agruparEventosPorEtapa(eventos, p = null) {
@@ -397,9 +350,54 @@
       if (!grupos.has(chave)) grupos.set(chave, { etapaTipo, ciclo, eventos: [] });
       grupos.get(chave).eventos.push(ev);
     });
-    let resultado = [...grupos.values()];
-    if (p) resultado = garantirEtapaAtual(resultado, p);
-    return p ? consolidarMetadadosGrupos(resultado, p) : resultado;
+
+    const atual = p ? tipoEtapaAtual(p) : '';
+    if (atual) {
+      const cicloAtual = atual === 'DESARQUIVAMENTO' ? Number(p?.workflow_ciclo || p?.ciclo || 1) : 1;
+      const chaveAtual = `${atual}|${cicloAtual}`;
+      if (!grupos.has(chaveAtual)) grupos.set(chaveAtual, { etapaTipo:atual, ciclo:cicloAtual, eventos:[], atual:true });
+      else grupos.get(chaveAtual).atual = true;
+    }
+
+    const ordem = new Map(ETAPAS.map((e,i) => [e.tipo, i]));
+    const lista = [...grupos.values()].sort((a,b) => (ordem.get(a.etapaTipo) ?? 99) - (ordem.get(b.etapaTipo) ?? 99) || a.ciclo - b.ciclo);
+
+    const criada = p ? (valor(p,'created_at','criado_em','data_solicitacao','data_abertura') || null) : null;
+    let limiteAnterior = dataValida(criada);
+    lista.forEach((grupo, i) => {
+      grupo.eventos.sort((a,b) => (dataValida(dataEvento(a))?.getTime() || 0) - (dataValida(dataEvento(b))?.getTime() || 0));
+      const primeiraReal = grupo.eventos.map(dataEvento).find(v => dataValida(v));
+      let enviado = primeiraReal || null;
+
+      if (grupo.etapaTipo === 'SOLICITACAO' && criada) enviado = criada;
+      if (!enviado && grupo.atual && p) enviado = valor(p,'data_etapa_atual','updated_at') || criada;
+
+      let dtEnvio = dataValida(enviado);
+      if (limiteAnterior && (!dtEnvio || dtEnvio < limiteAnterior)) {
+        enviado = limiteAnterior.toISOString();
+        dtEnvio = new Date(limiteAnterior);
+      }
+      grupo.enviadoEm = enviado;
+      grupo.responsavel = grupo.eventos.map(responsavelEvento).find(Boolean) || (p ? responsavelPersistidoPorEtapa(p, grupo.etapaTipo) : '') || 'Não identificado';
+      grupo.atual = grupo.atual || grupo.etapaTipo === atual;
+      grupo.situacao = grupo.atual ? 'Em andamento' : 'Concluída';
+      limiteAnterior = dtEnvio || limiteAnterior;
+    });
+
+    // A conclusão de uma etapa é a entrada cronologicamente validada na próxima etapa.
+    lista.forEach((grupo, i) => {
+      const proxima = lista[i + 1];
+      if (grupo.atual) grupo.concluidoEm = null;
+      else if (proxima?.enviadoEm) grupo.concluidoEm = proxima.enviadoEm;
+      else {
+        const ultimo = grupo.eventos.length ? dataEvento(grupo.eventos[grupo.eventos.length - 1]) : null;
+        const du = dataValida(ultimo), de = dataValida(grupo.enviadoEm);
+        grupo.concluidoEm = du && de && du >= de ? ultimo : grupo.enviadoEm;
+      }
+      const dc = dataValida(grupo.concluidoEm), de = dataValida(grupo.enviadoEm);
+      if (dc && de && dc < de) grupo.concluidoEm = null;
+    });
+    return lista;
   }
 
   function rotuloEtapaGrupo(grupo) {
@@ -476,8 +474,7 @@
         return {
           eventos: Array.isArray(timeline?.eventos) ? timeline.eventos : [],
           marcos: timeline?.marcos || { pastaRecebida:false, documentoRecebido:false },
-          origem: 'SIGEE6.timeline',
-          processo: timeline?.processo || timeline?.processoAtualizado || p
+          origem: 'SIGEE6.timeline'
         };
       }
     } catch (e) {
@@ -511,7 +508,7 @@
     }
 
     const pastaRecebida = eventos.some(ev => /PASTA (FISICA )?RECEBIDA|RECEBIMENTO (DA|DE) PASTA|ACERVO (FISICO )?RECEBIDO/i.test(`${ev.acao || ''} ${ev.etapa || ''} ${ev.observacao || ''} ${ev.detalhes || ''}`));
-    return { eventos, marcos:{ pastaRecebida, documentoRecebido:eventos.some(ev => /DOCUMENTO RECEBIDO/i.test(`${ev.acao || ''} ${ev.etapa || ''}`)) }, origem:'compatibilidade', processo:p };
+    return { eventos, marcos:{ pastaRecebida, documentoRecebido:eventos.some(ev => /DOCUMENTO RECEBIDO/i.test(`${ev.acao || ''} ${ev.etapa || ''}`)) }, origem:'compatibilidade' };
   }
 
   function tipoEtapaAtual(p) {
@@ -549,9 +546,7 @@
   function timelineHTML(eventos, p) {
     const grupos = agruparEventosPorEtapa(eventos, p);
     return grupos.map((grupo, gi) => {
-      const primeiro = grupo.eventos[0] || {};
-      const ultimo = grupo.eventos[grupo.eventos.length - 1] || primeiro;
-      const periodo = grupo.enviadoEm ? formatarData(grupo.enviadoEm) : 'Data de envio não identificada';
+      const ultimo = grupo.eventos[grupo.eventos.length - 1] || {};
       const executadas = grupo.eventos.filter(ev => naturezaEvento(ev) === 'ACAO_EXECUTADA').length;
       const ciencias = grupo.eventos.filter(ev => naturezaEvento(ev) === 'CIENCIA').length;
       return `
@@ -560,29 +555,29 @@
         <div class="sigee-pep-evento-card">
           <header>
             <div>
-              <time>${escapar(periodo)}</time>
+              <time>${escapar(formatarData(grupo.enviadoEm))}</time>
               <h3>${escapar(rotuloEtapaGrupo(grupo))}</h3>
             </div>
             <button type="button" aria-expanded="false" data-pep-expandir="grupo-${gi}">Ver ações</button>
           </header>
-          <div class="sigee-pep-resumo-etapa">
-            <div><span>Enviado em</span><strong>${grupo.enviadoEm ? formatarData(grupo.enviadoEm) : 'Não identificado'}</strong></div>
-            <div><span>Concluído em</span><strong>${grupo.concluidoEm ? formatarData(grupo.concluidoEm) : (grupo.atual ? 'Em andamento' : 'Não identificado')}</strong></div>
-            <div><span>Técnico responsável</span><strong>${escapar(grupo.responsavel || 'Não identificado')}</strong></div>
-            <div><span>Situação</span><strong>${escapar(grupo.situacao || (grupo.atual ? 'Em andamento' : 'Concluída'))}</strong></div>
+          <div class="sigee-pep-metadados-etapa">
+            <div><span>Enviado em</span><strong>${escapar(formatarData(grupo.enviadoEm))}</strong></div>
+            <div><span>Concluído em</span><strong>${grupo.concluidoEm ? escapar(formatarData(grupo.concluidoEm)) : 'Em andamento'}</strong></div>
+            <div><span>Técnico responsável</span><strong>${escapar(grupo.responsavel)}</strong></div>
+            <div><span>Situação</span><strong>${escapar(grupo.situacao)}</strong></div>
           </div>
           <p>${grupo.eventos.length} registro(s) nesta etapa${executadas ? ` • ${executadas} ação(ões) executada(s)` : ''}${ciencias ? ` • ${ciencias} ciência(s)` : ''}.</p>
           <div class="sigee-pep-detalhes sigee-pep-acoes-etapa" data-pep-detalhes="grupo-${gi}">
-            ${grupo.eventos.length ? grupo.eventos.map((ev, ei) => `
+            ${grupo.eventos.length ? grupo.eventos.map(ev => `
               <section class="sigee-pep-acao-interna ${naturezaEvento(ev).toLowerCase()}">
                 <div class="sigee-pep-acao-cabecalho">
                   <span class="sigee-pep-acao-icone">${iconeEvento(ev)}</span>
-                  <div><time>${formatarData(ev.created_at || ev.data || ev.data_hora)}</time><strong>${escapar(tituloAcaoInterna(ev))}</strong></div>
+                  <div><time>${formatarData(dataEvento(ev))}</time><strong>${escapar(tituloAcaoInterna(ev))}</strong></div>
                   ${badgeNatureza(ev)}
                 </div>
                 <p>${escapar(descricaoEvento(ev))}</p>
                 <div class="sigee-pep-acao-metadados">${detalhesEvento(ev) || '<div><span>Registro</span><strong>Sem informações complementares.</strong></div>'}</div>
-              </section>`).join('') : `<section class="sigee-pep-acao-interna registro"><div class="sigee-pep-acao-cabecalho"><span class="sigee-pep-acao-icone">●</span><div><time>${grupo.enviadoEm ? formatarData(grupo.enviadoEm) : 'Data não identificada'}</time><strong>Processo atualmente em ${escapar(rotuloEtapaGrupo(grupo))}</strong></div><span class="sigee-pep-badge-natureza registro">Situação atual</span></div><p>Etapa atual registrada no processo. Ainda não há ação interna auditável vinculada a esta etapa.</p></section>`}
+              </section>`).join('') : '<div class="sigee-pep-vazio-etapa">Etapa atual sem ação interna registrada.</div>'}
           </div>
         </div>
       </article>`;
@@ -662,7 +657,7 @@
         <div class="sigee-pep-conteudo">
           <main class="sigee-pep-timeline">
             <div class="sigee-pep-secao-titulo"><div><span>LINHA DO TEMPO</span><h2>Trajetória completa do processo</h2></div><b>${agruparEventosPorEtapa(eventos, p).length} etapas • ${eventos.length} registros</b></div>
-            ${timelineHTML(eventos, p)}
+            ${timelineHTML(eventos, p) || '<div class="sigee-pep-vazio">Nenhum evento auditável foi localizado para este processo.</div>'}
           </main>
 
           <aside class="sigee-pep-lateral">
@@ -701,7 +696,7 @@
                 <div><dt>Conferente</dt><dd>${escapar(valor(p,'conferente','conferente_nome') || 'Não atribuído')}</dd></div>
               </dl>
             </section>
-            <section class="sigee-pep-selo"><b>Registro Institucional</b><span>Eventos auditáveis do SIGEE Enterprise</span><small>RC10.8.6</small></section>
+            <section class="sigee-pep-selo"><b>Registro Institucional</b><span>Eventos auditáveis do SIGEE Enterprise</span><small>RC10.8.7</small></section>
           </aside>
         </div>
         <footer class="sigee-pep-rodape-impressao">
@@ -801,5 +796,5 @@
     ? document.addEventListener('DOMContentLoaded', renomearBotoes)
     : renomearBotoes();
 
-  console.info('[SIGEE RC10.8.4] Prontuário consolidado com processo recarregado, relógio de homologação e resolvedor temporal único.');
+  console.info('[SIGEE RC10.8.7] Prontuário consolidado com processo recarregado, relógio de homologação e resolvedor temporal único.');
 })();
