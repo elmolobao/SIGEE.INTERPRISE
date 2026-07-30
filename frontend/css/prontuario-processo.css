@@ -17,7 +17,135 @@ body.sigee-prontuario-aberto { overflow: hidden !important; }
 .sigee-pep-carregando{display:grid;place-items:center}.sigee-pep-carregando>div{background:#fff;border-radius:18px;padding:28px 34px;display:flex;align-items:center;gap:15px;box-shadow:0 20px 60px rgba(15,23,42,.25)}.sigee-pep-carregando span{width:24px;height:24px;border:3px solid #bae6fd;border-top-color:#0284c7;border-radius:50%;animation:sigee-pep-girar .75s linear infinite}@keyframes sigee-pep-girar{to{transform:rotate(360deg)}}
 @media(max-width:1000px){.sigee-pep-cabecalho{grid-template-columns:1fr}.sigee-pep-conteudo{grid-template-columns:1fr}.sigee-pep-lateral{display:grid;grid-template-columns:1fr 1fr}.sigee-pep-grade{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:650px){.sigee-pep-overlay{padding:0}.sigee-pep-shell{border-radius:0}.sigee-pep-topo{padding:0 14px}.sigee-pep-marca span{display:none}.sigee-pep-topo-acoes button:first-child{display:none}.sigee-pep-cabecalho,.sigee-pep-conteudo{padding:16px}.sigee-pep-grade,.sigee-pep-lateral{grid-template-columns:1fr}.sigee-pep-detalhes{grid-template-columns:1fr}}
-@media print{body>*:not(#sigee-prontuario-overlay){display:none!important}.sigee-pep-overlay{position:static;padding:0;background:#fff}.sigee-pep-shell{box-shadow:none;border:0}.sigee-pep-topo-acoes{display:none}.sigee-pep-conteudo{grid-template-columns:1fr 280px}.sigee-pep-evento-card{break-inside:avoid}}
+/* RC10.8.3 — impressão institucional isolada do Prontuário */
+@media print {
+  @page { size: A4 portrait; margin: 10mm; }
+
+  html,
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+
+  /* Oculta integralmente a aplicação e libera somente o prontuário. */
+  body * {
+    visibility: hidden !important;
+  }
+
+  #sigee-prontuario-overlay,
+  #sigee-prontuario-overlay * {
+    visibility: visible !important;
+  }
+
+  #sigee-prontuario-overlay {
+    display: block !important;
+    position: absolute !important;
+    inset: 0 auto auto 0 !important;
+    width: 100% !important;
+    min-height: 0 !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+    backdrop-filter: none !important;
+    z-index: 2147483647 !important;
+  }
+
+  #sigee-prontuario-overlay .sigee-pep-shell {
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-height: 0 !important;
+    height: auto !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: #fff !important;
+  }
+
+  #sigee-prontuario-overlay .sigee-pep-topo {
+    position: static !important;
+    height: auto !important;
+    min-height: 54px !important;
+    padding: 10px 0 12px !important;
+  }
+
+  #sigee-prontuario-overlay .sigee-pep-topo-acoes,
+  #sigee-prontuario-overlay [data-pep-fechar],
+  #sigee-prontuario-overlay [data-pep-expandir] {
+    display: none !important;
+  }
+
+  #sigee-prontuario-overlay .sigee-pep-cabecalho {
+    padding: 16px !important;
+    grid-template-columns: 1fr 2.2fr !important;
+    gap: 16px !important;
+    print-color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
+  }
+
+  #sigee-prontuario-overlay .sigee-pep-grade {
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 7px !important;
+  }
+
+  #sigee-prontuario-overlay .sigee-pep-workflow {
+    overflow: visible !important;
+    flex-wrap: wrap !important;
+    padding: 12px 0 !important;
+  }
+
+  #sigee-prontuario-overlay .sigee-pep-etapa {
+    min-width: 118px !important;
+  }
+
+  #sigee-prontuario-overlay .sigee-pep-conteudo {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) 245px !important;
+    gap: 12px !important;
+    padding: 14px 0 0 !important;
+    overflow: visible !important;
+  }
+
+  #sigee-prontuario-overlay .sigee-pep-timeline,
+  #sigee-prontuario-overlay .sigee-pep-lateral,
+  #sigee-prontuario-overlay .sigee-pep-lateral section {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    box-shadow: none !important;
+  }
+
+  #sigee-prontuario-overlay .sigee-pep-timeline {
+    padding: 14px !important;
+  }
+
+  #sigee-prontuario-overlay .sigee-pep-evento,
+  #sigee-prontuario-overlay .sigee-pep-evento-card,
+  #sigee-prontuario-overlay .sigee-pep-lateral section,
+  #sigee-prontuario-overlay .sigee-pep-cabecalho,
+  #sigee-prontuario-overlay .sigee-pep-workflow {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  #sigee-prontuario-overlay .sigee-pep-detalhes {
+    display: grid !important;
+  }
+
+  #sigee-prontuario-overlay * {
+    print-color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
+  }
+}
+
 
 /* RC6.0.3 — marco auditável de recebimento da pasta */
 .sigee-pep-etapa.pendente-registro span{background:#fff7ed;color:#c2410c;border:1px solid #fdba74;box-shadow:0 0 0 4px #ffedd5}
