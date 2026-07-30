@@ -1,12 +1,12 @@
 /* =====================================================================
-   SIGEE Enterprise — RC10.1.0
+   SIGEE Enterprise — RC10.2.0
    Prontuário Eletrônico do Processo
    Camada aditiva: não altera regras, transições ou persistência do workflow.
    ===================================================================== */
 (function () {
   'use strict';
-  if (window.__SIGEE_PRONTUARIO_RC1010__) return;
-  window.__SIGEE_PRONTUARIO_RC1010__ = true;
+  if (window.__SIGEE_PRONTUARIO_RC1020__) return;
+  window.__SIGEE_PRONTUARIO_RC1020__ = true;
 
   const ETAPAS = Object.freeze([
     { tipo:'SOLICITACAO', label:'Solicitação' },
@@ -58,7 +58,7 @@
       const resolvedor = window.SIGEE_WORKFLOW_TEMPORAL;
       if (resolvedor && typeof resolvedor.resolve === 'function') return resolvedor.resolve(p || {});
     } catch (e) {
-      console.warn('[SIGEE RC10.1.0] Resolvedor temporal indisponível no prontuário:', e);
+      console.warn('[SIGEE RC10.2.0] Resolvedor temporal indisponível no prontuário:', e);
     }
     return null;
   }
@@ -98,6 +98,7 @@
   }
 
   function fechar() {
+    prontuarioAbertoId = null;
     document.getElementById('sigee-prontuario-overlay')?.remove();
     document.body.classList.remove('sigee-prontuario-aberto');
   }
@@ -401,14 +402,17 @@
                 <div><dt>Conferente</dt><dd>${escapar(valor(p,'conferente','conferente_nome') || 'Não atribuído')}</dd></div>
               </dl>
             </section>
-            <section class="sigee-pep-selo"><b>Registro Institucional</b><span>Eventos auditáveis do SIGEE Enterprise</span><small>RC10.1.0</small></section>
+            <section class="sigee-pep-selo"><b>Registro Institucional</b><span>Eventos auditáveis do SIGEE Enterprise</span><small>RC10.2.0</small></section>
           </aside>
         </div>
       </div>
     </div>`;
   }
 
+  let prontuarioAbertoId = null;
+
   async function abrir(id) {
+    prontuarioAbertoId = id;
     const p = processo(id);
     if (!p) {
       alert('Processo não localizado para abertura do prontuário.');
@@ -457,6 +461,13 @@
   window.abrirProntuarioSIGEE = abrir;
   window.abrirHistoricoSIGEE = abrir;
   window.abrirHistoricoProcessoSIGEE = abrir;
+
+
+  window.addEventListener('sigee:workflow-clock-change', function () {
+    if (prontuarioAbertoId == null || !document.getElementById('sigee-prontuario-overlay')) return;
+    const id = prontuarioAbertoId;
+    setTimeout(function () { abrir(id); }, 0);
+  });
 
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && document.getElementById('sigee-prontuario-overlay')) fechar();

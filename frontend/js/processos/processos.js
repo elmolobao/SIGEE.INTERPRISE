@@ -1472,6 +1472,12 @@
     } catch(e){ console.warn('[SIGEE RC8.3.0] Falha ao redesenhar Central.',e); }
     finally { restaurarEstadoVisualCentral(estado); }
   }
+
+  // RC10.2.0 — qualquer alteração do relógio de homologação redesenha a
+  // Central imediatamente, sem recarregar ou persistir datas simuladas.
+  window.addEventListener('sigee:workflow-clock-change', function () {
+    try { redesenhar(); } catch (error) { console.warn('[SIGEE RC10.2.0] Falha ao atualizar a Central após alteração temporal.', error); }
+  });
   function nteVariantes(valor){
     const bruto=String(valor||'').trim();
     const m=bruto.match(/(?:NTE\s*[- ]?\s*)?(\d{1,2})/i);
