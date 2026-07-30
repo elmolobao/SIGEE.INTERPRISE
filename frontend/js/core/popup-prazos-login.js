@@ -16,7 +16,7 @@
   if (window.__SIGEE_POPUP_PRAZOS_LOGIN_RC1071__) return;
   window.__SIGEE_POPUP_PRAZOS_LOGIN_RC1071__ = true;
 
-  const VERSION = 'RC10.7.1';
+  const VERSION = 'RC10.8.0';
   const EVENTOS = Object.freeze({
     31: Object.freeze({ codigo: 'SEND_REITERACAO', titulo: 'Reiteração' }),
     38: Object.freeze({ codigo: 'SEND_REITERACAO_URGENTE', titulo: 'Reiteração Urgente' }),
@@ -113,29 +113,54 @@
     }
   }
 
+  function estadoAtualDoProcesso(p) {
+    try {
+      const resolvido = window.SIGEE_WORKFLOW_TEMPORAL?.resolve?.(p);
+      const codigo = normalizar(resolvido?.code || resolvido?.codigo || resolvido?.etapaCodigo || resolvido?.stateCode || p?.etapa_codigo || p?.etapa_atual || p?.etapa || p?.fase_atual);
+      const nome = texto(resolvido?.name || resolvido?.nome || resolvido?.etapaNome || resolvido?.stateName || p?.etapa_atual || p?.etapa || p?.fase_atual || codigo);
+      return { codigo, nome };
+    } catch (_) {
+      const codigo = normalizar(p?.etapa_codigo || p?.etapa_atual || p?.etapa || p?.fase_atual);
+      return { codigo, nome: texto(p?.etapa_atual || p?.etapa || p?.fase_atual || codigo) };
+    }
+  }
+
+  function etapaComAlerta(estado) {
+    const e = normalizar(estado?.codigo || estado?.nome);
+    return e === 'RET' || e === 'REU' || e === 'CFD' || e === 'PAS' || e === 'PAT' ||
+      e.includes('REITERACAO') || e.includes('REITERACAO_URGENTE') ||
+      e.includes('CONFIRMACAO') || e.includes('PEDIDO_DE_ATAS') || e.includes('ATAS_SEM_PASTA');
+  }
+
+  function dadosEtapaAlerta(estado, dia) {
+    const e = normalizar(estado?.codigo || estado?.nome);
+    if (e === 'RET' || (e.includes('REITERACAO') && !e.includes('URGENTE'))) return { codigo:'REITERACAO', titulo:'Reiteração', marco:31 };
+    if (e === 'REU' || e.includes('REITERACAO_URGENTE')) return { codigo:'REITERACAO_URGENTE', titulo:'Reiteração Urgente', marco:38 };
+    if (e === 'CFD' || e.includes('CONFIRMACAO')) return { codigo:'CONFIRMACAO_DADOS', titulo:'Confirmação dos Dados', marco:45 };
+    if (e === 'PAS' || e === 'PAT' || e.includes('PEDIDO_DE_ATAS') || e.includes('ATAS_SEM_PASTA')) return { codigo:'PEDIDO_ATAS_SEM_PASTA', titulo:'Pedido de Atas sem Pasta', marco:52 };
+    return { codigo:e || 'ETAPA_PENDENTE', titulo:estado?.nome || 'Etapa pendente', marco:Number(dia)||0 };
+  }
+
   async function obterVencimentos(usuario, token) {
     const processos = await aguardarProcessos(token);
-    const candidatos = processos.filter(p => {
-      if (!p || p.ativo === false || p.status === 'Excluído') return false;
-      if (!etapaDesarquivamento(p)) return false;
-      if (!emHomologacaoMaster(usuario) && !mesmoNte(p.nte || p.nte_nome, usuario.nte || usuario.nte_nome)) return false;
-      const dia = diaDoCiclo(p);
-      return Number.isFinite(dia) && dia >= 31;
-    });
-
     const saida = [];
-    const marcos = Object.keys(EVENTOS).map(Number).sort((a, b) => a - b);
-    for (const p of candidatos) {
+    for (const p of processos) {
+      if (!p || p.ativo === false || p.status === 'Excluído') continue;
+      if (!emHomologacaoMaster(usuario) && !mesmoNte(p.nte || p.nte_nome, usuario.nte || usuario.nte_nome)) continue;
+      const estado = estadoAtualDoProcesso(p);
+      if (!etapaComAlerta(estado)) continue;
       const dia = diaDoCiclo(p);
-      // Exibe apenas o ato temporal vigente no login, evitando repetir no mesmo
-      // processo todos os marcos anteriores do ciclo.
-      const marco = marcos.filter(valor => dia >= valor).pop();
-      if (!marco) continue;
-      const acao = EVENTOS[marco];
-      if (await acaoExecutada(p, acao.codigo)) continue;
-      saida.push({ processo: p, acao, diaCiclo: dia, marco, diasAtraso: Math.max(0, dia - marco) });
+      const acao = dadosEtapaAlerta(estado, dia);
+      saida.push({
+        processo: p,
+        acao,
+        estado,
+        diaCiclo: Number.isFinite(dia) ? dia : null,
+        marco: acao.marco,
+        diasAtraso: Number.isFinite(dia) ? Math.max(0, dia - acao.marco) : 0
+      });
     }
-    return saida.sort((a, b) => b.diasAtraso - a.diasAtraso || String(a.processo.codigo_sigee || '').localeCompare(String(b.processo.codigo_sigee || '')));
+    return saida.sort((a, b) => (b.diasAtraso - a.diasAtraso) || String(a.processo.codigo_sigee || '').localeCompare(String(b.processo.codigo_sigee || '')));
   }
 
   function escapar(v) {
@@ -145,27 +170,61 @@
   function removerPopup() { document.getElementById('sigee-popup-prazos-login')?.remove(); }
 
   async function registrarCiencia(usuario, itens) {
-    const detalhes = JSON.stringify({
-      tipo: 'CIENCIA_ALERTA_PRAZOS_LOGIN',
-      versao: VERSION,
-      quantidade: itens.length,
-      processos: itens.map(x => ({
-        processo_id: x.processo.id,
-        codigo_sigee: x.processo.codigo_sigee || null,
-        acao: x.acao.codigo,
+    const instante = new Date().toISOString();
+    const c = cliente();
+    if (!c?.from) throw new Error('Cliente Supabase indisponível.');
+
+    const registros = itens.map(x => ({
+      processo_id: x.processo.id,
+      codigo_sigee: x.processo.codigo_sigee || null,
+      etapa: x.estado?.nome || x.acao.titulo,
+      acao: 'CIENCIA_VENCIMENTO_ETAPA',
+      observacao: `Ciência confirmada no login para a etapa ${x.estado?.nome || x.acao.titulo}. O processo permanece nessa etapa até a execução da ação correspondente.`,
+      usuario_nome: usuario.nome || usuario.email || 'Usuário SIGEE',
+      usuario_email: usuario.email || null,
+      usuario_perfil: usuario.perfil || usuario.tipo || null,
+      nte: usuario.nte || x.processo.nte || null,
+      dados: {
+        tipo: 'CIENCIA_ALERTA_ETAPA_LOGIN',
+        versao: VERSION,
+        etapa_codigo: x.estado?.codigo || x.acao.codigo,
+        etapa_nome: x.estado?.nome || x.acao.titulo,
+        dia_ciclo: x.diaCiclo,
+        marco: x.marco,
         ciclo: ciclo(x.processo),
-        workflow_instance_id: instancia(x.processo) || null
-      })),
-      confirmado_em: new Date().toISOString()
-    });
+        workflow_instance_id: instancia(x.processo) || null,
+        sessao_id: window.SIGEE_SESSAO_ID || null
+      },
+      created_at: instante
+    }));
+
+    const { error } = await c.from('historico_processos').insert(registros);
+    if (error) throw error;
+
     if (typeof window.registrarLog === 'function') {
-      const ok = await window.registrarLog('CIÊNCIA DE AÇÕES VENCIDAS E PENDENTES', detalhes, {
-        modulo: 'workflow', tipo: 'CIENCIA_ALERTA_PRAZOS_LOGIN', nte: usuario.nte || null
-      });
-      if (ok === false) throw new Error('O registro de auditoria não foi confirmado.');
-      return true;
+      await window.registrarLog('CIÊNCIA DE VENCIMENTO POR ETAPA', JSON.stringify({
+        tipo: 'CIENCIA_ALERTA_ETAPA_LOGIN',
+        versao: VERSION,
+        quantidade: itens.length,
+        processos: itens.map(x => ({
+          processo_id: x.processo.id,
+          codigo_sigee: x.processo.codigo_sigee || null,
+          etapa: x.estado?.nome || x.acao.titulo,
+          ciclo: ciclo(x.processo)
+        })),
+        confirmado_em: instante
+      }), { modulo:'workflow', tipo:'CIENCIA_ALERTA_ETAPA_LOGIN', nte:usuario.nte || null });
     }
-    throw new Error('Serviço oficial de logs indisponível.');
+
+    itens.forEach(x => {
+      try { window.SIGEE6?.timelineService?.invalidar?.(x.processo.id); } catch (_) {}
+      try {
+        window.dispatchEvent(new CustomEvent('sigee:workflow-action-executed', {
+          detail: { processoId:x.processo.id, evento:'CIENCIA_VENCIMENTO_ETAPA', etapa:x.estado?.nome || x.acao.titulo, executadoEm:instante }
+        }));
+      } catch (_) {}
+    });
+    return true;
   }
 
   function abrirProcesso(id) {
@@ -186,8 +245,8 @@
         <header>
           <div>
             <span class="sigee-prazos-login-selo">ALERTA DE PRAZO</span>
-            <h2 id="sigee-prazos-login-titulo">Ações vencidas pendentes</h2>
-            <p>${itens.length} ${itens.length === 1 ? 'ação permanece pendente' : 'ações permanecem pendentes'} no ${escapar(usuario.nte || 'NTE')}. O aviso continuará sendo exibido em cada login até a execução.</p>
+            <h2 id="sigee-prazos-login-titulo">Ciência de processos por etapa</h2>
+            <p>${itens.length} ${itens.length === 1 ? 'processo está' : 'processos estão'} entre Reiteração e Pedido de Atas no ${escapar(usuario.nte || 'NTE')}. A relação será exibida em cada login enquanto os processos permanecerem nessas etapas.</p>
           </div>
         </header>
         <div class="sigee-prazos-login-lista">
@@ -198,18 +257,18 @@
                 <strong>${escapar(item.processo.codigo_sigee || item.processo.id)}</strong>
                 <span>${escapar(item.processo.aluno_nome || 'Aluno não informado')}</span>
                 <small>${escapar(item.processo.escola_nome || 'Escola não informada')}</small>
-                <b>${escapar(item.acao.titulo)} — ${item.diasAtraso > 0 ? `vencida há ${item.diasAtraso} dia${item.diasAtraso === 1 ? '' : 's'}` : 'vence hoje'}</b>
+                <b>Etapa atual: ${escapar(item.estado?.nome || item.acao.titulo)}${item.diaCiclo ? ` — ${item.diaCiclo}º dia do ciclo` : ''}</b>
                 <button type="button" class="sigee-prazos-login-abrir" data-processo-id="${escapar(item.processo.id)}">Abrir processo</button>
               </div>
             </article>`).join('')}
         </div>
         <label class="sigee-prazos-login-ciencia">
           <input type="checkbox" id="sigee-prazos-login-checkbox">
-          <span>Declaro que tomei ciência das ações vencidas e pendentes apresentadas.</span>
+          <span>Declaro que tomei ciência dos processos apresentados e dos respectivos vencimentos de etapa.</span>
         </label>
         <p class="sigee-prazos-login-erro" id="sigee-prazos-login-erro" hidden></p>
         <footer>
-          <button type="button" id="sigee-prazos-login-confirmar" disabled>Confirmar ciência e acessar o sistema</button>
+          <button type="button" id="sigee-prazos-login-confirmar" disabled>Confirmar ciência</button>
         </footer>
       </section>`;
     document.body.appendChild(overlay);
@@ -233,7 +292,7 @@
         erro.textContent = 'Não foi possível registrar a ciência. Verifique a conexão e tente novamente.';
         erro.hidden = false;
         confirmar.disabled = false;
-        confirmar.textContent = 'Confirmar ciência e acessar o sistema';
+        confirmar.textContent = 'Confirmar ciência';
         console.error('[SIGEE Popup Prazos] Ciência não registrada:', e);
       }
     });
@@ -284,7 +343,7 @@
   });
   document.addEventListener('sigee:usuario-deslogado', aoLogout);
 
-  // RC10.7.1 — O popup é verificado em cada login e reaparece enquanto houver ação vencida não executada.
+  // RC10.8.0 — O popup é verificado em cada login e lista processos da Reiteração ao Pedido de Atas enquanto permanecerem nessas etapas.
   // Alterações do relógio de homologação atualizam prazos e botões, mas o alerta só é aberto pelo evento de login.
   window.SIGEE_POPUP_PRAZOS_LOGIN = Object.freeze({ version: VERSION, verificar: aoLogin });
 })(window, document);
