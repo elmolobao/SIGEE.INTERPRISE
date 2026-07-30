@@ -28,6 +28,7 @@
     observationRequired: false,
     observationLabel: 'Observações',
     observationPlaceholder: 'Registre informações complementares, se necessário.',
+    customFields: null,
     executeLabel: 'Executar',
     cancelLabel: 'Cancelar',
     closeOnBackdrop: true,
@@ -63,6 +64,7 @@
       .sigee-wam-consequence{padding:14px;border-radius:10px;background:rgba(255,193,7,.10)}
       .sigee-wam-field label{display:block;margin-bottom:8px;font-weight:700}
       .sigee-wam-field textarea{width:100%;min-height:88px;max-height:180px;resize:vertical;box-sizing:border-box;padding:12px 14px;border:1px solid rgba(255,255,255,.16);border-radius:10px;background:rgba(255,255,255,.06);color:#fff;font:inherit;outline:none}
+      .sigee-wam-custom-fields{display:grid;gap:12px}.sigee-wam-custom-title{margin:0;font-size:.95rem}.sigee-wam-custom-row{display:grid;grid-template-columns:minmax(160px,.8fr) 1.2fr;gap:12px;align-items:start;padding:12px;border:1px solid rgba(255,255,255,.10);border-radius:10px;background:rgba(255,255,255,.035)}.sigee-wam-custom-check{display:flex;align-items:flex-start;gap:9px;font-weight:800}.sigee-wam-custom-check input{width:18px;height:18px;margin-top:2px}.sigee-wam-custom-values{display:grid;gap:7px}.sigee-wam-current-value{font-size:.78rem;color:rgba(255,255,255,.72)}.sigee-wam-custom-input{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid rgba(255,255,255,.16);border-radius:9px;background:rgba(255,255,255,.06);color:#fff;font:inherit;outline:none}.sigee-wam-custom-input:disabled{opacity:.45}.sigee-wam-custom-hint{margin:0;color:rgba(255,255,255,.66);font-size:.82rem}
       .sigee-wam-confirm{display:flex;align-items:flex-start;gap:10px;padding:14px;border:1px solid rgba(255,255,255,.10);border-radius:10px;background:rgba(255,255,255,.035)}
       .sigee-wam-confirm input{margin-top:3px;width:18px;height:18px}
       .sigee-wam-error{display:none;padding:12px 14px;border-radius:10px;background:rgba(220,53,69,.16);color:#ffd7dc}
@@ -115,6 +117,7 @@
             <p class="sigee-wam-message-text" id="sigee-wam-message-text"></p>
           </div>
           <div class="sigee-wam-consequence" id="sigee-wam-consequence"></div>
+          <div class="sigee-wam-custom-fields" id="sigee-wam-custom-fields"></div>
           <div class="sigee-wam-field" id="sigee-wam-observation-wrap">
             <label for="sigee-wam-observation"></label>
             <textarea id="sigee-wam-observation"></textarea>
@@ -141,6 +144,12 @@
   function isValid() {
     const observation = byId('sigee-wam-observation')?.value.trim() || '';
     const confirmations = [...document.querySelectorAll('#sigee-wam-confirm-wrap .sigee-wam-confirm-input')];
+    const customRows = [...document.querySelectorAll('#sigee-wam-custom-fields .sigee-wam-custom-row')];
+    if (customRows.length) {
+      const selected = customRows.filter(row => row.querySelector('.sigee-wam-custom-check-input')?.checked);
+      if (!selected.length) return false;
+      if (selected.some(row => !(row.querySelector('.sigee-wam-custom-input')?.value || '').trim())) return false;
+    }
     const confirmed = confirmations.length === 0 || confirmations.every(input => input.checked);
     if (options.requireConfirmation && !confirmed) return false;
     if (options.observationRequired && !observation) return false;
@@ -169,6 +178,18 @@
     const consequence = byId('sigee-wam-consequence');
     consequence.textContent = options.consequence || '';
     consequence.hidden = !options.consequence;
+
+    const customWrap = byId('sigee-wam-custom-fields');
+    const customFields = Array.isArray(options.customFields) ? options.customFields : [];
+    customWrap.hidden = !customFields.length;
+    customWrap.innerHTML = customFields.length ? `
+      <h3 class="sigee-wam-custom-title">Selecione o que foi alterado e informe somente o novo valor *</h3>
+      <p class="sigee-wam-custom-hint">O valor anterior será capturado automaticamente pelo SIGEE.</p>
+      ${customFields.map(field => `<div class="sigee-wam-custom-row" data-field="${String(field.key)}">
+        <label class="sigee-wam-custom-check"><input type="checkbox" class="sigee-wam-custom-check-input"><span>${String(field.label)}</span></label>
+        <div class="sigee-wam-custom-values"><span class="sigee-wam-current-value">Atual: ${String(field.currentValue || 'Não informado')}</span><input class="sigee-wam-custom-input" type="text" disabled placeholder="Nova informação"></div>
+      </div>`).join('')}
+    ` : '';
 
     const obsWrap = byId('sigee-wam-observation-wrap');
     obsWrap.hidden = !options.allowObservation;
@@ -222,12 +243,19 @@
       return;
     }
 
+    const customValues = [...document.querySelectorAll('#sigee-wam-custom-fields .sigee-wam-custom-row')].filter(row => row.querySelector('.sigee-wam-custom-check-input')?.checked).map(row => {
+      const key = row.dataset.field;
+      const config = (Array.isArray(options.customFields) ? options.customFields : []).find(item => String(item.key) === String(key)) || {};
+      return { key, label: config.label || key, before: config.currentValue || '', after: row.querySelector('.sigee-wam-custom-input')?.value.trim() || '' };
+    });
+
     const payload = {
       processId: options.processId,
       event: options.event,
       observation: byId('sigee-wam-observation')?.value.trim() || '',
       confirmed: [...document.querySelectorAll('#sigee-wam-confirm-wrap .sigee-wam-confirm-input')].every(input => input.checked),
-      confirmations: [...document.querySelectorAll('#sigee-wam-confirm-wrap .sigee-wam-confirm-input')].map(input => ({ code: input.value, confirmed: input.checked }))
+      confirmations: [...document.querySelectorAll('#sigee-wam-confirm-wrap .sigee-wam-confirm-input')].map(input => ({ code: input.value, confirmed: input.checked })),
+      customFields: customValues
     };
 
     const executeButton = byId('sigee-wam-execute');
@@ -269,6 +297,15 @@
       byId('sigee-wam-cancel').addEventListener('click', () => close('cancel'));
       byId('sigee-wam-execute').addEventListener('click', execute);
       byId('sigee-wam-confirm-wrap').addEventListener('change', updateExecuteState);
+      byId('sigee-wam-custom-fields').addEventListener('change', (event) => {
+        if (event.target.classList.contains('sigee-wam-custom-check-input')) {
+          const row = event.target.closest('.sigee-wam-custom-row');
+          const input = row?.querySelector('.sigee-wam-custom-input');
+          if (input) { input.disabled = !event.target.checked; if (!event.target.checked) input.value = ''; else input.focus(); }
+        }
+        updateExecuteState();
+      });
+      byId('sigee-wam-custom-fields').addEventListener('input', updateExecuteState);
       byId('sigee-wam-observation').addEventListener('input', updateExecuteState);
 
       root.addEventListener('click', (event) => {
