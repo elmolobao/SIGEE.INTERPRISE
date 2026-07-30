@@ -1,12 +1,12 @@
 /* =====================================================================
-   SIGEE Enterprise — RC10.2.0
+   SIGEE Enterprise — RC10.3.0
    Prontuário Eletrônico do Processo
    Camada aditiva: não altera regras, transições ou persistência do workflow.
    ===================================================================== */
 (function () {
   'use strict';
-  if (window.__SIGEE_PRONTUARIO_RC1020__) return;
-  window.__SIGEE_PRONTUARIO_RC1020__ = true;
+  if (window.__SIGEE_PRONTUARIO_RC1030__) return;
+  window.__SIGEE_PRONTUARIO_RC1030__ = true;
 
   const ETAPAS = Object.freeze([
     { tipo:'SOLICITACAO', label:'Solicitação' },
@@ -58,7 +58,7 @@
       const resolvedor = window.SIGEE_WORKFLOW_TEMPORAL;
       if (resolvedor && typeof resolvedor.resolve === 'function') return resolvedor.resolve(p || {});
     } catch (e) {
-      console.warn('[SIGEE RC10.2.0] Resolvedor temporal indisponível no prontuário:', e);
+      console.warn('[SIGEE RC10.3.0] Resolvedor temporal indisponível no prontuário:', e);
     }
     return null;
   }
@@ -95,6 +95,16 @@
     const b = dataValida(fim) || new Date();
     if (!a) return 0;
     return Math.max(0, Math.floor((b - a) / 86400000));
+  }
+
+  function agoraWorkflow() {
+    try {
+      const relogio = window.SIGEE_WORKFLOW_CLOCK;
+      const valorAtual = relogio && typeof relogio.now === 'function' ? relogio.now() : new Date();
+      return dataValida(valorAtual) || new Date();
+    } catch (_) {
+      return new Date();
+    }
   }
 
   function fechar() {
@@ -252,6 +262,8 @@
       'SOLICITACAO':'SOLICITACAO', 'DOCUMENTO SOLICITADO':'DOCUMENTO_SOLICITADO',
       'PASTA LOCALIZADA':'PASTA_LOCALIZADA', 'PASTA RECEBIDA':'PASTA_RECEBIDA',
       'DOCUMENTO RECEBIDO':'PASTA_RECEBIDA', 'DESARQUIVAMENTO':'DESARQUIVAMENTO',
+      'REITERACAO':'DESARQUIVAMENTO', 'REITERACAO URGENTE':'DESARQUIVAMENTO',
+      'CONFIRMACAO DOS DADOS':'DESARQUIVAMENTO', 'PEDIDO DE ATAS SEM PASTA':'DESARQUIVAMENTO',
       'ANALISE':'ANALISE', 'PENDENCIA':'PENDENCIA', 'DIGITACAO':'DIGITACAO',
       'CONFERENCIA':'CONFERENCIA', 'ASSINATURA':'ASSINATURA',
       'DEFERIDO':'DEFERIDO', 'AGUARDANDO RETIRADA':'DEFERIDO', 'RETIRADO':'RETIRADO'
@@ -325,7 +337,7 @@
     const documentos = resumoDocumentos(eventos);
     const ultima = ultimaMovimentacao(eventos);
     const ultimaData = ultima?.created_at || ultima?.data || ultima?.data_hora || inicio;
-    const tempoParado = diasEntre(ultimaData);
+    const tempoParado = diasEntre(ultimaData, agoraWorkflow());
     const responsavelAtual = valor(p,'tecnico_responsavel','responsavel','usuario_responsavel') || 'Não atribuído';
     const risco = riscoProcesso(p, tempoParado);
 
@@ -402,7 +414,7 @@
                 <div><dt>Conferente</dt><dd>${escapar(valor(p,'conferente','conferente_nome') || 'Não atribuído')}</dd></div>
               </dl>
             </section>
-            <section class="sigee-pep-selo"><b>Registro Institucional</b><span>Eventos auditáveis do SIGEE Enterprise</span><small>RC10.2.0</small></section>
+            <section class="sigee-pep-selo"><b>Registro Institucional</b><span>Eventos auditáveis do SIGEE Enterprise</span><small>RC10.3.0</small></section>
           </aside>
         </div>
       </div>
@@ -428,7 +440,8 @@
 
     const timeline = await carregarEventos(p);
     const eventos = timeline.eventos || [];
-    carregando.outerHTML = modalHTML(p, eventos, timeline.marcos || {});
+    const processoAtualizado = timeline.processo || p;
+    carregando.outerHTML = modalHTML(processoAtualizado, eventos, timeline.marcos || {});
 
     const overlay = document.getElementById('sigee-prontuario-overlay');
     overlay?.querySelector('[data-pep-fechar]')?.addEventListener('click', fechar);
@@ -488,5 +501,5 @@
     ? document.addEventListener('DOMContentLoaded', renomearBotoes)
     : renomearBotoes();
 
-  console.info('[SIGEE RC10.1.0] Prontuário sincronizado ao resolvedor temporal único e à cronologia auditável.');
+  console.info('[SIGEE RC10.3.0] Prontuário consolidado com processo recarregado, relógio de homologação e resolvedor temporal único.');
 })();
