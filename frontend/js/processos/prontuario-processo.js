@@ -1,12 +1,12 @@
 /* =====================================================================
-   SIGEE Enterprise — RC10.3.0
+   SIGEE Enterprise — RC10.8.4
    Prontuário Eletrônico do Processo
    Camada aditiva: não altera regras, transições ou persistência do workflow.
    ===================================================================== */
 (function () {
   'use strict';
-  if (window.__SIGEE_PRONTUARIO_RC1030__) return;
-  window.__SIGEE_PRONTUARIO_RC1030__ = true;
+  if (window.__SIGEE_PRONTUARIO_RC1084__) return;
+  window.__SIGEE_PRONTUARIO_RC1084__ = true;
 
   const ETAPAS = Object.freeze([
     { tipo:'SOLICITACAO', label:'Solicitação' },
@@ -149,6 +149,39 @@
     try { return JSON.parse(bruto); } catch (_) { return {}; }
   }
 
+
+  function jsonSeguro(valorBruto) {
+    if (!valorBruto) return null;
+    if (typeof valorBruto === 'object') return valorBruto;
+    const valorTexto = texto(valorBruto);
+    if (!valorTexto || (!valorTexto.startsWith('{') && !valorTexto.startsWith('['))) return null;
+    try { return JSON.parse(valorTexto); } catch (_) { return null; }
+  }
+
+  function payloadCiencia(ev) {
+    const candidatos = [ev?.observacao, ev?.descricao, ev?.detalhes, ev?.dados, ev?.metadata];
+    for (const candidato of candidatos) {
+      const objeto = jsonSeguro(candidato);
+      if (objeto && normalizar(objeto.tipo) === 'CIENCIA_ALERTA_ETAPA_LOGIN') return objeto;
+    }
+    const d = dadosEvento(ev);
+    return normalizar(d?.tipo) === 'CIENCIA_ALERTA_ETAPA_LOGIN' ? d : null;
+  }
+
+  function etapaPayloadCiencia(payload, ev) {
+    const processos = Array.isArray(payload?.processos) ? payload.processos : [];
+    const processoId = texto(ev?.processo_id || ev?.processoId);
+    const correspondente = processos.find(item => texto(item?.processo_id) === processoId);
+    return correspondente?.etapa || ev?.etapa || processos[0]?.etapa || 'Etapa com prazo vencido';
+  }
+
+  function descricaoCiencia(payload, ev) {
+    const quantidade = Number(payload?.quantidade || (Array.isArray(payload?.processos) ? payload.processos.length : 0));
+    const etapa = etapaPayloadCiencia(payload, ev);
+    const sufixo = quantidade > 1 ? ` O alerta consolidado contemplou ${quantidade} processos.` : '';
+    return `Ciência confirmada no login para a etapa ${etapa}. O processo permanece nessa etapa até a execução da ação correspondente.${sufixo}`;
+  }
+
   function tituloEvento(ev) {
     const codigo = normalizar(ev?.acao || ev?.evento || '');
     const titulos = {
@@ -165,6 +198,8 @@
 
   function descricaoEvento(ev) {
     const codigo = normalizar(ev?.acao || ev?.evento || '');
+    const ciencia = payloadCiencia(ev);
+    if (ciencia) return descricaoCiencia(ciencia, ev);
     const d = dadosEvento(ev);
     if (codigo === 'PASTA_RECEBIDA' || codigo === 'DOCUMENTO_RECEBIDO' || /PASTA RECEBIDA|RECEBIMENTO DA PASTA|DOCUMENTO RECEBIDO/.test(codigo)) {
       const tipo = d.tipo_arquivo || ev.documento || ev.tipo_arquivo;
@@ -185,8 +220,30 @@
 
   function detalhesEvento(ev) {
     const data = ev.created_at || ev.data || ev.data_hora;
+    const ciencia = payloadCiencia(ev);
     const d = dadosEvento(ev);
     const fontes = Array.isArray(ev.fontes) ? ev.fontes.join(', ') : ev.origem;
+
+    if (ciencia) {
+      const quantidade = Number(ciencia.quantidade || (Array.isArray(ciencia.processos) ? ciencia.processos.length : 0));
+      const camposCiencia = [
+        ['Evento', 'Ciência de alerta institucional'],
+        ['Data e hora', formatarData(data || ciencia.confirmado_em)],
+        ['Responsável', ev.usuario_nome || ev.responsavel || ev.executado_por || 'Não identificado'],
+        ['Perfil', ev.usuario_perfil || ev.perfil],
+        ['Etapa', etapaPayloadCiencia(ciencia, ev)],
+        ['Quantidade de processos', quantidade || 1],
+        ['Ciclo', Array.isArray(ciencia.processos) ? (ciencia.processos.find(item => texto(item?.processo_id) === texto(ev?.processo_id || ev?.processoId))?.ciclo || ciencia.processos[0]?.ciclo) : ''],
+        ['Origem auditável', fontes],
+        ['Logs consolidados', ev.totalRegistrosAgrupados > 1 ? `${ev.totalRegistrosAgrupados} registros equivalentes` : '1 registro'],
+        ['Sessão', ev.sessaoId || ev.sessao_id],
+        ['Observação', descricaoCiencia(ciencia, ev)]
+      ].filter(([,v]) => texto(v));
+      return camposCiencia.map(([k,v]) => `<div><span>${k}</span><strong>${escapar(v)}</strong></div>`).join('');
+    }
+
+    const observacaoBruta = ev.observacao || ev.descricao || ev.detalhes;
+    const observacaoExibivel = jsonSeguro(observacaoBruta) ? '' : observacaoBruta;
     const campos = [
       ['Evento', tituloEvento(ev)],
       ['Data e hora', formatarData(data)],
@@ -200,10 +257,10 @@
       ['Origem auditável', fontes],
       ['Logs consolidados', ev.totalRegistrosAgrupados > 1 ? `${ev.totalRegistrosAgrupados} registros equivalentes` : '1 registro'],
       ['Sessão', ev.sessaoId || ev.sessao_id],
-      ['Observação', ev.observacao || ev.descricao || ev.detalhes]
+      ['Observação', observacaoExibivel]
     ].filter(([,v]) => texto(v));
 
-    const conhecidos = new Set(['id','created_at','data','data_hora','acao','evento','titulo','etapa','observacao','descricao','detalhes']);
+    const conhecidos = new Set(['id','created_at','data','data_hora','acao','evento','titulo','etapa','observacao','descricao','detalhes','tipo','processos']);
     const extras = d && typeof d === 'object'
       ? Object.entries(d).filter(([k,v]) => !conhecidos.has(k) && v != null && typeof v !== 'object')
           .slice(0, 12)
@@ -414,9 +471,13 @@
                 <div><dt>Conferente</dt><dd>${escapar(valor(p,'conferente','conferente_nome') || 'Não atribuído')}</dd></div>
               </dl>
             </section>
-            <section class="sigee-pep-selo"><b>Registro Institucional</b><span>Eventos auditáveis do SIGEE Enterprise</span><small>RC10.3.0</small></section>
+            <section class="sigee-pep-selo"><b>Registro Institucional</b><span>Eventos auditáveis do SIGEE Enterprise</span><small>RC10.8.4</small></section>
           </aside>
         </div>
+        <footer class="sigee-pep-rodape-impressao">
+          <span>SIGEE — Sistema Integrado de Gestão de Escolas Extintas | Secretaria da Educação do Estado da Bahia</span>
+          <strong>${escapar(codigo(p))}</strong>
+        </footer>
       </div>
     </div>`;
   }
@@ -510,5 +571,5 @@
     ? document.addEventListener('DOMContentLoaded', renomearBotoes)
     : renomearBotoes();
 
-  console.info('[SIGEE RC10.6.0] Prontuário consolidado com processo recarregado, relógio de homologação e resolvedor temporal único.');
+  console.info('[SIGEE RC10.8.4] Prontuário consolidado com processo recarregado, relógio de homologação e resolvedor temporal único.');
 })();
