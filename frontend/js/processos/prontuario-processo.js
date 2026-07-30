@@ -227,10 +227,11 @@
     }
     if (codigo === 'RETIFICAR_DADOS') {
       const novo = d.novo_ciclo || ev.novo_ciclo;
-      return ev.observacao || `Dados retificados. O Desarquivamento foi reiniciado por 30 dias${novo ? ` no Ciclo ${novo}` : ''}.`;
+      const numero = Math.max(1, Number(novo || cicloEvento(ev) || 2) - 1);
+      return ev.observacao || `Retificação ${String(numero).padStart(2, '0')} executada. O prazo do Desarquivamento foi reiniciado por 30 dias.`;
     }
-    if (codigo === 'SEND_REITERACAO') return ev.observacao || 'Reiteração registrada, mantendo a contagem contínua do ciclo.';
-    if (codigo === 'SEND_REITERACAO_URGENTE') return ev.observacao || 'Reiteração com urgência registrada, mantendo a contagem contínua do ciclo.';
+    if (codigo === 'SEND_REITERACAO') return ev.observacao || 'Reiteração registrada, mantendo a contagem contínua do Desarquivamento.';
+    if (codigo === 'SEND_REITERACAO_URGENTE') return ev.observacao || 'Reiteração com urgência registrada, mantendo a contagem contínua do Desarquivamento.';
     if (codigo === 'CONFIRMAR_DADOS') return ev.observacao || 'Confirmação dos dados da busca solicitada ao requerente.';
     if (codigo === 'PEDIDO_ATAS_DESARQUIVAMENTO') return ev.observacao || 'Pedido de Atas sem Pasta registrado. Processo encaminhado para Análise no contexto do Desarquivamento.';
     return ev.observacao || ev.descricao || ev.resumo || 'Movimentação registrada no processo.';
@@ -346,7 +347,7 @@
     limpos.forEach(ev => {
       const etapaTipo = etapaOperacionalEvento(ev);
       const ciclo = etapaTipo === 'DESARQUIVAMENTO' ? cicloEvento(ev) : 1;
-      const chave = `${etapaTipo}|${ciclo}`;
+      const chave = `${etapaTipo}|1`; // Desarquivamento permanece em um único cartão contínuo.
       if (!grupos.has(chave)) grupos.set(chave, { etapaTipo, ciclo, eventos: [] });
       grupos.get(chave).eventos.push(ev);
     });
@@ -354,7 +355,7 @@
     const atual = p ? tipoEtapaAtual(p) : '';
     if (atual) {
       const cicloAtual = atual === 'DESARQUIVAMENTO' ? Number(p?.workflow_ciclo || p?.ciclo || 1) : 1;
-      const chaveAtual = `${atual}|${cicloAtual}`;
+      const chaveAtual = `${atual}|1`;
       if (!grupos.has(chaveAtual)) grupos.set(chaveAtual, { etapaTipo:atual, ciclo:cicloAtual, eventos:[], atual:true });
       else grupos.get(chaveAtual).atual = true;
     }
@@ -402,7 +403,7 @@
 
   function rotuloEtapaGrupo(grupo) {
     const base = ETAPAS.find(e => e.tipo === grupo.etapaTipo)?.label || 'Outros registros';
-    return grupo.etapaTipo === 'DESARQUIVAMENTO' ? `${base} — Ciclo ${grupo.ciclo}` : base;
+    return base;
   }
 
   function tituloAcaoInterna(ev) {
@@ -431,7 +432,7 @@
         ['Perfil', ev.usuario_perfil || ev.perfil],
         ['Etapa', etapaPayloadCiencia(ciencia, ev)],
         ['Quantidade de processos', quantidade || 1],
-        ['Ciclo', Array.isArray(ciencia.processos) ? (ciencia.processos.find(item => texto(item?.processo_id) === texto(ev?.processo_id || ev?.processoId))?.ciclo || ciencia.processos[0]?.ciclo) : ''],
+        ['Retificação vigente', (() => { const c = Array.isArray(ciencia.processos) ? (ciencia.processos.find(item => texto(item?.processo_id) === texto(ev?.processo_id || ev?.processoId))?.ciclo || ciencia.processos[0]?.ciclo) : null; return Number(c) > 1 ? `Retificação ${String(Number(c)-1).padStart(2,'0')}` : 'Sem retificação'; })()],
         ['Origem auditável', fontes],
         ['Logs consolidados', ev.totalRegistrosAgrupados > 1 ? `${ev.totalRegistrosAgrupados} registros equivalentes` : '1 registro'],
         ['Sessão', ev.sessaoId || ev.sessao_id],
