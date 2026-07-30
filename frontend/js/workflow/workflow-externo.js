@@ -578,6 +578,14 @@
       allowObservation: true,
       observationRequired: Boolean(action.observationRequired),
       observationLabel: action.observationRequired ? 'Motivo e dados retificados' : 'Observações',
+      observationPlaceholder: action.event === 'RETIFICAR_DADOS' ? 'Justificativa ou observação complementar (opcional).' : 'Registre informações complementares, se necessário.',
+      customFields: action.event === 'RETIFICAR_DADOS' ? [
+        { key:'nome_social', label:'Nome social', currentValue: process.nome_social || process.aluno_nome || process.aluno || '' },
+        { key:'escola', label:'Escola', currentValue: process.escola_nome || process.escola || '' },
+        { key:'ano', label:'Ano', currentValue: process.ano || process.ano_conclusao || process.ano_letivo || '' },
+        { key:'serie', label:'Série', currentValue: process.serie || process.serie_conclusao || '' },
+        { key:'modalidade', label:'Modalidade de Ensino', currentValue: process.modalidade || process.nivel_oferta || '' }
+      ] : null,
       executeLabel: 'Executar ação',
       onConfirm: async function (payload) {
         const inicioAnterior =
@@ -590,11 +598,19 @@
           process.data_etapa_atual ||
           new Date().toISOString();
 
+        const alteracoes = Array.isArray(payload.customFields) ? payload.customFields : [];
+        const numeroRetificacao = Math.max(1, Number(process.workflow_ciclo || process.ciclo || 1));
+        const resumoAlteracoes = alteracoes.map(item => `${item.label}: "${item.before || 'Não informado'}" → "${item.after}"`).join('; ');
+        const observacaoWorkflow = action.event === 'RETIFICAR_DADOS'
+          ? `Retificação ${String(numeroRetificacao).padStart(2, '0')}. Alterações: ${resumoAlteracoes}.${payload.observation ? ` Observação: ${payload.observation}` : ''}`
+          : payload.observation;
+
         const result = await window.TransitionManager.execute({
           processId: process.id,
           event: action.event,
           user: currentUser(),
-          observation: payload.observation,
+          observation: observacaoWorkflow,
+          details: action.event === 'RETIFICAR_DADOS' ? { retificacao_numero: numeroRetificacao, alteracoes } : null,
           confirmed: payload.confirmed,
           messageCode: message.code
         });
@@ -605,9 +621,16 @@
           : new Date().toISOString();
 
         if (action.event === 'RETIFICAR_DADOS') {
-          /*
-           * Única ação que inicia novo ciclo e reinicia a contagem.
-           */
+          /* Aplica somente os novos valores informados pelo técnico. */
+          alteracoes.forEach(item => {
+            if (item.key === 'nome_social') { atualizado.nome_social = item.after; atualizado.aluno_nome = item.after; atualizado.aluno = item.after; }
+            if (item.key === 'escola') { atualizado.escola_nome = item.after; atualizado.escola = item.after; }
+            if (item.key === 'ano') { atualizado.ano = item.after; atualizado.ano_conclusao = item.after; }
+            if (item.key === 'serie') { atualizado.serie = item.after; atualizado.serie_conclusao = item.after; }
+            if (item.key === 'modalidade') { atualizado.modalidade = item.after; atualizado.nivel_oferta = item.after; }
+          });
+          atualizado.ultima_retificacao = { numero: numeroRetificacao, alteracoes, executado_em: agora, executado_por: currentUser() };
+          /* Única ação que reinicia a contagem do Desarquivamento. */
           atualizado.data_inicio_desarquivamento = agora;
           atualizado.data_inicio_ciclo = agora;
           atualizado.prazo_inicio = agora;
