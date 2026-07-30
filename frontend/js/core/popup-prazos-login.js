@@ -13,10 +13,10 @@
 (function (window, document) {
   'use strict';
 
-  if (window.__SIGEE_POPUP_PRAZOS_LOGIN_RC1071__) return;
-  window.__SIGEE_POPUP_PRAZOS_LOGIN_RC1071__ = true;
+  if (window.__SIGEE_POPUP_PRAZOS_LOGIN_RC1081__) return;
+  window.__SIGEE_POPUP_PRAZOS_LOGIN_RC1081__ = true;
 
-  const VERSION = 'RC10.8.0';
+  const VERSION = 'RC10.8.1';
   const EVENTOS = Object.freeze({
     31: Object.freeze({ codigo: 'SEND_REITERACAO', titulo: 'Reiteração' }),
     38: Object.freeze({ codigo: 'SEND_REITERACAO_URGENTE', titulo: 'Reiteração Urgente' }),
@@ -32,7 +32,10 @@
   function normalizar(v) {
     return texto(v).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/\s+/g, ' ');
   }
-  function perfilTecnico(u) { return normalizar(u && (u.perfil || u.role || u.tipo)).includes('TECN'); }
+  function perfilOperacional(u) {
+    const perfil = normalizar(u && (u.perfil || u.role || u.tipo));
+    return ['TECN', 'ADMIN', 'MASTER', 'SEC'].some(item => perfil.includes(item));
+  }
   function perfilMaster(u) { return normalizar(u && (u.perfil || u.role || u.tipo)).includes('MASTER'); }
   function statusRelogio() {
     try { return window.SIGEE_WORKFLOW_CLOCK?.status?.() || { enabled: false }; } catch (_) { return { enabled: false }; }
@@ -146,7 +149,7 @@
     const saida = [];
     for (const p of processos) {
       if (!p || p.ativo === false || p.status === 'Excluído') continue;
-      if (!emHomologacaoMaster(usuario) && !mesmoNte(p.nte || p.nte_nome, usuario.nte || usuario.nte_nome)) continue;
+      if (!perfilMaster(usuario) && !mesmoNte(p.nte || p.nte_nome, usuario.nte || usuario.nte_nome)) continue;
       const estado = estadoAtualDoProcesso(p);
       if (!etapaComAlerta(estado)) continue;
       const dia = diaDoCiclo(p);
@@ -305,7 +308,7 @@
 
   async function aoLogin(event) {
     const usuario = usuarioAtual(event && event.detail);
-    if (!usuario || (!perfilTecnico(usuario) && !emHomologacaoMaster(usuario))) return;
+    if (!usuario || !perfilOperacional(usuario)) return;
 
     // Cada autenticação manual cria uma nova verificação. O alerta não usa
     // sessionStorage: enquanto a ação estiver pendente, volta no próximo login.
@@ -343,7 +346,21 @@
   });
   document.addEventListener('sigee:usuario-deslogado', aoLogout);
 
-  // RC10.8.0 — O popup é verificado em cada login e lista processos da Reiteração ao Pedido de Atas enquanto permanecerem nessas etapas.
+  // Recuperação defensiva: caso o script seja carregado depois dos eventos de
+  // autenticação, realiza uma verificação única assim que a página estiver pronta.
+  function verificarSessaoJaAtiva() {
+    const usuario = usuarioAtual();
+    if (usuario && !popupExibidoNesteLogin && !loginEmProcessamento) {
+      setTimeout(() => aoLogin({ detail: { usuario } }), 800);
+    }
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', verificarSessaoJaAtiva, { once: true });
+  } else {
+    verificarSessaoJaAtiva();
+  }
+
+  // RC10.8.1 — O popup é verificado em cada login e lista processos da Reiteração ao Pedido de Atas enquanto permanecerem nessas etapas.
   // Alterações do relógio de homologação atualizam prazos e botões, mas o alerta só é aberto pelo evento de login.
   window.SIGEE_POPUP_PRAZOS_LOGIN = Object.freeze({ version: VERSION, verificar: aoLogin });
 })(window, document);

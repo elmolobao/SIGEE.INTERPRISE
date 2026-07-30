@@ -14,7 +14,7 @@
 (function (window) {
   'use strict';
 
-  const VERSION = '0.9.5.4';
+  const VERSION = '0.9.5.5';
 
   const ERROR_MESSAGES = Object.freeze({
     WF001: 'Estado atual inválido.',
@@ -238,15 +238,29 @@
     return toISO(date);
   }
 
-  function cycleStartDate(process) {
+  function temporalResolution(process, now) {
+    try {
+      const resolver = window.SIGEE_WORKFLOW_TEMPORAL;
+      if (resolver && typeof resolver.resolve === 'function') {
+        return resolver.resolve(process || {}, now);
+      }
+    } catch (error) {
+      console.warn('[TransitionManager] Falha no resolvedor temporal único:', error);
+    }
+    return null;
+  }
+
+  function cycleStartDate(process, now) {
+    const resolved = temporalResolution(process, now);
+    if (resolved && resolved.anchor) return resolved.anchor;
     return process && (
       process.data_inicio_desarquivamento ||
       process.data_inicio_ciclo ||
       process.inicio_ciclo ||
       process.prazo_inicio_ciclo ||
-      process.prazo_inicio ||
       process.created_at ||
       process.criado_em ||
+      process.prazo_inicio ||
       stageEntryDate(process)
     );
   }
@@ -269,7 +283,14 @@
   function effectiveStateCode(process, eventCode, now) {
     const origin = TEMPORAL_EVENT_ORIGIN_STATE[eventCode];
     if (!origin) return processStateCode(process);
-    const elapsed = elapsedDays(cycleStartDate(process), now);
+
+    // A tela, a validação e a execução usam a mesma autoridade temporal.
+    // Isso evita rejeitar Reiteração/Pedido de Atas quando etapa_atual ou
+    // prazo_inicio persistidos estiverem defasados em relação ao ciclo real.
+    const resolved = temporalResolution(process, now);
+    if (resolved && normalizeEvent(resolved.action) === eventCode) return origin;
+
+    const elapsed = elapsedDays(cycleStartDate(process, now), now);
     return temporalEventForElapsed(elapsed) === eventCode ? origin : processStateCode(process);
   }
 
@@ -279,7 +300,10 @@
       return { valid: true, requiredDays: null, elapsedDays: null };
     }
 
-    const elapsed = elapsedDays(cycleStartDate(process), now);
+    const resolved = temporalResolution(process, now);
+    const elapsed = resolved && Number.isFinite(Number(resolved.days))
+      ? Number(resolved.days)
+      : elapsedDays(cycleStartDate(process, now), now);
     if (elapsed == null) {
       throw error('WF005', {
         reason: 'DATA_INICIO_CICLO_AUSENTE',
@@ -296,7 +320,9 @@
       });
     }
 
-    const expectedEvent = temporalEventForElapsed(elapsed);
+    const expectedEvent = resolved && resolved.action
+      ? normalizeEvent(resolved.action)
+      : temporalEventForElapsed(elapsed);
     if (expectedEvent !== eventCode) {
       throw error('WF005', {
         reason: 'ACAO_FORA_DO_MARCO_TEMPORAL',
