@@ -87,3 +87,23 @@ body.sigee-prontuario-aberto { overflow: hidden !important; }
   .sigee-pep-carregando{display:none!important}
   *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
 }
+
+/* RC10.8.5 — prontuário organizado por etapa operacional */
+.sigee-pep-acoes-etapa{grid-template-columns:1fr!important;gap:10px}
+.sigee-pep-acao-interna{background:#f8fafc;border:1px solid #e2e8f0;border-left:4px solid #94a3b8;border-radius:11px;padding:11px}
+.sigee-pep-acao-interna.acao_executada{border-left-color:#22c55e;background:#f0fdf4}
+.sigee-pep-acao-interna.ciencia{border-left-color:#f59e0b;background:#fffbeb}
+.sigee-pep-acao-cabecalho{display:grid;grid-template-columns:30px minmax(0,1fr) auto;align-items:center;gap:9px}
+.sigee-pep-acao-icone{width:28px;height:28px;display:grid;place-items:center;background:#fff;border:1px solid #dbe3ee;border-radius:8px}
+.sigee-pep-acao-cabecalho time,.sigee-pep-acao-cabecalho strong{display:block}.sigee-pep-acao-cabecalho time{font-size:9px;color:#64748b}.sigee-pep-acao-cabecalho strong{font-size:12px;color:#172033;margin-top:2px}
+.sigee-pep-badge-natureza{font-size:8px;font-weight:900;text-transform:uppercase;letter-spacing:.04em;padding:5px 7px;border-radius:999px;background:#e2e8f0;color:#475569;white-space:nowrap}
+.sigee-pep-badge-natureza.acao_executada{background:#dcfce7;color:#15803d}.sigee-pep-badge-natureza.ciencia{background:#fef3c7;color:#b45309}
+.sigee-pep-acao-interna>p{font-size:11px;line-height:1.45;color:#526176;margin:8px 0}
+.sigee-pep-acao-metadados{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.sigee-pep-acao-metadados>div{background:#fff;border:1px solid #edf2f7;padding:7px;border-radius:7px}.sigee-pep-acao-metadados span,.sigee-pep-acao-metadados strong{display:block}.sigee-pep-acao-metadados span{font-size:8px;color:#64748b;text-transform:capitalize}.sigee-pep-acao-metadados strong{font-size:9px;color:#334155;margin-top:2px;overflow-wrap:anywhere}
+@media(max-width:650px){.sigee-pep-acao-cabecalho{grid-template-columns:28px 1fr}.sigee-pep-badge-natureza{grid-column:2}.sigee-pep-acao-metadados{grid-template-columns:1fr}}
+@media print{
+ .sigee-pep-acoes-etapa,.sigee-pep-acoes-etapa.aberto{display:block!important}
+ .sigee-pep-acao-interna{break-inside:avoid-page!important;page-break-inside:avoid!important;margin-bottom:6px!important;padding:7px!important}
+ .sigee-pep-acao-cabecalho{grid-template-columns:22px minmax(0,1fr) auto!important;gap:5px!important}.sigee-pep-acao-icone{width:21px!important;height:21px!important;font-size:10px!important}.sigee-pep-acao-cabecalho time{font-size:6.5px!important}.sigee-pep-acao-cabecalho strong{font-size:8px!important}.sigee-pep-badge-natureza{font-size:6px!important;padding:3px 5px!important}
+ .sigee-pep-acao-interna>p{font-size:7.5px!important;margin:5px 0!important}.sigee-pep-acao-metadados{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:4px!important}.sigee-pep-acao-metadados>div{padding:4px!important}.sigee-pep-acao-metadados span{font-size:6px!important}.sigee-pep-acao-metadados strong{font-size:7px!important}
+}
