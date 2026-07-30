@@ -16,7 +16,7 @@
   if (window.__SIGEE_WORKFLOW_EXTERNO_095__) return;
   window.__SIGEE_WORKFLOW_EXTERNO_095__ = true;
 
-  const VERSION = '1.1.6';
+  const VERSION = 'RC10.0.0';
   const EXTERNAL_STATES = Object.freeze(['DES', 'RET', 'REU', 'CFD']);
 
   const ACTIONS = Object.freeze({
@@ -150,7 +150,6 @@
       process.data_desarquivamento ||
       process.data_etapa_inicial ||
       process.prazo_inicio_ciclo ||
-      inferLegacyCycleStart(process) ||
       process.prazo_inicio ||
       process.created_at ||
       process.criado_em ||
@@ -159,12 +158,14 @@
   }
 
   function elapsedDays(process) {
+    if (window.SIGEE_WORKFLOW_TEMPORAL) {
+      return window.SIGEE_WORKFLOW_TEMPORAL.resolve(process).days;
+    }
     const now = window.SIGEE_WORKFLOW_CLOCK && typeof window.SIGEE_WORKFLOW_CLOCK.now === 'function'
       ? window.SIGEE_WORKFLOW_CLOCK.now()
       : new Date();
-    const days = window.TransitionManager &&
-      window.TransitionManager.elapsedDays(stageDate(process), now);
-    return Number.isFinite(days) ? days : 0;
+    const days = window.TransitionManager && window.TransitionManager.elapsedDays(stageDate(process), now);
+    return Number.isFinite(days) ? Math.max(0, days) : 0;
   }
 
   function deadlineForState(stateCode) {
@@ -206,19 +207,19 @@
   }
 
   function temporalPrimaryAction(elapsed) {
-    if (!Number.isFinite(elapsed) || elapsed < 30) return ACTIONS.SEND_REITERACAO;
-    if (elapsed < 37) return ACTIONS.SEND_REITERACAO;
-    if (elapsed < 44) return ACTIONS.SEND_REITERACAO_URGENTE;
-    if (elapsed < 51) return ACTIONS.CONFIRMAR_DADOS;
+    if (!Number.isFinite(elapsed) || elapsed < 31) return ACTIONS.SEND_REITERACAO;
+    if (elapsed < 38) return ACTIONS.SEND_REITERACAO;
+    if (elapsed < 45) return ACTIONS.SEND_REITERACAO_URGENTE;
+    if (elapsed < 52) return ACTIONS.CONFIRMAR_DADOS;
     return ACTIONS.PEDIDO_ATAS_DESARQUIVAMENTO;
   }
 
   function temporalRequiredDays(action) {
     const map = {
-      SEND_REITERACAO: 30,
-      SEND_REITERACAO_URGENTE: 37,
-      CONFIRMAR_DADOS: 44,
-      PEDIDO_ATAS_DESARQUIVAMENTO: 51
+      SEND_REITERACAO: 31,
+      SEND_REITERACAO_URGENTE: 38,
+      CONFIRMAR_DADOS: 45,
+      PEDIDO_ATAS_DESARQUIVAMENTO: 52
     };
     return map[action && action.event] ?? 0;
   }
@@ -694,7 +695,8 @@
     }
 
     const elapsed = elapsedDays(process);
-    const state = window.SIGEE_STATE_MANAGER.get(stateCode);
+    const temporalState = window.SIGEE_WORKFLOW_TEMPORAL ? window.SIGEE_WORKFLOW_TEMPORAL.resolve(process) : null;
+    const state = temporalState || window.SIGEE_STATE_MANAGER.get(stateCode);
     const actions = availableActions(process);
 
     closeMenu();

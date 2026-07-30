@@ -1,4 +1,3 @@
-/* SIGEE RC9.2.1 — Sincronização autoritativa da etapa e ação temporal */
 /* SIGEE RC9.0.6 — Gestor territorial: NTE canônico + filtro composto de etapas */
 /* SIGEE RC9.0.0 — Pipeline territorial único: consulta, Store, contadores, paginação e Realtime */
 /* SIGEE RC9.0.1 — Escopo territorial pela coluna processos.nte */
@@ -37,14 +36,14 @@
         const p = etapaOuProcesso && typeof etapaOuProcesso === 'object' ? etapaOuProcesso : null;
         const codigo = normalizar(p && p.etapa_codigo);
         if (['DES', 'RET', 'REU', 'CFD'].includes(codigo)) return true;
-        const etapa = p ? processoEtapaPersistida(p) : etapaOuProcesso;
+        const etapa = p ? processoEtapa(p) : etapaOuProcesso;
         const e = normalizar(etapa);
         return CICLO_DESARQUIVAMENTO.includes(e);
     }
 
     function deslocamentoEstadoCiclo(p) {
         const codigo = normalizar(p && p.etapa_codigo);
-        const etapa = normalizar(processoEtapaPersistida(p));
+        const etapa = normalizar(processoEtapa(p));
         if (codigo === 'RET' || etapa === 'REITERACAO') return 30;
         if (codigo === 'REU' || etapa.includes('REITERACAO URG')) return 37;
         if (codigo === 'CFD' || etapa.includes('CONFIRMACAO') || etapa.includes('CONFIRMAR DADOS')) return 44;
@@ -70,11 +69,11 @@
                p.data_desarquivamento ||
                p.data_etapa_inicial ||
                p.prazo_inicio_ciclo ||
-               inferirInicioCicloLegado(p) ||
+               p.prazo_inicio ||
                p.created_at ||
                p.criado_em ||
-               p.prazo_inicio ||
-               p.data_etapa_atual;
+               p.data_etapa_atual ||
+               inferirInicioCicloLegado(p);
     }
 
     function garantirInicioCiclo(p) {
@@ -172,31 +171,16 @@
         const id = Number(p.nte_id || p.territorio_id || p.nte_codigo || 0);
         return id > 0 ? `NTE-${String(id).padStart(2, '0')}` : '';
     }
-    function processoEtapaPersistida(p) {
-        return texto(p && (p.etapa || p.etapa_atual || p.fase_atual)) || 'Desarquivamento';
+    function processoEtapa(p) { return texto(p && (p.etapa || p.etapa_atual || p.fase_atual)) || 'Desarquivamento'; }
+    function estadoTemporal(p) {
+        if (window.SIGEE_WORKFLOW_TEMPORAL && pertenceCicloDesarquivamento(processoEtapa(p))) {
+            return window.SIGEE_WORKFLOW_TEMPORAL.resolve(p);
+        }
+        return null;
     }
-
-    /*
-     * RC9.2.1 — Fonte visual única do Workflow Externo.
-     * Durante o ciclo de Desarquivamento, a etapa apresentada na Central é
-     * derivada do mesmo calendário absoluto usado para definir a ação vigente.
-     * O valor persistido continua intacto no banco e volta a ser usado assim
-     * que o processo deixa o ciclo externo (Análise e etapas posteriores).
-     */
-    function etapaTemporalDesarquivamento(p) {
-        const persistida = processoEtapaPersistida(p);
-        if (!pertenceCicloDesarquivamento(p || persistida)) return persistida;
-
-        const dias = diasDesde(dataInicioCiclo(p));
-        if (dias >= 52) return 'Pedido de Atas sem Pasta';
-        if (dias >= 45) return 'Confirmação dos Dados da Busca';
-        if (dias >= 38) return 'Reiteração Urgente';
-        if (dias >= 31) return 'Reiteração';
-        return 'Desarquivamento';
-    }
-
-    function processoEtapa(p) {
-        return etapaTemporalDesarquivamento(p);
+    function etapaVisual(p) {
+        const temporal = estadoTemporal(p);
+        return temporal ? temporal.name : processoEtapa(p);
     }
     function processoAluno(p) { return texto(p && (p.aluno || p.aluno_nome || p.nome_solicitante)); }
     function processoEscola(p) { return texto(p && (p.escola || p.escola_nome || p.nome_escola || p.instituicao)); }
@@ -288,7 +272,8 @@
         return null;
     }
     function prazoVisual(p) {
-        const dias = diasDesde(dataInicioCiclo(p));
+        const temporal = estadoTemporal(p);
+        const dias = temporal ? temporal.days : diasDesde(dataInicioCiclo(p));
         const limite = prazoEtapa(processoEtapa(p));
         if (!limite) return `${dias} dias`;
         const classe = dias > limite ? 'text-red-300' : dias >= Math.ceil(limite * .8) ? 'text-amber-300' : 'text-emerald-300';
@@ -551,6 +536,10 @@
     }
     function corEtapa(etapa) {
         const e = normalizar(etapa);
+        if (e.includes('PEDIDO DE ATAS')) return 'sigee-etapa-atas';
+        if (e.includes('CONFIRMACAO')) return 'sigee-etapa-confirmacao';
+        if (e.includes('REITERACAO URG')) return 'sigee-etapa-reiteracao-urgente';
+        if (e.includes('REITERACAO')) return 'sigee-etapa-reiteracao';
         if (e.includes('DESARQ')) return 'sigee-etapa-desarquivamento';
         if (e.includes('ANAL')) return 'sigee-etapa-analise';
         if (e.includes('PEND')) return 'sigee-etapa-pendencia';
@@ -564,7 +553,8 @@
     }
     function alertaPrazo(p) {
         const etapa = normalizar(processoEtapa(p));
-        const dias = diasDesde(dataInicioCiclo(p));
+        const temporal = estadoTemporal(p);
+        const dias = temporal ? temporal.days : diasDesde(dataInicioCiclo(p));
         if (pertenceCicloDesarquivamento(etapa)) {
             if (dias >= 52) return '<span class="block bg-red-700 text-white text-[8px] font-extrabold px-1 py-0.5 rounded uppercase mt-0.5">SOLICITAR ATAS SEM PASTA</span>';
             if (dias >= 45) return '<span class="block bg-red-600 text-white text-[8px] font-extrabold px-1 py-0.5 rounded uppercase mt-0.5">CONFIRMAR DADOS DA BUSCA</span>';
@@ -578,9 +568,17 @@
     }
 
     function alertaChave(p) {
-        const dias = diasDesde(dataInicioCiclo(p));
         const etapa = normalizar(processoEtapa(p));
         if (!pertenceCicloDesarquivamento(etapa)) return '';
+        const temporal = estadoTemporal(p);
+        if (temporal) {
+            if (temporal.code === 'PAS') return 'PEDIDO_ATAS_SEM_PASTA';
+            if (temporal.code === 'CFD') return 'CONFIRMAR_DADOS';
+            if (temporal.code === 'REU') return 'REITERACAO_URGENTE';
+            if (temporal.code === 'RET') return 'REITERACAO';
+            return 'DESARQUIVAMENTO';
+        }
+        const dias = diasDesde(dataInicioCiclo(p));
         if (dias >= 52) return 'PEDIDO_ATAS_SEM_PASTA';
         if (dias >= 45) return 'CONFIRMAR_DADOS';
         if (dias >= 38) return 'REITERACAO_URGENTE';
@@ -638,9 +636,7 @@
         if (e.includes('RETIR')) return '<span class="text-gray-300 font-bold">Finalizado</span>';
 
         const codigoEtapa = normalizar(p.etapa_codigo);
-        /* RC9.2.1: a ação da tabela é sempre resolvida pelo calendário do
-         * ciclo. etapa_codigo permanece apenas para compatibilidade e para
-         * autorizar Retificação, nunca para sobrescrever o ato temporal. */
+        // O ato temporal vigente prevalece sobre etapa_codigo persistida.
         const alerta = alertaChave(p);
         const permiteRetificacao = ['RET', 'REU', 'CFD'].includes(codigoEtapa) || retificacaoDisponivel(alerta);
         const executada = acaoJaExecutada(p, alerta);
@@ -673,7 +669,7 @@
             html = '<tr><td colspan="8" class="p-8 text-center text-gray-400 font-bold">Nenhum processo encontrado.</td></tr>';
         } else {
             html = lista.map(p => {
-                const etapa = processoEtapa(p);
+                const etapa = etapaVisual(p);
                 const codigo = codigoSIGEE(p);
                 if (!p.codigo_sigee) p.codigo_sigee = codigo;
                 const uAtual = usuario();
