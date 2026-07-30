@@ -1,4 +1,4 @@
-/* SIGEE RC10.1.0 — resolvedor temporal único do ciclo externo */
+/* SIGEE RC10.2.0 — resolvedor temporal único do ciclo externo */
 (function (window) {
   'use strict';
   if (window.SIGEE_WORKFLOW_TEMPORAL) return;
@@ -30,36 +30,77 @@
     return validDate(value) || new Date();
   }
 
-  function explicitAnchor(process) {
+  function firstValid(values) {
+    for (const value of values) {
+      const date = validDate(value);
+      if (date) return value;
+    }
+    return null;
+  }
+
+  function earliestNotFuture(values, now) {
+    const current = dayNumber(now || nowDate());
+    let selected = null;
+    let selectedDay = null;
+    values.forEach(function (value) {
+      const day = dayNumber(value);
+      if (day == null || (current != null && day > current)) return;
+      if (selectedDay == null || day < selectedDay) {
+        selected = value;
+        selectedDay = day;
+      }
+    });
+    return selected;
+  }
+
+  function cycleNumber(process) {
+    const value = Number(process && (process.workflow_ciclo || process.ciclo || 1));
+    return Number.isFinite(value) && value > 0 ? Math.floor(value) : 1;
+  }
+
+  function explicitCycleAnchor(process) {
     if (!process) return null;
-    return process.data_inicio_desarquivamento ||
-      process.data_inicio_ciclo ||
-      process.inicio_ciclo ||
-      process.data_desarquivamento ||
-      process.data_etapa_inicial ||
-      process.prazo_inicio_ciclo ||
-      process.prazo_inicio ||
-      process.created_at ||
-      process.criado_em ||
-      process.data_etapa_atual ||
-      process.data_etapa ||
-      null;
+    return firstValid([
+      process.data_inicio_desarquivamento,
+      process.data_inicio_ciclo,
+      process.inicio_ciclo,
+      process.data_desarquivamento,
+      process.data_etapa_inicial,
+      process.prazo_inicio_ciclo
+    ]);
   }
 
   function anchor(process, now) {
-    const current = dayNumber(now || nowDate());
-    const candidates = [
-      explicitAnchor(process),
-      process && process.created_at,
-      process && process.criado_em,
-      process && process.data_etapa_atual,
-      process && process.data_etapa
-    ];
-    for (const value of candidates) {
-      const day = dayNumber(value);
-      if (day != null && (current == null || day <= current)) return value;
+    if (!process) return null;
+
+    const currentNow = now || nowDate();
+    const cycle = cycleNumber(process);
+    const cycleAnchor = explicitCycleAnchor(process);
+
+    /*
+     * RC10.2.0 — no primeiro ciclo, datas operacionais que tenham sido
+     * inicializadas durante a simulação não podem apagar a abertura real.
+     * A âncora é a data válida mais antiga entre abertura/prazo/ciclo.
+     * Em ciclos posteriores, a Retificação continua sendo a autoridade e
+     * utiliza a âncora explícita do novo ciclo.
+     */
+    if (cycle <= 1) {
+      return earliestNotFuture([
+        process.created_at,
+        process.criado_em,
+        process.prazo_inicio,
+        cycleAnchor,
+        process.data_etapa_atual,
+        process.data_etapa
+      ], currentNow) || firstValid([process.created_at, process.prazo_inicio, cycleAnchor]);
     }
-    return explicitAnchor(process);
+
+    return earliestNotFuture([
+      cycleAnchor,
+      process.prazo_inicio,
+      process.data_etapa_atual,
+      process.data_etapa
+    ], currentNow) || cycleAnchor || process.prazo_inicio || process.created_at || null;
   }
 
   function elapsedDays(process, now) {
@@ -88,7 +129,7 @@
   }
 
   window.SIGEE_WORKFLOW_TEMPORAL = Object.freeze({
-    version: 'RC10.1.0',
+    version: 'RC10.2.0',
     resolve,
     elapsedDays,
     stateForDays,
