@@ -13,10 +13,10 @@
 (function (window, document) {
   'use strict';
 
-  if (window.__SIGEE_POPUP_PRAZOS_LOGIN_RC1040__) return;
-  window.__SIGEE_POPUP_PRAZOS_LOGIN_RC1040__ = true;
+  if (window.__SIGEE_POPUP_PRAZOS_LOGIN_RC1070__) return;
+  window.__SIGEE_POPUP_PRAZOS_LOGIN_RC1070__ = true;
 
-  const VERSION = 'RC10.6.0';
+  const VERSION = 'RC10.7.0';
   const EVENTOS = Object.freeze({
     31: Object.freeze({ codigo: 'SEND_REITERACAO', titulo: 'Reiteração' }),
     38: Object.freeze({ codigo: 'SEND_REITERACAO_URGENTE', titulo: 'Reiteração Urgente' }),
@@ -115,16 +115,22 @@
       if (!p || p.ativo === false || p.status === 'Excluído') return false;
       if (!etapaDesarquivamento(p)) return false;
       if (!emHomologacaoMaster(usuario) && !mesmoNte(p.nte || p.nte_nome, usuario.nte || usuario.nte_nome)) return false;
-      return Boolean(EVENTOS[diaDoCiclo(p)]);
+      const dia = diaDoCiclo(p);
+      return Number.isFinite(dia) && dia >= 31;
     });
 
     const saida = [];
+    const marcos = Object.keys(EVENTOS).map(Number).sort((a, b) => a - b);
     for (const p of candidatos) {
-      const acao = EVENTOS[diaDoCiclo(p)];
-      if (!acao || await acaoExecutada(p, acao.codigo)) continue;
-      saida.push({ processo: p, acao: acao, diaCiclo: diaDoCiclo(p) });
+      const dia = diaDoCiclo(p);
+      for (const marco of marcos) {
+        if (dia < marco) continue;
+        const acao = EVENTOS[marco];
+        if (await acaoExecutada(p, acao.codigo)) continue;
+        saida.push({ processo: p, acao, diaCiclo: dia, marco, diasAtraso: Math.max(0, dia - marco) });
+      }
     }
-    return saida;
+    return saida.sort((a, b) => b.diasAtraso - a.diasAtraso || String(a.processo.codigo_sigee || '').localeCompare(String(b.processo.codigo_sigee || '')));
   }
 
   function escapar(v) {
@@ -148,7 +154,7 @@
       confirmado_em: new Date().toISOString()
     });
     if (typeof window.registrarLog === 'function') {
-      const ok = await window.registrarLog('CIÊNCIA DE AÇÕES COM PRAZO VENCENDO HOJE', detalhes, {
+      const ok = await window.registrarLog('CIÊNCIA DE AÇÕES VENCIDAS E PENDENTES', detalhes, {
         modulo: 'workflow', tipo: 'CIENCIA_ALERTA_PRAZOS_LOGIN', nte: usuario.nte || null
       });
       if (ok === false) throw new Error('O registro de auditoria não foi confirmado.');
@@ -175,8 +181,8 @@
         <header>
           <div>
             <span class="sigee-prazos-login-selo">ALERTA DE PRAZO</span>
-            <h2 id="sigee-prazos-login-titulo">Ações com prazo final hoje</h2>
-            <p>${itens.length} ${itens.length === 1 ? 'ação requer' : 'ações requerem'} ciência no ${escapar(usuario.nte || 'NTE')}.</p>
+            <h2 id="sigee-prazos-login-titulo">Ações vencidas pendentes</h2>
+            <p>${itens.length} ${itens.length === 1 ? 'ação permanece pendente' : 'ações permanecem pendentes'} no ${escapar(usuario.nte || 'NTE')}. O aviso continuará sendo exibido em cada login até a execução.</p>
           </div>
         </header>
         <div class="sigee-prazos-login-lista">
@@ -187,13 +193,14 @@
                 <strong>${escapar(item.processo.codigo_sigee || item.processo.id)}</strong>
                 <span>${escapar(item.processo.aluno_nome || 'Aluno não informado')}</span>
                 <small>${escapar(item.processo.escola_nome || 'Escola não informada')}</small>
-                <b>${escapar(item.acao.titulo)} — último dia</b>
+                <b>${escapar(item.acao.titulo)} — ${item.diasAtraso > 0 ? `vencida há ${item.diasAtraso} dia${item.diasAtraso === 1 ? '' : 's'}` : 'vence hoje'}</b>
+                <button type="button" class="sigee-prazos-login-abrir" data-processo-id="${escapar(item.processo.id)}">Abrir processo</button>
               </div>
             </article>`).join('')}
         </div>
         <label class="sigee-prazos-login-ciencia">
           <input type="checkbox" id="sigee-prazos-login-checkbox">
-          <span>Declaro que tomei ciência das ações com prazo vencendo hoje.</span>
+          <span>Declaro que tomei ciência das ações vencidas e pendentes apresentadas.</span>
         </label>
         <p class="sigee-prazos-login-erro" id="sigee-prazos-login-erro" hidden></p>
         <footer>
@@ -205,6 +212,9 @@
     const checkbox = overlay.querySelector('#sigee-prazos-login-checkbox');
     const confirmar = overlay.querySelector('#sigee-prazos-login-confirmar');
     const erro = overlay.querySelector('#sigee-prazos-login-erro');
+    overlay.querySelectorAll('.sigee-prazos-login-abrir').forEach(botao => {
+      botao.addEventListener('click', () => abrirProcesso(botao.dataset.processoId));
+    });
     checkbox.addEventListener('change', () => { confirmar.disabled = !checkbox.checked; });
     confirmar.addEventListener('click', async () => {
       if (!checkbox.checked) return;
@@ -213,7 +223,6 @@
       erro.hidden = true;
       try {
         await registrarCiencia(usuario, itens);
-        sessionStorage.setItem(chaveSessao(usuario), new Date().toISOString());
         removerPopup();
       } catch (e) {
         erro.textContent = 'Não foi possível registrar a ciência. Verifique a conexão e tente novamente.';
@@ -235,7 +244,6 @@
     if (loginEmProcessamento || agora - ultimoLoginProcessado < 1500) return;
     const usuario = usuarioAtual(event && event.detail);
     if (!usuario || (!perfilTecnico(usuario) && !emHomologacaoMaster(usuario))) return;
-    if (sessionStorage.getItem(chaveSessao(usuario))) return;
     loginEmProcessamento = true;
     ultimoLoginProcessado = agora;
     try {
@@ -250,7 +258,7 @@
 
   document.addEventListener('sigee:login-concluido', aoLogin);
 
-  // RC10.6.0 — O popup é exclusivo da abertura da sessão.
-  // Alterações do relógio de homologação atualizam prazos e botões, mas não reabrem a ciência.
+  // RC10.7.0 — O popup é verificado em cada login e reaparece enquanto houver ação vencida não executada.
+  // Alterações do relógio de homologação atualizam prazos e botões, mas o alerta só é aberto pelo evento de login.
   window.SIGEE_POPUP_PRAZOS_LOGIN = Object.freeze({ version: VERSION, verificar: aoLogin });
 })(window, document);
