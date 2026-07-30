@@ -13,15 +13,15 @@
 (function (window, document) {
   'use strict';
 
-  if (window.__SIGEE_POPUP_PRAZOS_LOGIN_RC920__) return;
-  window.__SIGEE_POPUP_PRAZOS_LOGIN_RC920__ = true;
+  if (window.__SIGEE_POPUP_PRAZOS_LOGIN_RC1040__) return;
+  window.__SIGEE_POPUP_PRAZOS_LOGIN_RC1040__ = true;
 
-  const VERSION = 'RC9.2.0';
+  const VERSION = 'RC10.4.0';
   const EVENTOS = Object.freeze({
-    38: Object.freeze({ codigo: 'SEND_REITERACAO', titulo: 'Reiteração' }),
-    45: Object.freeze({ codigo: 'SEND_REITERACAO_URGENTE', titulo: 'Reiteração Urgente' }),
-    52: Object.freeze({ codigo: 'CONFIRMAR_DADOS', titulo: 'Confirmação dos Dados' }),
-    59: Object.freeze({ codigo: 'PEDIDO_ATAS_DESARQUIVAMENTO', titulo: 'Pedido de Atas' })
+    31: Object.freeze({ codigo: 'SEND_REITERACAO', titulo: 'Reiteração' }),
+    38: Object.freeze({ codigo: 'SEND_REITERACAO_URGENTE', titulo: 'Reiteração Urgente' }),
+    45: Object.freeze({ codigo: 'CONFIRMAR_DADOS', titulo: 'Confirmação dos Dados' }),
+    52: Object.freeze({ codigo: 'PEDIDO_ATAS_DESARQUIVAMENTO', titulo: 'Pedido de Atas sem Pasta' })
   });
 
   let loginEmProcessamento = false;
@@ -32,6 +32,14 @@
     return texto(v).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/\s+/g, ' ');
   }
   function perfilTecnico(u) { return normalizar(u && (u.perfil || u.role || u.tipo)).includes('TECN'); }
+  function perfilMaster(u) { return normalizar(u && (u.perfil || u.role || u.tipo)).includes('MASTER'); }
+  function statusRelogio() {
+    try { return window.SIGEE_WORKFLOW_CLOCK?.status?.() || { enabled: false }; } catch (_) { return { enabled: false }; }
+  }
+  function emHomologacaoMaster(u) { return perfilMaster(u) && statusRelogio().enabled === true; }
+  function agoraWorkflow() {
+    try { return window.SIGEE_WORKFLOW_CLOCK?.now?.() || new Date(); } catch (_) { return new Date(); }
+  }
   function nteCanonico(v) { return normalizar(v).replace(/[^A-Z0-9]/g, ''); }
   function mesmoNte(a, b) { return Boolean(nteCanonico(a)) && nteCanonico(a) === nteCanonico(b); }
   function usuarioAtual(detail) {
@@ -62,7 +70,7 @@
     return Math.floor((b.getTime() - a.getTime()) / 86400000);
   }
   function diaDoCiclo(p) {
-    const dec = diasDecorridos(dataBase(p), new Date());
+    const dec = diasDecorridos(dataBase(p), agoraWorkflow());
     return dec == null ? null : dec + 1;
   }
   function ciclo(p) { return Math.max(1, Number(p && (p.workflow_ciclo || p.ciclo) || 1)); }
@@ -82,6 +90,8 @@
   }
 
   async function acaoExecutada(p, evento) {
+    const usuario = usuarioAtual();
+    if (emHomologacaoMaster(usuario)) return false;
     const id = instancia(p);
     if (!id) return false;
     const c = cliente();
@@ -104,7 +114,7 @@
     const candidatos = processos.filter(p => {
       if (!p || p.ativo === false || p.status === 'Excluído') return false;
       if (!etapaDesarquivamento(p)) return false;
-      if (!mesmoNte(p.nte || p.nte_nome, usuario.nte || usuario.nte_nome)) return false;
+      if (!emHomologacaoMaster(usuario) && !mesmoNte(p.nte || p.nte_nome, usuario.nte || usuario.nte_nome)) return false;
       return Boolean(EVENTOS[diaDoCiclo(p)]);
     });
 
@@ -219,7 +229,7 @@
     const agora = Date.now();
     if (loginEmProcessamento || agora - ultimoLoginProcessado < 1500) return;
     const usuario = usuarioAtual(event && event.detail);
-    if (!usuario || !perfilTecnico(usuario)) return;
+    if (!usuario || (!perfilTecnico(usuario) && !emHomologacaoMaster(usuario))) return;
     loginEmProcessamento = true;
     ultimoLoginProcessado = agora;
     try {
@@ -233,5 +243,13 @@
   }
 
   document.addEventListener('sigee:login-concluido', aoLogin);
+
+  // Em produção o alerta continua exclusivo do login. No Modo Homologação,
+  // o Master recebe uma prévia ao alterar o relógio, sem precisar sair e entrar.
+  window.addEventListener('sigee:workflow-clock-change', function () {
+    const usuario = usuarioAtual();
+    if (!emHomologacaoMaster(usuario)) return;
+    setTimeout(function () { aoLogin({ detail: { usuario: usuario, origem: 'homologacao' } }); }, 80);
+  });
   window.SIGEE_POPUP_PRAZOS_LOGIN = Object.freeze({ version: VERSION, verificar: aoLogin });
 })(window, document);
