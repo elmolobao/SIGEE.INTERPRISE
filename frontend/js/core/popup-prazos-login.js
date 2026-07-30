@@ -13,10 +13,10 @@
 (function (window, document) {
   'use strict';
 
-  if (window.__SIGEE_POPUP_PRAZOS_LOGIN_RC1070__) return;
-  window.__SIGEE_POPUP_PRAZOS_LOGIN_RC1070__ = true;
+  if (window.__SIGEE_POPUP_PRAZOS_LOGIN_RC1071__) return;
+  window.__SIGEE_POPUP_PRAZOS_LOGIN_RC1071__ = true;
 
-  const VERSION = 'RC10.7.0';
+  const VERSION = 'RC10.7.1';
   const EVENTOS = Object.freeze({
     31: Object.freeze({ codigo: 'SEND_REITERACAO', titulo: 'Reiteração' }),
     38: Object.freeze({ codigo: 'SEND_REITERACAO_URGENTE', titulo: 'Reiteração Urgente' }),
@@ -25,7 +25,8 @@
   });
 
   let loginEmProcessamento = false;
-  let ultimoLoginProcessado = 0;
+  let popupExibidoNesteLogin = false;
+  let tokenLogin = 0;
 
   function texto(v) { return v == null ? '' : String(v).trim(); }
   function normalizar(v) {
@@ -77,14 +78,17 @@
   function instancia(p) { return texto(p && p.workflow_instance_id); }
   function etapaDesarquivamento(p) {
     const e = normalizar(p && (p.etapa_codigo || p.etapa_atual || p.etapa || p.fase_atual));
-    return ['DES', 'RET', 'REU', 'CFD'].includes(e) || e.includes('DESARQUIV') || e.includes('REITER') || e.includes('CONFIRMACAO');
+    return ['DES', 'RET', 'REU', 'CFD', 'PAS', 'PAT'].includes(e) || e.includes('DESARQUIV') || e.includes('REITER') || e.includes('CONFIRMACAO') || e.includes('PEDIDO') || e.includes('ATAS');
   }
 
-  async function aguardarProcessos() {
-    for (let i = 0; i < 20; i += 1) {
+  async function aguardarProcessos(token) {
+    // O login oficial termina antes da carga da Central de Processos. Por isso,
+    // o alerta acompanha a carga por até 60 segundos, sem depender da ordem dos scripts.
+    for (let i = 0; i < 120; i += 1) {
+      if (token !== tokenLogin) return [];
       const lista = listaProcessos();
       if (lista.length) return lista;
-      await new Promise(resolve => setTimeout(resolve, 250));
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
     return listaProcessos();
   }
@@ -109,8 +113,8 @@
     }
   }
 
-  async function obterVencimentos(usuario) {
-    const processos = await aguardarProcessos();
+  async function obterVencimentos(usuario, token) {
+    const processos = await aguardarProcessos(token);
     const candidatos = processos.filter(p => {
       if (!p || p.ativo === false || p.status === 'Excluído') return false;
       if (!etapaDesarquivamento(p)) return false;
@@ -123,12 +127,13 @@
     const marcos = Object.keys(EVENTOS).map(Number).sort((a, b) => a - b);
     for (const p of candidatos) {
       const dia = diaDoCiclo(p);
-      for (const marco of marcos) {
-        if (dia < marco) continue;
-        const acao = EVENTOS[marco];
-        if (await acaoExecutada(p, acao.codigo)) continue;
-        saida.push({ processo: p, acao, diaCiclo: dia, marco, diasAtraso: Math.max(0, dia - marco) });
-      }
+      // Exibe apenas o ato temporal vigente no login, evitando repetir no mesmo
+      // processo todos os marcos anteriores do ciclo.
+      const marco = marcos.filter(valor => dia >= valor).pop();
+      if (!marco) continue;
+      const acao = EVENTOS[marco];
+      if (await acaoExecutada(p, acao.codigo)) continue;
+      saida.push({ processo: p, acao, diaCiclo: dia, marco, diasAtraso: Math.max(0, dia - marco) });
     }
     return saida.sort((a, b) => b.diasAtraso - a.diasAtraso || String(a.processo.codigo_sigee || '').localeCompare(String(b.processo.codigo_sigee || '')));
   }
@@ -240,25 +245,46 @@
   }
 
   async function aoLogin(event) {
-    const agora = Date.now();
-    if (loginEmProcessamento || agora - ultimoLoginProcessado < 1500) return;
     const usuario = usuarioAtual(event && event.detail);
     if (!usuario || (!perfilTecnico(usuario) && !emHomologacaoMaster(usuario))) return;
+
+    // Cada autenticação manual cria uma nova verificação. O alerta não usa
+    // sessionStorage: enquanto a ação estiver pendente, volta no próximo login.
+    const token = ++tokenLogin;
+    popupExibidoNesteLogin = false;
+    if (loginEmProcessamento) return;
     loginEmProcessamento = true;
-    ultimoLoginProcessado = agora;
+
     try {
-      const itens = await obterVencimentos(usuario);
-      if (itens.length) exibirPopup(usuario, itens);
+      const itens = await obterVencimentos(usuario, token);
+      if (token !== tokenLogin || popupExibidoNesteLogin) return;
+      if (itens.length) {
+        popupExibidoNesteLogin = true;
+        exibirPopup(usuario, itens);
+      }
     } catch (erro) {
       console.error('[SIGEE Popup Prazos] Falha ao montar alerta de login:', erro);
     } finally {
-      loginEmProcessamento = false;
+      if (token === tokenLogin) loginEmProcessamento = false;
     }
   }
 
-  document.addEventListener('sigee:login-concluido', aoLogin);
+  function aoLogout() {
+    tokenLogin += 1;
+    loginEmProcessamento = false;
+    popupExibidoNesteLogin = false;
+    removerPopup();
+  }
 
-  // RC10.7.0 — O popup é verificado em cada login e reaparece enquanto houver ação vencida não executada.
+
+  document.addEventListener('sigee:login-concluido', aoLogin);
+  // Compatibilidade com o controlador oficial, que também emite session-ready.
+  window.addEventListener('sigee:session-ready', event => {
+    if (!popupExibidoNesteLogin && !loginEmProcessamento) aoLogin(event);
+  });
+  document.addEventListener('sigee:usuario-deslogado', aoLogout);
+
+  // RC10.7.1 — O popup é verificado em cada login e reaparece enquanto houver ação vencida não executada.
   // Alterações do relógio de homologação atualizam prazos e botões, mas o alerta só é aberto pelo evento de login.
   window.SIGEE_POPUP_PRAZOS_LOGIN = Object.freeze({ version: VERSION, verificar: aoLogin });
 })(window, document);
