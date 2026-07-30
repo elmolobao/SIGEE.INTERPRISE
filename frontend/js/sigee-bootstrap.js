@@ -10,7 +10,7 @@
     { name: 'cache', path: 'core/sigee-cache.js' },
     { name: 'api', path: 'core/sigee-api.js' },
     { name: 'core', path: 'core/sigee-core.js' },
-    { name: 'timeline.service', path: 'services/timeline.service.js?v=RC10.1.0' },
+    { name: 'timeline.service', path: 'services/timeline.service.js?v=RC10.6.0' },
     { name: 'timeline.engine', path: 'timeline/timeline-engine.js?v=RC10.1.0' }
   ]);
 
