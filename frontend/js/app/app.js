@@ -510,11 +510,14 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         function processoParaSupabaseSIGEE(p) {
             return {
                 id: Number(p.id) || gerarProximoIdSIGEE(processosDB, 101),
-                aluno_nome: normalizarMaiusculoSIGEE(p.aluno || p.aluno_nome),
+                aluno_nome: normalizarMaiusculoSIGEE(p.nome_social || p.aluno || p.aluno_nome),
+                nome_social: normalizarMaiusculoSIGEE(p.nome_social || p.aluno || p.aluno_nome),
                 escola_nome: normalizarMaiusculoSIGEE(p.escola || p.escola_nome),
                 documento_tipo: normalizarTextoSIGEE(p.documento || p.documento_tipo || 'HISTÓRICO'),
                 nivel_oferta: normalizarTextoSIGEE(p.nivel_oferta || p.ensino || null) || null,
                 modalidade: normalizarTextoSIGEE(p.modalidade || null) || null,
+                ano: normalizarTextoSIGEE(p.ano || p.ano_conclusao || null) || null,
+                serie: normalizarTextoSIGEE(p.serie || p.serie_conclusao || null) || null,
                 etapa_atual: normalizarTextoSIGEE(p.etapa || p.etapa_atual || 'Desarquivamento'),
                 nte: window.SIGEE_NORMALIZACAO_NTE?.nteDoProcesso?.(p) || (window.normalizarNteSIGEE ? window.normalizarNteSIGEE(p.nte || 'NTE-26') : normalizarTextoSIGEE(p.nte || 'NTE-26')),
                 cod_mec: normalizarTextoSIGEE(p.cod_mec || p.mec || null) || null,
@@ -545,7 +548,8 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         function processoDoSupabaseParaLocalSIGEE(p, indice) {
             return {
                 id: Number(p.id) || (101 + indice),
-                aluno: normalizarMaiusculoSIGEE(p.aluno_nome || p.aluno || p.nome_aluno || p.requerente),
+                aluno: normalizarMaiusculoSIGEE(p.nome_social || p.aluno_nome || p.aluno || p.nome_aluno || p.requerente),
+                nome_social: normalizarMaiusculoSIGEE(p.nome_social || p.aluno_nome || p.aluno || ''),
                 escola: normalizarMaiusculoSIGEE(p.escola_nome || p.escola || p.instituicao || p.nome_escola),
                 documento: normalizarTextoSIGEE(p.documento_tipo || p.documento || p.tipo_documento || 'HISTÓRICO'),
                 etapa: normalizarTextoSIGEE(p.etapa_atual || p.etapa || p.status || 'Desarquivamento'),
