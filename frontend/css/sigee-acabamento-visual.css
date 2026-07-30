@@ -328,3 +328,9 @@ header.sigee-header,
 
 /* Modalidade: evita desaparecimento visual por herança de cor. */
 #tabela-processos-corpo td:nth-child(3){color:#0f2742!important;font-weight:800!important;opacity:1!important}
+
+/* RC10.0.0 — identidade visual das etapas temporais do workflow externo */
+#tabela-processos-corpo .sigee-etapa-reiteracao{background:linear-gradient(135deg,#facc15,#d97706)!important;color:#422006!important;border-color:#f59e0b!important}
+#tabela-processos-corpo .sigee-etapa-reiteracao-urgente{background:linear-gradient(135deg,#fb923c,#ea580c)!important;color:#fff!important;border-color:#c2410c!important}
+#tabela-processos-corpo .sigee-etapa-confirmacao{background:linear-gradient(135deg,#38bdf8,#2563eb)!important;color:#fff!important;border-color:#1d4ed8!important}
+#tabela-processos-corpo .sigee-etapa-atas{background:linear-gradient(135deg,#334155,#0f172a)!important;color:#fff!important;border-color:#020617!important}
