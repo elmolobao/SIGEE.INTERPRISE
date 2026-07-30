@@ -2,7 +2,7 @@
   'use strict';
 
   const root = global.SIGEE6 = global.SIGEE6 || {};
-  const VERSION = 'RC10.1.0';
+  const VERSION = 'RC10.6.0';
   const texto = (v) => v == null ? '' : String(v).trim();
   const normalizar = (v) => texto(v).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[_\-]+/g, ' ').replace(/\s+/g, ' ').trim().toUpperCase();
 
@@ -330,7 +330,15 @@
     eventos.forEach((evento) => {
       // Eventos equivalentes produzidos por histórico e log no mesmo minuto são
       // exibidos como um único marco, preservando as fontes para auditoria.
-      const chave = `${evento.tipo}|${minuto(evento.dataHora)}`;
+      const brutoId = valor(evento.bruto, 'id', 'historico_id', 'log_id');
+      const instancia = valor(evento.bruto, 'workflow_instance_id') || '';
+      const ciclo = valor(evento.bruto, 'ciclo') || valor(evento.bruto?.dados || {}, 'ciclo') || '';
+      const acaoOriginal = normalizar(valor(evento.bruto, 'acao', 'evento', 'titulo') || evento.acao || evento.titulo);
+      // Cada ação efetivamente executada é um marco próprio. Agrupamos apenas
+      // a mesma evidência replicada em fontes diferentes, nunca ações distintas.
+      const chave = brutoId
+        ? `REGISTRO|${brutoId}`
+        : `${instancia}|${ciclo}|${acaoOriginal}|${minuto(evento.dataHora)}`;
       const atual = grupos.get(chave);
       if (!atual) {
         grupos.set(chave, { ...evento, fontes: [evento.origem], registrosAgrupados: [evento.bruto] });
