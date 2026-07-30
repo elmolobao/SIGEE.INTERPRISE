@@ -17,134 +17,6 @@ body.sigee-prontuario-aberto { overflow: hidden !important; }
 .sigee-pep-carregando{display:grid;place-items:center}.sigee-pep-carregando>div{background:#fff;border-radius:18px;padding:28px 34px;display:flex;align-items:center;gap:15px;box-shadow:0 20px 60px rgba(15,23,42,.25)}.sigee-pep-carregando span{width:24px;height:24px;border:3px solid #bae6fd;border-top-color:#0284c7;border-radius:50%;animation:sigee-pep-girar .75s linear infinite}@keyframes sigee-pep-girar{to{transform:rotate(360deg)}}
 @media(max-width:1000px){.sigee-pep-cabecalho{grid-template-columns:1fr}.sigee-pep-conteudo{grid-template-columns:1fr}.sigee-pep-lateral{display:grid;grid-template-columns:1fr 1fr}.sigee-pep-grade{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:650px){.sigee-pep-overlay{padding:0}.sigee-pep-shell{border-radius:0}.sigee-pep-topo{padding:0 14px}.sigee-pep-marca span{display:none}.sigee-pep-topo-acoes button:first-child{display:none}.sigee-pep-cabecalho,.sigee-pep-conteudo{padding:16px}.sigee-pep-grade,.sigee-pep-lateral{grid-template-columns:1fr}.sigee-pep-detalhes{grid-template-columns:1fr}}
-/* RC10.8.3 — impressão institucional isolada do Prontuário */
-@media print {
-  @page { size: A4 portrait; margin: 10mm; }
-
-  html,
-  body {
-    margin: 0 !important;
-    padding: 0 !important;
-    width: 100% !important;
-    height: auto !important;
-    overflow: visible !important;
-    background: #fff !important;
-  }
-
-  /* Oculta integralmente a aplicação e libera somente o prontuário. */
-  body * {
-    visibility: hidden !important;
-  }
-
-  #sigee-prontuario-overlay,
-  #sigee-prontuario-overlay * {
-    visibility: visible !important;
-  }
-
-  #sigee-prontuario-overlay {
-    display: block !important;
-    position: absolute !important;
-    inset: 0 auto auto 0 !important;
-    width: 100% !important;
-    min-height: 0 !important;
-    height: auto !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    overflow: visible !important;
-    background: #fff !important;
-    backdrop-filter: none !important;
-    z-index: 2147483647 !important;
-  }
-
-  #sigee-prontuario-overlay .sigee-pep-shell {
-    display: block !important;
-    width: 100% !important;
-    max-width: none !important;
-    min-height: 0 !important;
-    height: auto !important;
-    margin: 0 !important;
-    overflow: visible !important;
-    border: 0 !important;
-    border-radius: 0 !important;
-    box-shadow: none !important;
-    background: #fff !important;
-  }
-
-  #sigee-prontuario-overlay .sigee-pep-topo {
-    position: static !important;
-    height: auto !important;
-    min-height: 54px !important;
-    padding: 10px 0 12px !important;
-  }
-
-  #sigee-prontuario-overlay .sigee-pep-topo-acoes,
-  #sigee-prontuario-overlay [data-pep-fechar],
-  #sigee-prontuario-overlay [data-pep-expandir] {
-    display: none !important;
-  }
-
-  #sigee-prontuario-overlay .sigee-pep-cabecalho {
-    padding: 16px !important;
-    grid-template-columns: 1fr 2.2fr !important;
-    gap: 16px !important;
-    print-color-adjust: exact !important;
-    -webkit-print-color-adjust: exact !important;
-  }
-
-  #sigee-prontuario-overlay .sigee-pep-grade {
-    grid-template-columns: repeat(4, 1fr) !important;
-    gap: 7px !important;
-  }
-
-  #sigee-prontuario-overlay .sigee-pep-workflow {
-    overflow: visible !important;
-    flex-wrap: wrap !important;
-    padding: 12px 0 !important;
-  }
-
-  #sigee-prontuario-overlay .sigee-pep-etapa {
-    min-width: 118px !important;
-  }
-
-  #sigee-prontuario-overlay .sigee-pep-conteudo {
-    display: grid !important;
-    grid-template-columns: minmax(0, 1fr) 245px !important;
-    gap: 12px !important;
-    padding: 14px 0 0 !important;
-    overflow: visible !important;
-  }
-
-  #sigee-prontuario-overlay .sigee-pep-timeline,
-  #sigee-prontuario-overlay .sigee-pep-lateral,
-  #sigee-prontuario-overlay .sigee-pep-lateral section {
-    height: auto !important;
-    max-height: none !important;
-    overflow: visible !important;
-    box-shadow: none !important;
-  }
-
-  #sigee-prontuario-overlay .sigee-pep-timeline {
-    padding: 14px !important;
-  }
-
-  #sigee-prontuario-overlay .sigee-pep-evento,
-  #sigee-prontuario-overlay .sigee-pep-evento-card,
-  #sigee-prontuario-overlay .sigee-pep-lateral section,
-  #sigee-prontuario-overlay .sigee-pep-cabecalho,
-  #sigee-prontuario-overlay .sigee-pep-workflow {
-    break-inside: avoid !important;
-    page-break-inside: avoid !important;
-  }
-
-  #sigee-prontuario-overlay .sigee-pep-detalhes {
-    display: grid !important;
-  }
-
-  #sigee-prontuario-overlay * {
-    print-color-adjust: exact !important;
-    -webkit-print-color-adjust: exact !important;
-  }
-}
 
 
 /* RC6.0.3 — marco auditável de recebimento da pasta */
@@ -182,3 +54,36 @@ body.sigee-prontuario-aberto { overflow: hidden !important; }
 .sigee-pep-etapa.atual span { box-shadow:0 0 0 5px rgba(14,165,233,.15); }
 .sigee-pep-etapa.pendente-registro small { color:#9a5b22; }
 .sigee-pep-fontes { display:block; margin-top:9px; color:#64748b; font-size:10px; line-height:1.45; }
+
+
+/* RC10.8.4 — impressão institucional compacta e sanitizada */
+.sigee-pep-rodape-impressao{display:none}
+@media print{
+  @page{size:A4 portrait;margin:10mm 9mm 13mm}
+  html,body{width:auto!important;height:auto!important;min-height:0!important;overflow:visible!important;background:#fff!important}
+  body{margin:0!important;padding:0!important}
+  body *{visibility:hidden!important}
+  #sigee-prontuario-overlay,#sigee-prontuario-overlay *{visibility:visible!important}
+  #sigee-prontuario-overlay{position:absolute!important;inset:0 auto auto 0!important;width:100%!important;height:auto!important;min-height:0!important;max-height:none!important;margin:0!important;padding:0!important;overflow:visible!important;background:#fff!important;backdrop-filter:none!important;color:#172033!important}
+  .sigee-pep-shell{width:100%!important;min-height:0!important;height:auto!important;max-height:none!important;margin:0!important;border:0!important;border-radius:0!important;overflow:visible!important;box-shadow:none!important;background:#fff!important}
+  .sigee-pep-topo{position:static!important;height:auto!important;min-height:42px!important;padding:8px 12px!important;break-after:avoid-page!important}
+  .sigee-pep-topo-acoes{display:none!important}
+  .sigee-pep-marca b{font-size:18px!important}.sigee-pep-marca span{font-size:12px!important}
+  .sigee-pep-cabecalho{padding:12px!important;gap:12px!important;grid-template-columns:minmax(190px,.75fr) minmax(0,2.25fr)!important;break-inside:avoid-page!important}
+  .sigee-pep-titulo h1{font-size:19px!important;margin:4px 0 8px!important}
+  .sigee-pep-grade{grid-template-columns:repeat(4,1fr)!important;gap:6px!important}.sigee-pep-grade div{padding:7px 8px!important;border-radius:8px!important}.sigee-pep-grade strong{font-size:10px!important}.sigee-pep-grade span{font-size:7px!important}
+  .sigee-pep-workflow{overflow:visible!important;flex-wrap:wrap!important;padding:9px 12px!important;gap:3px 0!important;break-after:avoid-page!important}.sigee-pep-etapa{min-width:0!important;flex:1 1 16%!important}.sigee-pep-etapa span{width:20px!important;height:20px!important;font-size:8px!important}.sigee-pep-etapa small{font-size:7px!important;margin-left:4px!important}.sigee-pep-etapa:not(:last-child):after{margin:0 4px!important}
+  .sigee-pep-conteudo{display:block!important;height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important;padding:10px 0 0!important}
+  .sigee-pep-timeline{height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important;margin:0!important;padding:12px!important;border-radius:0!important;border-left:0!important;border-right:0!important;box-shadow:none!important}
+  .sigee-pep-secao-titulo{margin-bottom:10px!important}.sigee-pep-secao-titulo h2{font-size:16px!important}
+  .sigee-pep-evento{grid-template-columns:32px 1fr!important;gap:7px!important;padding-bottom:10px!important;break-inside:auto!important}.sigee-pep-evento:not(:last-child):before{left:15px!important;top:30px!important}.sigee-pep-marcador{width:30px!important;height:30px!important;font-size:13px!important;border-radius:8px!important}
+  .sigee-pep-evento-card{padding:10px!important;border-radius:9px!important;break-inside:avoid-page!important;page-break-inside:avoid!important}.sigee-pep-evento-card h3{font-size:12px!important}.sigee-pep-evento-card>p{font-size:9px!important;line-height:1.35!important}.sigee-pep-evento-card button{display:none!important}
+  .sigee-pep-detalhes,.sigee-pep-detalhes.aberto{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:5px!important;margin-top:7px!important;padding-top:7px!important}.sigee-pep-detalhes div{padding:6px!important;border-radius:6px!important;min-width:0!important}.sigee-pep-detalhes span{font-size:7px!important}.sigee-pep-detalhes strong{font-size:8px!important;overflow-wrap:anywhere!important;word-break:break-word!important}
+  .sigee-pep-lateral{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important;height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important;align-items:start!important;padding:10px 12px 0!important;break-before:auto!important}
+  .sigee-pep-lateral section{height:auto!important;min-height:0!important;max-height:none!important;align-self:start!important;padding:10px!important;border-radius:9px!important;box-shadow:none!important;break-inside:avoid-page!important}.sigee-pep-lateral h3{font-size:9px!important;margin-bottom:7px!important}.sigee-pep-kpis strong{font-size:16px!important}.sigee-pep-kpis span,.sigee-pep-lateral dt,.sigee-pep-lateral dd{font-size:7.5px!important}.sigee-pep-lateral dl div{padding:5px 0!important}
+  .sigee-pep-selo{min-height:0!important}
+  .sigee-pep-rodape-impressao{display:flex!important;justify-content:space-between!important;gap:12px!important;margin:10px 12px 0!important;padding:7px 0 0!important;border-top:1px solid #cbd5e1!important;font-size:7px!important;color:#475569!important;break-before:avoid-page!important}
+  .sigee-pep-rodape-impressao strong{white-space:nowrap!important}
+  .sigee-pep-carregando{display:none!important}
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+}
