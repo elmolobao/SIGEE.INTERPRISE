@@ -538,7 +538,8 @@
       messageCode: command.messageCode || EVENT_MESSAGE_CODES[eventCode] || preview.messageCode || null,
       confirmed: command.confirmed === true,
       user: clone(user || null),
-      deadline
+      deadline,
+      details: clone(command.details || null)
     };
 
     const engineResult = workflow.execute(currentStateCode, eventCode, context);
@@ -592,7 +593,9 @@
       usuario: user && (user.nome || user.name || user.email) || null,
       perfil: userProfile(user) || null,
       createdAt: toISO(now),
-      data_hora: toISO(now)
+      data_hora: toISO(now),
+      details: clone(command.details || null),
+      dados: clone(command.details || null)
     };
 
     const auditRecord = {
