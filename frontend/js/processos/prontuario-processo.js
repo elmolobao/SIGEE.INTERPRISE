@@ -1,12 +1,12 @@
 /* =====================================================================
-   SIGEE Enterprise — RC6.1.5
+   SIGEE Enterprise — RC10.1.0
    Prontuário Eletrônico do Processo
    Camada aditiva: não altera regras, transições ou persistência do workflow.
    ===================================================================== */
 (function () {
   'use strict';
-  if (window.__SIGEE_PRONTUARIO_RC615__) return;
-  window.__SIGEE_PRONTUARIO_RC615__ = true;
+  if (window.__SIGEE_PRONTUARIO_RC1010__) return;
+  window.__SIGEE_PRONTUARIO_RC1010__ = true;
 
   const ETAPAS = Object.freeze([
     { tipo:'SOLICITACAO', label:'Solicitação' },
@@ -53,8 +53,22 @@
     return '';
   }
 
+  function estadoTemporal(p) {
+    try {
+      const resolvedor = window.SIGEE_WORKFLOW_TEMPORAL;
+      if (resolvedor && typeof resolvedor.resolve === 'function') return resolvedor.resolve(p || {});
+    } catch (e) {
+      console.warn('[SIGEE RC10.1.0] Resolvedor temporal indisponível no prontuário:', e);
+    }
+    return null;
+  }
+
   function etapaAtual(p) {
-    return valor(p, 'etapa_atual', 'etapa', 'fase_atual') || 'Desarquivamento';
+    const temporal = estadoTemporal(p);
+    const etapaPersistida = valor(p, 'etapa_atual', 'etapa', 'fase_atual') || 'Desarquivamento';
+    const normalizada = normalizar(etapaPersistida);
+    const fluxoExterno = ['DESARQUIVAMENTO', 'REITERACAO', 'REITERACAO URGENTE', 'CONFIRMACAO DOS DADOS', 'PEDIDO DE ATAS SEM PASTA'];
+    return temporal && fluxoExterno.some(item => normalizada.includes(item)) ? temporal.name : etapaPersistida;
   }
 
   function codigo(p) {
@@ -302,8 +316,9 @@
   }
 
   function modalHTML(p, eventos, marcos = {}) {
-    const inicio = valor(p, 'created_at', 'criado_em', 'data_solicitacao', 'data_abertura', 'data_inicio_desarquivamento');
-    const tempoTotal = diasEntre(inicio);
+    const temporal = estadoTemporal(p);
+    const inicio = temporal?.anchor || valor(p, 'created_at', 'criado_em', 'data_solicitacao', 'data_abertura', 'data_inicio_desarquivamento');
+    const tempoTotal = temporal?.days ?? diasEntre(inicio);
     const etapa = etapaAtual(p);
     const comunicacoes = resumoComunicacoes(eventos);
     const documentos = resumoDocumentos(eventos);
@@ -375,7 +390,7 @@
               <dl>
                 <div><dt>Etapa atual</dt><dd>${escapar(etapa)}</dd></div>
                 <div><dt>Início</dt><dd>${formatarData(inicio, false)}</dd></div>
-                <div><dt>Tempo na etapa</dt><dd>${diasEntre(valor(p,'data_etapa_atual','prazo_inicio'))} dias</dd></div>
+                <div><dt>Tempo na etapa</dt><dd>${temporal?.days ?? diasEntre(valor(p,'data_etapa_atual','prazo_inicio'))} dias</dd></div>
                 <div><dt>Prazo final</dt><dd>${formatarData(valor(p,'prazo_fim'), false)}</dd></div>
               </dl>
             </section>
@@ -386,7 +401,7 @@
                 <div><dt>Conferente</dt><dd>${escapar(valor(p,'conferente','conferente_nome') || 'Não atribuído')}</dd></div>
               </dl>
             </section>
-            <section class="sigee-pep-selo"><b>Registro Institucional</b><span>Eventos auditáveis do SIGEE Enterprise</span><small>RC6.1.0</small></section>
+            <section class="sigee-pep-selo"><b>Registro Institucional</b><span>Eventos auditáveis do SIGEE Enterprise</span><small>RC10.1.0</small></section>
           </aside>
         </div>
       </div>
@@ -462,5 +477,5 @@
     ? document.addEventListener('DOMContentLoaded', renomearBotoes)
     : renomearBotoes();
 
-  console.info('[SIGEE RC6.1.5] Cronologia consolidada: Timeline oficial, Stepper dinâmico e Prontuário carregados.');
+  console.info('[SIGEE RC10.1.0] Prontuário sincronizado ao resolvedor temporal único e à cronologia auditável.');
 })();
