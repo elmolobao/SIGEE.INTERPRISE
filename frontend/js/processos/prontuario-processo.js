@@ -476,6 +476,15 @@
   window.abrirHistoricoProcessoSIGEE = abrir;
 
 
+
+  window.addEventListener('sigee:workflow-action-executed', function (event) {
+    const processoId = event?.detail?.processoId;
+    try { window.SIGEE6?.timelineService?.invalidar?.(processoId); } catch (_) {}
+    if (prontuarioAbertoId == null || String(prontuarioAbertoId) !== String(processoId)) return;
+    if (!document.getElementById('sigee-prontuario-overlay')) return;
+    setTimeout(function () { abrir(processoId); }, 0);
+  });
+
   window.addEventListener('sigee:workflow-clock-change', function () {
     if (prontuarioAbertoId == null || !document.getElementById('sigee-prontuario-overlay')) return;
     const id = prontuarioAbertoId;
@@ -501,5 +510,5 @@
     ? document.addEventListener('DOMContentLoaded', renomearBotoes)
     : renomearBotoes();
 
-  console.info('[SIGEE RC10.3.0] Prontuário consolidado com processo recarregado, relógio de homologação e resolvedor temporal único.');
+  console.info('[SIGEE RC10.6.0] Prontuário consolidado com processo recarregado, relógio de homologação e resolvedor temporal único.');
 })();

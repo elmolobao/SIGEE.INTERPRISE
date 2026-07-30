@@ -524,7 +524,9 @@
               ciclo: record.cycle,
               novo_ciclo: record.novo_ciclo || null,
               prazo_dias: record.prazo_dias || null,
-              contexto_analise: record.contexto_analise || null
+              contexto_analise: record.contexto_analise || null,
+              executado_em_civil: new Date().toISOString(),
+              origem_registro: 'ACAO_EXECUTADA'
             },
             created_at: record.createdAt
           };
@@ -689,6 +691,22 @@
           ),
           true
         );
+
+        try { window.SIGEE6?.timelineService?.invalidar?.(process.id); } catch (_) {}
+        try {
+          window.dispatchEvent(new CustomEvent('sigee:workflow-action-executed', {
+            detail: {
+              processoId: process.id,
+              codigoSigee: atualizado.codigo_sigee || process.codigo_sigee || null,
+              evento: action.event,
+              ciclo: result.cycle,
+              etapaOrigem: result.currentStateName,
+              etapaDestino: result.nextStateName,
+              executadoEm: new Date().toISOString()
+            }
+          }));
+        } catch (_) {}
+        try { window.SIGEE6?.events?.emit?.('workflow:changed', { processoId: process.id, evento: action.event, executada: true }); } catch (_) {}
 
         await refreshScreens();
         toast(result.message + ' Nova etapa: ' + result.nextStateName + '.');
