@@ -14,7 +14,7 @@
 (function (window) {
   'use strict';
 
-  const VERSION = '0.9.5.3';
+  const VERSION = '0.9.5.4';
 
   const ERROR_MESSAGES = Object.freeze({
     WF001: 'Estado atual inválido.',
@@ -252,10 +252,17 @@
   }
 
   function temporalEventForElapsed(elapsed) {
-    if (!Number.isFinite(elapsed) || elapsed < 31) return null;
-    if (elapsed < 38) return 'SEND_REITERACAO';
-    if (elapsed < 45) return 'SEND_REITERACAO_URGENTE';
-    if (elapsed < 52) return 'CONFIRMAR_DADOS';
+    /*
+     * elapsedDays representa dias completos transcorridos (diferença exclusiva).
+     * A interface apresenta o dia civil do ciclo de forma inclusiva:
+     * 30 transcorridos = 31º dia; 37 = 38º; 44 = 45º; 51 = 52º.
+     * Os limites abaixo ficam, portanto, alinhados a EVENT_DEADLINE_REQUIREMENTS
+     * e ao WorkflowTemporalResolver.
+     */
+    if (!Number.isFinite(elapsed) || elapsed < 30) return null;
+    if (elapsed < 37) return 'SEND_REITERACAO';
+    if (elapsed < 44) return 'SEND_REITERACAO_URGENTE';
+    if (elapsed < 51) return 'CONFIRMAR_DADOS';
     return 'PEDIDO_ATAS_DESARQUIVAMENTO';
   }
 
