@@ -1,12 +1,12 @@
 /* =====================================================================
-   SIGEE Enterprise — RC10.8.5
+   SIGEE Enterprise — RC10.8.6
    Prontuário Eletrônico do Processo
    Camada aditiva: não altera regras, transições ou persistência do workflow.
    ===================================================================== */
 (function () {
   'use strict';
-  if (window.__SIGEE_PRONTUARIO_RC1085__) return;
-  window.__SIGEE_PRONTUARIO_RC1085__ = true;
+  if (window.__SIGEE_PRONTUARIO_RC1086__) return;
+  window.__SIGEE_PRONTUARIO_RC1086__ = true;
 
   const ETAPAS = Object.freeze([
     { tipo:'SOLICITACAO', label:'Solicitação' },
@@ -226,9 +226,14 @@
     'DOCUMENTO_RECEBIDO', 'CIENCIA_ALERTA_ETAPA_LOGIN'
   ]);
 
+  function ehCienciaEvento(ev) {
+    if (payloadCiencia(ev)) return true;
+    const base = normalizar(`${ev?.acao || ''} ${ev?.evento || ''} ${ev?.tipo || ''} ${ev?.observacao || ''} ${ev?.descricao || ''}`);
+    return base.includes('CIENCIA') && (base.includes('LOGIN') || base.includes('VENCIMENTO') || base.includes('ALERTA'));
+  }
+
   function codigoAcao(ev) {
-    const ciencia = payloadCiencia(ev);
-    if (ciencia) return 'CIENCIA_ALERTA_ETAPA_LOGIN';
+    if (ehCienciaEvento(ev)) return 'CIENCIA_ALERTA_ETAPA_LOGIN';
     return normalizar(ev?.acao || ev?.evento || ev?.tipo || '').replace(/\s+/g, '_');
   }
 
@@ -246,12 +251,15 @@
   function etapaOperacionalEvento(ev) {
     const acao = codigoAcao(ev);
     const base = normalizar(`${ev?.etapa || ''} ${ev?.acao || ''} ${ev?.evento || ''} ${ev?.tipo || ''}`);
-    if (ACOES_DESARQUIVAMENTO.includes(acao)
-      || /REITER|CONFIRMACAO DOS DADOS|PEDIDO DE ATAS|RETIFIC|DESARQUIV/.test(base)
-      || payloadCiencia(ev)) return 'DESARQUIVAMENTO';
+    // Eventos de abertura devem permanecer em Solicitação, ainda que o campo etapa
+    // já tenha sido persistido como Desarquivamento no momento da criação.
+    if (/SOLICITACAO REGISTRADA|SOLICITACAO CRIADA|NOVA SOLICITACAO/.test(base)) return 'SOLICITACAO';
     if (/DOCUMENTO SOLICITADO/.test(base)) return 'DOCUMENTO_SOLICITADO';
     if (/PASTA LOCALIZADA/.test(base)) return 'PASTA_LOCALIZADA';
     if (/PASTA RECEBIDA|DOCUMENTO RECEBIDO/.test(base)) return 'PASTA_RECEBIDA';
+    if (ACOES_DESARQUIVAMENTO.includes(acao)
+      || /REITER|CONFIRMACAO DOS DADOS|PEDIDO DE ATAS|RETIFIC|DESARQUIV/.test(base)
+      || ehCienciaEvento(ev)) return 'DESARQUIVAMENTO';
     if (/SOLICIT/.test(base)) return 'SOLICITACAO';
     if (/ANALISE/.test(base)) return 'ANALISE';
     if (/PENDENCIA/.test(base)) return 'PENDENCIA';
@@ -264,7 +272,7 @@
   }
 
   function naturezaEvento(ev) {
-    if (payloadCiencia(ev)) return 'CIENCIA';
+    if (ehCienciaEvento(ev)) return 'CIENCIA';
     const acao = codigoAcao(ev);
     if (['SEND_REITERACAO','SEND_REITERACAO_URGENTE','CONFIRMAR_DADOS','PEDIDO_ATAS_DESARQUIVAMENTO','RETIFICAR_DADOS','PASTA_RECEBIDA','DOCUMENTO_RECEBIDO'].includes(acao)) return 'ACAO_EXECUTADA';
     const origem = normalizar(Array.isArray(ev?.fontes) ? ev.fontes.join(' ') : ev?.origem || '');
@@ -275,7 +283,10 @@
   function chaveSemanticaEvento(ev) {
     const data = dataValida(ev?.created_at || ev?.data || ev?.data_hora);
     const minuto = data ? data.toISOString().slice(0,16) : '';
-    return [etapaOperacionalEvento(ev), cicloEvento(ev), codigoAcao(ev), minuto,
+    const etapaCiencia = ehCienciaEvento(ev)
+      ? normalizar(etapaPayloadCiencia(payloadCiencia(ev) || {}, ev))
+      : '';
+    return [etapaOperacionalEvento(ev), cicloEvento(ev), codigoAcao(ev), etapaCiencia, minuto,
       normalizar(ev?.usuario_nome || ev?.responsavel || ev?.executado_por || '')].join('|');
   }
 
@@ -296,7 +307,87 @@
     return [...mapa.values()].sort((a,b) => (dataValida(a.created_at || a.data || a.data_hora)?.getTime() || 0) - (dataValida(b.created_at || b.data || b.data_hora)?.getTime() || 0));
   }
 
-  function agruparEventosPorEtapa(eventos) {
+  function dataEvento(ev) {
+    return ev?.created_at || ev?.data || ev?.data_hora || ev?.executado_em || ev?.updated_at || null;
+  }
+
+  function nomeAutorEvento(ev) {
+    return texto(ev?.usuario_nome || ev?.executado_por_nome || ev?.executado_por || ev?.responsavel_nome || ev?.responsavel || ev?.tecnico_nome || ev?.usuario_email);
+  }
+
+  function responsavelPersistidoEtapa(p, etapaTipo) {
+    const campos = {
+      SOLICITACAO:['tecnico_lancamento','criado_por_nome','criado_por','responsavel'],
+      DOCUMENTO_SOLICITADO:['tecnico_responsavel','responsavel','usuario_responsavel'],
+      PASTA_LOCALIZADA:['tecnico_responsavel','responsavel','usuario_responsavel'],
+      PASTA_RECEBIDA:['tecnico_responsavel','responsavel','usuario_responsavel'],
+      DESARQUIVAMENTO:['tecnico_responsavel','responsavel','usuario_responsavel'],
+      ANALISE:['analista_nome','analista','tecnico_responsavel','responsavel'],
+      PENDENCIA:['analista_nome','analista','tecnico_responsavel','responsavel'],
+      DIGITACAO:['digitador_nome','digitador','responsavel_digitacao','responsavel'],
+      CONFERENCIA:['conferente_nome','conferente','responsavel_conferencia','responsavel'],
+      ASSINATURA:['assinante_nome','responsavel_assinatura','responsavel'],
+      DEFERIDO:['responsavel','tecnico_responsavel'],
+      RETIRADO:['responsavel_retirada','responsavel','tecnico_responsavel']
+    };
+    return valor(p, ...(campos[etapaTipo] || ['tecnico_responsavel','responsavel','usuario_responsavel']));
+  }
+
+  function responsavelGrupo(grupo, p) {
+    const selecionado = responsavelPersistidoEtapa(p, grupo.etapaTipo);
+    // Para etapa atual, o selecionado no processo é a fonte prioritária.
+    if (grupo.atual && selecionado) return selecionado;
+    const executores = grupo.eventos
+      .filter(ev => naturezaEvento(ev) === 'ACAO_EXECUTADA')
+      .map(nomeAutorEvento).filter(Boolean);
+    if (executores.length) return executores[executores.length - 1];
+    const autoresOperacionais = grupo.eventos
+      .filter(ev => naturezaEvento(ev) !== 'CIENCIA')
+      .map(nomeAutorEvento).filter(Boolean);
+    if (autoresOperacionais.length) return autoresOperacionais[autoresOperacionais.length - 1];
+    return selecionado || 'Não identificado';
+  }
+
+  function inicioEtapaPersistido(p, etapaTipo) {
+    if (etapaTipo !== tipoEtapaAtual(p)) return null;
+    return valor(p, 'data_etapa_atual','prazo_inicio','etapa_iniciada_em','updated_at');
+  }
+
+  function garantirEtapaAtual(grupos, p) {
+    const atual = tipoEtapaAtual(p);
+    if (!atual) return grupos;
+    let grupo = grupos.find(g => g.etapaTipo === atual && (atual !== 'DESARQUIVAMENTO' || g.ciclo === (Number(p?.workflow_ciclo || p?.ciclo || 1) || 1)));
+    if (!grupo) {
+      grupo = {
+        etapaTipo: atual,
+        ciclo: atual === 'DESARQUIVAMENTO' ? (Number(p?.workflow_ciclo || p?.ciclo || 1) || 1) : 1,
+        eventos: [],
+        sintetico: true
+      };
+      grupos.push(grupo);
+    }
+    grupo.atual = true;
+    return grupos;
+  }
+
+  function consolidarMetadadosGrupos(grupos, p) {
+    const ordem = new Map(ETAPAS.map((e,i) => [e.tipo, i]));
+    grupos.sort((a,b) => (ordem.get(a.etapaTipo) ?? 99) - (ordem.get(b.etapaTipo) ?? 99) || a.ciclo - b.ciclo);
+    grupos.forEach((grupo, i) => {
+      const datas = grupo.eventos.map(dataEvento).map(dataValida).filter(Boolean).sort((a,b) => a-b);
+      const persistida = dataValida(inicioEtapaPersistido(p, grupo.etapaTipo));
+      grupo.enviadoEm = datas[0] || persistida || null;
+      const proximo = grupos.slice(i + 1).find(g => (ordem.get(g.etapaTipo) ?? 99) > (ordem.get(grupo.etapaTipo) ?? 99));
+      const dataProximo = proximo?.eventos?.map(dataEvento).map(dataValida).filter(Boolean).sort((a,b)=>a-b)[0]
+        || dataValida(inicioEtapaPersistido(p, proximo?.etapaTipo));
+      grupo.concluidoEm = grupo.atual ? null : (dataProximo || (datas.length > 1 ? datas[datas.length - 1] : null));
+      grupo.responsavel = responsavelGrupo(grupo, p);
+      grupo.situacao = grupo.atual ? 'Em andamento' : 'Concluída';
+    });
+    return grupos;
+  }
+
+  function agruparEventosPorEtapa(eventos, p = null) {
     const limpos = deduplicarEventos(eventos);
     const grupos = new Map();
     limpos.forEach(ev => {
@@ -306,12 +397,9 @@
       if (!grupos.has(chave)) grupos.set(chave, { etapaTipo, ciclo, eventos: [] });
       grupos.get(chave).eventos.push(ev);
     });
-    const ordem = new Map(ETAPAS.map((e,i) => [e.tipo, i]));
-    return [...grupos.values()].sort((a,b) => {
-      const da = dataValida(a.eventos[0]?.created_at || a.eventos[0]?.data || a.eventos[0]?.data_hora)?.getTime() || 0;
-      const db = dataValida(b.eventos[0]?.created_at || b.eventos[0]?.data || b.eventos[0]?.data_hora)?.getTime() || 0;
-      return da - db || (ordem.get(a.etapaTipo) ?? 99) - (ordem.get(b.etapaTipo) ?? 99) || a.ciclo - b.ciclo;
-    });
+    let resultado = [...grupos.values()];
+    if (p) resultado = garantirEtapaAtual(resultado, p);
+    return p ? consolidarMetadadosGrupos(resultado, p) : resultado;
   }
 
   function rotuloEtapaGrupo(grupo) {
@@ -388,7 +476,8 @@
         return {
           eventos: Array.isArray(timeline?.eventos) ? timeline.eventos : [],
           marcos: timeline?.marcos || { pastaRecebida:false, documentoRecebido:false },
-          origem: 'SIGEE6.timeline'
+          origem: 'SIGEE6.timeline',
+          processo: timeline?.processo || timeline?.processoAtualizado || p
         };
       }
     } catch (e) {
@@ -422,7 +511,7 @@
     }
 
     const pastaRecebida = eventos.some(ev => /PASTA (FISICA )?RECEBIDA|RECEBIMENTO (DA|DE) PASTA|ACERVO (FISICO )?RECEBIDO/i.test(`${ev.acao || ''} ${ev.etapa || ''} ${ev.observacao || ''} ${ev.detalhes || ''}`));
-    return { eventos, marcos:{ pastaRecebida, documentoRecebido:eventos.some(ev => /DOCUMENTO RECEBIDO/i.test(`${ev.acao || ''} ${ev.etapa || ''}`)) }, origem:'compatibilidade' };
+    return { eventos, marcos:{ pastaRecebida, documentoRecebido:eventos.some(ev => /DOCUMENTO RECEBIDO/i.test(`${ev.acao || ''} ${ev.etapa || ''}`)) }, origem:'compatibilidade', processo:p };
   }
 
   function tipoEtapaAtual(p) {
@@ -457,14 +546,12 @@
     }).join('');
   }
 
-  function timelineHTML(eventos) {
-    const grupos = agruparEventosPorEtapa(eventos);
+  function timelineHTML(eventos, p) {
+    const grupos = agruparEventosPorEtapa(eventos, p);
     return grupos.map((grupo, gi) => {
       const primeiro = grupo.eventos[0] || {};
       const ultimo = grupo.eventos[grupo.eventos.length - 1] || primeiro;
-      const periodo = grupo.eventos.length > 1
-        ? `${formatarData(primeiro.created_at || primeiro.data || primeiro.data_hora)} a ${formatarData(ultimo.created_at || ultimo.data || ultimo.data_hora)}`
-        : formatarData(primeiro.created_at || primeiro.data || primeiro.data_hora);
+      const periodo = grupo.enviadoEm ? formatarData(grupo.enviadoEm) : 'Data de envio não identificada';
       const executadas = grupo.eventos.filter(ev => naturezaEvento(ev) === 'ACAO_EXECUTADA').length;
       const ciencias = grupo.eventos.filter(ev => naturezaEvento(ev) === 'CIENCIA').length;
       return `
@@ -478,9 +565,15 @@
             </div>
             <button type="button" aria-expanded="false" data-pep-expandir="grupo-${gi}">Ver ações</button>
           </header>
+          <div class="sigee-pep-resumo-etapa">
+            <div><span>Enviado em</span><strong>${grupo.enviadoEm ? formatarData(grupo.enviadoEm) : 'Não identificado'}</strong></div>
+            <div><span>Concluído em</span><strong>${grupo.concluidoEm ? formatarData(grupo.concluidoEm) : (grupo.atual ? 'Em andamento' : 'Não identificado')}</strong></div>
+            <div><span>Técnico responsável</span><strong>${escapar(grupo.responsavel || 'Não identificado')}</strong></div>
+            <div><span>Situação</span><strong>${escapar(grupo.situacao || (grupo.atual ? 'Em andamento' : 'Concluída'))}</strong></div>
+          </div>
           <p>${grupo.eventos.length} registro(s) nesta etapa${executadas ? ` • ${executadas} ação(ões) executada(s)` : ''}${ciencias ? ` • ${ciencias} ciência(s)` : ''}.</p>
           <div class="sigee-pep-detalhes sigee-pep-acoes-etapa" data-pep-detalhes="grupo-${gi}">
-            ${grupo.eventos.map((ev, ei) => `
+            ${grupo.eventos.length ? grupo.eventos.map((ev, ei) => `
               <section class="sigee-pep-acao-interna ${naturezaEvento(ev).toLowerCase()}">
                 <div class="sigee-pep-acao-cabecalho">
                   <span class="sigee-pep-acao-icone">${iconeEvento(ev)}</span>
@@ -489,7 +582,7 @@
                 </div>
                 <p>${escapar(descricaoEvento(ev))}</p>
                 <div class="sigee-pep-acao-metadados">${detalhesEvento(ev) || '<div><span>Registro</span><strong>Sem informações complementares.</strong></div>'}</div>
-              </section>`).join('')}
+              </section>`).join('') : `<section class="sigee-pep-acao-interna registro"><div class="sigee-pep-acao-cabecalho"><span class="sigee-pep-acao-icone">●</span><div><time>${grupo.enviadoEm ? formatarData(grupo.enviadoEm) : 'Data não identificada'}</time><strong>Processo atualmente em ${escapar(rotuloEtapaGrupo(grupo))}</strong></div><span class="sigee-pep-badge-natureza registro">Situação atual</span></div><p>Etapa atual registrada no processo. Ainda não há ação interna auditável vinculada a esta etapa.</p></section>`}
           </div>
         </div>
       </article>`;
@@ -568,8 +661,8 @@
 
         <div class="sigee-pep-conteudo">
           <main class="sigee-pep-timeline">
-            <div class="sigee-pep-secao-titulo"><div><span>LINHA DO TEMPO</span><h2>Trajetória completa do processo</h2></div><b>${agruparEventosPorEtapa(eventos).length} etapas • ${eventos.length} registros</b></div>
-            ${eventos.length ? timelineHTML(eventos) : '<div class="sigee-pep-vazio">Nenhum evento auditável foi localizado para este processo.</div>'}
+            <div class="sigee-pep-secao-titulo"><div><span>LINHA DO TEMPO</span><h2>Trajetória completa do processo</h2></div><b>${agruparEventosPorEtapa(eventos, p).length} etapas • ${eventos.length} registros</b></div>
+            ${timelineHTML(eventos, p)}
           </main>
 
           <aside class="sigee-pep-lateral">
@@ -608,7 +701,7 @@
                 <div><dt>Conferente</dt><dd>${escapar(valor(p,'conferente','conferente_nome') || 'Não atribuído')}</dd></div>
               </dl>
             </section>
-            <section class="sigee-pep-selo"><b>Registro Institucional</b><span>Eventos auditáveis do SIGEE Enterprise</span><small>RC10.8.5</small></section>
+            <section class="sigee-pep-selo"><b>Registro Institucional</b><span>Eventos auditáveis do SIGEE Enterprise</span><small>RC10.8.6</small></section>
           </aside>
         </div>
         <footer class="sigee-pep-rodape-impressao">
