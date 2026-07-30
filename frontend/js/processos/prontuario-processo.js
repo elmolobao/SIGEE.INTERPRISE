@@ -1,12 +1,12 @@
 /* =====================================================================
-   SIGEE Enterprise — RC10.8.4
+   SIGEE Enterprise — RC10.8.5
    Prontuário Eletrônico do Processo
    Camada aditiva: não altera regras, transições ou persistência do workflow.
    ===================================================================== */
 (function () {
   'use strict';
-  if (window.__SIGEE_PRONTUARIO_RC1084__) return;
-  window.__SIGEE_PRONTUARIO_RC1084__ = true;
+  if (window.__SIGEE_PRONTUARIO_RC1085__) return;
+  window.__SIGEE_PRONTUARIO_RC1085__ = true;
 
   const ETAPAS = Object.freeze([
     { tipo:'SOLICITACAO', label:'Solicitação' },
@@ -218,6 +218,118 @@
     return ev.observacao || ev.descricao || ev.resumo || 'Movimentação registrada no processo.';
   }
 
+
+
+  const ACOES_DESARQUIVAMENTO = Object.freeze([
+    'SEND_REITERACAO', 'SEND_REITERACAO_URGENTE', 'CONFIRMAR_DADOS',
+    'PEDIDO_ATAS_DESARQUIVAMENTO', 'RETIFICAR_DADOS', 'PASTA_RECEBIDA',
+    'DOCUMENTO_RECEBIDO', 'CIENCIA_ALERTA_ETAPA_LOGIN'
+  ]);
+
+  function codigoAcao(ev) {
+    const ciencia = payloadCiencia(ev);
+    if (ciencia) return 'CIENCIA_ALERTA_ETAPA_LOGIN';
+    return normalizar(ev?.acao || ev?.evento || ev?.tipo || '').replace(/\s+/g, '_');
+  }
+
+  function cicloEvento(ev) {
+    const ciencia = payloadCiencia(ev);
+    if (ciencia && Array.isArray(ciencia.processos)) {
+      const processoId = texto(ev?.processo_id || ev?.processoId);
+      const item = ciencia.processos.find(x => texto(x?.processo_id) === processoId) || ciencia.processos[0];
+      if (item?.ciclo != null) return Number(item.ciclo) || 1;
+    }
+    const d = dadosEvento(ev);
+    return Number(ev?.workflow_ciclo || ev?.ciclo || ev?.novo_ciclo || d?.workflow_ciclo || d?.ciclo || d?.novo_ciclo || 1) || 1;
+  }
+
+  function etapaOperacionalEvento(ev) {
+    const acao = codigoAcao(ev);
+    const base = normalizar(`${ev?.etapa || ''} ${ev?.acao || ''} ${ev?.evento || ''} ${ev?.tipo || ''}`);
+    if (ACOES_DESARQUIVAMENTO.includes(acao)
+      || /REITER|CONFIRMACAO DOS DADOS|PEDIDO DE ATAS|RETIFIC|DESARQUIV/.test(base)
+      || payloadCiencia(ev)) return 'DESARQUIVAMENTO';
+    if (/DOCUMENTO SOLICITADO/.test(base)) return 'DOCUMENTO_SOLICITADO';
+    if (/PASTA LOCALIZADA/.test(base)) return 'PASTA_LOCALIZADA';
+    if (/PASTA RECEBIDA|DOCUMENTO RECEBIDO/.test(base)) return 'PASTA_RECEBIDA';
+    if (/SOLICIT/.test(base)) return 'SOLICITACAO';
+    if (/ANALISE/.test(base)) return 'ANALISE';
+    if (/PENDENCIA/.test(base)) return 'PENDENCIA';
+    if (/DIGITACAO/.test(base)) return 'DIGITACAO';
+    if (/CONFERENCIA/.test(base)) return 'CONFERENCIA';
+    if (/ASSINATURA/.test(base)) return 'ASSINATURA';
+    if (/DEFERID/.test(base)) return 'DEFERIDO';
+    if (/RETIRAD/.test(base)) return 'RETIRADO';
+    return 'OUTROS';
+  }
+
+  function naturezaEvento(ev) {
+    if (payloadCiencia(ev)) return 'CIENCIA';
+    const acao = codigoAcao(ev);
+    if (['SEND_REITERACAO','SEND_REITERACAO_URGENTE','CONFIRMAR_DADOS','PEDIDO_ATAS_DESARQUIVAMENTO','RETIFICAR_DADOS','PASTA_RECEBIDA','DOCUMENTO_RECEBIDO'].includes(acao)) return 'ACAO_EXECUTADA';
+    const origem = normalizar(Array.isArray(ev?.fontes) ? ev.fontes.join(' ') : ev?.origem || '');
+    if (origem.includes('SIGEE_WORKFLOW_ACOES_EXECUTADAS')) return 'ACAO_EXECUTADA';
+    return 'REGISTRO';
+  }
+
+  function chaveSemanticaEvento(ev) {
+    const data = dataValida(ev?.created_at || ev?.data || ev?.data_hora);
+    const minuto = data ? data.toISOString().slice(0,16) : '';
+    return [etapaOperacionalEvento(ev), cicloEvento(ev), codigoAcao(ev), minuto,
+      normalizar(ev?.usuario_nome || ev?.responsavel || ev?.executado_por || '')].join('|');
+  }
+
+  function deduplicarEventos(eventos) {
+    const mapa = new Map();
+    eventos.forEach(ev => {
+      const chave = chaveSemanticaEvento(ev);
+      const atual = mapa.get(chave);
+      if (!atual) {
+        mapa.set(chave, { ...ev, totalRegistrosAgrupados: ev.totalRegistrosAgrupados || 1 });
+        return;
+      }
+      const fontes = new Set([...(Array.isArray(atual.fontes) ? atual.fontes : [atual.origem]), ...(Array.isArray(ev.fontes) ? ev.fontes : [ev.origem])].filter(Boolean));
+      atual.fontes = [...fontes];
+      atual.totalRegistrosAgrupados = Number(atual.totalRegistrosAgrupados || 1) + Number(ev.totalRegistrosAgrupados || 1);
+      if (!atual.observacao && ev.observacao) atual.observacao = ev.observacao;
+    });
+    return [...mapa.values()].sort((a,b) => (dataValida(a.created_at || a.data || a.data_hora)?.getTime() || 0) - (dataValida(b.created_at || b.data || b.data_hora)?.getTime() || 0));
+  }
+
+  function agruparEventosPorEtapa(eventos) {
+    const limpos = deduplicarEventos(eventos);
+    const grupos = new Map();
+    limpos.forEach(ev => {
+      const etapaTipo = etapaOperacionalEvento(ev);
+      const ciclo = etapaTipo === 'DESARQUIVAMENTO' ? cicloEvento(ev) : 1;
+      const chave = `${etapaTipo}|${ciclo}`;
+      if (!grupos.has(chave)) grupos.set(chave, { etapaTipo, ciclo, eventos: [] });
+      grupos.get(chave).eventos.push(ev);
+    });
+    const ordem = new Map(ETAPAS.map((e,i) => [e.tipo, i]));
+    return [...grupos.values()].sort((a,b) => {
+      const da = dataValida(a.eventos[0]?.created_at || a.eventos[0]?.data || a.eventos[0]?.data_hora)?.getTime() || 0;
+      const db = dataValida(b.eventos[0]?.created_at || b.eventos[0]?.data || b.eventos[0]?.data_hora)?.getTime() || 0;
+      return da - db || (ordem.get(a.etapaTipo) ?? 99) - (ordem.get(b.etapaTipo) ?? 99) || a.ciclo - b.ciclo;
+    });
+  }
+
+  function rotuloEtapaGrupo(grupo) {
+    const base = ETAPAS.find(e => e.tipo === grupo.etapaTipo)?.label || 'Outros registros';
+    return grupo.etapaTipo === 'DESARQUIVAMENTO' ? `${base} — Ciclo ${grupo.ciclo}` : base;
+  }
+
+  function tituloAcaoInterna(ev) {
+    if (payloadCiencia(ev)) return `Ciência de vencimento — ${etapaPayloadCiencia(payloadCiencia(ev), ev)}`;
+    return tituloEvento(ev);
+  }
+
+  function badgeNatureza(ev) {
+    const natureza = naturezaEvento(ev);
+    const rotulos = { CIENCIA:'Ciência institucional', ACAO_EXECUTADA:'Ação executada', REGISTRO:'Registro auditável' };
+    return `<span class="sigee-pep-badge-natureza ${natureza.toLowerCase()}">${rotulos[natureza]}</span>`;
+  }
+
   function detalhesEvento(ev) {
     const data = ev.created_at || ev.data || ev.data_hora;
     const ciencia = payloadCiencia(ev);
@@ -346,23 +458,42 @@
   }
 
   function timelineHTML(eventos) {
-    return eventos.map((ev, i) => `
-      <article class="sigee-pep-evento ${classeEvento(ev)}">
-        <div class="sigee-pep-marcador">${iconeEvento(ev)}</div>
+    const grupos = agruparEventosPorEtapa(eventos);
+    return grupos.map((grupo, gi) => {
+      const primeiro = grupo.eventos[0] || {};
+      const ultimo = grupo.eventos[grupo.eventos.length - 1] || primeiro;
+      const periodo = grupo.eventos.length > 1
+        ? `${formatarData(primeiro.created_at || primeiro.data || primeiro.data_hora)} a ${formatarData(ultimo.created_at || ultimo.data || ultimo.data_hora)}`
+        : formatarData(primeiro.created_at || primeiro.data || primeiro.data_hora);
+      const executadas = grupo.eventos.filter(ev => naturezaEvento(ev) === 'ACAO_EXECUTADA').length;
+      const ciencias = grupo.eventos.filter(ev => naturezaEvento(ev) === 'CIENCIA').length;
+      return `
+      <article class="sigee-pep-evento sigee-pep-grupo-etapa ${grupo.etapaTipo === 'DESARQUIVAMENTO' ? 'ciclo' : classeEvento(ultimo)}">
+        <div class="sigee-pep-marcador">${grupo.etapaTipo === 'DESARQUIVAMENTO' ? '🗂️' : iconeEvento(ultimo)}</div>
         <div class="sigee-pep-evento-card">
           <header>
             <div>
-              <time>${formatarData(ev.created_at || ev.data || ev.data_hora)}</time>
-              <h3>${escapar(tituloEvento(ev))}</h3>
+              <time>${escapar(periodo)}</time>
+              <h3>${escapar(rotuloEtapaGrupo(grupo))}</h3>
             </div>
-            <button type="button" aria-expanded="false" data-pep-expandir="${i}">Ver detalhes</button>
+            <button type="button" aria-expanded="false" data-pep-expandir="grupo-${gi}">Ver ações</button>
           </header>
-          <p>${escapar(descricaoEvento(ev))}</p>
-          <div class="sigee-pep-detalhes" data-pep-detalhes="${i}">
-            ${detalhesEvento(ev) || '<div><span>Registro</span><strong>Sem informações complementares.</strong></div>'}
+          <p>${grupo.eventos.length} registro(s) nesta etapa${executadas ? ` • ${executadas} ação(ões) executada(s)` : ''}${ciencias ? ` • ${ciencias} ciência(s)` : ''}.</p>
+          <div class="sigee-pep-detalhes sigee-pep-acoes-etapa" data-pep-detalhes="grupo-${gi}">
+            ${grupo.eventos.map((ev, ei) => `
+              <section class="sigee-pep-acao-interna ${naturezaEvento(ev).toLowerCase()}">
+                <div class="sigee-pep-acao-cabecalho">
+                  <span class="sigee-pep-acao-icone">${iconeEvento(ev)}</span>
+                  <div><time>${formatarData(ev.created_at || ev.data || ev.data_hora)}</time><strong>${escapar(tituloAcaoInterna(ev))}</strong></div>
+                  ${badgeNatureza(ev)}
+                </div>
+                <p>${escapar(descricaoEvento(ev))}</p>
+                <div class="sigee-pep-acao-metadados">${detalhesEvento(ev) || '<div><span>Registro</span><strong>Sem informações complementares.</strong></div>'}</div>
+              </section>`).join('')}
           </div>
         </div>
-      </article>`).join('');
+      </article>`;
+    }).join('');
   }
 
   function resumoComunicacoes(eventos) {
@@ -375,6 +506,11 @@
 
   function ultimaMovimentacao(eventos) {
     return eventos.filter(e => dataValida(e.created_at || e.data || e.data_hora))
+      .slice().sort((a,b) => dataValida(b.created_at || b.data || b.data_hora) - dataValida(a.created_at || a.data || a.data_hora))[0] || null;
+  }
+
+  function ultimaAcaoExecutada(eventos) {
+    return eventos.filter(e => naturezaEvento(e) === 'ACAO_EXECUTADA' && dataValida(e.created_at || e.data || e.data_hora))
       .slice().sort((a,b) => dataValida(b.created_at || b.data || b.data_hora) - dataValida(a.created_at || a.data || a.data_hora))[0] || null;
   }
 
@@ -393,6 +529,7 @@
     const comunicacoes = resumoComunicacoes(eventos);
     const documentos = resumoDocumentos(eventos);
     const ultima = ultimaMovimentacao(eventos);
+    const ultimaExecutada = ultimaAcaoExecutada(eventos);
     const ultimaData = ultima?.created_at || ultima?.data || ultima?.data_hora || inicio;
     const tempoParado = diasEntre(ultimaData, agoraWorkflow());
     const responsavelAtual = valor(p,'tecnico_responsavel','responsavel','usuario_responsavel') || 'Não atribuído';
@@ -431,7 +568,7 @@
 
         <div class="sigee-pep-conteudo">
           <main class="sigee-pep-timeline">
-            <div class="sigee-pep-secao-titulo"><div><span>LINHA DO TEMPO</span><h2>Trajetória completa do processo</h2></div><b>${eventos.length} registros</b></div>
+            <div class="sigee-pep-secao-titulo"><div><span>LINHA DO TEMPO</span><h2>Trajetória completa do processo</h2></div><b>${agruparEventosPorEtapa(eventos).length} etapas • ${eventos.length} registros</b></div>
             ${eventos.length ? timelineHTML(eventos) : '<div class="sigee-pep-vazio">Nenhum evento auditável foi localizado para este processo.</div>'}
           </main>
 
@@ -444,7 +581,7 @@
               <dl class="sigee-pep-resumo-executivo">
                 <div><dt>Responsável</dt><dd>${escapar(responsavelAtual)}</dd></div>
                 <div><dt>Última movimentação</dt><dd>${formatarData(ultimaData)}</dd></div>
-                <div><dt>Última ação</dt><dd>${escapar(ultima ? tituloEvento(ultima) : 'Não identificada')}</dd></div>
+                <div><dt>Última ação</dt><dd>${escapar(ultimaExecutada ? tituloEvento(ultimaExecutada) : 'Nenhuma ação executada')}</dd></div>
                 <div><dt>Risco</dt><dd class="risco-${normalizar(risco).toLowerCase()}">${escapar(risco)}</dd></div>
               </dl>
             </section>
@@ -471,7 +608,7 @@
                 <div><dt>Conferente</dt><dd>${escapar(valor(p,'conferente','conferente_nome') || 'Não atribuído')}</dd></div>
               </dl>
             </section>
-            <section class="sigee-pep-selo"><b>Registro Institucional</b><span>Eventos auditáveis do SIGEE Enterprise</span><small>RC10.8.4</small></section>
+            <section class="sigee-pep-selo"><b>Registro Institucional</b><span>Eventos auditáveis do SIGEE Enterprise</span><small>RC10.8.5</small></section>
           </aside>
         </div>
         <footer class="sigee-pep-rodape-impressao">
