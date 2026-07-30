@@ -108,15 +108,12 @@ body.sigee-prontuario-aberto { overflow: hidden !important; }
  .sigee-pep-acao-interna>p{font-size:7.5px!important;margin:5px 0!important}.sigee-pep-acao-metadados{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:4px!important}.sigee-pep-acao-metadados>div{padding:4px!important}.sigee-pep-acao-metadados span{font-size:6px!important}.sigee-pep-acao-metadados strong{font-size:7px!important}
 }
 
-/* RC10.8.6 — metadados operacionais por etapa */
-.sigee-pep-resumo-etapa{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:9px 0;padding:9px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px}
-.sigee-pep-resumo-etapa>div{min-width:0}
-.sigee-pep-resumo-etapa span,.sigee-pep-resumo-etapa strong{display:block}
-.sigee-pep-resumo-etapa span{font-size:8px;color:#64748b;text-transform:uppercase;letter-spacing:.04em;font-weight:800}
-.sigee-pep-resumo-etapa strong{font-size:10px;color:#172033;margin-top:3px;overflow-wrap:anywhere}
-.sigee-pep-badge-natureza.registro{background:#dbeafe;color:#1d4ed8}
-@media(max-width:760px){.sigee-pep-resumo-etapa{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media print{
- .sigee-pep-resumo-etapa{grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:4px!important;margin:5px 0!important;padding:5px!important;border-radius:6px!important;break-inside:avoid!important}
- .sigee-pep-resumo-etapa span{font-size:5.8px!important}.sigee-pep-resumo-etapa strong{font-size:7px!important}
-}
+
+/* RC10.8.7 — metadados cronológicos por etapa */
+.sigee-pep-metadados-etapa{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:12px 0;padding:10px;border:1px solid #d8e2ee;border-radius:12px;background:#f7f9fc}
+.sigee-pep-metadados-etapa>div{min-width:0}
+.sigee-pep-metadados-etapa span{display:block;font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:#60738a;font-weight:800;margin-bottom:4px}
+.sigee-pep-metadados-etapa strong{display:block;font-size:12px;color:#14263d;overflow-wrap:anywhere}
+.sigee-pep-vazio-etapa{padding:14px;border:1px dashed #cbd7e5;border-radius:10px;color:#66778d;background:#fafcff}
+@media(max-width:900px){.sigee-pep-metadados-etapa{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media print{.sigee-pep-metadados-etapa{grid-template-columns:repeat(4,minmax(0,1fr))!important;break-inside:avoid}}
