@@ -13,10 +13,10 @@
 (function (window, document) {
   'use strict';
 
-  if (window.__SIGEE_POPUP_PRAZOS_LOGIN_RC1081__) return;
-  window.__SIGEE_POPUP_PRAZOS_LOGIN_RC1081__ = true;
+  if (window.__SIGEE_POPUP_PRAZOS_LOGIN_RC1082__) return;
+  window.__SIGEE_POPUP_PRAZOS_LOGIN_RC1082__ = true;
 
-  const VERSION = 'RC10.8.1';
+  const VERSION = 'RC10.8.2';
   const EVENTOS = Object.freeze({
     31: Object.freeze({ codigo: 'SEND_REITERACAO', titulo: 'Reiteração' }),
     38: Object.freeze({ codigo: 'SEND_REITERACAO_URGENTE', titulo: 'Reiteração Urgente' }),
@@ -230,14 +230,6 @@
     return true;
   }
 
-  function abrirProcesso(id) {
-    try {
-      removerPopup();
-      window.abrirDetalhesProcesso?.(id);
-      window.abrirProcesso?.(id);
-    } catch (_) {}
-  }
-
   function exibirPopup(usuario, itens) {
     removerPopup();
     const overlay = document.createElement('div');
@@ -261,7 +253,6 @@
                 <span>${escapar(item.processo.aluno_nome || 'Aluno não informado')}</span>
                 <small>${escapar(item.processo.escola_nome || 'Escola não informada')}</small>
                 <b>Etapa atual: ${escapar(item.estado?.nome || item.acao.titulo)}${item.diaCiclo ? ` — ${item.diaCiclo}º dia do ciclo` : ''}</b>
-                <button type="button" class="sigee-prazos-login-abrir" data-processo-id="${escapar(item.processo.id)}">Abrir processo</button>
               </div>
             </article>`).join('')}
         </div>
@@ -279,9 +270,6 @@
     const checkbox = overlay.querySelector('#sigee-prazos-login-checkbox');
     const confirmar = overlay.querySelector('#sigee-prazos-login-confirmar');
     const erro = overlay.querySelector('#sigee-prazos-login-erro');
-    overlay.querySelectorAll('.sigee-prazos-login-abrir').forEach(botao => {
-      botao.addEventListener('click', () => abrirProcesso(botao.dataset.processoId));
-    });
     checkbox.addEventListener('change', () => { confirmar.disabled = !checkbox.checked; });
     confirmar.addEventListener('click', async () => {
       if (!checkbox.checked) return;
@@ -360,7 +348,7 @@
     verificarSessaoJaAtiva();
   }
 
-  // RC10.8.1 — O popup é verificado em cada login e lista processos da Reiteração ao Pedido de Atas enquanto permanecerem nessas etapas.
+  // RC10.8.2 — O popup não permite abrir o processo; a confirmação de ciência permanece obrigatória em cada login.
   // Alterações do relógio de homologação atualizam prazos e botões, mas o alerta só é aberto pelo evento de login.
   window.SIGEE_POPUP_PRAZOS_LOGIN = Object.freeze({ version: VERSION, verificar: aoLogin });
 })(window, document);
