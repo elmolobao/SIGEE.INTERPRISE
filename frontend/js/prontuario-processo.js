@@ -1,18 +1,27 @@
 /* =====================================================================
-   SIGEE Enterprise — Sprint 3.5.0
+   SIGEE Enterprise — RC10.3.0
    Prontuário Eletrônico do Processo
    Camada aditiva: não altera regras, transições ou persistência do workflow.
    ===================================================================== */
 (function () {
   'use strict';
-  if (window.__SIGEE_PRONTUARIO_350__) return;
-  window.__SIGEE_PRONTUARIO_350__ = true;
+  if (window.__SIGEE_PRONTUARIO_RC1030__) return;
+  window.__SIGEE_PRONTUARIO_RC1030__ = true;
 
-  const ETAPAS = [
-    'Solicitação', 'Documento Recebido', 'Desarquivamento', 'Análise',
-    'Pendência', 'Digitação', 'Conferência', 'Assinatura',
-    'Aguardando Retirada', 'Retirado'
-  ];
+  const ETAPAS = Object.freeze([
+    { tipo:'SOLICITACAO', label:'Solicitação' },
+    { tipo:'DOCUMENTO_SOLICITADO', label:'Documento Solicitado' },
+    { tipo:'PASTA_LOCALIZADA', label:'Pasta Localizada' },
+    { tipo:'PASTA_RECEBIDA', label:'Pasta Recebida' },
+    { tipo:'DESARQUIVAMENTO', label:'Desarquivamento' },
+    { tipo:'ANALISE', label:'Análise' },
+    { tipo:'PENDENCIA', label:'Pendência' },
+    { tipo:'DIGITACAO', label:'Digitação' },
+    { tipo:'CONFERENCIA', label:'Conferência' },
+    { tipo:'ASSINATURA', label:'Assinatura' },
+    { tipo:'DEFERIDO', label:'Deferido' },
+    { tipo:'RETIRADO', label:'Retirado' }
+  ]);
 
   const texto = v => v == null ? '' : String(v).trim();
   const normalizar = v => texto(v).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
@@ -44,8 +53,22 @@
     return '';
   }
 
+  function estadoTemporal(p) {
+    try {
+      const resolvedor = window.SIGEE_WORKFLOW_TEMPORAL;
+      if (resolvedor && typeof resolvedor.resolve === 'function') return resolvedor.resolve(p || {});
+    } catch (e) {
+      console.warn('[SIGEE RC10.3.0] Resolvedor temporal indisponível no prontuário:', e);
+    }
+    return null;
+  }
+
   function etapaAtual(p) {
-    return valor(p, 'etapa_atual', 'etapa', 'fase_atual') || 'Desarquivamento';
+    const temporal = estadoTemporal(p);
+    const etapaPersistida = valor(p, 'etapa_atual', 'etapa', 'fase_atual') || 'Desarquivamento';
+    const normalizada = normalizar(etapaPersistida);
+    const fluxoExterno = ['DESARQUIVAMENTO', 'REITERACAO', 'REITERACAO URGENTE', 'CONFIRMACAO DOS DADOS', 'PEDIDO DE ATAS SEM PASTA'];
+    return temporal && fluxoExterno.some(item => normalizada.includes(item)) ? temporal.name : etapaPersistida;
   }
 
   function codigo(p) {
@@ -74,24 +97,39 @@
     return Math.max(0, Math.floor((b - a) / 86400000));
   }
 
+  function agoraWorkflow() {
+    try {
+      const relogio = window.SIGEE_WORKFLOW_CLOCK;
+      const valorAtual = relogio && typeof relogio.now === 'function' ? relogio.now() : new Date();
+      return dataValida(valorAtual) || new Date();
+    } catch (_) {
+      return new Date();
+    }
+  }
+
   function fechar() {
+    prontuarioAbertoId = null;
     document.getElementById('sigee-prontuario-overlay')?.remove();
     document.body.classList.remove('sigee-prontuario-aberto');
   }
 
   function iconeEvento(ev) {
+    const tipo = normalizar(ev?.tipo || '');
     const n = normalizar(`${ev.acao || ''} ${ev.etapa || ''}`);
-    if (n.includes('DOCUMENT')) return '📁';
-    if (n.includes('MENSAGEM') || n.includes('COMUNIC')) return '✉️';
-    if (n.includes('RETIFIC')) return '🔁';
-    if (n.includes('REITER')) return '⏱️';
-    if (n.includes('PEND')) return '⚠️';
-    if (n.includes('DIGIT')) return '⌨️';
-    if (n.includes('CONFER')) return '🔎';
-    if (n.includes('ASSIN')) return '✍️';
-    if (n.includes('DEFER') || n.includes('RETIR')) return '✅';
-    if (n.includes('INDEFER')) return '⛔';
-    if (n.includes('ANAL')) return '🔍';
+    if (tipo === 'SOLICITACAO') return '📄';
+    if (tipo === 'DOCUMENTO_SOLICITADO') return '📧';
+    if (tipo === 'PASTA_LOCALIZADA') return '📦';
+    if (tipo === 'PASTA_RECEBIDA' || tipo === 'DOCUMENTO_RECEBIDO' || n.includes('PASTA RECEBIDA') || n.includes('DOCUMENTO RECEBIDO')) return '📁';
+    if (tipo === 'COMUNICACAO' || n.includes('COMUNIC')) return '✉️';
+    if (tipo === 'RETIFICACAO' || n.includes('RETIFIC')) return '🔁';
+    if (tipo.includes('REITERACAO') || n.includes('REITER')) return '⏱️';
+    if (tipo === 'PENDENCIA' || n.includes('PEND')) return '⚠️';
+    if (tipo === 'DIGITACAO' || n.includes('DIGIT')) return '⌨️';
+    if (tipo === 'CONFERENCIA' || n.includes('CONFER')) return '✔️';
+    if (tipo === 'ASSINATURA' || n.includes('ASSIN')) return '✒️';
+    if (tipo === 'DEFERIDO' || tipo === 'RETIRADO') return '🏁';
+    if (tipo === 'INDEFERIDO') return '⛔';
+    if (tipo === 'ANALISE' || n.includes('ANAL')) return '🔎';
     return '●';
   }
 
@@ -114,9 +152,8 @@
   function tituloEvento(ev) {
     const codigo = normalizar(ev?.acao || ev?.evento || '');
     const titulos = {
-      PENDENCIA_REGISTRADA: 'Análise realizada - Pendência registrada',
-      ANALISE_REALIZADA_PENDENCIA_REGISTRADA: 'Análise realizada - Pendência registrada',
-      DOCUMENTO_RECEBIDO: 'Documento Recebido',
+      PASTA_RECEBIDA: 'Pasta Recebida',
+      DOCUMENTO_RECEBIDO: 'Pasta Recebida',
       RETIFICAR_DADOS: 'Retificação de Dados',
       SEND_REITERACAO: 'Reiteração',
       SEND_REITERACAO_URGENTE: 'Reiteração com Urgência',
@@ -129,8 +166,11 @@
   function descricaoEvento(ev) {
     const codigo = normalizar(ev?.acao || ev?.evento || '');
     const d = dadosEvento(ev);
-    if (codigo === 'DOCUMENTO_RECEBIDO') {
-      return ev.observacao || `Documento recebido${d.tipo_arquivo ? ` (${d.tipo_arquivo})` : ''}. Processo encaminhado para Análise sem reinício do ciclo.`;
+    if (codigo === 'PASTA_RECEBIDA' || codigo === 'DOCUMENTO_RECEBIDO' || /PASTA RECEBIDA|RECEBIMENTO DA PASTA|DOCUMENTO RECEBIDO/.test(codigo)) {
+      const tipo = d.tipo_arquivo || ev.documento || ev.tipo_arquivo;
+      const local = d.local_arquivo || d.local || ev.localArquivo || ev.local_arquivo;
+      const complemento = [tipo ? `Tipo: ${tipo}.` : '', local ? `Local: ${local}.` : ''].filter(Boolean).join(' ');
+      return ev.observacao || `Recebimento da pasta registrado${complemento ? `. ${complemento}` : '.'}`;
     }
     if (codigo === 'RETIFICAR_DADOS') {
       const novo = d.novo_ciclo || ev.novo_ciclo;
@@ -144,34 +184,50 @@
   }
 
   function detalhesEvento(ev) {
+    const data = ev.created_at || ev.data || ev.data_hora;
+    const d = dadosEvento(ev);
+    const fontes = Array.isArray(ev.fontes) ? ev.fontes.join(', ') : ev.origem;
     const campos = [
-      ['Responsável', ev.usuario_nome || ev.responsavel || ev.executado_por],
+      ['Evento', tituloEvento(ev)],
+      ['Data e hora', formatarData(data)],
+      ['Responsável', ev.usuario_nome || ev.responsavel || ev.executado_por || 'Não identificado'],
       ['Perfil', ev.usuario_perfil || ev.perfil],
       ['Etapa', ev.etapa],
-      ['Mensagem', ev.mensagem_codigo || ev.mensagem],
-      ['Arquivo', ev.tipo_arquivo || ev.arquivo],
-      ['Local', ev.local_arquivo || ev.origem],
-      ['Ciclo', ev.ciclo || ev.cycle || dadosEvento(ev).ciclo],
-      ['Novo ciclo', ev.novo_ciclo || dadosEvento(ev).novo_ciclo],
-      ['Prazo iniciado', ev.prazo_dias || dadosEvento(ev).prazo_dias ? `${ev.prazo_dias || dadosEvento(ev).prazo_dias} dias` : ''],
-      ['Observação', ev.observacao || ev.descricao]
+      ['Prazo', ev.prazoFinal ? formatarData(ev.prazoFinal, false) : (ev.prazoDias ? `${ev.prazoDias} dias` : '')],
+      ['E-mail / modelo', ev.mensagemCodigo || ev.mensagem_codigo || ev.mensagem],
+      ['Tipo do documento', ev.documento || ev.tipo_arquivo || ev.arquivo],
+      ['Local do arquivo', ev.localArquivo || ev.local_arquivo || d.local_arquivo || d.local],
+      ['Origem auditável', fontes],
+      ['Logs consolidados', ev.totalRegistrosAgrupados > 1 ? `${ev.totalRegistrosAgrupados} registros equivalentes` : '1 registro'],
+      ['Sessão', ev.sessaoId || ev.sessao_id],
+      ['Observação', ev.observacao || ev.descricao || ev.detalhes]
     ].filter(([,v]) => texto(v));
 
-    let extras = '';
-    const dados = dadosEvento(ev);
-    if (dados && typeof dados === 'object') {
-      extras = Object.entries(dados)
-        .filter(([,v]) => v != null && typeof v !== 'object')
-        .map(([k,v]) => `<div><span>${escapar(k.replaceAll('_',' '))}</span><strong>${escapar(v)}</strong></div>`)
-        .join('');
-    }
+    const conhecidos = new Set(['id','created_at','data','data_hora','acao','evento','titulo','etapa','observacao','descricao','detalhes']);
+    const extras = d && typeof d === 'object'
+      ? Object.entries(d).filter(([k,v]) => !conhecidos.has(k) && v != null && typeof v !== 'object')
+          .slice(0, 12)
+          .map(([k,v]) => `<div><span>${escapar(k.replaceAll('_',' '))}</span><strong>${escapar(v)}</strong></div>`).join('')
+      : '';
     return campos.map(([k,v]) => `<div><span>${k}</span><strong>${escapar(v)}</strong></div>`).join('') + extras;
   }
 
   async function carregarEventos(p) {
+    try {
+      if (window.SIGEE6?.timeline?.carregar) {
+        const timeline = await window.SIGEE6.timeline.carregar(p.id, p);
+        return {
+          eventos: Array.isArray(timeline?.eventos) ? timeline.eventos : [],
+          marcos: timeline?.marcos || { pastaRecebida:false, documentoRecebido:false },
+          origem: 'SIGEE6.timeline'
+        };
+      }
+    } catch (e) {
+      console.warn('[SIGEE RC6.1.5] Timeline Enterprise indisponível; aplicando leitura compatível:', e);
+    }
+
     const eventos = [];
     const cliente = supabase();
-
     if (cliente && p?.id != null) {
       try {
         const { data, error } = await cliente
@@ -194,28 +250,40 @@
         usuario_nome: valor(p, 'criado_por', 'responsavel') || 'Sistema SIGEE',
         observacao: 'Registro inicial do processo.'
       });
-
-      const atual = etapaAtual(p);
-      if (normalizar(atual) !== 'SOLICITACAO') {
-        eventos.push({
-          created_at: valor(p, 'data_etapa_atual', 'updated_at') || new Date().toISOString(),
-          acao: `Processo em ${atual}`,
-          etapa: atual,
-          usuario_nome: valor(p, 'tecnico_responsavel', 'responsavel', 'analista') || 'Responsável não informado',
-          observacao: 'Evento reconstruído a partir do estado atual.'
-        });
-      }
     }
-    return eventos;
+
+    const pastaRecebida = eventos.some(ev => /PASTA (FISICA )?RECEBIDA|RECEBIMENTO (DA|DE) PASTA|ACERVO (FISICO )?RECEBIDO/i.test(`${ev.acao || ''} ${ev.etapa || ''} ${ev.observacao || ''} ${ev.detalhes || ''}`));
+    return { eventos, marcos:{ pastaRecebida, documentoRecebido:eventos.some(ev => /DOCUMENTO RECEBIDO/i.test(`${ev.acao || ''} ${ev.etapa || ''}`)) }, origem:'compatibilidade' };
   }
 
-  function workflowHTML(p) {
+  function tipoEtapaAtual(p) {
     const atual = normalizar(etapaAtual(p));
-    const indiceAtual = Math.max(0, ETAPAS.findIndex(e => atual.includes(normalizar(e))));
-    return ETAPAS.map((e, i) => {
-      const classe = i < indiceAtual ? 'concluida' : i === indiceAtual ? 'atual' : 'futura';
-      return `<div class="sigee-pep-etapa ${classe}">
-        <span>${i < indiceAtual ? '✓' : i + 1}</span><small>${escapar(e)}</small>
+    const mapa = {
+      'SOLICITACAO':'SOLICITACAO', 'DOCUMENTO SOLICITADO':'DOCUMENTO_SOLICITADO',
+      'PASTA LOCALIZADA':'PASTA_LOCALIZADA', 'PASTA RECEBIDA':'PASTA_RECEBIDA',
+      'DOCUMENTO RECEBIDO':'PASTA_RECEBIDA', 'DESARQUIVAMENTO':'DESARQUIVAMENTO',
+      'REITERACAO':'DESARQUIVAMENTO', 'REITERACAO URGENTE':'DESARQUIVAMENTO',
+      'CONFIRMACAO DOS DADOS':'DESARQUIVAMENTO', 'PEDIDO DE ATAS SEM PASTA':'DESARQUIVAMENTO',
+      'ANALISE':'ANALISE', 'PENDENCIA':'PENDENCIA', 'DIGITACAO':'DIGITACAO',
+      'CONFERENCIA':'CONFERENCIA', 'ASSINATURA':'ASSINATURA',
+      'DEFERIDO':'DEFERIDO', 'AGUARDANDO RETIRADA':'DEFERIDO', 'RETIRADO':'RETIRADO'
+    };
+    return mapa[atual] || ETAPAS.find(e => atual.includes(normalizar(e.label)))?.tipo || '';
+  }
+
+  function workflowHTML(p, eventos = [], marcos = {}) {
+    const executados = new Set(marcos.tiposExecutados || eventos.map(e => e.tipo).filter(Boolean));
+    const atual = tipoEtapaAtual(p);
+    return ETAPAS.map((etapa, i) => {
+      const concluida = executados.has(etapa.tipo);
+      const ehAtual = etapa.tipo === atual;
+      let classe = concluida ? 'concluida' : ehAtual ? 'atual' : 'futura';
+      if (etapa.tipo === 'PASTA_RECEBIDA' && !concluida) classe += ' pendente-registro marco-pasta';
+      if (etapa.tipo === 'PASTA_RECEBIDA' && concluida) classe += ' marco-pasta';
+      const simbolo = concluida ? '✓' : ehAtual ? '●' : i + 1;
+      const titulo = concluida ? 'Evento confirmado pela Timeline' : ehAtual ? 'Etapa atual do processo' : 'Evento não localizado na Timeline';
+      return `<div class="sigee-pep-etapa ${classe}" title="${titulo}">
+        <span>${simbolo}</span><small>${escapar(etapa.label)}</small>
       </div>`;
     }).join('');
   }
@@ -248,12 +316,30 @@
     return eventos.filter(e => /DOCUMENT|PASTA|ATA|CADERNETA|PARECER|BOLETIM/i.test(`${e.acao || ''} ${e.observacao || ''} ${e.tipo_arquivo || ''}`));
   }
 
-  function modalHTML(p, eventos) {
-    const inicio = valor(p, 'created_at', 'criado_em', 'data_solicitacao', 'data_abertura', 'data_inicio_desarquivamento');
-    const tempoTotal = diasEntre(inicio);
+  function ultimaMovimentacao(eventos) {
+    return eventos.filter(e => dataValida(e.created_at || e.data || e.data_hora))
+      .slice().sort((a,b) => dataValida(b.created_at || b.data || b.data_hora) - dataValida(a.created_at || a.data || a.data_hora))[0] || null;
+  }
+
+  function riscoProcesso(p, tempoParado) {
+    const prazo = dataValida(valor(p,'prazo_fim'));
+    if (prazo && prazo < new Date()) return 'Crítico';
+    if (tempoParado >= 15) return 'Atenção';
+    return 'Normal';
+  }
+
+  function modalHTML(p, eventos, marcos = {}) {
+    const temporal = estadoTemporal(p);
+    const inicio = temporal?.anchor || valor(p, 'created_at', 'criado_em', 'data_solicitacao', 'data_abertura', 'data_inicio_desarquivamento');
+    const tempoTotal = temporal?.days ?? diasEntre(inicio);
     const etapa = etapaAtual(p);
     const comunicacoes = resumoComunicacoes(eventos);
     const documentos = resumoDocumentos(eventos);
+    const ultima = ultimaMovimentacao(eventos);
+    const ultimaData = ultima?.created_at || ultima?.data || ultima?.data_hora || inicio;
+    const tempoParado = diasEntre(ultimaData, agoraWorkflow());
+    const responsavelAtual = valor(p,'tecnico_responsavel','responsavel','usuario_responsavel') || 'Não atribuído';
+    const risco = riscoProcesso(p, tempoParado);
 
     return `
     <div id="sigee-prontuario-overlay" class="sigee-pep-overlay" role="dialog" aria-modal="true" aria-label="Prontuário Eletrônico do Processo">
@@ -261,7 +347,7 @@
         <header class="sigee-pep-topo">
           <div class="sigee-pep-marca"><b>SIGEE</b><span>Prontuário Eletrônico do Processo</span></div>
           <div class="sigee-pep-topo-acoes">
-            <button type="button" onclick="window.print()">🖨️ Imprimir</button>
+            <button type="button" data-pep-imprimir>🖨️ Imprimir</button>
             <button type="button" data-pep-fechar>✕ Fechar</button>
           </div>
         </header>
@@ -279,31 +365,45 @@
             <div><span>Responsável</span><strong>${escapar(valor(p,'tecnico_responsavel','responsavel','usuario_responsavel') || 'Não atribuído')}</strong></div>
             <div><span>Prioridade</span><strong>${escapar(valor(p,'prioridade') || 'Normal')}</strong></div>
             <div><span>Documento</span><strong>${escapar(valor(p,'documento_tipo','documento','documento_solicitado') || 'Não informado')}</strong></div>
+            <div><span>Tempo total</span><strong>${tempoTotal} dias</strong></div>
+            <div><span>Tempo parado</span><strong>${tempoParado} dias</strong></div>
           </div>
         </section>
 
-        <section class="sigee-pep-workflow">${workflowHTML(p)}</section>
+        <section class="sigee-pep-workflow">${workflowHTML(p, eventos, marcos)}</section>
 
         <div class="sigee-pep-conteudo">
           <main class="sigee-pep-timeline">
             <div class="sigee-pep-secao-titulo"><div><span>LINHA DO TEMPO</span><h2>Trajetória completa do processo</h2></div><b>${eventos.length} registros</b></div>
-            ${timelineHTML(eventos)}
+            ${eventos.length ? timelineHTML(eventos) : '<div class="sigee-pep-vazio">Nenhum evento auditável foi localizado para este processo.</div>'}
           </main>
 
           <aside class="sigee-pep-lateral">
             <section><h3>Visão executiva</h3>
-              <div class="sigee-pep-kpis">
-                <div><strong>${tempoTotal}</strong><span>dias totais</span></div>
-                <div><strong>${eventos.length}</strong><span>eventos</span></div>
-                <div><strong>${comunicacoes.length}</strong><span>comunicações</span></div>
-                <div><strong>${documentos.length}</strong><span>documentos</span></div>
+              <div class="sigee-pep-kpis sigee-pep-kpis-executivos">
+                <div><strong>${tempoTotal}</strong><span>tempo total (dias)</span></div>
+                <div><strong>${tempoParado}</strong><span>tempo parado (dias)</span></div>
+              </div>
+              <dl class="sigee-pep-resumo-executivo">
+                <div><dt>Responsável</dt><dd>${escapar(responsavelAtual)}</dd></div>
+                <div><dt>Última movimentação</dt><dd>${formatarData(ultimaData)}</dd></div>
+                <div><dt>Última ação</dt><dd>${escapar(ultima ? tituloEvento(ultima) : 'Não identificada')}</dd></div>
+                <div><dt>Risco</dt><dd class="risco-${normalizar(risco).toLowerCase()}">${escapar(risco)}</dd></div>
+              </dl>
+            </section>
+            <section class="sigee-pep-marco-pasta ${marcos.pastaRecebida ? 'registrado' : 'nao-registrado'}">
+              <h3>Recebimento da pasta</h3>
+              <div class="sigee-pep-marco-status">
+                <strong>${marcos.pastaRecebida ? '✓ Pasta recebida' : 'Aguardando registro'}</strong>
+                <span>${marcos.pastaRecebida ? 'Há evidência auditável na fonte oficial da cronologia.' : 'Nenhum recebimento da pasta foi localizado nas fontes consultadas.'}</span>
+                <small class="sigee-pep-fontes">Fontes verificadas: ${(marcos.fontesConsultadas || ['processos','historico_processos','logs_sigee']).map(escapar).join(' • ')}</small>
               </div>
             </section>
             <section><h3>Prazos</h3>
               <dl>
                 <div><dt>Etapa atual</dt><dd>${escapar(etapa)}</dd></div>
                 <div><dt>Início</dt><dd>${formatarData(inicio, false)}</dd></div>
-                <div><dt>Tempo na etapa</dt><dd>${diasEntre(valor(p,'data_etapa_atual','prazo_inicio'))} dias</dd></div>
+                <div><dt>Tempo na etapa</dt><dd>${temporal?.days ?? diasEntre(valor(p,'data_etapa_atual','prazo_inicio'))} dias</dd></div>
                 <div><dt>Prazo final</dt><dd>${formatarData(valor(p,'prazo_fim'), false)}</dd></div>
               </dl>
             </section>
@@ -314,14 +414,17 @@
                 <div><dt>Conferente</dt><dd>${escapar(valor(p,'conferente','conferente_nome') || 'Não atribuído')}</dd></div>
               </dl>
             </section>
-            <section class="sigee-pep-selo"><b>Registro Institucional</b><span>Eventos auditáveis do SIGEE Enterprise</span><small>Sprint 2.3.1</small></section>
+            <section class="sigee-pep-selo"><b>Registro Institucional</b><span>Eventos auditáveis do SIGEE Enterprise</span><small>RC10.3.0</small></section>
           </aside>
         </div>
       </div>
     </div>`;
   }
 
+  let prontuarioAbertoId = null;
+
   async function abrir(id) {
+    prontuarioAbertoId = id;
     const p = processo(id);
     if (!p) {
       alert('Processo não localizado para abertura do prontuário.');
@@ -335,10 +438,18 @@
     document.body.appendChild(carregando);
     document.body.classList.add('sigee-prontuario-aberto');
 
-    const eventos = await carregarEventos(p);
-    carregando.outerHTML = modalHTML(p, eventos);
+    const timeline = await carregarEventos(p);
+    const eventos = timeline.eventos || [];
+    const processoAtualizado = timeline.processo || p;
+    carregando.outerHTML = modalHTML(processoAtualizado, eventos, timeline.marcos || {});
 
     const overlay = document.getElementById('sigee-prontuario-overlay');
+    overlay?.querySelector('[data-pep-imprimir]')?.addEventListener('click', () => {
+      document.documentElement.classList.add('sigee-imprimindo-prontuario');
+      document.body.classList.add('sigee-imprimindo-prontuario');
+      overlay.scrollTop = 0;
+      requestAnimationFrame(() => window.print());
+    });
     overlay?.querySelector('[data-pep-fechar]')?.addEventListener('click', fechar);
     overlay?.addEventListener('click', e => { if (e.target === overlay) fechar(); });
     overlay?.querySelectorAll('[data-pep-expandir]').forEach(btn => {
@@ -370,23 +481,45 @@
   window.abrirHistoricoSIGEE = abrir;
   window.abrirHistoricoProcessoSIGEE = abrir;
 
+
+
+  window.addEventListener('sigee:workflow-action-executed', function (event) {
+    const processoId = event?.detail?.processoId;
+    try { window.SIGEE6?.timelineService?.invalidar?.(processoId); } catch (_) {}
+    if (prontuarioAbertoId == null || String(prontuarioAbertoId) !== String(processoId)) return;
+    if (!document.getElementById('sigee-prontuario-overlay')) return;
+    setTimeout(function () { abrir(processoId); }, 0);
+  });
+
+  window.addEventListener('sigee:workflow-clock-change', function () {
+    if (prontuarioAbertoId == null || !document.getElementById('sigee-prontuario-overlay')) return;
+    const id = prontuarioAbertoId;
+    setTimeout(function () { abrir(id); }, 0);
+  });
+
+  window.addEventListener('afterprint', () => {
+    document.documentElement.classList.remove('sigee-imprimindo-prontuario');
+    document.body.classList.remove('sigee-imprimindo-prontuario');
+  });
+
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && document.getElementById('sigee-prontuario-overlay')) fechar();
   });
 
-  let renomeacaoAgendada = false;
-  const observadorProntuario = new MutationObserver(() => {
-    if (renomeacaoAgendada) return;
-    renomeacaoAgendada = true;
-    requestAnimationFrame(() => {
-      renomeacaoAgendada = false;
-      renomearBotoes();
-    });
+  let timerRenomeacao = null;
+  const observadorProntuario = new MutationObserver(mudancas => {
+    if (document.hidden) return;
+    const relevante = mudancas.some(m => [...m.addedNodes].some(no =>
+      no.nodeType === 1 && (no.matches?.('button,[id*="prontuario"],[class*="prontuario"]') || no.querySelector?.('button,[id*="prontuario"],[class*="prontuario"]'))
+    ));
+    if (!relevante) return;
+    clearTimeout(timerRenomeacao);
+    timerRenomeacao = setTimeout(() => { timerRenomeacao = null; renomearBotoes(); }, 100);
   });
-  observadorProntuario.observe(document.documentElement, { childList:true, subtree:true });
+  observadorProntuario.observe(document.body || document.documentElement, { childList:true, subtree:true });
   document.readyState === 'loading'
     ? document.addEventListener('DOMContentLoaded', renomearBotoes)
     : renomearBotoes();
 
-  console.info('[SIGEE] Prontuário Eletrônico 2.3.1 carregado.');
+  console.info('[SIGEE RC10.8.3] Prontuário com impressão institucional isolada.');
 })();
