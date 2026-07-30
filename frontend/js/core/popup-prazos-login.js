@@ -16,7 +16,7 @@
   if (window.__SIGEE_POPUP_PRAZOS_LOGIN_RC1040__) return;
   window.__SIGEE_POPUP_PRAZOS_LOGIN_RC1040__ = true;
 
-  const VERSION = 'RC10.4.0';
+  const VERSION = 'RC10.6.0';
   const EVENTOS = Object.freeze({
     31: Object.freeze({ codigo: 'SEND_REITERACAO', titulo: 'Reiteração' }),
     38: Object.freeze({ codigo: 'SEND_REITERACAO_URGENTE', titulo: 'Reiteração Urgente' }),
@@ -213,7 +213,7 @@
       erro.hidden = true;
       try {
         await registrarCiencia(usuario, itens);
-        sessionStorage.setItem('SIGEE_CIENCIA_PRAZOS_LOGIN', new Date().toISOString());
+        sessionStorage.setItem(chaveSessao(usuario), new Date().toISOString());
         removerPopup();
       } catch (e) {
         erro.textContent = 'Não foi possível registrar a ciência. Verifique a conexão e tente novamente.';
@@ -225,11 +225,17 @@
     });
   }
 
+  function chaveSessao(usuario) {
+    const id = usuario && (usuario.id || usuario.email || usuario.nome || usuario.nte || 'anonimo');
+    return 'SIGEE_CIENCIA_PRAZOS_LOGIN::' + String(id);
+  }
+
   async function aoLogin(event) {
     const agora = Date.now();
     if (loginEmProcessamento || agora - ultimoLoginProcessado < 1500) return;
     const usuario = usuarioAtual(event && event.detail);
     if (!usuario || (!perfilTecnico(usuario) && !emHomologacaoMaster(usuario))) return;
+    if (sessionStorage.getItem(chaveSessao(usuario))) return;
     loginEmProcessamento = true;
     ultimoLoginProcessado = agora;
     try {
@@ -244,12 +250,7 @@
 
   document.addEventListener('sigee:login-concluido', aoLogin);
 
-  // Em produção o alerta continua exclusivo do login. No Modo Homologação,
-  // o Master recebe uma prévia ao alterar o relógio, sem precisar sair e entrar.
-  window.addEventListener('sigee:workflow-clock-change', function () {
-    const usuario = usuarioAtual();
-    if (!emHomologacaoMaster(usuario)) return;
-    setTimeout(function () { aoLogin({ detail: { usuario: usuario, origem: 'homologacao' } }); }, 80);
-  });
+  // RC10.6.0 — O popup é exclusivo da abertura da sessão.
+  // Alterações do relógio de homologação atualizam prazos e botões, mas não reabrem a ciência.
   window.SIGEE_POPUP_PRAZOS_LOGIN = Object.freeze({ version: VERSION, verificar: aoLogin });
 })(window, document);
