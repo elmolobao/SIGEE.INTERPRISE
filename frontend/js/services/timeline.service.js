@@ -2,7 +2,7 @@
   'use strict';
 
   const root = global.SIGEE6 = global.SIGEE6 || {};
-  const VERSION = 'RC6.1.5';
+  const VERSION = 'RC10.1.0';
   const texto = (v) => v == null ? '' : String(v).trim();
   const normalizar = (v) => texto(v).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[_\-]+/g, ' ').replace(/\s+/g, ' ').trim().toUpperCase();
 
@@ -27,6 +27,34 @@
     INDEFERIDO: 'INDEFERIDO',
     RETIRADO: 'RETIRADO'
   });
+
+
+  // Datas simuladas servem ao motor de prazo, mas não representam o momento
+  // real de execução de uma ação. A Timeline institucional exibe somente
+  // registros cuja data auditável não esteja no futuro do relógio civil.
+  function instanteCivilAtual() {
+    return Date.now();
+  }
+
+  function eventoComDataFutura(evento) {
+    const valorData = evento?.dataHora || evento?.created_at;
+    if (!valorData) return false;
+    const instante = new Date(valorData).getTime();
+    if (!Number.isFinite(instante)) return false;
+    return instante > instanteCivilAtual() + (5 * 60 * 1000);
+  }
+
+  function somenteEventosExecutados(eventos) {
+    return (Array.isArray(eventos) ? eventos : []).filter((evento) => {
+      if (!eventoComDataFutura(evento)) return true;
+      console.warn('[SIGEE RC10.1.0] Evento futuro removido da Timeline auditável:', {
+        tipo: evento.tipo,
+        dataHora: evento.dataHora,
+        origem: evento.origem
+      });
+      return false;
+    });
+  }
 
   function tiposExecutados(eventos) {
     return Array.from(new Set((eventos || []).map(e => e?.tipo).filter(tipo => TIPOS_ETAPA[tipo])));
@@ -370,6 +398,7 @@
     ]);
 
     let eventos = consolidarRecebimento(removerDuplicados(eventosSinteticos(processo, [...historico, ...logs, ...acoesWorkflow])));
+    eventos = somenteEventosExecutados(eventos);
     eventos.sort((a, b) => {
       const da = a.dataHora ? new Date(a.dataHora).getTime() : Number.MAX_SAFE_INTEGER;
       const dbv = b.dataHora ? new Date(b.dataHora).getTime() : Number.MAX_SAFE_INTEGER;
