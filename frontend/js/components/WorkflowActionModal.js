@@ -64,7 +64,7 @@
       .sigee-wam-consequence{padding:14px;border-radius:10px;background:rgba(255,193,7,.10)}
       .sigee-wam-field label{display:block;margin-bottom:8px;font-weight:700}
       .sigee-wam-field textarea{width:100%;min-height:88px;max-height:180px;resize:vertical;box-sizing:border-box;padding:12px 14px;border:1px solid rgba(255,255,255,.16);border-radius:10px;background:rgba(255,255,255,.06);color:#fff;font:inherit;outline:none}
-      .sigee-wam-custom-fields{display:grid;gap:12px}.sigee-wam-custom-title{margin:0;font-size:.95rem}.sigee-wam-custom-row{display:grid;grid-template-columns:minmax(160px,.8fr) 1.2fr;gap:12px;align-items:start;padding:12px;border:1px solid rgba(255,255,255,.10);border-radius:10px;background:rgba(255,255,255,.035)}.sigee-wam-custom-check{display:flex;align-items:flex-start;gap:9px;font-weight:800}.sigee-wam-custom-check input{width:18px;height:18px;margin-top:2px}.sigee-wam-custom-values{display:grid;gap:7px}.sigee-wam-current-value{font-size:.78rem;color:rgba(255,255,255,.72)}.sigee-wam-custom-input{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid rgba(255,255,255,.16);border-radius:9px;background:rgba(255,255,255,.06);color:#fff;font:inherit;outline:none}.sigee-wam-custom-input:disabled{opacity:.45}.sigee-wam-custom-hint{margin:0;color:rgba(255,255,255,.66);font-size:.82rem}
+      .sigee-wam-custom-fields{display:grid;gap:12px}.sigee-wam-custom-title{margin:0;font-size:.95rem}.sigee-wam-custom-row{display:grid;grid-template-columns:minmax(160px,.8fr) 1.2fr;gap:12px;align-items:start;padding:12px;border:1px solid rgba(255,255,255,.10);border-radius:10px;background:rgba(255,255,255,.035)}.sigee-wam-custom-check{display:flex;align-items:flex-start;gap:9px;font-weight:800}.sigee-wam-custom-check input{width:18px;height:18px;margin-top:2px}.sigee-wam-custom-values{display:grid;gap:7px}.sigee-wam-current-value,.sigee-wam-input-label{font-size:.78rem;color:rgba(255,255,255,.72)}.sigee-wam-input-label{font-weight:800}.sigee-wam-custom-input{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid rgba(255,255,255,.16);border-radius:9px;background:rgba(255,255,255,.06);color:#fff;font:inherit;outline:none}.sigee-wam-custom-input:disabled{opacity:.45}.sigee-wam-custom-hint{margin:0;color:rgba(255,255,255,.66);font-size:.82rem}
       .sigee-wam-confirm{display:flex;align-items:flex-start;gap:10px;padding:14px;border:1px solid rgba(255,255,255,.10);border-radius:10px;background:rgba(255,255,255,.035)}
       .sigee-wam-confirm input{margin-top:3px;width:18px;height:18px}
       .sigee-wam-error{display:none;padding:12px 14px;border-radius:10px;background:rgba(220,53,69,.16);color:#ffd7dc}
@@ -148,7 +148,7 @@
     if (customRows.length) {
       const selected = customRows.filter(row => row.querySelector('.sigee-wam-custom-check-input')?.checked);
       if (!selected.length) return false;
-      if (selected.some(row => !(row.querySelector('.sigee-wam-custom-input')?.value || '').trim())) return false;
+      if (selected.some(row => [...row.querySelectorAll('.sigee-wam-custom-input')].some(input => !(input.value || '').trim()))) return false;
     }
     const confirmed = confirmations.length === 0 || confirmations.every(input => input.checked);
     if (options.requireConfirmation && !confirmed) return false;
@@ -183,12 +183,23 @@
     const customFields = Array.isArray(options.customFields) ? options.customFields : [];
     customWrap.hidden = !customFields.length;
     customWrap.innerHTML = customFields.length ? `
-      <h3 class="sigee-wam-custom-title">Selecione o que foi alterado e informe somente o novo valor *</h3>
-      <p class="sigee-wam-custom-hint">O valor anterior será capturado automaticamente pelo SIGEE.</p>
-      ${customFields.map(field => `<div class="sigee-wam-custom-row" data-field="${String(field.key)}">
-        <label class="sigee-wam-custom-check"><input type="checkbox" class="sigee-wam-custom-check-input"><span>${String(field.label)}</span></label>
-        <div class="sigee-wam-custom-values"><span class="sigee-wam-current-value">Atual: ${String(field.currentValue || 'Não informado')}</span><input class="sigee-wam-custom-input" type="text" disabled placeholder="Nova informação"></div>
-      </div>`).join('')}
+      <h3 class="sigee-wam-custom-title">Selecione os dados retificados *</h3>
+      <p class="sigee-wam-custom-hint">Quando o dado original existir no SIGEE, ele será preservado e exibido automaticamente. Quando não existir, informe também o valor apresentado no pedido inicial.</p>
+      ${customFields.map(field => {
+        const possuiValorInicial = String(field.currentValue || '').trim().length > 0;
+        const rotuloInicial = String(field.initialLabel || `${field.label} informado inicialmente`);
+        const rotuloRetificado = String(field.retifiedLabel || `${field.label} posteriormente retificado`);
+        return `<div class="sigee-wam-custom-row" data-field="${String(field.key)}">
+          <label class="sigee-wam-custom-check"><input type="checkbox" class="sigee-wam-custom-check-input"><span>${String(field.label)}</span></label>
+          <div class="sigee-wam-custom-values">
+            ${possuiValorInicial
+              ? `<span class="sigee-wam-current-value"><strong>${rotuloInicial}:</strong> ${String(field.currentValue)}</span>`
+              : `<label class="sigee-wam-input-label">${rotuloInicial}</label><input class="sigee-wam-custom-input sigee-wam-initial-input" type="text" disabled placeholder="Informe o dado fornecido inicialmente">`}
+            <label class="sigee-wam-input-label">${rotuloRetificado}</label>
+            <input class="sigee-wam-custom-input sigee-wam-retified-input" type="text" disabled placeholder="Informe o dado posteriormente retificado">
+          </div>
+        </div>`;
+      }).join('')}
     ` : '';
 
     const obsWrap = byId('sigee-wam-observation-wrap');
@@ -246,7 +257,16 @@
     const customValues = [...document.querySelectorAll('#sigee-wam-custom-fields .sigee-wam-custom-row')].filter(row => row.querySelector('.sigee-wam-custom-check-input')?.checked).map(row => {
       const key = row.dataset.field;
       const config = (Array.isArray(options.customFields) ? options.customFields : []).find(item => String(item.key) === String(key)) || {};
-      return { key, label: config.label || key, before: config.currentValue || '', after: row.querySelector('.sigee-wam-custom-input')?.value.trim() || '' };
+      const before = String(config.currentValue || '').trim() || row.querySelector('.sigee-wam-initial-input')?.value.trim() || '';
+      const after = row.querySelector('.sigee-wam-retified-input')?.value.trim() || '';
+      return {
+        key,
+        label: config.label || key,
+        initialLabel: config.initialLabel || `${config.label || key} informado inicialmente`,
+        retifiedLabel: config.retifiedLabel || `${config.label || key} posteriormente retificado`,
+        before,
+        after
+      };
     });
 
     const payload = {
@@ -300,8 +320,9 @@
       byId('sigee-wam-custom-fields').addEventListener('change', (event) => {
         if (event.target.classList.contains('sigee-wam-custom-check-input')) {
           const row = event.target.closest('.sigee-wam-custom-row');
-          const input = row?.querySelector('.sigee-wam-custom-input');
-          if (input) { input.disabled = !event.target.checked; if (!event.target.checked) input.value = ''; else input.focus(); }
+          const inputs = [...(row?.querySelectorAll('.sigee-wam-custom-input') || [])];
+          inputs.forEach(input => { input.disabled = !event.target.checked; if (!event.target.checked) input.value = ''; });
+          if (event.target.checked) inputs[0]?.focus();
         }
         updateExecuteState();
       });
