@@ -13,10 +13,10 @@
 (function (window, document) {
   'use strict';
 
-  if (window.__SIGEE_POPUP_PRAZOS_LOGIN_RC1082__) return;
-  window.__SIGEE_POPUP_PRAZOS_LOGIN_RC1082__ = true;
+  if (window.__SIGEE_POPUP_PRAZOS_LOGIN_RC10810__) return;
+  window.__SIGEE_POPUP_PRAZOS_LOGIN_RC10810__ = true;
 
-  const VERSION = 'RC10.8.2';
+  const VERSION = 'RC10.8.10';
   const EVENTOS = Object.freeze({
     31: Object.freeze({ codigo: 'SEND_REITERACAO', titulo: 'Reiteração' }),
     38: Object.freeze({ codigo: 'SEND_REITERACAO_URGENTE', titulo: 'Reiteração Urgente' }),
@@ -84,6 +84,44 @@
     return ['DES', 'RET', 'REU', 'CFD', 'PAS', 'PAT'].includes(e) || e.includes('DESARQUIV') || e.includes('REITER') || e.includes('CONFIRMACAO') || e.includes('PEDIDO') || e.includes('ATAS');
   }
 
+  // RC10.8.10 — a etapa persistida é a autoridade para impedir que o
+  // resolvedor temporal "reabra" o ciclo externo de processos que já
+  // avançaram para Análise ou para qualquer etapa posterior/terminal.
+  function valoresDeEtapaPersistidos(p) {
+    return [
+      p?.etapa_atual,
+      p?.etapa_codigo,
+      p?.etapa,
+      p?.fase_atual,
+      p?.status,
+      p?.situacao,
+      p?.situacao_atual
+    ].map(normalizar).filter(Boolean);
+  }
+
+  function etapaPosteriorOuTerminal(p) {
+    const valores = valoresDeEtapaPersistidos(p);
+    return valores.some(e =>
+      e === 'ANA' || e.includes('ANALISE') ||
+      e === 'PEN' || e.includes('PENDENCIA') ||
+      e === 'DIG' || e.includes('DIGITACAO') ||
+      e === 'CON' || e.includes('CONFERENCIA') ||
+      e === 'ASS' || e.includes('ASSINATURA') ||
+      e === 'DEF' || e.includes('DEFERID') || e.includes('AGUARDANDO RETIRADA') ||
+      e === 'RETIRADO' || e.includes('RETIRAD') ||
+      e === 'IND' || e.includes('INDEFERID') ||
+      e.includes('CONCLUID') || e.includes('ENCERRAD') || e.includes('ARQUIVAD')
+    );
+  }
+
+  function processoElegivelParaAlerta(p) {
+    if (!p || p.ativo === false) return false;
+    if (etapaPosteriorOuTerminal(p)) return false;
+    const status = normalizar(p.status);
+    if (status === 'EXCLUIDO' || status === 'CANCELADO') return false;
+    return etapaDesarquivamento(p);
+  }
+
   async function aguardarProcessos(token) {
     // O login oficial termina antes da carga da Central de Processos. Por isso,
     // o alerta acompanha a carga por até 60 segundos, sem depender da ordem dos scripts.
@@ -148,7 +186,7 @@
     const processos = await aguardarProcessos(token);
     const saida = [];
     for (const p of processos) {
-      if (!p || p.ativo === false || p.status === 'Excluído') continue;
+      if (!processoElegivelParaAlerta(p)) continue;
       if (!perfilMaster(usuario) && !mesmoNte(p.nte || p.nte_nome, usuario.nte || usuario.nte_nome)) continue;
       const estado = estadoAtualDoProcesso(p);
       if (!etapaComAlerta(estado)) continue;
@@ -348,7 +386,7 @@
     verificarSessaoJaAtiva();
   }
 
-  // RC10.8.2 — O popup não permite abrir o processo; a confirmação de ciência permanece obrigatória em cada login.
+  // RC10.8.10 — O popup não permite abrir o processo; processos em Análise, Deferido, Retirado, Indeferido ou etapas posteriores ao Desarquivamento são excluídos.
   // Alterações do relógio de homologação atualizam prazos e botões, mas o alerta só é aberto pelo evento de login.
-  window.SIGEE_POPUP_PRAZOS_LOGIN = Object.freeze({ version: VERSION, verificar: aoLogin });
+  window.SIGEE_POPUP_PRAZOS_LOGIN = Object.freeze({ version: VERSION, verificar: aoLogin, processoElegivelParaAlerta });
 })(window, document);
