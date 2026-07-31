@@ -1,5 +1,5 @@
 /* =====================================================================
- * SIGEE RC10.8.11 — Alerta único de processos vencidos no login
+ * SIGEE RC10.8.12 — Alerta único de processos vencidos no login
  *
  * Um único popup obrigatório, exibido uma vez por login, com dois blocos:
  * 1) Ciclo de Desarquivamento: somente a ação atual ainda não executada;
@@ -16,10 +16,10 @@
 (function (window, document) {
   'use strict';
 
-  if (window.__SIGEE_POPUP_PRAZOS_LOGIN_RC10811__) return;
-  window.__SIGEE_POPUP_PRAZOS_LOGIN_RC10811__ = true;
+  if (window.__SIGEE_POPUP_PRAZOS_LOGIN_RC10812__) return;
+  window.__SIGEE_POPUP_PRAZOS_LOGIN_RC10812__ = true;
 
-  const VERSION = 'RC10.8.11';
+  const VERSION = 'RC10.8.12';
   const LIMITES_OPERACIONAIS = Object.freeze({
     ANALISE: 7,
     DIGITACAO: 15,
@@ -49,7 +49,12 @@
   function agoraWorkflow() {
     try { return window.SIGEE_WORKFLOW_CLOCK?.now?.() || new Date(); } catch (_) { return new Date(); }
   }
-  function nteCanonico(v) { return normalizar(v).replace(/[^A-Z0-9]/g, ''); }
+  function nteCanonico(v) {
+    const bruto = normalizar(v);
+    const digitos = bruto.match(/\d+/g);
+    if (digitos && digitos.length) return String(Number(digitos.join('')));
+    return bruto.replace(/[^A-Z0-9]/g, '');
+  }
   function mesmoNte(a, b) { return Boolean(nteCanonico(a)) && nteCanonico(a) === nteCanonico(b); }
   function usuarioAtual(detail) {
     return (detail && detail.usuario) || window.usuarioLogado || window.SIGEE_SESSION?.getUser?.() || null;
@@ -270,12 +275,7 @@
     });
   }
 
-  async function aoLogin(event) {
-    const usuario = usuarioAtual(event?.detail);
-    if (!usuario || !perfilOperacional(usuario)) return;
-    const token = ++tokenLogin;
-    popupExibidoNesteLogin = false;
-    if (loginEmProcessamento) return;
+  async function processarLogin(usuario, token) {
     loginEmProcessamento = true;
     try {
       const resumo = await obterResumo(usuario, token);
@@ -290,6 +290,26 @@
       if (token === tokenLogin) loginEmProcessamento = false;
     }
   }
+
+  function iniciarNovoLogin(event) {
+    const usuario = usuarioAtual(event?.detail);
+    if (!usuario || !perfilOperacional(usuario)) return;
+
+    // Somente o evento oficial de login cria uma nova execução. Eventos auxiliares
+    // da mesma autenticação não podem invalidar a consulta que já está em andamento.
+    tokenLogin += 1;
+    popupExibidoNesteLogin = false;
+    loginEmProcessamento = false;
+    removerPopup();
+    processarLogin(usuario, tokenLogin);
+  }
+
+  function garantirLoginAtivo(event) {
+    const usuario = usuarioAtual(event?.detail);
+    if (!usuario || !perfilOperacional(usuario)) return;
+    if (popupExibidoNesteLogin || loginEmProcessamento) return;
+    processarLogin(usuario, tokenLogin);
+  }
   function aoLogout() {
     tokenLogin += 1;
     loginEmProcessamento = false;
@@ -297,20 +317,19 @@
     removerPopup();
   }
 
-  document.addEventListener('sigee:login-concluido', aoLogin);
-  window.addEventListener('sigee:session-ready', event => {
-    if (!popupExibidoNesteLogin && !loginEmProcessamento) aoLogin(event);
-  });
+  document.addEventListener('sigee:login-concluido', iniciarNovoLogin);
+  window.addEventListener('sigee:session-ready', garantirLoginAtivo);
   document.addEventListener('sigee:usuario-deslogado', aoLogout);
+  window.addEventListener('sigee:usuario-deslogado', aoLogout);
 
   function verificarSessaoJaAtiva() {
     const usuario = usuarioAtual();
     if (usuario && !popupExibidoNesteLogin && !loginEmProcessamento) {
-      setTimeout(() => aoLogin({ detail: { usuario } }), 800);
+      setTimeout(() => garantirLoginAtivo({ detail: { usuario } }), 800);
     }
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', verificarSessaoJaAtiva, { once:true });
   else verificarSessaoJaAtiva();
 
-  window.SIGEE_POPUP_PRAZOS_LOGIN = Object.freeze({ version:VERSION, verificar:aoLogin, obterResumo, etapaDesarquivamento, etapaOperacional });
+  window.SIGEE_POPUP_PRAZOS_LOGIN = Object.freeze({ version:VERSION, verificar:garantirLoginAtivo, reiniciar:iniciarNovoLogin, obterResumo, etapaDesarquivamento, etapaOperacional });
 })(window, document);
