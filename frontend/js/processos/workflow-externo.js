@@ -617,11 +617,36 @@
       observationLabel: action.observationRequired ? 'Motivo e dados retificados' : 'Observações',
       observationPlaceholder: action.event === 'RETIFICAR_DADOS' ? 'Justificativa ou observação complementar (opcional).' : 'Registre informações complementares, se necessário.',
       customFields: action.event === 'RETIFICAR_DADOS' ? [
-        { key:'nome_social', label:'Nome social', currentValue: process.nome_social || process.aluno_nome || process.aluno || '' },
-        { key:'escola', label:'Escola', currentValue: process.escola_nome || process.escola || '' },
-        { key:'ano', label:'Ano', currentValue: process.ano || process.ano_conclusao || process.ano_letivo || '' },
-        { key:'serie', label:'Série', currentValue: process.serie || process.serie_conclusao || '' },
-        { key:'modalidade', label:'Modalidade de Ensino', currentValue: process.modalidade || process.nivel_oferta || '' }
+        {
+          key:'nome_social', label:'Nome social',
+          currentValue: process.aluno_nome || process.aluno || process.nome_solicitante || '',
+          initialLabel:'Nome informado inicialmente',
+          retifiedLabel:'Nome social posteriormente retificado'
+        },
+        {
+          key:'escola', label:'Escola',
+          currentValue: process.escola_nome || process.escola || '',
+          initialLabel:'Escola informada inicialmente',
+          retifiedLabel:'Escola posteriormente retificada'
+        },
+        {
+          key:'ano', label:'Ano',
+          currentValue: process.ano || process.ano_conclusao || process.ano_letivo || '',
+          initialLabel:'Ano informado inicialmente',
+          retifiedLabel:'Ano posteriormente retificado'
+        },
+        {
+          key:'serie', label:'Série',
+          currentValue: process.serie || process.serie_conclusao || '',
+          initialLabel:'Série informada inicialmente',
+          retifiedLabel:'Série posteriormente retificada'
+        },
+        {
+          key:'modalidade', label:'Modalidade de Ensino',
+          currentValue: process.modalidade || process.nivel_oferta || '',
+          initialLabel:'Modalidade informada inicialmente',
+          retifiedLabel:'Modalidade posteriormente retificada'
+        }
       ] : null,
       executeLabel: 'Executar ação',
       onConfirm: async function (payload) {
@@ -637,9 +662,13 @@
 
         const alteracoes = Array.isArray(payload.customFields) ? payload.customFields : [];
         const numeroRetificacao = Math.max(1, Number(process.workflow_ciclo || process.ciclo || 1));
-        const resumoAlteracoes = alteracoes.map(item => `${item.label}: "${item.before || 'Não informado'}" → "${item.after}"`).join('; ');
+        const resumoAlteracoes = alteracoes.map(item => {
+          const rotuloInicial = item.initialLabel || `${item.label} informado inicialmente`;
+          const rotuloRetificado = item.retifiedLabel || `${item.label} posteriormente retificado`;
+          return `${rotuloInicial}: ${item.before}. ${rotuloRetificado}: ${item.after}.`;
+        }).join(' ');
         const observacaoWorkflow = action.event === 'RETIFICAR_DADOS'
-          ? `Retificação ${String(numeroRetificacao).padStart(2, '0')}. Alterações: ${resumoAlteracoes}.${payload.observation ? ` Observação: ${payload.observation}` : ''}`
+          ? `Retificação ${String(numeroRetificacao).padStart(2, '0')}. ${resumoAlteracoes}${payload.observation ? ` Observação: ${payload.observation}` : ''}`
           : payload.observation;
 
         const result = await window.TransitionManager.execute({
@@ -672,14 +701,11 @@
           : new Date().toISOString();
 
         if (action.event === 'RETIFICAR_DADOS') {
-          /* Aplica somente os novos valores informados pelo técnico. */
-          alteracoes.forEach(item => {
-            if (item.key === 'nome_social') { atualizado.nome_social = item.after; atualizado.aluno_nome = item.after; atualizado.aluno = item.after; }
-            if (item.key === 'escola') { atualizado.escola_nome = item.after; atualizado.escola = item.after; }
-            if (item.key === 'ano') { atualizado.ano = item.after; atualizado.ano_conclusao = item.after; }
-            if (item.key === 'serie') { atualizado.serie = item.after; atualizado.serie_conclusao = item.after; }
-            if (item.key === 'modalidade') { atualizado.modalidade = item.after; atualizado.nivel_oferta = item.after; }
-          });
+          /*
+           * A Retificação é exclusivamente descritiva e auditável.
+           * Os dados originais do pedido permanecem imutáveis para preservar
+           * a rastreabilidade entre o SIGEE e o e-mail corporativo.
+           */
           atualizado.ultima_retificacao = { numero: numeroRetificacao, alteracoes, executado_em: agora, executado_por: currentUser() };
           /* Única ação que reinicia a contagem do Desarquivamento. */
           atualizado.data_inicio_desarquivamento = agora;
