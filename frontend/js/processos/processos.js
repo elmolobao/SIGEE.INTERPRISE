@@ -1946,17 +1946,46 @@
   async function abrirTratarPendencia(id){
     const p=processo(id);if(!p)return;contextoRetorno=()=>abrirTratarPendencia(id);const dados=await carregarPendencias(id);const pendentes=dados.filter(x=>x.status==='pendente'),recebidos=dados.filter(x=>x.status==='recebido');
     if(!pendentes.length){modal(`⚠️ Pendência — ${escapar(p.codigo_sigee||p.id)}`,`${resumo(p)}<div class="sigee-vazio33">Não há pendências abertas para este processo.</div><div class="sigee-acoes33"><button class="btn33 btn33-vermelho" data-hist33>Histórico</button></div>`,'pendencia').querySelector('[data-hist33]')?.addEventListener('click',()=>abrirHistorico(id,()=>abrirTratarPendencia(id)));return;}
-    const itens=pendentes.map(x=>`<label class="sigee-pend-item331"><input type="checkbox" name="receb331" value="${x.id}"><span><strong>${escapar(x.item)}</strong><small>${x.grupo==='aluno'?'Aluno/Requerente':'Instituição'}${x.complemento?` — ${escapar(x.complemento)}`:''}</small></span></label>`).join('');
-    const msg=pendentes[0]?.mensagem_texto||mensagemPendencia(pendentes.filter(x=>x.grupo==='aluno'),pendentes.filter(x=>x.grupo==='instituicao')).texto;
+    const itens=pendentes.map(x=>`<label class="sigee-pend-item331"><input type="checkbox" name="receb331" value="${x.id}" data-grupo-pendencia="${escapar(x.grupo||'')}"><span><strong>${escapar(x.item)}</strong><small>${x.grupo==='aluno'?'Aluno/Requerente':'Instituição'}${x.complemento?` — ${escapar(x.complemento)}`:''}</small></span></label>`).join('');
     const ator=identidadeSessao();
     const responsavel=`<section class="sigee-responsavel-acao33"><div class="sigee-responsavel-icone33">👤</div><div><span>RESPONSÁVEL PELA AÇÃO</span><input type="text" value="${escapar(ator.nome)}" disabled><small>${escapar(ator.perfil||'Usuário')} · ${escapar(ator.nte||'SIGEE')}</small></div></section>`;
-    const tarefa=`<section class="sigee-tarefa-obrigatoria33"><div class="sigee-tarefa-icone33">📧</div><div class="sigee-tarefa-conteudo33"><span>TAREFA OBRIGATÓRIA</span><strong>ENVIAR E-MAIL: ${escapar(msg)}</strong><p>Execute a mensagem institucional e confirme a realização da tarefa antes de registrar o recebimento.</p><label><input type="checkbox" id="wf-pend-retorno-email33"> Confirmo que executei esta tarefa.</label></div></section>`;
-    const el=modal(`⚠️ Tratar Pendência — ${escapar(p.codigo_sigee||p.id)}`,`${resumo(p)}${responsavel}<section class="sigee-pend-atual33"><h3>Pendências abertas</h3>${itens}</section>${recebidos.length?`<p class="sigee-recebidos331">Já recebidos: ${escapar(recebidos.map(x=>x.item).join(', '))}</p>`:''}${tarefa}<div class="sigee-acoes33"><button class="btn33 sigee-historico33" data-hist33>📜 Histórico</button>${somenteLeitura()?'':`<button class="btn33 btn33-verde" data-salvar-receb33 disabled>Registrar Documento Recebido</button>`}</div>`,'pendencia');
-    const btn=el.querySelector('[data-salvar-receb33]'); const chkEmail=el.querySelector('#wf-pend-retorno-email33');
-    const validar=()=>{if(btn)btn.disabled=!(chkEmail?.checked&&el.querySelector('input[name="receb331"]:checked'));};
-    chkEmail?.addEventListener('change',validar);el.querySelectorAll('input[name="receb331"]').forEach(x=>x.addEventListener('change',validar));
+    const tarefaAluno=`<section class="sigee-tarefa-obrigatoria33"><div class="sigee-tarefa-icone33">📧</div><div class="sigee-tarefa-conteudo33"><span>TAREFA OBRIGATÓRIA</span><strong>ENVIAR E-MAIL: 33 - Documentos (Documento Recebido)</strong><p>Execute a mensagem institucional de documento recebido antes de registrar o recebimento da pendência do aluno.</p><label><input type="checkbox" id="wf-pend-retorno-email33"> Confirmo o envio do e-mail 33.</label></div></section>`;
+    const el=modal(`⚠️ Tratar Pendência — ${escapar(p.codigo_sigee||p.id)}`,`${resumo(p)}${responsavel}<section class="sigee-pend-atual33"><h3>Pendências abertas</h3>${itens}</section>${recebidos.length?`<p class="sigee-recebidos331">Já recebidos: ${escapar(recebidos.map(x=>x.item).join(', '))}</p>`:''}<div id="wf-pend-tarefa33"></div><div class="sigee-acoes33"><button class="btn33 sigee-historico33" data-hist33>📜 Histórico</button>${somenteLeitura()?'':`<button class="btn33 btn33-verde" data-salvar-receb33 disabled>Registrar Documento Recebido</button>`}</div>`,'pendencia');
+    const btn=el.querySelector('[data-salvar-receb33]');
+    const tarefaBox=el.querySelector('#wf-pend-tarefa33');
+    const selecionados=()=>[...el.querySelectorAll('input[name="receb331"]:checked')];
+    const exigeEmail33=()=>selecionados().some(x=>x.dataset.grupoPendencia==='aluno');
+    function renderTarefa(){
+      const precisa=exigeEmail33();
+      if(tarefaBox)tarefaBox.innerHTML=precisa?tarefaAluno:'';
+      const chk=el.querySelector('#wf-pend-retorno-email33');
+      chk?.addEventListener('change',validar);
+      validar();
+    }
+    function validar(){
+      if(!btn)return;
+      const marcadosAgora=selecionados();
+      const precisa=marcadosAgora.some(x=>x.dataset.grupoPendencia==='aluno');
+      const confirmado=!precisa||Boolean(el.querySelector('#wf-pend-retorno-email33')?.checked);
+      btn.disabled=!(marcadosAgora.length&&confirmado);
+    }
+    el.querySelectorAll('input[name="receb331"]').forEach(x=>x.addEventListener('change',renderTarefa));
+    renderTarefa();
     el.querySelector('[data-hist33]')?.addEventListener('click',()=>abrirHistorico(id,()=>abrirTratarPendencia(id)));
-    btn?.addEventListener('click',async()=>{const ids=[...el.querySelectorAll('input[name="receb331"]:checked')].map(x=>Number(x.value));if(!ids.length)return alert('Marque ao menos um item recebido.');if(!chkEmail?.checked)return alert('Confirme o envio da mensagem institucional.');try{btn.disabled=true;await marcarRecebidas(ids,ator);const restantes=pendentes.filter(x=>!ids.includes(Number(x.id)));const completo=restantes.length===0;p.pendencia_aberta=!completo;p.etapa=p.etapa_atual='Pendência';p.data_etapa_atual=agoraISO();p.tecnico_responsavel=ator.nome;p.pendencia_aluno_itens=restantes.filter(x=>x.grupo==='aluno').map(x=>x.item);p.pendencia_instituicao_itens=restantes.filter(x=>x.grupo==='instituicao').map(x=>x.item);Object.defineProperty(p,'__sigee_operacao_pendencia',{value:'recebimento',configurable:true,enumerable:false,writable:true});try{await salvar(p);}finally{try{delete p.__sigee_operacao_pendencia;}catch(_){p.__sigee_operacao_pendencia=null;}}const recebidosAgora=pendentes.filter(x=>ids.includes(Number(x.id))).map(x=>x.item);await registrarHistorico(p,'Pendência',completo?'Pendência resolvida':'Recebimento parcial',`Recebido: ${recebidosAgora.join(', ')} | Mensagem confirmada: ${msg}`,{itens_recebidos:recebidosAgora,pendencia_resolvida:completo,mensagem_confirmada:msg},ator);if(completo){fecharModal();toast('Pendência totalmente resolvida. Selecione o digitador e confirme a mensagem obrigatória.');setTimeout(()=>{const wf=window.SIGEE_WORKFLOW_093; if(wf?.abrirEncaminharDigitacaoPendencia) wf.abrirEncaminharDigitacaoPendencia(id); else window.abrirEncaminharDigitacaoPendenciaSIGEE?.(id);},0);}else{toast('Recebimento parcial registrado.');await abrirTratarPendencia(id);}}catch(e){console.error(e);btn.disabled=false;alert('Não foi possível registrar o recebimento: '+(e.message||e));}});
+    btn?.addEventListener('click',async()=>{
+      const selecionadosAgora=selecionados();
+      const ids=selecionadosAgora.map(x=>Number(x.value));
+      const possuiAluno=selecionadosAgora.some(x=>x.dataset.grupoPendencia==='aluno');
+      if(!ids.length)return alert('Marque ao menos um item recebido.');
+      if(possuiAluno&&!el.querySelector('#wf-pend-retorno-email33')?.checked)return alert('Confirme o envio do e-mail 33 – Documentos (Documento Recebido).');
+      try{
+        btn.disabled=true;await marcarRecebidas(ids,ator);const restantes=pendentes.filter(x=>!ids.includes(Number(x.id)));const completo=restantes.length===0;p.pendencia_aberta=!completo;p.etapa=p.etapa_atual='Pendência';p.data_etapa_atual=agoraISO();p.tecnico_responsavel=ator.nome;p.pendencia_aluno_itens=restantes.filter(x=>x.grupo==='aluno').map(x=>x.item);p.pendencia_instituicao_itens=restantes.filter(x=>x.grupo==='instituicao').map(x=>x.item);Object.defineProperty(p,'__sigee_operacao_pendencia',{value:'recebimento',configurable:true,enumerable:false,writable:true});try{await salvar(p);}finally{try{delete p.__sigee_operacao_pendencia;}catch(_){p.__sigee_operacao_pendencia=null;}}
+        const recebidosAgora=pendentes.filter(x=>ids.includes(Number(x.id))).map(x=>x.item);
+        const comunicacao=possuiAluno?'E-mail 33 – Documentos (Documento Recebido) confirmado':'Pendência exclusiva da instituição — sem assinatura/e-mail obrigatório';
+        await registrarHistorico(p,'Pendência',completo?'Pendência resolvida':'Recebimento parcial',`Recebido: ${recebidosAgora.join(', ')} | ${comunicacao}`,{itens_recebidos:recebidosAgora,pendencia_resolvida:completo,email_33_confirmado:possuiAluno,pendencia_instituicao_sem_assinatura:!possuiAluno},ator);
+        if(completo){fecharModal();toast('Pendência totalmente resolvida. Selecione o digitador e confirme a mensagem obrigatória.');setTimeout(()=>{const wf=window.SIGEE_WORKFLOW_093; if(wf?.abrirEncaminharDigitacaoPendencia) wf.abrirEncaminharDigitacaoPendencia(id); else window.abrirEncaminharDigitacaoPendenciaSIGEE?.(id);},0);}else{toast('Recebimento parcial registrado.');await abrirTratarPendencia(id);}
+      }catch(e){console.error(e);btn.disabled=false;alert('Não foi possível registrar o recebimento: '+(e.message||e));}
+    });
   }
 
   function formatarSEI(v){const d=txt(v).replace(/\D/g,'').slice(0,20);let o='';if(d.length)o+=d.slice(0,3);if(d.length>3)o+='.'+d.slice(3,7);if(d.length>7)o+='.'+d.slice(7,11);if(d.length>11)o+='.'+d.slice(11,18);if(d.length>18)o+='-'+d.slice(18,20);return o;}
