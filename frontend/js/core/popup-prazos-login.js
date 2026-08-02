@@ -1,5 +1,5 @@
 /* =====================================================================
- * SIGEE RC10.8.16 — Alerta único de processos vencidos no login
+ * SIGEE RC10.8.17 — Alerta único de processos vencidos no login
  *
  * Um único popup obrigatório, exibido uma vez por login, com dois blocos:
  * 1) Ciclo de Desarquivamento: somente a ação atual ainda não executada;
@@ -16,10 +16,10 @@
 (function (window, document) {
   'use strict';
 
-  if (window.__SIGEE_POPUP_PRAZOS_LOGIN_RC10816__) return;
-  window.__SIGEE_POPUP_PRAZOS_LOGIN_RC10816__ = true;
+  if (window.__SIGEE_POPUP_PRAZOS_LOGIN_RC10817__) return;
+  window.__SIGEE_POPUP_PRAZOS_LOGIN_RC10817__ = true;
 
-  const VERSION = 'RC10.8.16';
+  const VERSION = 'RC10.8.17';
   const LIMITES_OPERACIONAIS = Object.freeze({
     ANALISE: 7,
     DIGITACAO: 15,
@@ -99,25 +99,28 @@
     const cliente = clienteSupabase();
     if (!cliente?.from) throw new Error('Cliente Supabase indisponível.');
 
-    const colunas = [
-      'id','codigo_sigee','aluno_nome','escola_nome','etapa_atual','etapa_codigo',
-      'data_etapa','data_etapa_atual','prazo_inicio','prazo_fim','status','ativo',
-      'created_at','updated_at','workflow_instance_id','workflow_ciclo','ciclo',
-      'ultima_mensagem_workflow','pendencia_aberta','finalizado_em','deferido_em',
-      'retirado_em','nte'
-    ].join(',');
-    const nte = nteConsultaOficial(usuario);
     const pagina = 1000;
     const limiteSeguro = 10000;
     const resultado = [];
 
     for (let inicio = 0; inicio < limiteSeguro; inicio += pagina) {
       if (token !== tokenLogin) return [];
+      // RC10.8.17: evita falha PGRST por coluna opcional inexistente.
+      // O escopo é aplicado na própria consulta antes da transferência.
       let consulta = cliente.from(tabelaProcessos())
-        .select(colunas)
+        .select('*')
         .order('id', { ascending: false })
         .range(inicio, inicio + pagina - 1);
-      if (nte) consulta = consulta.eq('nte', nte);
+      try {
+        if (window.SIGEE_ESCOPO?.aplicarQueryProcessos) {
+          consulta = window.SIGEE_ESCOPO.aplicarQueryProcessos(consulta, usuario);
+        } else {
+          const nte = nteConsultaOficial(usuario);
+          if (nte) consulta = consulta.eq('nte', nte);
+        }
+      } catch (erroEscopo) {
+        throw new Error('Não foi possível aplicar o escopo territorial: ' + (erroEscopo?.message || erroEscopo));
+      }
       const { data, error } = await consulta;
       if (error) throw error;
       const lote = Array.isArray(data) ? data : [];
@@ -126,13 +129,32 @@
     }
     return resultado;
   }
+  function mesclarProcessos(local, remoto) {
+    const mapa = new Map();
+    for (const p of Array.isArray(local) ? local : []) {
+      const chave = texto(p?.id || p?.codigo_sigee || p?.codigo);
+      if (chave) mapa.set(chave, p);
+    }
+    for (const p of Array.isArray(remoto) ? remoto : []) {
+      const chave = texto(p?.id || p?.codigo_sigee || p?.codigo);
+      if (chave) mapa.set(chave, p);
+    }
+    return [...mapa.values()];
+  }
   async function obterProcessos(usuario, token) {
     try {
       const oficiais = await consultarProcessosOficiais(usuario, token);
-      return { processos: oficiais, fonte: 'Supabase — fonte oficial', indisponivel: false };
+      const consolidados = mesclarProcessos(listaProcessosLocal(), oficiais);
+      return { processos: consolidados, fonte: 'Supabase — fonte oficial', indisponivel: false };
     } catch (erro) {
-      console.warn('[SIGEE Alerta Login] Consulta oficial indisponível; usando base local.', erro);
-      return { processos: listaProcessosLocal(), fonte: 'Base local de contingência', indisponivel: true };
+      console.warn('[SIGEE Alerta Login] Consulta oficial indisponível; aguardando base local.', erro);
+      for (let tentativa = 0; tentativa < 20; tentativa += 1) {
+        if (token !== tokenLogin) return { processos: [], fonte: 'Consulta cancelada', indisponivel: true };
+        const local = listaProcessosLocal();
+        if (local.length) return { processos: local, fonte: 'Base local de contingência', indisponivel: true };
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+      return { processos: [], fonte: 'Base local indisponível', indisponivel: true };
     }
   }
   function inicioDia(v) {
@@ -385,8 +407,22 @@
   }
 
   document.addEventListener('sigee:login-concluido', iniciarNovoLogin);
+  window.addEventListener('sigee:session-ready', garantirLoginAtivo);
   document.addEventListener('sigee:usuario-deslogado', aoLogout);
   window.addEventListener('sigee:usuario-deslogado', aoLogout);
+
+  function verificarSessaoJaAtiva() {
+    const usuario = usuarioAtual();
+    if (usuario && !popupExibidoNesteLogin && !loginEmProcessamento) {
+      setTimeout(() => garantirLoginAtivo({ detail: { usuario } }), 800);
+    }
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', verificarSessaoJaAtiva, { once:true });
+  } else {
+    verificarSessaoJaAtiva();
+  }
+
 
 
   window.SIGEE_POPUP_PRAZOS_LOGIN = Object.freeze({ version:VERSION, verificar:garantirLoginAtivo, reiniciar:iniciarNovoLogin, obterResumo, etapaDesarquivamento, etapaOperacional });

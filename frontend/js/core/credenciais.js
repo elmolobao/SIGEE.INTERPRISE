@@ -210,6 +210,19 @@
       // A rota inicial é definida exclusivamente por SIGEE_AUTORIZACAO.
       try { window.carregarEContarProcessosHorizontais?.(); } catch (_) {}
 
+      // RC10.8.17: este é o controlador de login efetivamente ativo no projeto.
+      // Dispara o evento oficial consumido pelo aviso de pendências.
+      window.__SIGEE_LOGIN_CONCLUIDO__ = true;
+      const loginId = `login-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+      const detalheLogin = {
+        login_id: loginId,
+        usuario: canonico,
+        loginConcluido: true,
+        origem: 'credenciais-rc10.8.17'
+      };
+      document.dispatchEvent(new CustomEvent('sigee:login-concluido', { detail: detalheLogin }));
+      window.dispatchEvent(new CustomEvent('sigee:session-ready', { detail: detalheLogin }));
+
       // A decisão é feita com o mesmo registro oficial usado para autenticar.
       if (exigeTroca(oficial, senha)) abrirModal(Object.assign({}, canonico, oficial));
 
@@ -228,7 +241,10 @@
 
   function logout() {
     fecharModal();
-    window.SIGEE_SESSION?.clear?.({ source: 'logout-credenciais-rc4.5.0', persist: true, emit: true });
+    window.__SIGEE_LOGIN_CONCLUIDO__ = false;
+    document.dispatchEvent(new CustomEvent('sigee:usuario-deslogado'));
+    window.dispatchEvent(new CustomEvent('sigee:usuario-deslogado'));
+    window.SIGEE_SESSION?.clear?.({ source: 'logout-credenciais-rc10.8.17', persist: true, emit: true });
     document.getElementById('sistema-dashboard')?.classList.add('hidden');
     document.getElementById('tela-login')?.classList.remove('hidden');
     document.getElementById('form-login')?.reset?.();
