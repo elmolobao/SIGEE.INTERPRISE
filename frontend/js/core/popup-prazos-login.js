@@ -1,5 +1,5 @@
 /* =====================================================================
- * SIGEE RC10.8.19 — Alerta único de processos vencidos no login
+ * SIGEE RC10.8.20 — Alerta único de processos vencidos no login
  *
  * Um único popup obrigatório, exibido uma vez por login, com dois blocos:
  * 1) Ciclo de Desarquivamento: somente a ação atual ainda não executada;
@@ -16,10 +16,10 @@
 (function (window, document) {
   'use strict';
 
-  if (window.__SIGEE_POPUP_PRAZOS_LOGIN_RC10819__) return;
-  window.__SIGEE_POPUP_PRAZOS_LOGIN_RC10819__ = true;
+  if (window.__SIGEE_POPUP_PRAZOS_LOGIN_RC10820__) return;
+  window.__SIGEE_POPUP_PRAZOS_LOGIN_RC10820__ = true;
 
-  const VERSION = 'RC10.8.19';
+  const VERSION = 'RC10.8.20';
   const LIMITES_OPERACIONAIS = Object.freeze({
     ANALISE: 7,
     DIGITACAO: 15,
@@ -210,15 +210,27 @@
     return [p?.etapa_atual, p?.etapa_codigo, p?.etapa, p?.fase_atual].map(normalizar).filter(Boolean);
   }
   function estadoAtualDoProcesso(p) {
-    try {
-      const r = window.SIGEE_WORKFLOW_TEMPORAL?.resolve?.(p);
-      return {
-        codigo: normalizar(r?.code || r?.codigo || r?.etapaCodigo || r?.stateCode || p?.etapa_codigo || p?.etapa_atual),
-        nome: texto(r?.name || r?.nome || r?.etapaNome || r?.stateName || p?.etapa_atual || p?.etapa || p?.fase_atual)
-      };
-    } catch (_) {
-      return { codigo: normalizar(p?.etapa_codigo || p?.etapa_atual), nome: texto(p?.etapa_atual || p?.etapa || p?.fase_atual) };
+    // Regra única com a Central: o resolvedor temporal só pode reinterpretar
+    // processos que ainda pertencem ao ciclo de Desarquivamento. Nas etapas
+    // operacionais, a etapa persistida é a fonte autoritativa.
+    const brutoCodigo = normalizar(p?.etapa_codigo);
+    const brutoNome = texto(p?.etapa_atual || p?.etapa || p?.fase_atual);
+    const combinado = normalizar(`${brutoCodigo} ${brutoNome}`);
+    const pertenceDesarquivamento = ['DES','RET','REU','CFD','PAS','PAT'].includes(brutoCodigo) ||
+      combinado.includes('DESARQUIV') || combinado.includes('REITERACAO') ||
+      combinado.includes('CONFIRMACAO DOS DADOS') || combinado.includes('CONFIRMAR DADOS') ||
+      combinado.includes('PEDIDO DE ATAS') || combinado.includes('ATAS SEM PASTA');
+
+    if (pertenceDesarquivamento) {
+      try {
+        const r = window.SIGEE_WORKFLOW_TEMPORAL?.resolve?.(p);
+        if (r) return {
+          codigo: normalizar(r?.code || r?.codigo || r?.etapaCodigo || r?.stateCode || brutoCodigo),
+          nome: texto(r?.name || r?.nome || r?.etapaNome || r?.stateName || brutoNome)
+        };
+      } catch (_) {}
     }
+    return { codigo: brutoCodigo || normalizar(brutoNome), nome: brutoNome };
   }
   function etapaTerminalOuPosDeferimento(p) {
     const valores = [...valoresEtapa(p), normalizar(p?.status), normalizar(p?.situacao), normalizar(p?.situacao_atual)];
@@ -284,11 +296,17 @@
       }
 
       // Fluxo produtivo: somente etapas com SLA definido e efetivamente vencidas.
-      const op = etapaOperacional(estado);
+      const avaliacaoCentral = window.SIGEE_Processos?.avaliarPrazoProcesso?.(p);
+      const op = avaliacaoCentral?.tipo || etapaOperacional(estado);
       if (!op) continue;
-      const dias = diasOperacionais(p, agoraWorkflow());
-      const limite = LIMITES_OPERACIONAIS[op];
-      if (dias != null && dias > limite) {
+
+      // Usa a mesma função autoritativa que gera o selo VENCIDO na Central.
+      // O fallback reproduz exatamente os mesmos campos e limites enquanto o
+      // módulo da Central ainda estiver finalizando sua inicialização.
+      const dias = avaliacaoCentral ? avaliacaoCentral.dias : diasOperacionais(p, agoraWorkflow());
+      const limite = avaliacaoCentral?.limite ?? LIMITES_OPERACIONAIS[op];
+      const vencido = avaliacaoCentral ? avaliacaoCentral.vencido : (dias != null && dias > limite);
+      if (vencido) {
         resumo.operacional[op] += 1;
         resumo.ids.push(p.id);
       }
