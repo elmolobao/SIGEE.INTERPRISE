@@ -554,17 +554,46 @@
         if (e.includes('INDEFER')) return 'sigee-etapa-indeferido';
         return 'sigee-etapa-nova';
     }
+    function avaliarPrazoProcesso(p) {
+        const etapaOriginal = processoEtapa(p);
+        const etapa = normalizar(etapaOriginal);
+        const cicloDesarquivamento = pertenceCicloDesarquivamento(p);
+        const temporal = cicloDesarquivamento ? estadoTemporal(p) : null;
+        const dias = temporal ? Number(temporal.days || 0) : diasDesde(
+            cicloDesarquivamento ? dataInicioCiclo(p) : (p && (p.data_etapa_atual || p.data_etapa || p.etapa_iniciada_em || p.prazo_inicio || p.created_at))
+        );
+
+        let tipo = '';
+        let limite = null;
+        if (etapa.includes('ANAL')) { tipo = 'ANALISE'; limite = 7; }
+        else if (etapa.includes('DIGIT')) { tipo = 'DIGITACAO'; limite = 15; }
+        else if (etapa.includes('CONFER')) { tipo = 'CONFERENCIA'; limite = 10; }
+        else if (etapa.includes('ASSIN')) { tipo = 'ASSINATURA'; limite = 7; }
+
+        return {
+            etapa: etapaOriginal,
+            etapaNormalizada: etapa,
+            tipo,
+            dias: Number.isFinite(Number(dias)) ? Number(dias) : 0,
+            limite,
+            vencido: limite != null && Number(dias) > limite,
+            cicloDesarquivamento,
+            temporal
+        };
+    }
+
     function alertaPrazo(p) {
-        const etapa = normalizar(processoEtapa(p));
-        const temporal = estadoTemporal(p);
-        const dias = temporal ? temporal.days : diasDesde(dataInicioCiclo(p));
+        const avaliacao = avaliarPrazoProcesso(p);
+        const etapa = avaliacao.etapaNormalizada;
+        const temporal = avaliacao.temporal;
+        const dias = avaliacao.dias;
         if (pertenceCicloDesarquivamento(etapa)) {
             if (dias >= 52) return '<span class="block bg-red-700 text-white text-[8px] font-extrabold px-1 py-0.5 rounded uppercase mt-0.5">SOLICITAR ATAS SEM PASTA</span>';
             if (dias >= 45) return '<span class="block bg-red-600 text-white text-[8px] font-extrabold px-1 py-0.5 rounded uppercase mt-0.5">CONFIRMAR DADOS DA BUSCA</span>';
             if (dias >= 38) return '<span class="block bg-orange-500 text-white text-[8px] font-extrabold px-1 py-0.5 rounded uppercase mt-0.5">REITERAÇÃO COM URGÊNCIA</span>';
             if (dias >= 31) return '<span class="block bg-amber-500 text-gray-900 text-[8px] font-extrabold px-1 py-0.5 rounded uppercase mt-0.5">REITERAÇÃO</span>';
         }
-        if ((etapa.includes('ANAL') && dias > 7) || (etapa.includes('DIGIT') && dias > 15) || (etapa.includes('CONFER') && dias > 10) || (etapa.includes('ASSIN') && dias > 7)) {
+        if (avaliacao.vencido) {
             return '<span class="block bg-red-700 text-white text-[8px] font-extrabold px-1 py-0.5 rounded uppercase mt-0.5">VENCIDO</span>';
         }
         return '';
@@ -1170,6 +1199,7 @@
         contar: atualizarContadoresProcessos,
         salvar: salvarProcesso,
         diasDesde,
+        avaliarPrazoProcesso,
         podeMovimentar,
         podeGerirProcessos,
         codigoSIGEE,
