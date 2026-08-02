@@ -70,6 +70,15 @@
       finalidade: 'Comunicar ao requerente a retificação das informações da busca.',
       ativa: true
     },
+    '26': {
+      numero: '26',
+      codigo: 'MSG-ALU-026',
+      nome: 'Aluno (Ata sem Pasta)',
+      etapa: 'DESARQUIVAMENTO',
+      destinatario: 'REQUERENTE',
+      finalidade: 'Comunicar ao aluno/requerente o procedimento de pedido de ata quando a pasta não foi localizada.',
+      ativa: true
+    },
     '34': {
       numero: '34',
       codigo: 'MSG-DES-034',
