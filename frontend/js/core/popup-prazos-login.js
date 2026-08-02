@@ -1,5 +1,5 @@
 /* =====================================================================
- * SIGEE RC10.8.12 — Alerta único de processos vencidos no login
+ * SIGEE RC10.8.16 — Alerta único de processos vencidos no login
  *
  * Um único popup obrigatório, exibido uma vez por login, com dois blocos:
  * 1) Ciclo de Desarquivamento: somente a ação atual ainda não executada;
@@ -16,10 +16,10 @@
 (function (window, document) {
   'use strict';
 
-  if (window.__SIGEE_POPUP_PRAZOS_LOGIN_RC10812__) return;
-  window.__SIGEE_POPUP_PRAZOS_LOGIN_RC10812__ = true;
+  if (window.__SIGEE_POPUP_PRAZOS_LOGIN_RC10816__) return;
+  window.__SIGEE_POPUP_PRAZOS_LOGIN_RC10816__ = true;
 
-  const VERSION = 'RC10.8.12';
+  const VERSION = 'RC10.8.16';
   const LIMITES_OPERACIONAIS = Object.freeze({
     ANALISE: 7,
     DIGITACAO: 15,
@@ -32,6 +32,7 @@
   let loginEmProcessamento = false;
   let popupExibidoNesteLogin = false;
   let tokenLogin = 0;
+  let loginIdProcessado = '';
 
   function texto(v) { return v == null ? '' : String(v).trim(); }
   function normalizar(v) {
@@ -59,12 +60,80 @@
   function usuarioAtual(detail) {
     return (detail && detail.usuario) || window.usuarioLogado || window.SIGEE_SESSION?.getUser?.() || null;
   }
-  function listaProcessos() {
+  function listaProcessosLocal() {
     try {
       if (window.SIGEE_Processos?.listar) return window.SIGEE_Processos.listar() || [];
       if (Array.isArray(window.processosDB)) return window.processosDB;
     } catch (_) {}
     return [];
+  }
+  function clienteSupabase() {
+    try {
+      return window.SIGEE_SUPABASE?.criarCliente?.()
+        || window.criarClienteSupabaseSIGEE?.()
+        || window.obterSupabaseSIGEE?.()
+        || window.SIGEE_SUPABASE_CLIENT
+        || window.supabaseClient
+        || null;
+    } catch (_) { return null; }
+  }
+  function tabelaProcessos() {
+    return window.SIGEE_SUPABASE_TABELAS?.processos || 'processos';
+  }
+  function contextoEscopo(usuario) {
+    try {
+      const contexto = window.SIGEE_ESCOPO?.contexto?.(usuario);
+      if (contexto) return contexto;
+    } catch (_) {}
+    const global = perfilMaster(usuario) || normalizar(usuario?.perfil).includes('SEC');
+    return { global, nte: usuario?.nte || usuario?.nte_nome || '', nteId: Number(nteCanonico(usuario?.nte || usuario?.nte_nome) || 0) || null };
+  }
+  function nteConsultaOficial(usuario) {
+    const contexto = contextoEscopo(usuario);
+    if (contexto.global) return '';
+    const id = contexto.nteId || Number(nteCanonico(contexto.nte) || 0);
+    if (!id) throw new Error('Usuário territorial sem NTE válido.');
+    return `NTE-${String(id).padStart(2, '0')}`;
+  }
+  async function consultarProcessosOficiais(usuario, token) {
+    const cliente = clienteSupabase();
+    if (!cliente?.from) throw new Error('Cliente Supabase indisponível.');
+
+    const colunas = [
+      'id','codigo_sigee','aluno_nome','escola_nome','etapa_atual','etapa_codigo',
+      'data_etapa','data_etapa_atual','prazo_inicio','prazo_fim','status','ativo',
+      'created_at','updated_at','workflow_instance_id','workflow_ciclo','ciclo',
+      'ultima_mensagem_workflow','pendencia_aberta','finalizado_em','deferido_em',
+      'retirado_em','nte'
+    ].join(',');
+    const nte = nteConsultaOficial(usuario);
+    const pagina = 1000;
+    const limiteSeguro = 10000;
+    const resultado = [];
+
+    for (let inicio = 0; inicio < limiteSeguro; inicio += pagina) {
+      if (token !== tokenLogin) return [];
+      let consulta = cliente.from(tabelaProcessos())
+        .select(colunas)
+        .order('id', { ascending: false })
+        .range(inicio, inicio + pagina - 1);
+      if (nte) consulta = consulta.eq('nte', nte);
+      const { data, error } = await consulta;
+      if (error) throw error;
+      const lote = Array.isArray(data) ? data : [];
+      resultado.push(...lote);
+      if (lote.length < pagina) break;
+    }
+    return resultado;
+  }
+  async function obterProcessos(usuario, token) {
+    try {
+      const oficiais = await consultarProcessosOficiais(usuario, token);
+      return { processos: oficiais, fonte: 'Supabase — fonte oficial', indisponivel: false };
+    } catch (erro) {
+      console.warn('[SIGEE Alerta Login] Consulta oficial indisponível; usando base local.', erro);
+      return { processos: listaProcessosLocal(), fonte: 'Base local de contingência', indisponivel: true };
+    }
   }
   function inicioDia(v) {
     const d = v instanceof Date ? new Date(v.getTime()) : new Date(v);
@@ -122,21 +191,10 @@
     if (e === 'DIG' || e.includes('DIGITACAO')) return 'DIGITACAO';
     if (e === 'CON' || e.includes('CONFERENCIA')) return 'CONFERENCIA';
     if (e === 'ASS' || e.includes('ASSINATURA')) return 'ASSINATURA';
-    // Pendência do aluno e da instituição são deliberadamente excluídas.
     return null;
   }
   function dataEntradaEtapa(p) {
-    return p?.data_etapa_atual || p?.etapa_iniciada_em || p?.inicio_etapa || p?.prazo_inicio || p?.updated_at || p?.created_at || p?.criado_em;
-  }
-
-  async function aguardarProcessos(token) {
-    for (let i = 0; i < 120; i += 1) {
-      if (token !== tokenLogin) return [];
-      const lista = listaProcessos();
-      if (lista.length) return lista;
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
-    return listaProcessos();
+    return p?.data_etapa_atual || p?.data_etapa || p?.etapa_iniciada_em || p?.inicio_etapa || p?.prazo_inicio || p?.updated_at || p?.created_at || p?.criado_em;
   }
 
   function resumoVazio() {
@@ -148,8 +206,11 @@
   }
 
   async function obterResumo(usuario, token) {
-    const processos = await aguardarProcessos(token);
+    const origem = await obterProcessos(usuario, token);
+    const processos = origem.processos;
     const resumo = resumoVazio();
+    resumo.fonte = origem.fonte;
+    resumo.fonteIndisponivel = origem.indisponivel;
 
     for (const p of processos) {
       if (!p || p.ativo === false || etapaTerminalOuPosDeferimento(p) || !dentroEscopo(p, usuario)) continue;
@@ -196,6 +257,8 @@
       total: resumo.total,
       processos_considerados: [...new Set(resumo.ids)].length,
       sessao_id: window.SIGEE_SESSAO_ID || null,
+      login_id: loginIdProcessado || null,
+      fonte: resumo.fonte || null,
       confirmado_em: instante
     };
 
@@ -231,7 +294,9 @@
           <span class="sigee-prazos-login-selo">ALERTA</span>
           <h2 id="sigee-prazos-login-titulo">Processos vencidos</h2>
           <p>Existem ações pendentes no ${escapar(usuario?.nte || usuario?.nte_nome || 'escopo atual')}.</p>
+          <small class="sigee-prazos-login-fonte">Fonte: ${escapar(resumo.fonte || 'não identificada')}</small>
         </header>
+        ${resumo.fonteIndisponivel ? '<p class="sigee-prazos-login-aviso">A fonte oficial estava temporariamente indisponível. Os dados abaixo foram obtidos da base local de contingência.</p>' : ''}
 
         <div class="sigee-alerta-bloco">
           <h3>ALERTA 01 — Ciclo de Desarquivamento</h3>
@@ -262,15 +327,13 @@
       confirmar.disabled = true;
       confirmar.textContent = 'Registrando ciência...';
       erro.hidden = true;
+      removerPopup();
       try {
         await registrarCiencia(usuario, resumo);
-        removerPopup();
       } catch (e) {
-        erro.textContent = 'Não foi possível registrar a ciência. Verifique a conexão e tente novamente.';
-        erro.hidden = false;
-        confirmar.disabled = false;
-        confirmar.textContent = 'Confirmar ciência';
-        console.error('[SIGEE Alerta Login] Ciência não registrada:', e);
+        // A auditoria é importante, mas uma indisponibilidade de logs nunca pode
+        // bloquear o acesso do usuário ao sistema.
+        console.warn('[SIGEE Alerta Login] Ciência não registrada; acesso mantido.', e);
       }
     });
   }
@@ -294,6 +357,9 @@
   function iniciarNovoLogin(event) {
     const usuario = usuarioAtual(event?.detail);
     if (!usuario || !perfilOperacional(usuario)) return;
+    const loginId = texto(event?.detail?.login_id || event?.detail?.loginId || `login-${Date.now()}`);
+    if (loginId && loginId === loginIdProcessado) return;
+    loginIdProcessado = loginId;
 
     // Somente o evento oficial de login cria uma nova execução. Eventos auxiliares
     // da mesma autenticação não podem invalidar a consulta que já está em andamento.
@@ -314,22 +380,14 @@
     tokenLogin += 1;
     loginEmProcessamento = false;
     popupExibidoNesteLogin = false;
+    loginIdProcessado = '';
     removerPopup();
   }
 
   document.addEventListener('sigee:login-concluido', iniciarNovoLogin);
-  window.addEventListener('sigee:session-ready', garantirLoginAtivo);
   document.addEventListener('sigee:usuario-deslogado', aoLogout);
   window.addEventListener('sigee:usuario-deslogado', aoLogout);
 
-  function verificarSessaoJaAtiva() {
-    const usuario = usuarioAtual();
-    if (usuario && !popupExibidoNesteLogin && !loginEmProcessamento) {
-      setTimeout(() => garantirLoginAtivo({ detail: { usuario } }), 800);
-    }
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', verificarSessaoJaAtiva, { once:true });
-  else verificarSessaoJaAtiva();
 
   window.SIGEE_POPUP_PRAZOS_LOGIN = Object.freeze({ version:VERSION, verificar:garantirLoginAtivo, reiniciar:iniciarNovoLogin, obterResumo, etapaDesarquivamento, etapaOperacional });
 })(window, document);

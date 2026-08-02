@@ -173,8 +173,10 @@
       // ao controlador de recadastramento. O evento emitido pela sessão ocorre
       // antes desta marcação e não é suficiente sozinho.
       window.__SIGEE_LOGIN_CONCLUIDO__ = true;
+      const loginId = `login-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
       const contextoPrimeiroAcesso = {
         detail: {
+          login_id: loginId,
           usuario: canonico,
           loginConcluido: true,
           senhaProvisoriaUsada: senha === (window.SIGEE_AUTH?.SENHA_PADRAO || 'SEC@2026')
