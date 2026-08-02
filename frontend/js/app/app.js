@@ -263,15 +263,15 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
 
         // =========================================================================
         // ☁️ INTEGRAÇÃO SUPABASE - BANCO REMOTO DO SIGEE
-        // Projeto: ckxbvsfjsknbgpfpxcyy / schema public
+        // Projeto: uhzscqynbxcezfpmpqqm / schema public
         // Tabelas integradas: escolas_sigee, ntes_sigee, processos,
         // solicitacoes_sigee e usuarios_sigee.
         // V15: mantém login rápido e Supabase direto, sem tentar gravar usuarios_sigee
         // porque a estrutura atual da tabela não possui coluna nte.
         // A chave abaixo é anon public. Não utilize service_role no navegador.
         // =========================================================================
-        const SIGEE_SUPABASE_URL = 'https://ckxbvsfjsknbgpfpxcyy.supabase.co';
-        const SIGEE_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNreGJ2c2Zqc2tuYmdwZnB4Y3l5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxOTc4MjUsImV4cCI6MjA5ODc3MzgyNX0.ecJr_MYR9GPnaYMZ3V6kgeed7uGtg-vQ4THpdwAtTxk';
+        const SIGEE_SUPABASE_URL = 'https://uhzscqynbxcezfpmpqqm.supabase.co';
+        const SIGEE_SUPABASE_ANON_KEY = 'sb_publishable_-yfLGo_1cAm3DRUVAvKJXg_aOX22Iw8';
         const SIGEE_SUPABASE_TABELAS = {
             escolas: 'escolas_sigee',
             ntes: 'ntes_sigee',
@@ -6057,8 +6057,8 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
 (function(){
   'use strict';
   const V='V38 - Carregamento Escolas/Processos/Dashboard';
-  const URL='https://ckxbvsfjsknbgpfpxcyy.supabase.co';
-  const KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNreGJ2c2Zqc2tuYmdwZnB4Y3l5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxOTc4MjUsImV4cCI6MjA5ODc3MzgyNX0.ecJr_MYR9GPnaYMZ3V6kgeed7uGtg-vQ4THpdwAtTxk';
+  const URL='https://uhzscqynbxcezfpmpqqm.supabase.co';
+  const KEY='sb_publishable_-yfLGo_1cAm3DRUVAvKJXg_aOX22Iw8';
   const T={escolas:'escolas_sigee', processos:'processos', solicitacoes:'solicitacoes_sigee', usuarios:'usuarios_sigee', ntes:'ntes_sigee'};
   let carregando=false;
 
@@ -7817,7 +7817,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   'use strict';
 
   const CFG = window.SIGEE_CONFIG || {};
-  const URL = CFG?.supabase?.url || window.SIGEE_SUPABASE_URL_CONFIG || 'https://ckxbvsfjsknbgpfpxcyy.supabase.co';
+  const URL = CFG?.supabase?.url || window.SIGEE_SUPABASE_URL_CONFIG || 'https://uhzscqynbxcezfpmpqqm.supabase.co';
   const KEY = CFG?.supabase?.anonKey || window.SIGEE_SUPABASE_ANON_KEY_CONFIG;
   const T = Object.assign({
     escolas: 'escolas_sigee',
