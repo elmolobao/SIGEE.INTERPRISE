@@ -21,12 +21,24 @@
       return null;
     }
     const existente = window.SIGEE_SUPABASE_CLIENT || window.sigEESupabaseClient || window.supabaseClient || window.__SIGEE_V38_CLIENT;
-    if (existente) {
+    const urlConfigurada = String(cfg.supabase.url || '').replace(/\/+$/, '');
+    const urlExistente = String(existente?.supabaseUrl || '').replace(/\/+$/, '');
+
+    if (existente && urlExistente === urlConfigurada) {
       window.SIGEE_SUPABASE_CLIENT = existente;
       window.sigEESupabaseClient = existente;
       window.supabaseClient = existente;
       window.__SIGEE_V38_CLIENT = existente;
       return existente;
+    }
+
+    if (existente && urlExistente !== urlConfigurada) {
+      console.warn('[SIGEE] Cliente Supabase incompatível descartado:', urlExistente, '→', urlConfigurada);
+      try { existente.removeAllChannels?.(); } catch (_) {}
+      delete window.SIGEE_SUPABASE_CLIENT;
+      delete window.sigEESupabaseClient;
+      delete window.supabaseClient;
+      delete window.__SIGEE_V38_CLIENT;
     }
 
     const cliente = window.supabase.createClient(
