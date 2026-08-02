@@ -52,7 +52,7 @@
     PEDIDO_ATAS_DESARQUIVAMENTO: Object.freeze({
       event: 'PEDIDO_ATAS_DESARQUIVAMENTO',
       title: 'Executar Pedido de Atas sem Pasta',
-      messageCodes: Object.freeze(['36']),
+      messageCodes: Object.freeze(['26', '36']),
       deadlineDays: 7,
       consequence: 'O processo seguirá para Análise no contexto “Atas sem Pasta”.'
     })
@@ -190,9 +190,13 @@
         return 'Mensagem ' + item.numero + ' — ' + item.nome + '\n' + item.finalidade;
       }).join('\n\n'),
       confirmations: items.map(function (item) {
+        const assinaturasPedidoAtas = {
+          '26': 'Confirmo que executei o Processo 26 – Aluno (Ata sem Pasta).',
+          '36': 'Confirmo que executei o Processo 36 – Desarquivamento (Ata sem Pasta).'
+        };
         return {
           code: item.numero,
-          text: 'Confirmo que executei a Mensagem ' + item.numero + ' — ' + item.nome + '.'
+          text: assinaturasPedidoAtas[String(item.numero)] || ('Confirmo que executei a Mensagem ' + item.numero + ' — ' + item.nome + '.')
         };
       })
     };
