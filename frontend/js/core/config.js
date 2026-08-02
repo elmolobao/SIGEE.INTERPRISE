@@ -140,8 +140,8 @@
     },
 
     supabase: {
-      url: 'https://ckxbvsfjsknbgpfpxcyy.supabase.co',
-      anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNreGJ2c2Zqc2tuYmdwZnB4Y3l5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxOTc4MjUsImV4cCI6MjA5ODc3MzgyNX0.ecJr_MYR9GPnaYMZ3V6kgeed7uGtg-vQ4THpdwAtTxk',
+      url: 'https://uhzscqynbxcezfpmpqqm.supabase.co',
+      anonKey: 'sb_publishable_-yfLGo_1cAm3DRUVAvKJXg_aOX22Iw8',
       tabelas: {
         escolas: 'escolas_sigee',
         processos: 'processos',
