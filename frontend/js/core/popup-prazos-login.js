@@ -1,5 +1,5 @@
 /* =====================================================================
- * SIGEE RC10.8.18 — Alerta único de processos vencidos no login
+ * SIGEE RC10.8.19 — Alerta único de processos vencidos no login
  *
  * Um único popup obrigatório, exibido uma vez por login, com dois blocos:
  * 1) Ciclo de Desarquivamento: somente a ação atual ainda não executada;
@@ -16,10 +16,10 @@
 (function (window, document) {
   'use strict';
 
-  if (window.__SIGEE_POPUP_PRAZOS_LOGIN_RC10818__) return;
-  window.__SIGEE_POPUP_PRAZOS_LOGIN_RC10818__ = true;
+  if (window.__SIGEE_POPUP_PRAZOS_LOGIN_RC10819__) return;
+  window.__SIGEE_POPUP_PRAZOS_LOGIN_RC10819__ = true;
 
-  const VERSION = 'RC10.8.18';
+  const VERSION = 'RC10.8.19';
   const LIMITES_OPERACIONAIS = Object.freeze({
     ANALISE: 7,
     DIGITACAO: 15,
@@ -157,16 +157,51 @@
       return { processos: [], fonte: 'Base local indisponível', indisponivel: true };
     }
   }
+  function dataFlexivel(v) {
+    if (!v && v !== 0) return null;
+    if (v instanceof Date) {
+      const copia = new Date(v.getTime());
+      return Number.isNaN(copia.getTime()) ? null : copia;
+    }
+
+    const bruto = texto(v);
+    if (!bruto) return null;
+
+    // Registros migrados e históricos do SIGEE podem usar dd/mm/aaaa,
+    // com ou sem horário. O construtor Date não interpreta esse padrão
+    // de forma confiável em todos os navegadores.
+    const br = bruto.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+    if (br) {
+      const d = new Date(Number(br[3]), Number(br[2]) - 1, Number(br[1]), Number(br[4] || 0), Number(br[5] || 0), Number(br[6] || 0));
+      return Number.isNaN(d.getTime()) ? null : d;
+    }
+
+    const iso = new Date(bruto);
+    return Number.isNaN(iso.getTime()) ? null : iso;
+  }
   function inicioDia(v) {
-    const d = v instanceof Date ? new Date(v.getTime()) : new Date(v);
-    if (Number.isNaN(d.getTime())) return null;
+    const d = dataFlexivel(v);
+    if (!d) return null;
     d.setHours(0, 0, 0, 0);
     return d;
   }
   function diasDecorridos(base, referencia) {
     const a = inicioDia(base), b = inicioDia(referencia || new Date());
     if (!a || !b) return null;
-    return Math.floor((b.getTime() - a.getTime()) / 86400000);
+    return Math.max(0, Math.floor((b.getTime() - a.getTime()) / 86400000));
+  }
+
+  function diasOperacionais(p, referencia) {
+    // A Central recebe `dias_decorridos` em alguns registros migrados.
+    // Ele é usado apenas quando representa um número não negativo; para
+    // registros atuais, prevalece a data real de entrada na etapa.
+    const dataEntrada = dataEntradaEtapa(p);
+    const calculado = diasDecorridos(dataEntrada, referencia);
+    if (calculado != null) return calculado;
+
+    const persistido = Number(p?.dias_decorridos);
+    if (Number.isFinite(persistido) && persistido >= 0) return Math.floor(persistido);
+    return null;
   }
   function ciclo(p) { return Math.max(1, Number(p && (p.workflow_ciclo || p.ciclo) || 1)); }
   function instancia(p) { return texto(p && p.workflow_instance_id); }
@@ -251,7 +286,7 @@
       // Fluxo produtivo: somente etapas com SLA definido e efetivamente vencidas.
       const op = etapaOperacional(estado);
       if (!op) continue;
-      const dias = diasDecorridos(dataEntradaEtapa(p), agoraWorkflow());
+      const dias = diasOperacionais(p, agoraWorkflow());
       const limite = LIMITES_OPERACIONAIS[op];
       if (dias != null && dias > limite) {
         resumo.operacional[op] += 1;
