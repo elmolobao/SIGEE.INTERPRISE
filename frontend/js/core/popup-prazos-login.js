@@ -1,5 +1,5 @@
 /* =====================================================================
- * SIGEE RC10.8.17 — Alerta único de processos vencidos no login
+ * SIGEE RC10.8.18 — Alerta único de processos vencidos no login
  *
  * Um único popup obrigatório, exibido uma vez por login, com dois blocos:
  * 1) Ciclo de Desarquivamento: somente a ação atual ainda não executada;
@@ -16,10 +16,10 @@
 (function (window, document) {
   'use strict';
 
-  if (window.__SIGEE_POPUP_PRAZOS_LOGIN_RC10817__) return;
-  window.__SIGEE_POPUP_PRAZOS_LOGIN_RC10817__ = true;
+  if (window.__SIGEE_POPUP_PRAZOS_LOGIN_RC10818__) return;
+  window.__SIGEE_POPUP_PRAZOS_LOGIN_RC10818__ = true;
 
-  const VERSION = 'RC10.8.17';
+  const VERSION = 'RC10.8.18';
   const LIMITES_OPERACIONAIS = Object.freeze({
     ANALISE: 7,
     DIGITACAO: 15,
@@ -377,9 +377,18 @@
   }
 
   function iniciarNovoLogin(event) {
-    const usuario = usuarioAtual(event?.detail);
+    const detalhe = event?.detail || {};
+
+    // RC10.8.18: o alerta só pode nascer de um login manual efetivamente
+    // concluído. Eventos de restauração de sessão e inicialização da página
+    // não são gatilhos válidos.
+    if (detalhe.loginConcluido !== true) return;
+    if (!document.getElementById('tela-login')?.classList.contains('hidden')) return;
+
+    const usuario = usuarioAtual(detalhe);
     if (!usuario || !perfilOperacional(usuario)) return;
-    const loginId = texto(event?.detail?.login_id || event?.detail?.loginId || `login-${Date.now()}`);
+    const loginId = texto(detalhe.login_id || detalhe.loginId || '');
+    if (!loginId) return;
     if (loginId && loginId === loginIdProcessado) return;
     loginIdProcessado = loginId;
 
@@ -392,12 +401,6 @@
     processarLogin(usuario, tokenLogin);
   }
 
-  function garantirLoginAtivo(event) {
-    const usuario = usuarioAtual(event?.detail);
-    if (!usuario || !perfilOperacional(usuario)) return;
-    if (popupExibidoNesteLogin || loginEmProcessamento) return;
-    processarLogin(usuario, tokenLogin);
-  }
   function aoLogout() {
     tokenLogin += 1;
     loginEmProcessamento = false;
@@ -406,24 +409,13 @@
     removerPopup();
   }
 
+  // Único gatilho autorizado: evento explícito emitido ao final do login
+  // manual. Não escutar session-ready e não verificar sessão já restaurada.
   document.addEventListener('sigee:login-concluido', iniciarNovoLogin);
-  window.addEventListener('sigee:session-ready', garantirLoginAtivo);
   document.addEventListener('sigee:usuario-deslogado', aoLogout);
   window.addEventListener('sigee:usuario-deslogado', aoLogout);
 
-  function verificarSessaoJaAtiva() {
-    const usuario = usuarioAtual();
-    if (usuario && !popupExibidoNesteLogin && !loginEmProcessamento) {
-      setTimeout(() => garantirLoginAtivo({ detail: { usuario } }), 800);
-    }
-  }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', verificarSessaoJaAtiva, { once:true });
-  } else {
-    verificarSessaoJaAtiva();
-  }
 
 
-
-  window.SIGEE_POPUP_PRAZOS_LOGIN = Object.freeze({ version:VERSION, verificar:garantirLoginAtivo, reiniciar:iniciarNovoLogin, obterResumo, etapaDesarquivamento, etapaOperacional });
+  window.SIGEE_POPUP_PRAZOS_LOGIN = Object.freeze({ version:VERSION, verificar:iniciarNovoLogin, reiniciar:iniciarNovoLogin, obterResumo, etapaDesarquivamento, etapaOperacional });
 })(window, document);
