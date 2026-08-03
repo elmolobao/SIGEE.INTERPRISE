@@ -3859,14 +3859,32 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         exportarXLSXSIGEE('SIGEE_Catalogo_Escolas', [{ nome:'Escolas', dados }]);
     };
 
+    function prazoProcessoExportacaoSIGEE(p){
+        const etapa = String(p.etapa || p.etapa_atual || '').trim();
+        const limites = window.SIGEE_CONFIG?.prazosEtapas || { 'Desarquivamento':30, 'Análise':7, 'Digitação':15, 'Conferência':10, 'Assinatura':7 };
+        const limite = limites[etapa];
+        const inicio = p.data_etapa_atual || p.etapa_iniciada_em || p.updated_at || p.created_at;
+        let dias = Number(p.dias_na_etapa ?? p.dias_etapa);
+        if (!Number.isFinite(dias)) dias = (typeof calcularDiasApartirDeDataString === 'function') ? calcularDiasApartirDeDataString(inicio) : 0;
+        dias = Math.max(0, Number(dias) || 0);
+        if (limite == null) return { prazo: `${dias}/—`, situacao: 'SEM PRAZO', dias, limite:null };
+        const situacao = dias > limite ? 'VENCIDO' : dias === limite ? 'VENCE HOJE' : 'DENTRO DO PRAZO';
+        return { prazo: `${dias}/${limite}`, situacao, dias, limite };
+    }
     window.exportarProcessosSIGEE = function(formato='xlsx'){
         if (!exigirPerfilExportadorSIGEE()) return;
-        const dados = processosVisiveisExportacaoSIGEE().map(p => ({
-            'Aluno': p.aluno || p.aluno_nome || '', 'Escola': p.escola || p.escola_nome || '', 'Documento': p.documento || p.documento_tipo || '',
-            'Etapa': p.etapa || p.etapa_atual || '', 'Dias na Etapa': (typeof calcularDiasApartirDeDataString === 'function') ? calcularDiasApartirDeDataString(p.data_etapa_atual || p.created_at) : '',
-            'Técnico': p.tecnico || p.analista || p.digitador || '', 'Prioridade': p.prioridade || '', 'Município': p.municipio || '',
-            'NTE': window.rotuloNteSIGEE?.(p.nte) || p.nte || '', 'Data de Abertura': p.data_inicio || p.created_at || '', 'Última Movimentação': p.data_etapa_atual || ''
-        }));
+        const dados = processosVisiveisExportacaoSIGEE().map(p => {
+            const prazo = prazoProcessoExportacaoSIGEE(p);
+            return {
+                'Aluno': p.aluno || p.aluno_nome || '', 'Escola': p.escola || p.escola_nome || '', 'Documento': p.documento || p.documento_tipo || '',
+                'Etapa': p.etapa || p.etapa_atual || '', 'Prazo': prazo.prazo, 'Situação': prazo.situacao,
+                'Técnico': p.tecnico || p.tecnico_responsavel_nome || p.analista || p.digitador || p.responsavel || (p.migrado ? 'Migrado' : ''),
+                'Prioridade': p.prioridade || '', 'Município': p.municipio || '', 'NTE': window.rotuloNteSIGEE?.(p.nte) || p.nte || ''
+            };
+        }).sort((a,b)=>{
+            const peso=s=>s==='VENCIDO'?0:s==='VENCE HOJE'?1:s==='DENTRO DO PRAZO'?2:3;
+            return peso(a['Situação'])-peso(b['Situação']) || (a['Prioridade']==='Urgente'?-1:1) || String(a.Aluno).localeCompare(String(b.Aluno),'pt-BR');
+        });
         registrarLog(`Exportou Processos (${formato.toUpperCase()}) - ${dados.length} registros.`);
         if (formato === 'pdf') return exportarPDFSIGEE('Processos / Fluxo', Object.keys(dados[0] || {'Sem dados':''}), dados.map(Object.values), 'SIGEE_Processos');
         exportarXLSXSIGEE('SIGEE_Processos', [{ nome:'Processos', dados }]);
