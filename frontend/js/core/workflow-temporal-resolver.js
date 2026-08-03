@@ -14,7 +14,25 @@
 
   function validDate(value) {
     if (!value) return null;
-    const date = value instanceof Date ? new Date(value.getTime()) : new Date(value);
+    if (value instanceof Date) {
+      const copy = new Date(value.getTime());
+      return Number.isNaN(copy.getTime()) ? null : copy;
+    }
+
+    const raw = String(value).trim();
+    let match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (match) {
+      const localDate = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+      return Number.isNaN(localDate.getTime()) ? null : localDate;
+    }
+
+    match = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (match) {
+      const localDate = new Date(Number(match[3]), Number(match[2]) - 1, Number(match[1]));
+      return Number.isNaN(localDate.getTime()) ? null : localDate;
+    }
+
+    const date = new Date(value);
     return Number.isNaN(date.getTime()) ? null : date;
   }
 
@@ -194,7 +212,7 @@
   }
 
   window.SIGEE_WORKFLOW_TEMPORAL = Object.freeze({
-    version: 'RC10.2.1',
+    version: 'RC10.2.2',
     resolve,
     elapsedDays,
     stateForDays,
