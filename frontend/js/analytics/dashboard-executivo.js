@@ -1,4 +1,4 @@
-/* SIGEE RC5.6.5 — Perfil Executivo com Inteligência Gerencial
+/* SIGEE RC7.4.5 — Perfil Executivo com prazo reconciliado
  * Atualização manual real, com baixo consumo e sem depender da página local de processos.
  */
 (function () {
@@ -38,12 +38,21 @@
   const modalidade = p => String(val(p,'modalidade') || 'Não informado');
   const tipoEnsino = p => { const v=String(val(p,'nivel_oferta','tipo_ensino','nivel_ensino')||'Não informado'); const n=norm(v); if(n.includes('FUND')) return 'Fundamental'; if(n.includes('MED')) return 'Médio'; return v; };
   let ultimoComplementoRPC = null;
+  // RC7.4.5: mesma referência temporal exibida na lista de Processos.
+  // A entrada na etapa prevalece sobre datas globais do processo migrado.
   const dias = p => {
+    const entradaEtapa = val(p,'data_etapa_atual','data_etapa','prazo_inicio');
+    if (entradaEtapa) {
+      const d = new Date(entradaEtapa);
+      if (!Number.isNaN(d.getTime())) return daysBetween(d,new Date());
+    }
     const explicit = Number(val(p,'dias_decorridos'));
     if (Number.isFinite(explicit) && explicit >= 0) return explicit;
     const d = dateOf(p); return d ? daysBetween(d,new Date()) : 0;
   };
   const limite = p => {
+    const prazoPersistido = Number(val(p,'prazo_etapa'));
+    if (Number.isFinite(prazoPersistido) && prazoPersistido > 0) return prazoPersistido;
     const e = norm(etapa(p));
     if (e.includes('DESARQ')) return 30;
     if (e.includes('ANAL')) return 7;
@@ -160,9 +169,15 @@
     ensureUI();
     ultimoResumoRPC = r || {};
     const total = Number(r.total_processos ?? r.total ?? normalizarRanking(r.por_etapa).reduce((a,x)=>a+Number(x[1]||0),0));
-    const ativos = Number(r.ativos || 0);
-    const concl = Number(r.concluidos || 0);
-    const venc = Number(r.vencidos || 0);
+    const processosLocais = filteredProcesses();
+    const possuiBaseLocal = processosLocais.length > 0;
+    const ativosLocais = possuiBaseLocal ? processosLocais.filter(p=>!concluido(p)) : [];
+    const vencidosLocais = possuiBaseLocal ? ativosLocais.filter(atrasado) : [];
+    const ativos = possuiBaseLocal ? ativosLocais.length : Number(r.ativos || 0);
+    const concl = possuiBaseLocal ? processosLocais.filter(concluido).length : Number(r.concluidos || 0);
+    // A RPC continua fornecendo o snapshot; o prazo é reconciliado com o mesmo
+    // conjunto de processos e a mesma regra visual da listagem operacional.
+    const venc = possuiBaseLocal ? vencidosLocais.length : Number(r.vencidos || 0);
     const prazo = Math.max(0, ativos - venc);
     const media = Number(r.media_atendimento || 0);
     const sla = pct(prazo, ativos);
@@ -187,7 +202,24 @@
 
     const complemento=ultimoComplementoRPC||{};
     const territorial=Array.isArray(complemento.produtividade_territorial)?complemento.produtividade_territorial:[];
-    const ntes=territorial.length?territorial:normalizarRanking(r.por_nte).map(x=>({nte:x[0],total:x[1],concluidos:null,em_atraso:null,eficiencia:null}));
+    let ntes=territorial.length?territorial:normalizarRanking(r.por_nte).map(x=>({nte:x[0],total:x[1],concluidos:null,em_atraso:null,eficiencia:null}));
+    if (possuiBaseLocal) {
+      const metricasPorNte = new Map();
+      processosLocais.forEach(p=>{
+        const chave=numeroNte(nte(p)) || norm(nte(p));
+        const atual=metricasPorNte.get(chave)||{total:0,concluidos:0,em_atraso:0};
+        atual.total += 1;
+        if(concluido(p)) atual.concluidos += 1;
+        else if(atrasado(p)) atual.em_atraso += 1;
+        metricasPorNte.set(chave,atual);
+      });
+      ntes=ntes.map(x=>{
+        const chave=numeroNte(x.nte||x.nome||x[0]) || norm(x.nte||x.nome||x[0]);
+        const local=metricasPorNte.get(chave);
+        if(!local) return x;
+        return {...x,total:local.total,concluidos:local.concluidos,em_atraso:local.em_atraso,eficiencia:pct(local.concluidos,local.total)};
+      });
+    }
     const nteBox=document.getElementById('sigee-exec-ntes');
     if(nteBox) nteBox.innerHTML=ntes.length?`<div class="sigee-exec-table"><div class="head"><b>NTE</b><b>Total</b><b>Concluídos</b><b>Em atraso</b><b>Eficiência</b></div>${ntes.slice(0,27).map(x=>`<div><span>${esc(window.rotuloNteSIGEE?.(x.nte||x.nome||x[0]||'') || (x.nte||x.nome||x[0]||''))}</span><span>${Number(x.total??x[1]??0).toLocaleString('pt-BR')}</span><span>${x.concluidos==null?'—':Number(x.concluidos).toLocaleString('pt-BR')}</span><span>${x.em_atraso==null?'—':Number(x.em_atraso).toLocaleString('pt-BR')}</span><span>${x.eficiencia==null?'—':Number(x.eficiencia).toLocaleString('pt-BR',{maximumFractionDigits:1})+'%'} ${statusTerritorial(x)}</span></div>`).join('')}</div>`:'<p class="sigee-exec-empty">Sem dados por NTE.</p>';
     const tendencias=complemento.tendencias||{};
