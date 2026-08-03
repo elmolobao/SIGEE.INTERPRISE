@@ -330,14 +330,22 @@
 
   function modalHTML(p, eventos, marcos = {}) {
     const temporal = estadoTemporal(p);
-    const inicio = temporal?.anchor || valor(p, 'created_at', 'criado_em', 'data_solicitacao', 'data_abertura', 'data_inicio_desarquivamento');
-    const tempoTotal = temporal?.days ?? diasEntre(inicio);
+    const metricas = (() => {
+      try { return window.SIGEE_WORKFLOW_TEMPORAL?.processMetrics?.(p || {}, agoraWorkflow()) || null; }
+      catch (e) { console.warn('[SIGEE RC10.8.10] Métricas temporais indisponíveis:', e); return null; }
+    })();
+    const inicio = metricas?.opening || valor(p, 'data_abertura', 'data_solicitacao', 'created_at', 'criado_em', 'data_inicio_desarquivamento');
+    const tempoTotal = metricas?.totalDays ?? diasEntre(inicio, valor(p,'deferido_em','data_deferimento') || agoraWorkflow());
+    const tempoPosDeferimento = metricas?.postDeferredDays ?? 0;
     const etapa = etapaAtual(p);
     const comunicacoes = resumoComunicacoes(eventos);
     const documentos = resumoDocumentos(eventos);
     const ultima = ultimaMovimentacao(eventos);
     const ultimaData = ultima?.created_at || ultima?.data || ultima?.data_hora || inicio;
     const tempoParado = diasEntre(ultimaData, agoraWorkflow());
+    const etapaNormalizada = normalizar(valor(p,'etapa_atual','etapa','fase_atual'));
+    const cicloExterno = ['DESARQUIVAMENTO','REITERACAO','REITERACAO URGENTE','CONFIRMACAO DOS DADOS','PEDIDO DE ATAS SEM PASTA'].some(item => etapaNormalizada.includes(item));
+    const tempoEtapa = cicloExterno ? (temporal?.days ?? metricas?.stageDays ?? 0) : (metricas?.stageDays ?? diasEntre(valor(p,'data_etapa_atual','data_etapa','prazo_inicio'), agoraWorkflow()));
     const responsavelAtual = valor(p,'tecnico_responsavel','responsavel','usuario_responsavel') || 'Não atribuído';
     const risco = riscoProcesso(p, tempoParado);
 
@@ -383,6 +391,7 @@
               <div class="sigee-pep-kpis sigee-pep-kpis-executivos">
                 <div><strong>${tempoTotal}</strong><span>tempo total (dias)</span></div>
                 <div><strong>${tempoParado}</strong><span>tempo parado (dias)</span></div>
+                ${metricas?.deferred ? `<div><strong>${tempoPosDeferimento}</strong><span>deferido até retirada (dias)</span></div>` : ''}
               </div>
               <dl class="sigee-pep-resumo-executivo">
                 <div><dt>Responsável</dt><dd>${escapar(responsavelAtual)}</dd></div>
@@ -403,7 +412,8 @@
               <dl>
                 <div><dt>Etapa atual</dt><dd>${escapar(etapa)}</dd></div>
                 <div><dt>Início</dt><dd>${formatarData(inicio, false)}</dd></div>
-                <div><dt>Tempo na etapa</dt><dd>${temporal?.days ?? diasEntre(valor(p,'data_etapa_atual','prazo_inicio'))} dias</dd></div>
+                <div><dt>Tempo na etapa</dt><dd>${tempoEtapa} dias</dd></div>
+                ${metricas?.deferred ? `<div><dt>Deferido até retirada</dt><dd>${tempoPosDeferimento} dias${metricas?.postDeferredFrozen ? ' (encerrado)' : ''}</dd></div>` : ''}
                 <div><dt>Prazo final</dt><dd>${formatarData(valor(p,'prazo_fim'), false)}</dd></div>
               </dl>
             </section>
