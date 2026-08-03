@@ -1,4 +1,4 @@
-/* SIGEE RC10.2.0 — resolvedor temporal único do ciclo externo */
+/* SIGEE RC10.2.1 — resolvedor temporal único do ciclo externo + indicadores globais */
 (function (window) {
   'use strict';
   if (window.SIGEE_WORKFLOW_TEMPORAL) return;
@@ -110,6 +110,71 @@
     return Math.max(0, current - start);
   }
 
+
+
+  function normalizedStage(process) {
+    return String(process && (process.etapa_atual || process.etapa || process.fase_atual) || '')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toUpperCase();
+  }
+
+  function calendarDaysBetween(startValue, endValue) {
+    const start = dayNumber(startValue);
+    const end = dayNumber(endValue || nowDate());
+    if (start == null || end == null) return 0;
+    return Math.max(0, end - start);
+  }
+
+  /*
+   * Indicadores institucionais do processo.
+   * Esta função NÃO participa da liberação de ações do workflow.
+   * - contador global: abertura -> deferimento (congelado no deferimento);
+   * - contador pós-deferimento: deferimento -> retirada (congelado na retirada);
+   * - contador da etapa: entrada na etapa -> agora, ou encerramento aplicável.
+   */
+  function processMetrics(process, now) {
+    const currentNow = validDate(now) || nowDate();
+    const opening = firstValid([
+      process && process.data_abertura,
+      process && process.data_solicitacao,
+      process && process.created_at,
+      process && process.criado_em
+    ]);
+    const deferred = firstValid([
+      process && process.deferido_em,
+      process && process.data_deferimento
+    ]);
+    const withdrawn = firstValid([
+      process && process.retirado_em,
+      process && process.data_retirada,
+      normalizedStage(process) === 'RETIRADO' ? process && process.data_etapa_atual : null
+    ]);
+    const stageStart = firstValid([
+      process && process.data_etapa_atual,
+      process && process.data_etapa,
+      process && process.prazo_inicio,
+      opening
+    ]);
+
+    const totalEnd = deferred || currentNow;
+    const postDeferredEnd = withdrawn || currentNow;
+    const stage = normalizedStage(process);
+    const stageEnd = stage === 'RETIRADO' ? (withdrawn || currentNow)
+      : stage === 'AGUARDANDO RETIRADA' || stage === 'DEFERIDO' ? currentNow
+      : currentNow;
+
+    return Object.freeze({
+      opening,
+      deferred,
+      withdrawn,
+      stageStart,
+      totalDays: calendarDaysBetween(opening, totalEnd),
+      postDeferredDays: deferred ? calendarDaysBetween(deferred, postDeferredEnd) : 0,
+      stageDays: calendarDaysBetween(stageStart, stageEnd),
+      totalFrozen: Boolean(deferred),
+      postDeferredFrozen: Boolean(deferred && withdrawn)
+    });
+  }
+
   function stateForDays(days) {
     const safe = Math.max(0, Number.isFinite(Number(days)) ? Number(days) : 0);
     return STATES.find(item => safe >= item.min) || STATES[STATES.length - 1];
@@ -129,10 +194,12 @@
   }
 
   window.SIGEE_WORKFLOW_TEMPORAL = Object.freeze({
-    version: 'RC10.2.0',
+    version: 'RC10.2.1',
     resolve,
     elapsedDays,
     stateForDays,
-    anchor
+    anchor,
+    processMetrics,
+    calendarDaysBetween
   });
 })(window);
