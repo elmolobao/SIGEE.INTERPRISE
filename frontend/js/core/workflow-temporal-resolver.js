@@ -20,7 +20,13 @@
     }
 
     const raw = String(value).trim();
-    let match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    /*
+     * Datas do Supabase normalmente chegam como ISO com fuso (Z/+00:00).
+     * Para os contadores institucionais do SIGEE, a parte YYYY-MM-DD é uma
+     * data civil: ela não pode recuar um dia ao ser convertida para o fuso
+     * local do navegador. O mesmo tratamento vale para data sem horário.
+     */
+    let match = raw.match(/^(\d{4})-(\d{2})-(\d{2})(?:$|[T\s])/);
     if (match) {
       const localDate = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
       return Number.isNaN(localDate.getTime()) ? null : localDate;
@@ -212,7 +218,7 @@
   }
 
   window.SIGEE_WORKFLOW_TEMPORAL = Object.freeze({
-    version: 'RC10.2.2',
+    version: 'RC10.2.3',
     resolve,
     elapsedDays,
     stateForDays,
