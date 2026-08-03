@@ -3808,8 +3808,23 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         if (!busca) return lista;
         return lista.filter(e => [e.cod_mec, e.nome, e.nome_escola, e.municipio, e.nte].some(v => valorTextoSIGEE(v).toLowerCase().includes(busca)));
     }
+    function obterBaseProcessosExportacaoSIGEE(){
+        // RC exportação: usa a mesma fonte autoritativa da Central de Processos.
+        // Evita exportação vazia quando a variável local processosDB fica desatualizada
+        // após paginação, sincronização, filtros ou atualizações feitas por outros módulos.
+        const candidatas = [
+            window.SIGEE_PROCESSOS_STORE?.snapshot?.(),
+            window.SIGEE_PROCESSOS_STORE?.obter?.(),
+            window.processosDB,
+            (typeof processosDB !== 'undefined' ? processosDB : null)
+        ];
+        const base = candidatas.find(lista => Array.isArray(lista) && lista.length)
+            || candidatas.find(Array.isArray)
+            || [];
+        return base.slice();
+    }
     function processosVisiveisExportacaoSIGEE(){
-        let lista = filtrarNteExportacaoSIGEE(processosDB || [], 'nte');
+        let lista = filtrarNteExportacaoSIGEE(obterBaseProcessosExportacaoSIGEE(), 'nte');
         const filtroNteCentral = document.getElementById('filtro-processos-nte')?.value || 'TODOS';
         if (filtroNteCentral !== 'TODOS') {
             const igualNte = (typeof nteIgualSIGEE === 'function') ? nteIgualSIGEE : ((a,b)=>String(a||'').replace(/\D/g,'') === String(b||'').replace(/\D/g,''));
@@ -3873,7 +3888,12 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     }
     window.exportarProcessosSIGEE = function(formato='xlsx'){
         if (!exigirPerfilExportadorSIGEE()) return;
-        const dados = processosVisiveisExportacaoSIGEE().map(p => {
+        const processosExportacao = processosVisiveisExportacaoSIGEE();
+        if (!processosExportacao.length) {
+            alert('Nenhum processo foi encontrado para os filtros e a abrangência territorial atuais. Revise os filtros da Central de Processos e tente novamente.');
+            return;
+        }
+        const dados = processosExportacao.map(p => {
             const prazo = prazoProcessoExportacaoSIGEE(p);
             return {
                 'Aluno': p.aluno || p.aluno_nome || '', 'Escola': p.escola || p.escola_nome || '', 'Documento': p.documento || p.documento_tipo || '',
