@@ -3,7 +3,7 @@
   'use strict';
   if(window.__SIGEE_DASHBOARD_RPC_510__) return;
   window.__SIGEE_DASHBOARD_RPC_510__=true;
-  window.SIGEE_DASHBOARD_AUTORIDADE='SNAPSHOT_TERRITORIAL_RC7.4.3';
+  window.SIGEE_DASHBOARD_AUTORIDADE='SNAPSHOT_TERRITORIAL_RC7.4.4';
 
   const CACHE_MS=180000;
   const BOOT_GUARD_MS=15000;
@@ -51,11 +51,10 @@
     const n=window.SIGEE_ESCOPO?.numeroNte?.(v) ?? Number(nteNumero(v)||0);
     return n ? `NTE-${String(n).padStart(2,'0')}` : '';
   }
-  function perfilTecnico(u){return norm(u?.perfil||u?.role||u?.tipo).includes('TECNIC');}
+  function perfilTecnico(u){return norm(u?.perfil).includes('TECNIC');}
   function usuarioAtivo(u){
     if(u?.ativo===false)return false;
-    const situacao=norm(u?.status||u?.situacao||'ATIVO');
-    return !['INATIVO','BLOQUEADO','DESATIVADO','EXCLUIDO'].some(x=>situacao.includes(x));
+    return true;
   }
   async function contarTecnicosEscopo(nteAlvo,forcar=false){
     const chave=nteAlvo?nteCanonico(nteAlvo):'GLOBAL';
@@ -63,11 +62,11 @@
     if(!forcar&&salvo&&Date.now()-salvo.em<CACHE_MS)return salvo.total;
     const c=cliente();
     if(!c)return 0;
-    const {data,error}=await c.from('usuarios_sigee').select('perfil,role,tipo,ativo,status,situacao,nte,nte_nome,grupo,nte_id');
+    const {data,error}=await c.from('usuarios_sigee').select('perfil,ativo,nte,nte_id');
     if(error)throw error;
     let lista=Array.isArray(data)?data:[];
     if(chave!=='GLOBAL'){
-      lista=lista.filter(u=>nteCanonico(window.SIGEE_ESCOPO?.nteRegistro?.(u)||u?.nte||u?.nte_nome||u?.grupo||u?.nte_id)===chave);
+      lista=lista.filter(u=>nteCanonico(window.SIGEE_ESCOPO?.nteRegistro?.(u)||u?.nte||u?.nte_id)===chave);
     }else if(!global()){
       lista=window.SIGEE_ESCOPO?.filtrar?.(lista,usuario())||[];
     }
@@ -78,7 +77,12 @@
   async function complementarTecnicos(snapshot,nteAlvo,forcar=false){
     const alvo=global()?nteAlvo:(window.SIGEE_ESCOPO?.nteIdUsuario?.(usuario())||window.SIGEE_ESCOPO?.nteUsuario?.(usuario())||nteAlvo);
     const complemento={...(snapshot?.complemento||{})};
-    complemento.tecnicos_total=await contarTecnicosEscopo(alvo,forcar);
+    try{
+      complemento.tecnicos_total=await contarTecnicosEscopo(alvo,forcar);
+    }catch(erro){
+      console.warn('[SIGEE Dashboard] Contagem de técnicos indisponível:',erro);
+      complemento.tecnicos_total=Number(complemento.tecnicos_total||0);
+    }
     if(snapshot)snapshot.complemento=complemento;
     return complemento;
   }
@@ -184,56 +188,6 @@
     html('cig-alertas',alertas.join('')||'<div class="ok"><b>✓</b><span>Operação dentro dos parâmetros atuais</span></div>');
     window.dispatchEvent(new CustomEvent('sigee:dashboard-rpc-atualizado',{detail:r}));
   }
-  async function buscarPaginado(tabela, aplicarEscopo) {
-    const c=cliente(); if(!c) throw new Error('Cliente Supabase indisponível.');
-    const todos=[]; const lote=1000;
-    for(let de=0;;de+=lote){
-      let q=c.from(tabela).select('*');
-      if(typeof aplicarEscopo==='function') q=aplicarEscopo(q)||q;
-      const {data,error}=await q.range(de,de+lote-1);
-      if(error) throw error;
-      const itens=Array.isArray(data)?data:[]; todos.push(...itens);
-      if(itens.length<lote) break;
-    }
-    return todos;
-  }
-  function dataValida(v){const d=v?new Date(v):null;return d&&!Number.isNaN(d.getTime())?d:null;}
-  function diasEntre(a,b=new Date()){return a?Math.max(0,Math.floor((b-a)/86400000)):0;}
-  function etapaRegistro(p){return txt(p?.etapa_atual||p?.etapa||p?.fase_atual||'Desarquivamento');}
-  function limiteEtapa(nome){const n=norm(nome);if(n.includes('DESARQ'))return 30;if(n.includes('ANAL'))return 7;if(n.includes('DIGIT'))return 15;if(n.includes('CONFER'))return 10;if(n.includes('ASSIN'))return 7;return null;}
-  function diasEtapa(p){const exp=Number(p?.dias_na_etapa??p?.dias_etapa);if(Number.isFinite(exp)&&exp>=0)return exp;return diasEntre(dataValida(p?.data_etapa_atual||p?.etapa_iniciada_em||p?.updated_at||p?.created_at));}
-  function agrupar(lista,getter){const m=new Map();for(const x of lista){const k=txt(getter(x))||'Não informado';m.set(k,(m.get(k)||0)+1);}return [...m].sort((a,b)=>b[1]-a[1]).map(([nome,total])=>({nome,total}));}
-  async function snapshotDireto(nteAlvo,p){
-    const u=usuario();
-    let processos=await buscarPaginado(window.SIGEE_CONFIG?.supabase?.tabelas?.processos||'processos',q=>window.SIGEE_ESCOPO?.aplicarQueryProcessos?.(q,u));
-    let escolas=await buscarPaginado(window.SIGEE_CONFIG?.supabase?.tabelas?.escolas||'escolas_sigee');
-    processos=window.SIGEE_ESCOPO?.filtrar?.(processos,u)||processos;
-    escolas=window.SIGEE_ESCOPO?.filtrar?.(escolas,u)||escolas;
-    if(nteAlvo){const alvo=nteCanonico(nteAlvo);processos=processos.filter(x=>nteCanonico(window.SIGEE_ESCOPO?.nteRegistro?.(x)||x.nte||x.nte_id)===alvo);escolas=escolas.filter(x=>nteCanonico(window.SIGEE_ESCOPO?.nteRegistro?.(x)||x.nte||x.nte_id)===alvo);}
-    const noPeriodo=x=>{if(!p.inicioIso&&!p.fimIso)return true;const d=dataValida(x.created_at||x.data_inicio||x.data_abertura||x.data_solicitacao);if(!d)return false;return(!p.inicioIso||d>=new Date(p.inicioIso))&&(!p.fimIso||d<=new Date(p.fimIso));};
-    const basePeriodo=processos.filter(noPeriodo);
-    const concluidos=processos.filter(x=>['RETIRADO','INDEFERIDO'].includes(norm(etapaRegistro(x))));
-    const ativos=processos.filter(x=>!['RETIRADO','INDEFERIDO'].includes(norm(etapaRegistro(x))));
-    const vencidos=ativos.filter(x=>{const l=limiteEtapa(etapaRegistro(x));return l!=null&&diasEtapa(x)>l;});
-    const porEtapa=agrupar(processos,etapaRegistro), mapa=Object.fromEntries(porEtapa.map(x=>[norm(x.nome),x.total]));
-    const tempoConcluidos=concluidos.map(x=>Number(x.tempo_total_dias)).filter(Number.isFinite);
-    const resumo={
-      total_processos:processos.length,ativos:ativos.length,concluidos:concluidos.length,vencidos:vencidos.length,
-      escolas_total:escolas.length,acervos_recolhidos:escolas.filter(x=>norm(x.status_acervo||x.acervo)==='RECOLHIDO').length,
-      escolas_estaduais:escolas.filter(x=>norm(x.dependencia||x.dependencia_adm).includes('ESTAD')).length,
-      desarquivamento:mapa.DESARQUIVAMENTO||0,analise:mapa.ANALISE||0,pendencia:mapa.PENDENCIA||0,digitacao:mapa.DIGITACAO||0,
-      conferencia:mapa.CONFERENCIA||0,assinatura:mapa.ASSINATURA||0,aguardando_retirada:mapa['AGUARDANDO RETIRADA']||0,retirado:mapa.RETIRADO||0,
-      media_atendimento:tempoConcluidos.length?tempoConcluidos.reduce((a,b)=>a+b,0)/tempoConcluidos.length:0,
-      por_etapa:porEtapa,por_nte:agrupar(processos,x=>nteCanonico(x.nte||x.nte_id)||'Sem NTE'),
-      por_escola:agrupar(processos,x=>x.escola_nome||x.escola||'Sem escola'),por_tecnico:agrupar(ativos,x=>x.tecnico_responsavel_nome||x.tecnico||x.analista||x.responsavel||'Não atribuído'),
-      por_documento:agrupar(processos,x=>x.documento_tipo||x.documento||'Não informado'),atualizado_em:new Date().toISOString(),fonte:'SUPABASE_DIRETO_FALLBACK'
-    };
-    const atrasos=porEtapa.map(x=>{const sub=ativos.filter(p=>norm(etapaRegistro(p))===norm(x.nome));const em=sub.filter(p=>{const l=limiteEtapa(etapaRegistro(p));return l!=null&&diasEtapa(p)>l;}).length;return {nome:x.nome,total:sub.length,em_atraso:em,percentual_atraso:sub.length?em*100/sub.length:0};}).filter(x=>x.total);
-    const complemento={municipios_total:new Set(escolas.map(x=>txt(x.municipio)).filter(Boolean)).size,pedidos_abertos_periodo:basePeriodo.length,arquivos_recebidos_periodo:basePeriodo.filter(x=>x.arquivo_recebido_em||x.data_documento_recebido).length,tempo_medio_arquivo_recebido:null,atrasos_por_etapa:atrasos,semaforo_etapas:atrasos.map(x=>({...x,status:x.percentual_atraso>=30?'critico':x.percentual_atraso>=15?'atencao':'bom'})),por_modalidade:agrupar(processos,x=>x.modalidade||'Não informado'),por_ensino:agrupar(processos,x=>x.tipo_ensino||x.nivel_ensino||'Não informado')};
-    console.warn('[SIGEE Dashboard] RPC indisponível; snapshot calculado diretamente após migração.',{processos:processos.length,escolas:escolas.length});
-    return {resumo,complemento};
-  }
-
   async function carregar(forcar=false, origem='automatica'){
     if(!usuario())return;
     const aba=document.getElementById('aba-painel');
@@ -269,14 +223,9 @@
     if(!c){console.warn('[SIGEE Dashboard] Supabase indisponível.');return}
     carregando=true;
     const requisicao=(async()=>{
-      try {
-        const resposta=await c.rpc('sigee_dashboard_snapshot',{p_nte:nte||null,p_data_inicio:p.inicioIso,p_data_fim:p.fimIso});
-        if(resposta.error)throw resposta.error;
-        return typeof resposta.data==='string'?JSON.parse(resposta.data):resposta.data||{};
-      } catch (rpcError) {
-        console.warn('[SIGEE Dashboard] Falha na RPC sigee_dashboard_snapshot; acionando compatibilidade pós-migração.',rpcError);
-        return snapshotDireto(nte,p);
-      }
+      const resposta=await c.rpc('sigee_dashboard_snapshot',{p_nte:nte||null,p_data_inicio:p.inicioIso,p_data_fim:p.fimIso});
+      if(resposta.error)throw resposta.error;
+      return typeof resposta.data==='string'?JSON.parse(resposta.data):resposta.data||{};
     })();
     estadoGlobal.emAndamento.set(chave,requisicao);
 
@@ -308,6 +257,6 @@
   document.addEventListener('sigee:usuario-logado',()=>agendar(false,'login'));
   window.carregarDadosDashboardReal=()=>agendar(true,'manual');
   window.carregarDadosDashboardRealImediato=()=>carregar(true,'manual');
-  window.SIGEE_DASHBOARD_RPC={carregar:(forcar=false)=>carregar(forcar,forcar?'manual':'api'),limparCache:()=>{cache.clear();estadoGlobal.ultimo.clear();},versao:'RC7.4.2'};
+  window.SIGEE_DASHBOARD_RPC={carregar:(forcar=false)=>carregar(forcar,forcar?'manual':'api'),limparCache:()=>{cache.clear();estadoGlobal.ultimo.clear();},versao:'RC7.4.4'};
   // Sem carga no DOMContentLoaded: o primeiro snapshot nasce somente após login ou navegação real ao painel.
 })();
