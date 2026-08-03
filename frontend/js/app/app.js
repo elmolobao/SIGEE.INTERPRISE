@@ -3823,8 +3823,41 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             || [];
         return base.slice();
     }
-    function processosVisiveisExportacaoSIGEE(){
-        let lista = filtrarNteExportacaoSIGEE(obterBaseProcessosExportacaoSIGEE(), 'nte');
+    async function obterTodosProcessosExportacaoSIGEE(){
+        // Quando a Central usa paginação remota, o Store contém somente a página atual.
+        // Para exportar o relatório completo, consulta todos os registros autorizados,
+        // em lotes, trazendo apenas as colunas necessárias ao PDF/Excel.
+        if (window.__SIGEE_PROCESSOS_ORIGEM__ !== 'REMOTA_PAGINADA') {
+            return obterBaseProcessosExportacaoSIGEE();
+        }
+        const client = obterSupabaseSIGEE?.();
+        if (!client) return obterBaseProcessosExportacaoSIGEE();
+        const tabela = window.SIGEE_CONFIG?.supabase?.tabelas?.processos || SIGEE_SUPABASE_TABELAS?.processos || 'processos';
+        const campos = 'id,codigo_sigee,aluno_nome,escola_nome,documento_tipo,etapa_atual,dias_decorridos,prioridade,nte,tecnico_responsavel,data_etapa,data_etapa_atual,prazo_etapa,prazo_inicio,prazo_fim,status,created_at,updated_at,processo_migrado';
+        const todos = [];
+        const tamanhoLote = 1000;
+        const tetoSeguro = 10000;
+        for (let inicio = 0; inicio < tetoSeguro; inicio += tamanhoLote) {
+            let query = client.from(tabela).select(campos).order('created_at', { ascending:false }).range(inicio, inicio + tamanhoLote - 1);
+            query = window.SIGEE_ESCOPO?.aplicarQueryProcessos
+                ? window.SIGEE_ESCOPO.aplicarQueryProcessos(query, window.usuarioLogado || usuarioLogado)
+                : query;
+            const { data, error } = await query;
+            if (error) throw error;
+            const lote = Array.isArray(data) ? data : [];
+            todos.push(...lote);
+            if (lote.length < tamanhoLote) break;
+        }
+        const convertidos = todos.map(p => {
+            try { return typeof processoDoSupabaseParaLocalSIGEE === 'function' ? processoDoSupabaseParaLocalSIGEE(p) : p; }
+            catch (_) { return p; }
+        }).filter(Boolean);
+        return window.SIGEE_ESCOPO?.filtrar
+            ? window.SIGEE_ESCOPO.filtrar(convertidos, window.usuarioLogado || usuarioLogado)
+            : convertidos;
+    }
+    function processosVisiveisExportacaoSIGEE(baseInformada){
+        let lista = filtrarNteExportacaoSIGEE(Array.isArray(baseInformada) ? baseInformada : obterBaseProcessosExportacaoSIGEE(), 'nte');
         const filtroNteCentral = document.getElementById('filtro-processos-nte')?.value || 'TODOS';
         if (filtroNteCentral !== 'TODOS') {
             const igualNte = (typeof nteIgualSIGEE === 'function') ? nteIgualSIGEE : ((a,b)=>String(a||'').replace(/\D/g,'') === String(b||'').replace(/\D/g,''));
@@ -3886,9 +3919,17 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         const situacao = dias > limite ? 'VENCIDO' : dias === limite ? 'VENCE HOJE' : 'DENTRO DO PRAZO';
         return { prazo: `${dias}/${limite}`, situacao, dias, limite };
     }
-    window.exportarProcessosSIGEE = function(formato='xlsx'){
+    window.exportarProcessosSIGEE = async function(formato='xlsx'){
         if (!exigirPerfilExportadorSIGEE()) return;
-        const processosExportacao = processosVisiveisExportacaoSIGEE();
+        let baseCompleta;
+        try {
+            baseCompleta = await obterTodosProcessosExportacaoSIGEE();
+        } catch (erro) {
+            console.error('[SIGEE EXPORTAÇÃO] Falha ao carregar todos os processos:', erro);
+            alert('Não foi possível carregar todas as páginas para exportação. Tente novamente.');
+            return;
+        }
+        const processosExportacao = processosVisiveisExportacaoSIGEE(baseCompleta);
         if (!processosExportacao.length) {
             alert('Nenhum processo foi encontrado para os filtros e a abrangência territorial atuais. Revise os filtros da Central de Processos e tente novamente.');
             return;
