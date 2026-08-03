@@ -21,7 +21,7 @@
    const etapas={};ativos.forEach(p=>{const e=etapa(p);etapas[e]=(etapas[e]||0)+1;});
    const mapa=new Map();for(let i=1;i<=27;i++)mapa.set('NTE-'+String(i).padStart(2,'0'),[]);processos.forEach(p=>{const k=nte(p.nte||p.nte_nome||p.territorio||p.nte_id);if(!mapa.has(k))mapa.set(k,[]);mapa.get(k).push(p);});
    const territorios=[...mapa].map(([codigo,ps])=>{const a=ps.filter(p=>!fim(p));const m={codigo,ativos:a.length,total:ps.length,criticos:a.filter(p=>risco(p)==='CRITICO').length,altos:a.filter(p=>risco(p)==='ALTO').length,atrasados:a.filter(atraso).length,semResponsavel:a.filter(p=>!resp(p)).length,processos:a};m.indice=scoreTerritorial(m);m.classe=classe(m.indice);return m;}).sort((a,b)=>b.indice-a.indice||b.criticos-a.criticos);
-   const fila=ativos.slice().sort((a,b)=>({CRITICO:4,ALTO:3,MEDIO:2,NORMAL:1}[risco(b)]-({CRITICO:4,ALTO:3,MEDIO:2,NORMAL:1}[risco(a)])||dias(b.data_etapa_atual||b.created_at)-dias(a.data_etapa_atual||a.created_at));
+   const fila=ativos.slice().sort((a,b)=>(({CRITICO:4,ALTO:3,MEDIO:2,NORMAL:1}[risco(b)]||0)-({CRITICO:4,ALTO:3,MEDIO:2,NORMAL:1}[risco(a)]||0)) || (dias(b.data_etapa_atual||b.created_at)-dias(a.data_etapa_atual||a.created_at)));
    return {processos,ativos,finalizados,recebidosHoje,concluidosHoje,atrasados,criticos,semResponsavel:sem,etapas,territorios,fila,risco,etapa,responsavel:resp,atraso};
  }
  window.SIGEE_SALA_ENGINE={analisar};
