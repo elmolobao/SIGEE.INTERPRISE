@@ -1342,8 +1342,6 @@
   let paginaAtualRemota = 1;
   const processosPorPagina = 25;
   let recargaRemotaPendente = false;
-  let recargaRemotaPendenteReset = false;
-  let sequenciaConsultaRemota = 0;
   let totalProcessosRemotos = 0;
 
   // RC9.1.0 — cache curto e deduplicação dos contadores remotos.
@@ -1609,21 +1607,25 @@
     const bruto=String(valor||'').trim();
     const m=bruto.match(/(?:NTE\s*[- ]?\s*)?(\d{1,2})/i);
     if(!m) return bruto ? query.eq('nte',bruto) : query;
-    const n=String(Number(m[1]));
+
+    const numero=Number(m[1]);
+    if(!Number.isInteger(numero) || numero < 1 || numero > 27) {
+      throw new Error('Filtro territorial inválido.');
+    }
+
+    const n=String(numero);
     const p=n.padStart(2,'0');
+
+    // RC10.8.29 — correspondência territorial exata.
+    // Nunca usar ILIKE com "%" aqui: NTE-01 passava a aceitar NTE-10..19
+    // e NTE-02 aceitava NTE-20..27, validando apenas o primeiro algarismo.
     const filtros=[
       `nte.eq.NTE-${p}`,
       `nte.eq.NTE ${p}`,
       `nte.eq.NTE${p}`,
       `nte.eq.NTE-${n}`,
       `nte.eq.NTE ${n}`,
-      `nte.eq.NTE${n}`,
-      `nte.ilike.NTE-${p}%`,
-      `nte.ilike.NTE ${p}%`,
-      `nte.ilike.NTE${p}%`,
-      `nte.ilike.NTE-${n}%`,
-      `nte.ilike.NTE ${n}%`,
-      `nte.ilike.NTE${n}%`
+      `nte.eq.NTE${n}`
     ];
     return query.or([...new Set(filtros)].join(','));
   }
@@ -1712,22 +1714,11 @@
     barra.querySelector('[data-pag-proxima]')?.addEventListener('click',()=>{if(paginaAtualRemota<paginas){paginaAtualRemota++;recarregar(false);}});
   }
   async function recarregar(silencioso=true, resetarPagina=false){
-    // RC10.8.28 — nunca descarte uma troca de filtro enquanto outra consulta
-    // estiver em andamento. A requisição pendente será executada ao final e,
-    // quando necessário, reiniciará a paginação na página 1.
-    if(atualizando){
-      recargaRemotaPendente = true;
-      recargaRemotaPendenteReset = recargaRemotaPendenteReset || !!resetarPagina;
-      return;
-    }
+    if(atualizando){ recargaRemotaPendente = recargaRemotaPendente || !resetarPagina; return; }
     if(resetarPagina) paginaAtualRemota=1;
     const c=cliente();
     if(!c) { status('off','🔴 Cliente indisponível'); return; }
     atualizando=true; status('wait','🟡 Reconectando...');
-    const sequenciaAtual = ++sequenciaConsultaRemota;
-    const filtroNteNoInicio = String(document.getElementById('filtro-processos-nte')?.value || 'TODOS').trim();
-    const buscaNoInicio = termoSeguroBusca(document.getElementById('busca-proc-nome')?.value);
-    const etapaNoInicio = etapaFiltroRemoto();
     try{
       const inicio=(paginaAtualRemota-1)*processosPorPagina;
       const fim=inicio+processosPorPagina-1;
@@ -1762,24 +1753,6 @@
       const [resultado,contadoresTerritoriais]=await Promise.all([q,carregarContadoresGlobais(c,nteConsulta,busca)]);
       const {data,error,count}=resultado||{};
       if(error) throw error;
-
-      // A resposta só pode ser publicada se ainda corresponder exatamente aos
-      // filtros que originaram a consulta. Isso impede que uma resposta antiga
-      // (por exemplo, NTE-19) sobrescreva a tela após o usuário escolher NTE-01.
-      const filtroNteAtual = String(document.getElementById('filtro-processos-nte')?.value || 'TODOS').trim();
-      const buscaAtual = termoSeguroBusca(document.getElementById('busca-proc-nome')?.value);
-      const etapaAtualTela = etapaFiltroRemoto();
-      if (
-        sequenciaAtual !== sequenciaConsultaRemota ||
-        filtroNteAtual !== filtroNteNoInicio ||
-        buscaAtual !== buscaNoInicio ||
-        etapaAtualTela !== etapaNoInicio
-      ) {
-        recargaRemotaPendente = true;
-        recargaRemotaPendenteReset = recargaRemotaPendenteReset || (filtroNteAtual !== filtroNteNoInicio);
-        return;
-      }
-
       const listaMapeada=(data||[]).map(mapear).filter(Boolean);
       // Defesa em profundidade: mesmo com filtro remoto, nenhum registro fora
       // do escopo territorial pode ser publicado no navegador.
@@ -1807,12 +1780,7 @@
       if(!silencioso && typeof window.mostrarToast==='function') window.mostrarToast('Não foi possível carregar os processos. Verifique o console.');
     }finally{
       atualizando=false;
-      if(recargaRemotaPendente){
-        const resetar = recargaRemotaPendenteReset;
-        recargaRemotaPendente=false;
-        recargaRemotaPendenteReset=false;
-        setTimeout(()=>recarregar(true,resetar),80);
-      }
+      if(recargaRemotaPendente){recargaRemotaPendente=false;setTimeout(()=>recarregar(true,false),80);}
     }
   }
   function usuarioRealtime(){
