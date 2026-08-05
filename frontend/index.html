@@ -246,7 +246,7 @@
 <div class="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_220px] gap-2 items-end">
 <div>
 <label class="block text-[10px] font-black text-gray-500 uppercase mb-1" for="filtro-processos-nte">Pesquisar</label>
-<input class="w-full p-2 bg-gray-50 text-xs border rounded-lg focus:outline-none font-medium" id="busca-proc-nome" placeholder="🔎 Pesquisar por Código SIGEE, aluno ou escola..." type="text"/>
+<input class="w-full p-2 bg-gray-50 text-xs border rounded-lg focus:outline-none font-medium" id="busca-proc-nome" oninput="renderizarProcessosFlutuantes()" placeholder="🔎 Pesquisar por Código SIGEE, aluno ou escola..." type="text"/>
 </div>
 <div>
 <label class="block text-[10px] font-black text-gray-500 uppercase mb-1" for="filtro-processos-nte">NTE</label>
@@ -765,7 +765,7 @@
 <script src="js/core/login-controller.js?v=RC10.8.17"></script>
 <script src="js/core/workflow-temporal-resolver.js?v=RC10.2.3"></script>
 <script src="js/core/popup-prazos-login.js?v=RC10.8.20"></script>
-<script src="js/processos/processos.js?v=RC10.8.24"></script>
+<script src="js/processos/processos.js?v=RC10.8.25"></script>
 <script src="js/migracao/migracao-historica.js?v=RC7.1.2"></script>
 <script src="js/migracao/motor-persistencia.js?v=M5.2.2"></script>
 <script src="js/migracao/importacao-oficial.js?v=M5.2.2"></script>
