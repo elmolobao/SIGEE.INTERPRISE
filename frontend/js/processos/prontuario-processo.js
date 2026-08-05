@@ -1,12 +1,12 @@
 /* =====================================================================
-   SIGEE Enterprise — RC10.8.22
+   SIGEE Enterprise — RC10.8.23
    Prontuário Eletrônico do Processo
    Camada aditiva: não altera regras, transições ou persistência do workflow.
    ===================================================================== */
 (function () {
   'use strict';
-  if (window.__SIGEE_PRONTUARIO_RC10822__) return;
-  window.__SIGEE_PRONTUARIO_RC10822__ = true;
+  if (window.__SIGEE_PRONTUARIO_RC10823__) return;
+  window.__SIGEE_PRONTUARIO_RC10823__ = true;
 
   const ETAPAS = Object.freeze([
     { tipo:'SOLICITACAO', label:'Solicitação' },
@@ -58,7 +58,7 @@
       const resolvedor = window.SIGEE_WORKFLOW_TEMPORAL;
       if (resolvedor && typeof resolvedor.resolve === 'function') return resolvedor.resolve(p || {});
     } catch (e) {
-      console.warn('[SIGEE RC10.8.22] Resolvedor temporal indisponível no prontuário:', e);
+      console.warn('[SIGEE RC10.8.23] Resolvedor temporal indisponível no prontuário:', e);
     }
     return null;
   }
@@ -323,42 +323,6 @@
     return texto(ev?.tecnico_responsavel || ev?.responsavel_etapa || ev?.executado_por_nome || ev?.usuario_nome || ev?.responsavel || ev?.executado_por);
   }
 
-  function etapaDestinoEvento(ev) {
-    const bruto = normalizar([
-      ev?.acao, ev?.evento, ev?.titulo, ev?.etapa,
-      ev?.observacao, ev?.descricao, ev?.detalhes,
-      dadosEvento(ev)?.etapa_destino, dadosEvento(ev)?.proxima_etapa
-    ].filter(Boolean).join(' '));
-
-    // Transições são limites cronológicos: a data da ação que conclui uma etapa
-    // é também a data de entrada na etapa seguinte. Isso preserva a data original
-    // mesmo depois que processos.data_etapa_atual passa a apontar para a nova etapa.
-    const destinos = [
-      ['RETIRADO', /(?:ENCAMINHAD[OA]|AVANCAD[OA]|MOVID[OA]|ALTERAD[OA]|PASSOU|PARA)\s+(?:PARA\s+)?RETIRAD|AGUARDANDO RETIRADA/],
-      ['DEFERIDO', /(?:ENCAMINHAD[OA]|AVANCAD[OA]|MOVID[OA]|ALTERAD[OA]|PASSOU|PARA)\s+(?:PARA\s+)?DEFERID/],
-      ['ASSINATURA', /(?:ENCAMINHAD[OA]|AVANCAD[OA]|MOVID[OA]|ALTERAD[OA]|PASSOU|PARA)\s+(?:PARA\s+)?ASSINATURA/],
-      ['CONFERENCIA', /(?:ENCAMINHAD[OA]|AVANCAD[OA]|MOVID[OA]|ALTERAD[OA]|PASSOU|PARA)\s+(?:PARA\s+)?CONFERENCIA/],
-      ['DIGITACAO', /(?:ENCAMINHAD[OA]|AVANCAD[OA]|MOVID[OA]|ALTERAD[OA]|PASSOU|PARA)\s+(?:PARA\s+)?DIGITACAO/],
-      ['PENDENCIA', /(?:ENCAMINHAD[OA]|AVANCAD[OA]|MOVID[OA]|ALTERAD[OA]|PASSOU|PARA)\s+(?:PARA\s+)?PENDENCIA|PENDENCIA REGISTRADA/],
-      ['ANALISE', /(?:ENCAMINHAD[OA]|AVANCAD[OA]|MOVID[OA]|ALTERAD[OA]|PASSOU|PARA)\s+(?:PARA\s+)?ANALISE|PEDIDO DE ATAS.*ANALISE/],
-      ['DESARQUIVAMENTO', /(?:ENCAMINHAD[OA]|AVANCAD[OA]|MOVID[OA]|ALTERAD[OA]|PASSOU|PARA)\s+(?:PARA\s+)?DESARQUIVAMENTO/]
-    ];
-    return destinos.find(([, padrao]) => padrao.test(bruto))?.[0] || '';
-  }
-
-  function limitesEntradaPorTransicao(eventos) {
-    const limites = new Map();
-    eventos.forEach(ev => {
-      const destino = etapaDestinoEvento(ev);
-      const data = dataEvento(ev);
-      const dt = dataValida(data);
-      if (!destino || !dt) return;
-      const atual = limites.get(destino);
-      if (!atual || dt < atual.data) limites.set(destino, { data: dt, valor: data });
-    });
-    return limites;
-  }
-
   function responsavelPersistidoPorEtapa(p, etapaTipo) {
     const campos = {
       SOLICITACAO:['criado_por_nome','criado_por','usuario_lancamento_nome','responsavel'],
@@ -398,26 +362,16 @@
 
     const ordem = new Map(ETAPAS.map((e,i) => [e.tipo, i]));
     const lista = [...grupos.values()].sort((a,b) => (ordem.get(a.etapaTipo) ?? 99) - (ordem.get(b.etapaTipo) ?? 99) || a.ciclo - b.ciclo);
-    const entradasPorTransicao = limitesEntradaPorTransicao(limpos);
 
     const criada = p ? (valor(p,'created_at','criado_em','data_solicitacao','data_abertura') || null) : null;
     let limiteAnterior = dataValida(criada);
     lista.forEach((grupo, i) => {
       grupo.eventos.sort((a,b) => (dataValida(dataEvento(a))?.getTime() || 0) - (dataValida(dataEvento(b))?.getTime() || 0));
       const primeiraReal = grupo.eventos.map(dataEvento).find(v => dataValida(v));
-      const entradaTransicao = entradasPorTransicao.get(grupo.etapaTipo)?.valor || null;
-      let enviado = entradaTransicao || primeiraReal || null;
+      let enviado = primeiraReal || null;
 
       if (grupo.etapaTipo === 'SOLICITACAO' && criada) enviado = criada;
-      if (grupo.atual && p) {
-        const entradaPersistida = valor(p,'data_etapa_atual','prazo_inicio');
-        const dtPersistida = dataValida(entradaPersistida);
-        const dtAtual = dataValida(enviado);
-        // Para a etapa atual, o campo oficial do processo prevalece quando é
-        // anterior ao primeiro evento interno (que pode ser apenas a conclusão).
-        if (dtPersistida && (!dtAtual || dtPersistida < dtAtual)) enviado = entradaPersistida;
-      }
-      if (!enviado && grupo.atual && p) enviado = valor(p,'data_etapa_atual','prazo_inicio','updated_at') || criada;
+      if (!enviado && grupo.atual && p) enviado = valor(p,'data_etapa_atual','updated_at') || criada;
 
       let dtEnvio = dataValida(enviado);
       if (limiteAnterior && (!dtEnvio || dtEnvio < limiteAnterior)) {
@@ -675,7 +629,7 @@
     const etapaNormalizada = normalizar(valor(p,'etapa_atual','etapa','fase_atual'));
     const cicloExterno = ['DESARQUIVAMENTO','REITERACAO','REITERACAO URGENTE','CONFIRMACAO DOS DADOS','PEDIDO DE ATAS SEM PASTA'].some(item => etapaNormalizada.includes(item));
     const prazoEtapaCalculado = window.SIGEE_PRAZO_ETAPA?.calcular?.(p, agoraWorkflow()) || null;
-    const inicioEtapa = prazoEtapaCalculado?.inicio || dataValida(valor(p,'data_etapa_atual','data_etapa','prazo_inicio'));
+    const inicioEtapaAtual = prazoEtapaCalculado?.inicio || dataValida(valor(p,'data_etapa_atual','data_etapa','prazo_inicio'));
     const tempoEtapa = cicloExterno
       ? (temporal?.days ?? metricas?.stageDays ?? 0)
       : (prazoEtapaCalculado?.diasNaEtapa ?? metricas?.stageDays ?? diasEntre(valor(p,'data_etapa_atual','data_etapa','prazo_inicio'), agoraWorkflow()) + 1);
@@ -745,7 +699,7 @@
             <section><h3>Prazos</h3>
               <dl>
                 <div><dt>Etapa atual</dt><dd>${escapar(etapa)}</dd></div>
-                <div><dt>Início da etapa</dt><dd>${formatarData(inicioEtapa, false)}</dd></div>
+                <div><dt>Início da etapa</dt><dd>${formatarData(inicioEtapaAtual, false)}</dd></div>
                 <div><dt>Tempo na etapa</dt><dd>${tempoEtapa} dias</dd></div>
                 ${metricas?.deferred ? `<div><dt>Deferido até retirada</dt><dd>${tempoPosDeferimento} dias${metricas?.postDeferredFrozen ? ' (encerrado)' : ''}</dd></div>` : ''}
                 <div><dt>Prazo final</dt><dd>${formatarData(prazoFinalCalculado, false)}${prazoEtapaCalculado?.vencido ? ' <strong class="sigee-pep-prazo-vencido">VENCIDO</strong>' : ''}</dd></div>
@@ -758,7 +712,7 @@
                 <div><dt>Conferente</dt><dd>${escapar(valor(p,'conferente','conferente_nome') || 'Não atribuído')}</dd></div>
               </dl>
             </section>
-            <section class="sigee-pep-selo"><b>Registro Institucional</b><span>Eventos auditáveis do SIGEE Enterprise</span><small>RC10.8.22</small></section>
+            <section class="sigee-pep-selo"><b>Registro Institucional</b><span>Eventos auditáveis do SIGEE Enterprise</span><small>RC10.8.23</small></section>
           </aside>
         </div>
         <footer class="sigee-pep-rodape-impressao">

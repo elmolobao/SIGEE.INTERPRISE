@@ -2326,6 +2326,8 @@
       btn.disabled=true;
       const digitador=sel.value;
       const instante=agora();
+      const etapaOrigemPersistida=p.etapa_atual||p.etapa||origemEsperada;
+      const entradaEtapaOrigem=p.data_etapa_atual||p.data_etapa||p.prazo_inicio||null;
       try{
         p.etapa_atual='Digitação';
         delete p.etapa;
@@ -2360,7 +2362,18 @@
           'Digitação',
           veioPendencia?'Pendência sanada — encaminhado para Digitação':'Análise concluída — encaminhado para Digitação',
           `${origem}. Digitador: ${digitador}. Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}.`,
-          {origem:origemEsperada,digitador,mensagem:msg,tarefa_confirmada:true,pendencia_sanada:veioPendencia}
+          {
+            origem:origemEsperada,
+            etapa_origem:etapaOrigemPersistida,
+            entrada_etapa_origem:entradaEtapaOrigem,
+            concluido_em:instante,
+            etapa_destino:'Digitação',
+            entrada_etapa_destino:instante,
+            digitador,
+            mensagem:msg,
+            tarefa_confirmada:true,
+            pendencia_sanada:veioPendencia
+          }
         );
 
         fechar();
