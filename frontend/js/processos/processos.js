@@ -1265,33 +1265,6 @@
   const processosPorPagina = 25;
   let recargaRemotaPendente = false;
   let totalProcessosRemotos = 0;
-  let timerBuscaRemota = 0;
-
-  // RC10.8.24 — filtros da Central remota devem sempre gerar uma nova consulta.
-  // O HTML legado apenas redesenhava a página já carregada, permitindo que o
-  // seletor exibisse um NTE enquanto a tabela ainda continha dados de outro.
-  function instalarFiltrosRemotosCentral(){
-    const filtroNte=document.getElementById('filtro-processos-nte');
-    if(filtroNte && filtroNte.dataset.sigeeFiltroRemotoInstalado!=='1'){
-      filtroNte.dataset.sigeeFiltroRemotoInstalado='1';
-      filtroNte.addEventListener('change',async()=>{
-        invalidarCacheContadores();
-        await recarregar(false,true);
-      });
-    }
-
-    const busca=document.getElementById('busca-proc-nome');
-    if(busca && busca.dataset.sigeeBuscaRemotaInstalada!=='1'){
-      busca.dataset.sigeeBuscaRemotaInstalada='1';
-      busca.addEventListener('input',()=>{
-        clearTimeout(timerBuscaRemota);
-        timerBuscaRemota=setTimeout(()=>{
-          invalidarCacheContadores();
-          recarregar(true,true);
-        },300);
-      });
-    }
-  }
 
   // RC9.1.0 — cache curto e deduplicação dos contadores remotos.
   // A chave inclui NTE e termo, preservando integralmente o escopo territorial.
@@ -1699,21 +1672,30 @@
       const {data,error,count}=resultado||{};
       if(error) throw error;
       const listaMapeada=(data||[]).map(mapear).filter(Boolean);
-      // Defesa em profundidade: primeiro aplica o escopo do usuário e, para
-      // perfis globais, também valida o NTE escolhido no seletor. Assim uma
-      // resposta remota incorreta ou atrasada nunca é publicada na interface.
-      let lista=window.SIGEE_ESCOPO?.filtrar
-        ? window.SIGEE_ESCOPO.filtrar(listaMapeada,u)
-        : listaMapeada;
-      if(contexto && !contexto.global && lista.length!==listaMapeada.length){
-        console.error('[SIGEE RC9.0.2] Registros externos ao NTE foram descartados antes da publicação.',{recebidos:listaMapeada.length,autorizados:lista.length,nteId:contexto.nteId});
-      }
-      if(contexto?.global && nteConsulta){
-        const esperado=window.SIGEE_ESCOPO?.numeroNte?.(nteConsulta);
-        const antes=lista.length;
-        lista=lista.filter(registro=>window.SIGEE_ESCOPO?.numeroNte?.(registro.nte)===esperado);
-        if(lista.length!==antes){
-          console.error('[SIGEE RC10.8.24] Registros fora do filtro territorial selecionado foram descartados.',{filtro:nteConsulta,recebidos:antes,autorizados:lista.length});
+
+      // RC10.8.25 — defesa territorial coerente com a consulta remota.
+      // Para perfis globais, SIGEE_ESCOPO.filtrar() não deve reaplicar o NTE
+      // vinculado ao usuário, pois o NTE selecionado na Central é a autoridade.
+      // Isso eliminava linhas válidas do NTE-01/NTE-02 enquanto os contadores
+      // (calculados pela RPC) permaneciam corretos.
+      let lista=listaMapeada;
+      if(contexto && !contexto.global){
+        lista=window.SIGEE_ESCOPO?.filtrar
+          ? window.SIGEE_ESCOPO.filtrar(listaMapeada,u)
+          : listaMapeada;
+        if(lista.length!==listaMapeada.length){
+          console.error('[SIGEE RC10.8.25] Registros externos ao NTE do usuário foram descartados.',{recebidos:listaMapeada.length,autorizados:lista.length,nteId:contexto.nteId});
+        }
+      } else if(nteConsulta){
+        const esperado=window.SIGEE_ESCOPO?.numeroNte?.(nteConsulta) ?? numeroNte(nteConsulta);
+        const recebidos=lista.length;
+        lista=lista.filter(registro=>{
+          const valor=registro?.nte_id || registro?.nte || registro?.nte_nome || registro?.grupo || '';
+          const numero=window.SIGEE_ESCOPO?.numeroNte?.(valor) ?? numeroNte(valor);
+          return Number(numero)===Number(esperado);
+        });
+        if(lista.length!==recebidos){
+          console.error('[SIGEE RC10.8.25] Registros fora do NTE selecionado foram descartados.',{filtro:nteConsulta,recebidos,autorizados:lista.length});
         }
       }
       // RC9.0.2: paginação e indicadores usam a mesma autoridade territorial.
@@ -1808,6 +1790,37 @@
     e.preventDefault(); copiar(b.getAttribute('data-sigee-codigo'));
   });
   window.copiarCodigoSIGEE=copiar;
+
+  // RC10.8.25 — o filtro territorial e a pesquisa devem invalidar a página
+  // remota e consultar novamente o Supabase. Apenas redesenhar o Store mantém
+  // dados da consulta anterior e provoca divergência entre cards e listagem.
+  function instalarFiltrosRemotosCentral(){
+    const filtroNte=document.getElementById('filtro-processos-nte');
+    if(filtroNte && filtroNte.dataset.sigeeRemotoInstalado!=='1'){
+      filtroNte.dataset.sigeeRemotoInstalado='1';
+      filtroNte.removeAttribute('onchange');
+      filtroNte.addEventListener('change',async()=>{
+        paginaAtualRemota=1;
+        invalidarCacheContadores();
+        await recarregar(false,true);
+      });
+    }
+
+    const pesquisa=document.getElementById('busca-proc-nome');
+    if(pesquisa && pesquisa.dataset.sigeeRemotoInstalado!=='1'){
+      pesquisa.dataset.sigeeRemotoInstalado='1';
+      let debounce=0;
+      pesquisa.addEventListener('input',()=>{
+        clearTimeout(debounce);
+        debounce=setTimeout(()=>{
+          paginaAtualRemota=1;
+          invalidarCacheContadores();
+          recarregar(true,true);
+        },300);
+      });
+    }
+  }
+
   window.recarregarCentralProcessosSIGEE=(silencioso=true,resetarPagina=false)=>recarregar(silencioso,resetarPagina);
   window.invalidarCacheContadoresProcessosSIGEE=invalidarCacheContadores;
   window.irParaPaginaCentralProcessosSIGEE=(pagina)=>{paginaAtualRemota=Math.max(1,Number(pagina)||1);return recarregar(false);};
