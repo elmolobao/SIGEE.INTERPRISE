@@ -1265,6 +1265,33 @@
   const processosPorPagina = 25;
   let recargaRemotaPendente = false;
   let totalProcessosRemotos = 0;
+  let timerBuscaRemota = 0;
+
+  // RC10.8.24 — filtros da Central remota devem sempre gerar uma nova consulta.
+  // O HTML legado apenas redesenhava a página já carregada, permitindo que o
+  // seletor exibisse um NTE enquanto a tabela ainda continha dados de outro.
+  function instalarFiltrosRemotosCentral(){
+    const filtroNte=document.getElementById('filtro-processos-nte');
+    if(filtroNte && filtroNte.dataset.sigeeFiltroRemotoInstalado!=='1'){
+      filtroNte.dataset.sigeeFiltroRemotoInstalado='1';
+      filtroNte.addEventListener('change',async()=>{
+        invalidarCacheContadores();
+        await recarregar(false,true);
+      });
+    }
+
+    const busca=document.getElementById('busca-proc-nome');
+    if(busca && busca.dataset.sigeeBuscaRemotaInstalada!=='1'){
+      busca.dataset.sigeeBuscaRemotaInstalada='1';
+      busca.addEventListener('input',()=>{
+        clearTimeout(timerBuscaRemota);
+        timerBuscaRemota=setTimeout(()=>{
+          invalidarCacheContadores();
+          recarregar(true,true);
+        },300);
+      });
+    }
+  }
 
   // RC9.1.0 — cache curto e deduplicação dos contadores remotos.
   // A chave inclui NTE e termo, preservando integralmente o escopo territorial.
@@ -1672,13 +1699,22 @@
       const {data,error,count}=resultado||{};
       if(error) throw error;
       const listaMapeada=(data||[]).map(mapear).filter(Boolean);
-      // Defesa em profundidade: mesmo com filtro remoto, nenhum registro fora
-      // do escopo territorial pode ser publicado no navegador.
-      const lista=window.SIGEE_ESCOPO?.filtrar
+      // Defesa em profundidade: primeiro aplica o escopo do usuário e, para
+      // perfis globais, também valida o NTE escolhido no seletor. Assim uma
+      // resposta remota incorreta ou atrasada nunca é publicada na interface.
+      let lista=window.SIGEE_ESCOPO?.filtrar
         ? window.SIGEE_ESCOPO.filtrar(listaMapeada,u)
         : listaMapeada;
       if(contexto && !contexto.global && lista.length!==listaMapeada.length){
         console.error('[SIGEE RC9.0.2] Registros externos ao NTE foram descartados antes da publicação.',{recebidos:listaMapeada.length,autorizados:lista.length,nteId:contexto.nteId});
+      }
+      if(contexto?.global && nteConsulta){
+        const esperado=window.SIGEE_ESCOPO?.numeroNte?.(nteConsulta);
+        const antes=lista.length;
+        lista=lista.filter(registro=>window.SIGEE_ESCOPO?.numeroNte?.(registro.nte)===esperado);
+        if(lista.length!==antes){
+          console.error('[SIGEE RC10.8.24] Registros fora do filtro territorial selecionado foram descartados.',{filtro:nteConsulta,recebidos:antes,autorizados:lista.length});
+        }
       }
       // RC9.0.2: paginação e indicadores usam a mesma autoridade territorial.
       // O RPC já calcula o total após escopo e busca; o count bruto fica apenas
@@ -1780,12 +1816,12 @@
 
   window.addEventListener('online',()=>{ iniciarRealtime(); recarregar(true); });
   window.addEventListener('offline',()=>status('off','🔴 Offline'));
-  window.addEventListener('load',()=>{ indicador(); });
-  window.addEventListener('sigee:session-ready',()=>{ iniciarRealtime(); recarregar(true,true); });
+  window.addEventListener('load',()=>{ indicador(); instalarFiltrosRemotosCentral(); });
+  window.addEventListener('sigee:session-ready',()=>{ instalarFiltrosRemotosCentral(); iniciarRealtime(); recarregar(true,true); });
   document.addEventListener('sigee:usuario-deslogado',()=>{ try{const c=cliente(); if(c&&canal)c.removeChannel(canal);}catch(e){} canal=null; });
   document.addEventListener('sigee:navegacao-concluida',ev=>{
     const rota=ev?.detail?.rota||ev?.detail?.aba||'';
-    if(rota==='processos' && sessaoAtiva()){ iniciarRealtime(); const agora=Date.now(); if(agora-ultimaRecargaRemota>700){ultimaRecargaRemota=agora; recarregar(true,false);} }
+    if(rota==='processos' && sessaoAtiva()){ instalarFiltrosRemotosCentral(); iniciarRealtime(); const agora=Date.now(); if(agora-ultimaRecargaRemota>700){ultimaRecargaRemota=agora; recarregar(true,false);} }
   });
 })();
 
@@ -2326,8 +2362,6 @@
       btn.disabled=true;
       const digitador=sel.value;
       const instante=agora();
-      const etapaOrigemPersistida=p.etapa_atual||p.etapa||origemEsperada;
-      const entradaEtapaOrigem=p.data_etapa_atual||p.data_etapa||p.prazo_inicio||null;
       try{
         p.etapa_atual='Digitação';
         delete p.etapa;
@@ -2362,18 +2396,7 @@
           'Digitação',
           veioPendencia?'Pendência sanada — encaminhado para Digitação':'Análise concluída — encaminhado para Digitação',
           `${origem}. Digitador: ${digitador}. Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}.`,
-          {
-            origem:origemEsperada,
-            etapa_origem:etapaOrigemPersistida,
-            entrada_etapa_origem:entradaEtapaOrigem,
-            concluido_em:instante,
-            etapa_destino:'Digitação',
-            entrada_etapa_destino:instante,
-            digitador,
-            mensagem:msg,
-            tarefa_confirmada:true,
-            pendencia_sanada:veioPendencia
-          }
+          {origem:origemEsperada,digitador,mensagem:msg,tarefa_confirmada:true,pendencia_sanada:veioPendencia}
         );
 
         fechar();
