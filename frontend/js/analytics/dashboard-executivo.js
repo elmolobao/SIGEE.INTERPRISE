@@ -38,17 +38,13 @@
   const modalidade = p => String(val(p,'modalidade') || 'Não informado');
   const tipoEnsino = p => { const v=String(val(p,'nivel_oferta','tipo_ensino','nivel_ensino')||'Não informado'); const n=norm(v); if(n.includes('FUND')) return 'Fundamental'; if(n.includes('MED')) return 'Médio'; return v; };
   let ultimoComplementoRPC = null;
-  // RC7.4.5: mesma referência temporal exibida na lista de Processos.
-  // A entrada na etapa prevalece sobre datas globais do processo migrado.
+  // RC10.8.21: motor único; o dia de entrada na etapa é o dia 1.
+  const avaliacaoPrazo = p => window.SIGEE_PRAZO_ETAPA?.calcular?.(p) || null;
   const dias = p => {
-    const entradaEtapa = val(p,'data_etapa_atual','data_etapa','prazo_inicio');
-    if (entradaEtapa) {
-      const d = new Date(entradaEtapa);
-      if (!Number.isNaN(d.getTime())) return daysBetween(d,new Date());
-    }
+    const a = avaliacaoPrazo(p);
+    if (a) return a.diasNaEtapa;
     const explicit = Number(val(p,'dias_decorridos'));
-    if (Number.isFinite(explicit) && explicit >= 0) return explicit;
-    const d = dateOf(p); return d ? daysBetween(d,new Date()) : 0;
+    return Number.isFinite(explicit) && explicit >= 0 ? explicit : 0;
   };
   const limite = p => {
     const prazoPersistido = Number(val(p,'prazo_etapa'));
@@ -62,7 +58,7 @@
     return null;
   };
   const concluido = p => ['RETIRADO','INDEFERIDO'].includes(norm(etapa(p)));
-  const atrasado = p => { const l=limite(p); return !concluido(p) && l !== null && dias(p) > l; };
+  const atrasado = p => { const a=avaliacaoPrazo(p); return !concluido(p) && (a ? a.vencido : (limite(p) !== null && dias(p) > limite(p))); };
   const esc = s => String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
   const countBy = (list, getter) => {
     const m = new Map(); list.forEach(x => { const k=String(getter(x)||'Não informado'); m.set(k,(m.get(k)||0)+1); });
