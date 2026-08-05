@@ -1,8 +1,8 @@
-/* SIGEE RC9.1.0 — Pesquisa consolidada, debounce efetivo e fila única. */
+/* SIGEE RC9.1.1 — Pesquisa consolidada, debounce efetivo e fila única. */
 (function (window, document) {
   'use strict';
-  if (window.__SIGEE_CENTRAL_PROCESSOS_RC910__) return;
-  window.__SIGEE_CENTRAL_PROCESSOS_RC910__ = true;
+  if (window.__SIGEE_CENTRAL_PROCESSOS_RC911__) return;
+  window.__SIGEE_CENTRAL_PROCESSOS_RC911__ = true;
 
   let timer = 0;
   let executando = false;
@@ -133,7 +133,7 @@
       renderizar: () => agendar(false, 0),
       recarregar: (resetarPagina = false) => recarregar(resetarPagina),
       instalar,
-      versao: 'RC9.1.0'
+      versao: 'RC9.1.1'
     });
     agendar(true, 0);
     return true;
