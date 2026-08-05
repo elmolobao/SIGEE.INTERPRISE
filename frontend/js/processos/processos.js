@@ -1662,7 +1662,13 @@
         const idFiltro=window.SIGEE_ESCOPO?.numeroNte?.(filtroNte);
         if(idFiltro==null) throw new Error('Filtro territorial inválido.');
         nteConsulta=`NTE-${String(idFiltro).padStart(2,'0')}`;
-        q=aplicarFiltroNteRemoto(q,nteConsulta);
+
+        /* RC10.8.26 — a coluna public.processos.nte está padronizada no formato
+         * NTE-XX. O grupo OR com várias grafias fazia o PostgREST devolver uma
+         * página vazia em alguns territórios, embora a RPC de contadores
+         * encontrasse os registros. A consulta paginada agora usa igualdade
+         * canônica, igual ao escopo territorial dos usuários não globais. */
+        q=q.eq('nte',nteConsulta);
       }
       const busca=termoSeguroBusca(document.getElementById('busca-proc-nome')?.value);
       if(busca) q=q.or(`codigo_sigee.ilike.%${busca}%,aluno_nome.ilike.%${busca}%,escola_nome.ilike.%${busca}%`);
@@ -1672,31 +1678,13 @@
       const {data,error,count}=resultado||{};
       if(error) throw error;
       const listaMapeada=(data||[]).map(mapear).filter(Boolean);
-
-      // RC10.8.25 — defesa territorial coerente com a consulta remota.
-      // Para perfis globais, SIGEE_ESCOPO.filtrar() não deve reaplicar o NTE
-      // vinculado ao usuário, pois o NTE selecionado na Central é a autoridade.
-      // Isso eliminava linhas válidas do NTE-01/NTE-02 enquanto os contadores
-      // (calculados pela RPC) permaneciam corretos.
-      let lista=listaMapeada;
-      if(contexto && !contexto.global){
-        lista=window.SIGEE_ESCOPO?.filtrar
-          ? window.SIGEE_ESCOPO.filtrar(listaMapeada,u)
-          : listaMapeada;
-        if(lista.length!==listaMapeada.length){
-          console.error('[SIGEE RC10.8.25] Registros externos ao NTE do usuário foram descartados.',{recebidos:listaMapeada.length,autorizados:lista.length,nteId:contexto.nteId});
-        }
-      } else if(nteConsulta){
-        const esperado=window.SIGEE_ESCOPO?.numeroNte?.(nteConsulta) ?? numeroNte(nteConsulta);
-        const recebidos=lista.length;
-        lista=lista.filter(registro=>{
-          const valor=registro?.nte_id || registro?.nte || registro?.nte_nome || registro?.grupo || '';
-          const numero=window.SIGEE_ESCOPO?.numeroNte?.(valor) ?? numeroNte(valor);
-          return Number(numero)===Number(esperado);
-        });
-        if(lista.length!==recebidos){
-          console.error('[SIGEE RC10.8.25] Registros fora do NTE selecionado foram descartados.',{filtro:nteConsulta,recebidos,autorizados:lista.length});
-        }
+      // Defesa em profundidade: mesmo com filtro remoto, nenhum registro fora
+      // do escopo territorial pode ser publicado no navegador.
+      const lista=window.SIGEE_ESCOPO?.filtrar
+        ? window.SIGEE_ESCOPO.filtrar(listaMapeada,u)
+        : listaMapeada;
+      if(contexto && !contexto.global && lista.length!==listaMapeada.length){
+        console.error('[SIGEE RC9.0.2] Registros externos ao NTE foram descartados antes da publicação.',{recebidos:listaMapeada.length,autorizados:lista.length,nteId:contexto.nteId});
       }
       // RC9.0.2: paginação e indicadores usam a mesma autoridade territorial.
       // O RPC já calcula o total após escopo e busca; o count bruto fica apenas
@@ -1790,37 +1778,6 @@
     e.preventDefault(); copiar(b.getAttribute('data-sigee-codigo'));
   });
   window.copiarCodigoSIGEE=copiar;
-
-  // RC10.8.25 — o filtro territorial e a pesquisa devem invalidar a página
-  // remota e consultar novamente o Supabase. Apenas redesenhar o Store mantém
-  // dados da consulta anterior e provoca divergência entre cards e listagem.
-  function instalarFiltrosRemotosCentral(){
-    const filtroNte=document.getElementById('filtro-processos-nte');
-    if(filtroNte && filtroNte.dataset.sigeeRemotoInstalado!=='1'){
-      filtroNte.dataset.sigeeRemotoInstalado='1';
-      filtroNte.removeAttribute('onchange');
-      filtroNte.addEventListener('change',async()=>{
-        paginaAtualRemota=1;
-        invalidarCacheContadores();
-        await recarregar(false,true);
-      });
-    }
-
-    const pesquisa=document.getElementById('busca-proc-nome');
-    if(pesquisa && pesquisa.dataset.sigeeRemotoInstalado!=='1'){
-      pesquisa.dataset.sigeeRemotoInstalado='1';
-      let debounce=0;
-      pesquisa.addEventListener('input',()=>{
-        clearTimeout(debounce);
-        debounce=setTimeout(()=>{
-          paginaAtualRemota=1;
-          invalidarCacheContadores();
-          recarregar(true,true);
-        },300);
-      });
-    }
-  }
-
   window.recarregarCentralProcessosSIGEE=(silencioso=true,resetarPagina=false)=>recarregar(silencioso,resetarPagina);
   window.invalidarCacheContadoresProcessosSIGEE=invalidarCacheContadores;
   window.irParaPaginaCentralProcessosSIGEE=(pagina)=>{paginaAtualRemota=Math.max(1,Number(pagina)||1);return recarregar(false);};
@@ -1829,12 +1786,12 @@
 
   window.addEventListener('online',()=>{ iniciarRealtime(); recarregar(true); });
   window.addEventListener('offline',()=>status('off','🔴 Offline'));
-  window.addEventListener('load',()=>{ indicador(); instalarFiltrosRemotosCentral(); });
-  window.addEventListener('sigee:session-ready',()=>{ instalarFiltrosRemotosCentral(); iniciarRealtime(); recarregar(true,true); });
+  window.addEventListener('load',()=>{ indicador(); });
+  window.addEventListener('sigee:session-ready',()=>{ iniciarRealtime(); recarregar(true,true); });
   document.addEventListener('sigee:usuario-deslogado',()=>{ try{const c=cliente(); if(c&&canal)c.removeChannel(canal);}catch(e){} canal=null; });
   document.addEventListener('sigee:navegacao-concluida',ev=>{
     const rota=ev?.detail?.rota||ev?.detail?.aba||'';
-    if(rota==='processos' && sessaoAtiva()){ instalarFiltrosRemotosCentral(); iniciarRealtime(); const agora=Date.now(); if(agora-ultimaRecargaRemota>700){ultimaRecargaRemota=agora; recarregar(true,false);} }
+    if(rota==='processos' && sessaoAtiva()){ iniciarRealtime(); const agora=Date.now(); if(agora-ultimaRecargaRemota>700){ultimaRecargaRemota=agora; recarregar(true,false);} }
   });
 })();
 
