@@ -559,16 +559,19 @@
         const etapa = normalizar(etapaOriginal);
         const cicloDesarquivamento = pertenceCicloDesarquivamento(p);
         const temporal = cicloDesarquivamento ? estadoTemporal(p) : null;
-        const dias = temporal ? Number(temporal.days || 0) : diasDesde(
-            cicloDesarquivamento ? dataInicioCiclo(p) : (p && (p.data_etapa_atual || p.data_etapa || p.etapa_iniciada_em || p.prazo_inicio || p.created_at))
-        );
+        const prazoUnico = !cicloDesarquivamento && window.SIGEE_PRAZO_ETAPA?.calcular
+            ? window.SIGEE_PRAZO_ETAPA.calcular(p)
+            : null;
+        const dias = temporal ? Number(temporal.days || 0) : (prazoUnico?.diasNaEtapa ?? diasDesde(
+            cicloDesarquivamento ? dataInicioCiclo(p) : (p && (p.data_etapa_atual || p.data_etapa || p.etapa_iniciada_em || p.prazo_inicio))
+        ));
 
         let tipo = '';
-        let limite = null;
-        if (etapa.includes('ANAL')) { tipo = 'ANALISE'; limite = 7; }
-        else if (etapa.includes('DIGIT')) { tipo = 'DIGITACAO'; limite = 15; }
-        else if (etapa.includes('CONFER')) { tipo = 'CONFERENCIA'; limite = 10; }
-        else if (etapa.includes('ASSIN')) { tipo = 'ASSINATURA'; limite = 7; }
+        let limite = prazoUnico?.prazoEtapa ?? null;
+        if (etapa.includes('ANAL')) tipo = 'ANALISE';
+        else if (etapa.includes('DIGIT')) tipo = 'DIGITACAO';
+        else if (etapa.includes('CONFER')) tipo = 'CONFERENCIA';
+        else if (etapa.includes('ASSIN')) tipo = 'ASSINATURA';
 
         return {
             etapa: etapaOriginal,

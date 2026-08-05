@@ -628,9 +628,13 @@
     const tempoParado = diasEntre(ultimaData, agoraWorkflow());
     const etapaNormalizada = normalizar(valor(p,'etapa_atual','etapa','fase_atual'));
     const cicloExterno = ['DESARQUIVAMENTO','REITERACAO','REITERACAO URGENTE','CONFIRMACAO DOS DADOS','PEDIDO DE ATAS SEM PASTA'].some(item => etapaNormalizada.includes(item));
-    const tempoEtapa = cicloExterno ? (temporal?.days ?? metricas?.stageDays ?? 0) : (metricas?.stageDays ?? diasEntre(valor(p,'data_etapa_atual','data_etapa','prazo_inicio'), agoraWorkflow()));
+    const prazoEtapaCalculado = window.SIGEE_PRAZO_ETAPA?.calcular?.(p, agoraWorkflow()) || null;
+    const tempoEtapa = cicloExterno
+      ? (temporal?.days ?? metricas?.stageDays ?? 0)
+      : (prazoEtapaCalculado?.diasNaEtapa ?? metricas?.stageDays ?? diasEntre(valor(p,'data_etapa_atual','data_etapa','prazo_inicio'), agoraWorkflow()) + 1);
+    const prazoFinalCalculado = prazoEtapaCalculado?.prazoFinal || dataValida(valor(p,'prazo_fim'));
     const responsavelAtual = valor(p,'tecnico_responsavel','responsavel','usuario_responsavel') || 'Não atribuído';
-    const risco = riscoProcesso(p, tempoParado);
+    const risco = prazoEtapaCalculado?.vencido ? 'Crítico' : riscoProcesso(p, tempoParado);
 
     return `
     <div id="sigee-prontuario-overlay" class="sigee-pep-overlay" role="dialog" aria-modal="true" aria-label="Prontuário Eletrônico do Processo">
@@ -697,7 +701,7 @@
                 <div><dt>Início</dt><dd>${formatarData(inicio, false)}</dd></div>
                 <div><dt>Tempo na etapa</dt><dd>${tempoEtapa} dias</dd></div>
                 ${metricas?.deferred ? `<div><dt>Deferido até retirada</dt><dd>${tempoPosDeferimento} dias${metricas?.postDeferredFrozen ? ' (encerrado)' : ''}</dd></div>` : ''}
-                <div><dt>Prazo final</dt><dd>${formatarData(valor(p,'prazo_fim'), false)}</dd></div>
+                <div><dt>Prazo final</dt><dd>${formatarData(prazoFinalCalculado, false)}${prazoEtapaCalculado?.vencido ? ' <strong class="sigee-pep-prazo-vencido">VENCIDO</strong>' : ''}</dd></div>
               </dl>
             </section>
             <section><h3>Responsáveis</h3>
