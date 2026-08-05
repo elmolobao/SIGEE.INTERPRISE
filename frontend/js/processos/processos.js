@@ -496,11 +496,89 @@
         try {
             const c = supabaseClient();
             if (!c || !p) return;
+            const tabelaProcessos = (window.SIGEE_SUPABASE_TABELAS && window.SIGEE_SUPABASE_TABELAS.processos) || 'processos';
             await garantirWorkflowInstanceIdSIGEE(p, c);
+
+            // RC10.8.27 — histórico imutável de transição.
+            // Antes de atualizar o registro corrente, lê a etapa persistida. Quando houver
+            // mudança, registra: início da etapa anterior (se ausente), conclusão da etapa
+            // anterior e início da nova etapa. Assim data_etapa_atual pode mudar sem apagar
+            // a cronologia já consolidada.
+            let anterior = null;
+            if (p.id != null) {
+                const { data, error: erroAnterior } = await c.from(tabelaProcessos)
+                    .select('id,codigo_sigee,nte,etapa_atual,data_etapa_atual,tecnico_responsavel,workflow_instance_id,workflow_ciclo,ciclo')
+                    .eq('id', p.id)
+                    .maybeSingle();
+                if (erroAnterior) throw erroAnterior;
+                anterior = data || null;
+            }
+
             const payload = processoPayload(p);
-            const { error } = await c.from((window.SIGEE_SUPABASE_TABELAS && window.SIGEE_SUPABASE_TABELAS.processos) || 'processos')
-                .upsert(payload, { onConflict: 'id' });
+            const etapaAnterior = texto(anterior && anterior.etapa_atual);
+            const etapaNova = texto(payload.etapa_atual);
+            const mudouEtapa = anterior && etapaAnterior && etapaNova && normalizar(etapaAnterior) !== normalizar(etapaNova);
+            const instanteTransicao = payload.data_etapa_atual || payload.updated_at || new Date().toISOString();
+
+            if (mudouEtapa) {
+                const u = usuario() || {};
+                const inicioAnterior = anterior.data_etapa_atual || null;
+                const baseHistorico = {
+                    processo_id: anterior.id,
+                    codigo_sigee: anterior.codigo_sigee || payload.codigo_sigee || null,
+                    usuario_nome: u.nome || u.email || 'Sistema SIGEE',
+                    usuario_email: u.email || null,
+                    usuario_perfil: u.perfil || null,
+                    nte: anterior.nte || payload.nte || u.nte || null,
+                    workflow_instance_id: anterior.workflow_instance_id || payload.workflow_instance_id || null
+                };
+
+                // Evita duplicar o marco de início quando já há evidência auditável.
+                if (inicioAnterior) {
+                    const { data: inicioExistente, error: erroBuscaInicio } = await c.from('historico_processos')
+                        .select('id')
+                        .eq('processo_id', anterior.id)
+                        .eq('etapa', etapaAnterior)
+                        .eq('acao', 'ETAPA_INICIADA')
+                        .limit(1);
+                    if (erroBuscaInicio) throw erroBuscaInicio;
+                    if (!inicioExistente || !inicioExistente.length) {
+                        const { error } = await c.from('historico_processos').insert({
+                            ...baseHistorico,
+                            etapa: etapaAnterior,
+                            acao: 'ETAPA_INICIADA',
+                            observacao: `Início preservado da etapa ${etapaAnterior}.`,
+                            dados: { tipo_evento:'ETAPA_INICIADA', etapa_origem:etapaAnterior, inicio_preservado:true },
+                            created_at: inicioAnterior
+                        });
+                        if (error) throw error;
+                    }
+                }
+
+                const { error: erroConclusao } = await c.from('historico_processos').insert({
+                    ...baseHistorico,
+                    etapa: etapaAnterior,
+                    acao: 'ETAPA_CONCLUIDA',
+                    observacao: `Etapa ${etapaAnterior} concluída e processo encaminhado para ${etapaNova}.`,
+                    dados: { tipo_evento:'ETAPA_CONCLUIDA', etapa_origem:etapaAnterior, etapa_destino:etapaNova },
+                    created_at: instanteTransicao
+                });
+                if (erroConclusao) throw erroConclusao;
+
+                const { error: erroInicioNovo } = await c.from('historico_processos').insert({
+                    ...baseHistorico,
+                    etapa: etapaNova,
+                    acao: 'ETAPA_INICIADA',
+                    observacao: `Processo recebido na etapa ${etapaNova}.`,
+                    dados: { tipo_evento:'ETAPA_INICIADA', etapa_origem:etapaAnterior, etapa_destino:etapaNova },
+                    created_at: instanteTransicao
+                });
+                if (erroInicioNovo) throw erroInicioNovo;
+            }
+
+            const { error } = await c.from(tabelaProcessos).upsert(payload, { onConflict: 'id' });
             if (error) throw error;
+            try { window.SIGEE6?.timelineService?.invalidar?.(p.id); } catch (_) {}
             return payload;
         } catch (e) {
             console.error('SIGEE Parte 4: Supabase não confirmou o processo.', e);
@@ -1662,13 +1740,7 @@
         const idFiltro=window.SIGEE_ESCOPO?.numeroNte?.(filtroNte);
         if(idFiltro==null) throw new Error('Filtro territorial inválido.');
         nteConsulta=`NTE-${String(idFiltro).padStart(2,'0')}`;
-
-        /* RC10.8.26 — a coluna public.processos.nte está padronizada no formato
-         * NTE-XX. O grupo OR com várias grafias fazia o PostgREST devolver uma
-         * página vazia em alguns territórios, embora a RPC de contadores
-         * encontrasse os registros. A consulta paginada agora usa igualdade
-         * canônica, igual ao escopo territorial dos usuários não globais. */
-        q=q.eq('nte',nteConsulta);
+        q=aplicarFiltroNteRemoto(q,nteConsulta);
       }
       const busca=termoSeguroBusca(document.getElementById('busca-proc-nome')?.value);
       if(busca) q=q.or(`codigo_sigee.ilike.%${busca}%,aluno_nome.ilike.%${busca}%,escola_nome.ilike.%${busca}%`);

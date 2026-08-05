@@ -1,12 +1,12 @@
 /* =====================================================================
-   SIGEE Enterprise — RC10.8.23
+   SIGEE Enterprise — RC10.8.10
    Prontuário Eletrônico do Processo
    Camada aditiva: não altera regras, transições ou persistência do workflow.
    ===================================================================== */
 (function () {
   'use strict';
-  if (window.__SIGEE_PRONTUARIO_RC10823__) return;
-  window.__SIGEE_PRONTUARIO_RC10823__ = true;
+  if (window.__SIGEE_PRONTUARIO_RC10810__) return;
+  window.__SIGEE_PRONTUARIO_RC10810__ = true;
 
   const ETAPAS = Object.freeze([
     { tipo:'SOLICITACAO', label:'Solicitação' },
@@ -58,7 +58,7 @@
       const resolvedor = window.SIGEE_WORKFLOW_TEMPORAL;
       if (resolvedor && typeof resolvedor.resolve === 'function') return resolvedor.resolve(p || {});
     } catch (e) {
-      console.warn('[SIGEE RC10.8.23] Resolvedor temporal indisponível no prontuário:', e);
+      console.warn('[SIGEE RC10.3.0] Resolvedor temporal indisponível no prontuário:', e);
     }
     return null;
   }
@@ -367,8 +367,9 @@
     let limiteAnterior = dataValida(criada);
     lista.forEach((grupo, i) => {
       grupo.eventos.sort((a,b) => (dataValida(dataEvento(a))?.getTime() || 0) - (dataValida(dataEvento(b))?.getTime() || 0));
+      const eventoInicio = grupo.eventos.find(ev => normalizar(ev?.acao) === 'ETAPA INICIADA' || normalizar(dadosEvento(ev)?.tipo_evento) === 'ETAPA INICIADA');
       const primeiraReal = grupo.eventos.map(dataEvento).find(v => dataValida(v));
-      let enviado = primeiraReal || null;
+      let enviado = (eventoInicio && dataEvento(eventoInicio)) || primeiraReal || null;
 
       if (grupo.etapaTipo === 'SOLICITACAO' && criada) enviado = criada;
       if (!enviado && grupo.atual && p) enviado = valor(p,'data_etapa_atual','updated_at') || criada;
@@ -385,10 +386,13 @@
       limiteAnterior = dtEnvio || limiteAnterior;
     });
 
-    // A conclusão de uma etapa é a entrada cronologicamente validada na próxima etapa.
+    // A conclusão explícita persistida é a autoridade. Para registros antigos,
+    // utiliza-se a entrada cronologicamente validada na próxima etapa.
     lista.forEach((grupo, i) => {
       const proxima = lista[i + 1];
+      const eventoConclusao = grupo.eventos.find(ev => normalizar(ev?.acao) === 'ETAPA CONCLUIDA' || normalizar(dadosEvento(ev)?.tipo_evento) === 'ETAPA CONCLUIDA');
       if (grupo.atual) grupo.concluidoEm = null;
+      else if (eventoConclusao && dataEvento(eventoConclusao)) grupo.concluidoEm = dataEvento(eventoConclusao);
       else if (proxima?.enviadoEm) grupo.concluidoEm = proxima.enviadoEm;
       else {
         const ultimo = grupo.eventos.length ? dataEvento(grupo.eventos[grupo.eventos.length - 1]) : null;
@@ -629,7 +633,6 @@
     const etapaNormalizada = normalizar(valor(p,'etapa_atual','etapa','fase_atual'));
     const cicloExterno = ['DESARQUIVAMENTO','REITERACAO','REITERACAO URGENTE','CONFIRMACAO DOS DADOS','PEDIDO DE ATAS SEM PASTA'].some(item => etapaNormalizada.includes(item));
     const prazoEtapaCalculado = window.SIGEE_PRAZO_ETAPA?.calcular?.(p, agoraWorkflow()) || null;
-    const inicioEtapaAtual = prazoEtapaCalculado?.inicio || dataValida(valor(p,'data_etapa_atual','data_etapa','prazo_inicio'));
     const tempoEtapa = cicloExterno
       ? (temporal?.days ?? metricas?.stageDays ?? 0)
       : (prazoEtapaCalculado?.diasNaEtapa ?? metricas?.stageDays ?? diasEntre(valor(p,'data_etapa_atual','data_etapa','prazo_inicio'), agoraWorkflow()) + 1);
@@ -699,7 +702,7 @@
             <section><h3>Prazos</h3>
               <dl>
                 <div><dt>Etapa atual</dt><dd>${escapar(etapa)}</dd></div>
-                <div><dt>Início da etapa</dt><dd>${formatarData(inicioEtapaAtual, false)}</dd></div>
+                <div><dt>Início</dt><dd>${formatarData(inicio, false)}</dd></div>
                 <div><dt>Tempo na etapa</dt><dd>${tempoEtapa} dias</dd></div>
                 ${metricas?.deferred ? `<div><dt>Deferido até retirada</dt><dd>${tempoPosDeferimento} dias${metricas?.postDeferredFrozen ? ' (encerrado)' : ''}</dd></div>` : ''}
                 <div><dt>Prazo final</dt><dd>${formatarData(prazoFinalCalculado, false)}${prazoEtapaCalculado?.vencido ? ' <strong class="sigee-pep-prazo-vencido">VENCIDO</strong>' : ''}</dd></div>
@@ -712,7 +715,7 @@
                 <div><dt>Conferente</dt><dd>${escapar(valor(p,'conferente','conferente_nome') || 'Não atribuído')}</dd></div>
               </dl>
             </section>
-            <section class="sigee-pep-selo"><b>Registro Institucional</b><span>Eventos auditáveis do SIGEE Enterprise</span><small>RC10.8.23</small></section>
+            <section class="sigee-pep-selo"><b>Registro Institucional</b><span>Eventos auditáveis do SIGEE Enterprise</span><small>RC10.8.10</small></section>
           </aside>
         </div>
         <footer class="sigee-pep-rodape-impressao">
