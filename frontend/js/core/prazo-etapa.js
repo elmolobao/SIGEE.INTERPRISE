@@ -1,5 +1,5 @@
 /* =====================================================================
-   SIGEE Enterprise — RC10.8.21
+   SIGEE Enterprise — RC10.8.30
    Motor único de prazo por etapa.
 
    Regra homologada:
@@ -9,7 +9,7 @@
    ===================================================================== */
 (function (global) {
   'use strict';
-  if (global.SIGEE_PRAZO_ETAPA?.versao === 'RC10.8.21') return;
+  if (global.SIGEE_PRAZO_ETAPA?.versao === 'RC10.8.30') return;
 
   const DIA_MS = 86400000;
   const normalizar = v => String(v ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toUpperCase();
@@ -41,9 +41,9 @@
 
   function inicioEtapa(processo) {
     return processo?.data_etapa_atual
-      || processo?.data_etapa
       || processo?.etapa_iniciada_em
       || processo?.prazo_inicio
+      || processo?.data_etapa
       || null;
   }
 
@@ -76,5 +76,5 @@
     };
   }
 
-  global.SIGEE_PRAZO_ETAPA = Object.freeze({ versao: 'RC10.8.21', dataCivil, prazoPadrao, inicioEtapa, calcular });
+  global.SIGEE_PRAZO_ETAPA = Object.freeze({ versao: 'RC10.8.30', dataCivil, prazoPadrao, inicioEtapa, calcular });
 })(window);
