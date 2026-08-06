@@ -271,6 +271,24 @@
         if (e.includes('ASSIN')) return 7;
         return null;
     }
+    function avaliarPrazoCentral(p) {
+        const etapa = normalizar(processoEtapa(p));
+        const calculado = window.SIGEE_PRAZO_ETAPA?.calcular?.(p, agoraWorkflow()) || null;
+        const limiteOficial = prazoEtapa(etapa);
+        const inicio = p && (p.data_etapa_atual || p.etapa_iniciada_em || p.prazo_inicio || p.data_etapa || p.created_at);
+        const diasFallback = inicio ? Math.max(1, diasDesde(inicio) + 1) : 0;
+        const dias = Number.isFinite(Number(calculado?.diasNaEtapa)) && Number(calculado?.diasNaEtapa) > 0
+            ? Number(calculado.diasNaEtapa)
+            : diasFallback;
+        const limite = limiteOficial ?? calculado?.prazoEtapa ?? null;
+        return {
+            etapa,
+            dias,
+            limite,
+            vencido: limite != null && dias > limite,
+            venceHoje: limite != null && dias === limite
+        };
+    }
     function prazoVisual(p) {
         const etapa = normalizar(processoEtapa(p));
         const ciclo = pertenceCicloDesarquivamento(p);
@@ -279,13 +297,13 @@
             const dias = temporal ? Number(temporal.days || 0) : diasDesde(dataInicioCiclo(p));
             return `<span class="font-black">${dias} dias</span>`;
         }
-        const avaliacao = window.SIGEE_PRAZO_ETAPA?.calcular?.(p, agoraWorkflow()) || null;
-        const dias = Number(avaliacao?.diasNaEtapa || 0);
-        const limite = avaliacao?.prazoEtapa ?? null;
+        const avaliacao = avaliarPrazoCentral(p);
+        const dias = avaliacao.dias;
+        const limite = avaliacao.limite;
         if (etapa.includes('AGUARD') || etapa === 'DEFERIDO') return `<span class="font-black">${dias} dias para retirada</span>`;
         if (etapa.includes('RETIR') || etapa.includes('INDEFER')) return '<span class="font-black text-slate-500">FINALIZADO</span>';
         if (!limite) return `<span class="font-black">${dias} dias</span>`;
-        const classe = avaliacao?.vencido ? 'text-red-300' : avaliacao?.venceHoje ? 'text-amber-300' : 'text-emerald-300';
+        const classe = avaliacao.vencido ? 'text-red-300' : avaliacao.venceHoje ? 'text-amber-300' : 'text-emerald-300';
         return `<span class="font-black ${classe}">${dias}/${limite}</span>`;
     }
     function prioridadeBadge(valor) {
@@ -646,15 +664,11 @@
         const etapa = normalizar(etapaOriginal);
         const cicloDesarquivamento = pertenceCicloDesarquivamento(p);
         const temporal = cicloDesarquivamento ? estadoTemporal(p) : null;
-        const prazoUnico = !cicloDesarquivamento && window.SIGEE_PRAZO_ETAPA?.calcular
-            ? window.SIGEE_PRAZO_ETAPA.calcular(p)
-            : null;
-        const dias = temporal ? Number(temporal.days || 0) : (prazoUnico?.diasNaEtapa ?? diasDesde(
-            cicloDesarquivamento ? dataInicioCiclo(p) : (p && (p.data_etapa_atual || p.data_etapa || p.etapa_iniciada_em || p.prazo_inicio))
-        ));
+        const prazoUnico = !cicloDesarquivamento ? avaliarPrazoCentral(p) : null;
+        const dias = temporal ? Number(temporal.days || 0) : Number(prazoUnico?.dias || 0);
 
         let tipo = '';
-        let limite = prazoUnico?.prazoEtapa ?? null;
+        let limite = prazoUnico?.limite ?? null;
         if (etapa.includes('ANAL')) tipo = 'ANALISE';
         else if (etapa.includes('DIGIT')) tipo = 'DIGITACAO';
         else if (etapa.includes('CONFER')) tipo = 'CONFERENCIA';
@@ -666,7 +680,7 @@
             tipo,
             dias: Number.isFinite(Number(dias)) ? Number(dias) : 0,
             limite,
-            vencido: limite != null && Number(dias) > limite,
+            vencido: prazoUnico?.vencido ?? (limite != null && Number(dias) > limite),
             cicloDesarquivamento,
             temporal
         };
@@ -1625,7 +1639,7 @@
     const n=String(numero);
     const p=n.padStart(2,'0');
 
-    // RC10.8.33 — correspondência territorial exata.
+    // RC10.8.34 — correspondência territorial exata.
     // Nunca usar ILIKE com "%" aqui: NTE-01 passava a aceitar NTE-10..19
     // e NTE-02 aceitava NTE-20..27, validando apenas o primeiro algarismo.
     const filtros=[
