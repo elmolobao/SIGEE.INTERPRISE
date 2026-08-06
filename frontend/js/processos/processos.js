@@ -272,16 +272,20 @@
         return null;
     }
     function prazoVisual(p) {
-        // RC10.8.30: contador e selo consomem a mesma avaliação oficial.
-        const avaliacao = avaliarPrazoProcesso(p);
-        const dias = Number(avaliacao.dias || 0);
-        const limite = avaliacao.limite;
-        if (limite == null) return `${dias} dias`;
-        const classe = avaliacao.vencido
-            ? 'text-red-300'
-            : dias >= Math.ceil(Number(limite) * .8)
-                ? 'text-amber-300'
-                : 'text-emerald-300';
+        const etapa = normalizar(processoEtapa(p));
+        const ciclo = pertenceCicloDesarquivamento(p);
+        if (ciclo) {
+            const temporal = estadoTemporal(p);
+            const dias = temporal ? Number(temporal.days || 0) : diasDesde(dataInicioCiclo(p));
+            return `<span class="font-black">${dias} dias</span>`;
+        }
+        const avaliacao = window.SIGEE_PRAZO_ETAPA?.calcular?.(p, agoraWorkflow()) || null;
+        const dias = Number(avaliacao?.diasNaEtapa || 0);
+        const limite = avaliacao?.prazoEtapa ?? null;
+        if (etapa.includes('AGUARD') || etapa === 'DEFERIDO') return `<span class="font-black">${dias} dias para retirada</span>`;
+        if (etapa.includes('RETIR') || etapa.includes('INDEFER')) return '<span class="font-black text-slate-500">FINALIZADO</span>';
+        if (!limite) return `<span class="font-black">${dias} dias</span>`;
+        const classe = avaliacao?.vencido ? 'text-red-300' : avaliacao?.venceHoje ? 'text-amber-300' : 'text-emerald-300';
         return `<span class="font-black ${classe}">${dias}/${limite}</span>`;
     }
     function prioridadeBadge(valor) {
@@ -646,7 +650,7 @@
             ? window.SIGEE_PRAZO_ETAPA.calcular(p)
             : null;
         const dias = temporal ? Number(temporal.days || 0) : (prazoUnico?.diasNaEtapa ?? diasDesde(
-            cicloDesarquivamento ? dataInicioCiclo(p) : (p && (p.data_etapa_atual || p.etapa_iniciada_em || p.prazo_inicio || p.data_etapa))
+            cicloDesarquivamento ? dataInicioCiclo(p) : (p && (p.data_etapa_atual || p.data_etapa || p.etapa_iniciada_em || p.prazo_inicio))
         ));
 
         let tipo = '';
@@ -1621,7 +1625,7 @@
     const n=String(numero);
     const p=n.padStart(2,'0');
 
-    // RC10.8.29 — correspondência territorial exata.
+    // RC10.8.33 — correspondência territorial exata.
     // Nunca usar ILIKE com "%" aqui: NTE-01 passava a aceitar NTE-10..19
     // e NTE-02 aceitava NTE-20..27, validando apenas o primeiro algarismo.
     const filtros=[
@@ -2478,7 +2482,7 @@
     const semUsuarios=el.querySelector('.sigee-selecao-semusuarios093'); if(semUsuarios) semUsuarios.remove();
     const validar=()=>{atualizarDestaqueTecnico(el,sel);btn.disabled=!(sel.value&&chk.checked);}; sel.addEventListener('change',validar); chk.addEventListener('change',validar);
     el.querySelector('[data-cancelar093]').addEventListener('click',fechar);
-    btn.addEventListener('click',async()=>{btn.disabled=true;p.etapa=p.etapa_atual='Conferência';p.data_etapa_atual=agora();p.tecnico_responsavel=sel.value;p.conferente=sel.value;await salvar(p);await historico(p,'Conferência','Encaminhado para Conferência',`Digitação concluída. Conferente: ${sel.value}. Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}.`,{conferente:sel.value,mensagem:msg,tarefa_confirmada:true});fechar();if(window.filtrarProcessosPorEtapa)window.filtrarProcessosPorEtapa('Conferência');toast('Processo encaminhado para Conferência.');});
+    btn.addEventListener('click',async()=>{btn.disabled=true;p.etapa=p.etapa_atual='Conferência';p.data_etapa_atual=agora();p.prazo_inicio=p.data_etapa_atual;p.prazo_etapa=10;p.prazo_fim=null;p.tecnico_responsavel=sel.value;p.conferente=sel.value;await salvar(p);await historico(p,'Conferência','Encaminhado para Conferência',`Digitação concluída. Conferente: ${sel.value}. Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}.`,{conferente:sel.value,mensagem:msg,tarefa_confirmada:true});fechar();if(window.filtrarProcessosPorEtapa)window.filtrarProcessosPorEtapa('Conferência');toast('Processo encaminhado para Conferência.');});
   }
 
   function abrirConferencia(id){
@@ -2487,7 +2491,7 @@
     const el=modal(`✔️ Conferência Concluída — ${esc(p.codigo_sigee||p.id)}`,`${cabecalho(p)}${responsavelOperador()}${tarefa(msg)}<div class="sigee-acoes33"><button class="btn33 btn33-vermelho" data-cancelar093>Cancelar</button><button class="btn33 btn33-verde" data-confirmar093 disabled>Enviar para Assinatura</button></div>`,'conferencia');
     const chk=el.querySelector('#wf-email093'),btn=el.querySelector('[data-confirmar093]'); chk.addEventListener('change',()=>btn.disabled=!chk.checked);
     el.querySelector('[data-cancelar093]').addEventListener('click',fechar);
-    btn.addEventListener('click',async()=>{btn.disabled=true;p.etapa=p.etapa_atual='Assinatura';p.data_etapa_atual=agora();p.tecnico_responsavel=nomeUsuario();p.enviado_assinatura_por=nomeUsuario();await salvar(p);await historico(p,'Assinatura','Encaminhado para Assinatura',`Conferência concluída. Enviado para assinatura por ${nomeUsuario()}. Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}.`,{enviado_por:nomeUsuario(),mensagem:msg,tarefa_confirmada:true});fechar();if(window.filtrarProcessosPorEtapa)window.filtrarProcessosPorEtapa('Assinatura');toast('Processo encaminhado para Assinatura.');});
+    btn.addEventListener('click',async()=>{btn.disabled=true;p.etapa=p.etapa_atual='Assinatura';p.data_etapa_atual=agora();p.prazo_inicio=p.data_etapa_atual;p.prazo_etapa=7;p.prazo_fim=null;p.tecnico_responsavel=nomeUsuario();p.enviado_assinatura_por=nomeUsuario();await salvar(p);await historico(p,'Assinatura','Encaminhado para Assinatura',`Conferência concluída. Enviado para assinatura por ${nomeUsuario()}. Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}.`,{enviado_por:nomeUsuario(),mensagem:msg,tarefa_confirmada:true});fechar();if(window.filtrarProcessosPorEtapa)window.filtrarProcessosPorEtapa('Assinatura');toast('Processo encaminhado para Assinatura.');});
   }
 
   function abrirAssinatura(id){
@@ -2496,7 +2500,7 @@
     const el=modal(`🖋️ Documento Assinado — ${esc(p.codigo_sigee||p.id)}`,`${cabecalho(p)}<p class="sigee-aviso33">Confirme somente após o retorno do documento assinado pelo Diretor do NTE.</p>${tarefa(msg)}<div class="sigee-acoes33"><button class="btn33 btn33-vermelho" data-cancelar093>Cancelar</button><button class="btn33 btn33-verde" data-confirmar093 disabled>Deferido</button></div>`,'assinatura');
     const chk=el.querySelector('#wf-email093'),btn=el.querySelector('[data-confirmar093]'); chk.addEventListener('change',()=>btn.disabled=!chk.checked);
     el.querySelector('[data-cancelar093]').addEventListener('click',fechar);
-    btn.addEventListener('click',async()=>{btn.disabled=true;p.etapa=p.etapa_atual='Aguardando Retirada';p.data_etapa_atual=agora();p.tecnico_responsavel=nomeUsuario();p.deferido_em=agora();p.finalizado_em=p.deferido_em;await salvar(p);await historico(p,'Aguardando Retirada','Processo deferido',`Documento retornou assinado e está disponível para retirada. Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}.`,{mensagem:msg,tarefa_confirmada:true});fechar();if(window.filtrarProcessosPorEtapa)window.filtrarProcessosPorEtapa('Aguardando Retirada');toast('Processo deferido e disponível para retirada.');});
+    btn.addEventListener('click',async()=>{btn.disabled=true;p.etapa=p.etapa_atual='Aguardando Retirada';p.data_etapa_atual=agora();p.prazo_inicio=p.data_etapa_atual;p.prazo_etapa=null;p.prazo_fim=null;p.tecnico_responsavel=nomeUsuario();p.deferido_em=p.data_etapa_atual;p.finalizado_em=null;await salvar(p);await historico(p,'Aguardando Retirada','Processo deferido',`Documento retornou assinado e está disponível para retirada. Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}.`,{mensagem:msg,tarefa_confirmada:true});fechar();if(window.filtrarProcessosPorEtapa)window.filtrarProcessosPorEtapa('Aguardando Retirada');toast('Processo deferido e disponível para retirada.');});
   }
 
   function abrirRetirada(id){
@@ -2507,7 +2511,7 @@
     el.querySelectorAll('input[name="wf-retirada093"]').forEach(r=>r.addEventListener('change',()=>{box.classList.toggle('hidden',r.value!=='Terceiro'||!r.checked);validar();}));
     ['#wf-terceiro-nome093','#wf-terceiro-rg093','#wf-terceiro-telefone093'].forEach(s=>el.querySelector(s).addEventListener('input',validar));
     el.querySelector('[data-cancelar093]').addEventListener('click',fechar);
-    btn.addEventListener('click',async()=>{const tipo=el.querySelector('input[name="wf-retirada093"]:checked')?.value;if(!tipo)return;const terceiro=tipo==='Terceiro'?{nome:txt(el.querySelector('#wf-terceiro-nome093').value),rg:txt(el.querySelector('#wf-terceiro-rg093').value),telefone:txt(el.querySelector('#wf-terceiro-telefone093').value)}:null;btn.disabled=true;p.etapa=p.etapa_atual='Retirado';p.data_etapa_atual=agora();p.retirado_em=p.data_etapa_atual;p.finalizado_em=p.finalizado_em||p.deferido_em||p.data_etapa_atual;p.tecnico_responsavel=nomeUsuario();await salvar(p);await historico(p,'Retirado','Documento retirado',tipo==='Terceiro'?`Retirada por terceiro. Nome: ${terceiro.nome} | RG: ${terceiro.rg} | Telefone: ${terceiro.telefone}`:'Retirada pelo titular/requerente.',{tipo,terceiro,entregue_por:nomeUsuario()});fechar();if(window.filtrarProcessosPorEtapa)window.filtrarProcessosPorEtapa('Retirado');toast('Retirada registrada. Processo concluído.');});
+    btn.addEventListener('click',async()=>{const tipo=el.querySelector('input[name="wf-retirada093"]:checked')?.value;if(!tipo)return;const terceiro=tipo==='Terceiro'?{nome:txt(el.querySelector('#wf-terceiro-nome093').value),rg:txt(el.querySelector('#wf-terceiro-rg093').value),telefone:txt(el.querySelector('#wf-terceiro-telefone093').value)}:null;btn.disabled=true;p.etapa=p.etapa_atual='Retirado';p.data_etapa_atual=agora();p.retirado_em=p.data_etapa_atual;p.finalizado_em=p.retirado_em;p.tecnico_responsavel=nomeUsuario();await salvar(p);await historico(p,'Retirado','Documento retirado',tipo==='Terceiro'?`Retirada por terceiro. Nome: ${terceiro.nome} | RG: ${terceiro.rg} | Telefone: ${terceiro.telefone}`:'Retirada pelo titular/requerente.',{tipo,terceiro,entregue_por:nomeUsuario()});fechar();if(window.filtrarProcessosPorEtapa)window.filtrarProcessosPorEtapa('Retirado');toast('Retirada registrada. Processo concluído.');});
   }
 
   /* Sobrescreve somente as entradas públicas do fluxo legado. */

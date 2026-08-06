@@ -99,38 +99,13 @@
     return /[T ]\d{2}:\d{2}(?::\d{2})?/.test(t) || /^\d{2}\/\d{2}\/\d{4}[, ]+\d{2}:\d{2}/.test(t);
   }
 
-  const FUSO_HORARIO_OFICIAL = 'America/Sao_Paulo';
-
   function formatarData(v, hora = true) {
-    if (!v) return 'Data não informada';
-
-    // Preserva datas civis sem horário, evitando deslocamento para o dia anterior.
-    const bruto = texto(v);
-    let m = bruto.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if (m) return `${m[3]}/${m[2]}/${m[1]}`;
-    m = bruto.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-    if (m) return `${m[1]}/${m[2]}/${m[3]}`;
-
     const d = dataValida(v);
     if (!d) return 'Data não informada';
-
     const mostrarHora = hora && temHorarioReal(v);
-    return new Intl.DateTimeFormat('pt-BR', mostrarHora
-      ? {
-          timeZone: FUSO_HORARIO_OFICIAL,
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: false
-        }
-      : {
-          timeZone: FUSO_HORARIO_OFICIAL,
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric'
-        }).format(d);
+    return d.toLocaleString('pt-BR', mostrarHora
+      ? { dateStyle:'short', timeStyle:'short' }
+      : { dateStyle:'short' });
   }
 
   function diasEntre(inicio, fim = new Date()) {
@@ -426,27 +401,10 @@
       }
       const dc = dataValida(grupo.concluidoEm), de = dataValida(grupo.enviadoEm);
       if (dc && de && dc < de) grupo.concluidoEm = null;
+      const fimDuracao = dataValida(grupo.concluidoEm) || (grupo.atual ? agoraWorkflow() : null);
+      grupo.diasNaEtapa = de && fimDuracao ? diasEntre(de, fimDuracao) : 0;
     });
     return lista;
-  }
-
-  function diasEntreDatas(inicio, fim) {
-    const di = dataValida(inicio);
-    const df = dataValida(fim);
-    if (!di || !df || df < di) return null;
-
-    // Diferença por dias de calendário, preservando a leitura operacional do prontuário.
-    // Ex.: 17/07 a 27/07 = 10 dias; início e término no mesmo dia = 0 dia.
-    const inicioDia = new Date(di.getFullYear(), di.getMonth(), di.getDate());
-    const fimDia = new Date(df.getFullYear(), df.getMonth(), df.getDate());
-    return Math.max(0, Math.round((fimDia.getTime() - inicioDia.getTime()) / 86400000));
-  }
-
-  function textoTempoEtapa(grupo) {
-    const fim = grupo?.concluidoEm || new Date();
-    const dias = diasEntreDatas(grupo?.enviadoEm, fim);
-    if (dias == null) return 'Não calculado';
-    return `${dias} ${dias === 1 ? 'dia' : 'dias'}${grupo?.concluidoEm ? '' : ' (em andamento)'}`;
   }
 
   function rotuloEtapaGrupo(grupo) {
@@ -612,7 +570,7 @@
           <div class="sigee-pep-metadados-etapa">
             <div><span>Início da etapa</span><strong>${escapar(formatarData(grupo.enviadoEm))}</strong></div>
             <div><span>Término da etapa</span><strong>${grupo.concluidoEm ? escapar(formatarData(grupo.concluidoEm)) : 'Em andamento'}</strong></div>
-            <div><span>Tempo na etapa</span><strong>${escapar(textoTempoEtapa(grupo))}</strong></div>
+            <div><span>Tempo na etapa</span><strong>${grupo.diasNaEtapa} ${grupo.diasNaEtapa === 1 ? 'dia' : 'dias'}</strong></div>
             <div><span>Técnico responsável</span><strong>${escapar(grupo.responsavel)}</strong></div>
             <div><span>Situação</span><strong>${escapar(grupo.situacao)}</strong></div>
           </div>
@@ -666,8 +624,9 @@
       catch (e) { console.warn('[SIGEE RC10.8.10] Métricas temporais indisponíveis:', e); return null; }
     })();
     const inicio = metricas?.opening || valor(p, 'data_abertura', 'data_solicitacao', 'created_at', 'criado_em', 'data_inicio_desarquivamento');
-    const tempoTotal = metricas?.totalDays ?? diasEntre(inicio, valor(p,'deferido_em','data_deferimento') || agoraWorkflow());
-    const tempoPosDeferimento = metricas?.postDeferredDays ?? 0;
+    const tempoNormal = metricas?.normalDays ?? metricas?.totalDays ?? diasEntre(inicio, valor(p,'deferido_em','data_deferimento','finalizado_em') || agoraWorkflow());
+    const tempoRetirada = metricas?.withdrawalDays ?? metricas?.postDeferredDays ?? 0;
+    const tempoTotal = metricas?.overallDays ?? diasEntre(inicio, valor(p,'retirado_em','finalizado_em') || agoraWorkflow());
     const etapa = etapaAtual(p);
     const comunicacoes = resumoComunicacoes(eventos);
     const documentos = resumoDocumentos(eventos);
@@ -709,8 +668,8 @@
             <div><span>Responsável</span><strong>${escapar(valor(p,'tecnico_responsavel','responsavel','usuario_responsavel') || 'Não atribuído')}</strong></div>
             <div><span>Prioridade</span><strong>${escapar(valor(p,'prioridade') || 'Normal')}</strong></div>
             <div><span>Documento</span><strong>${escapar(valor(p,'documento_tipo','documento','documento_solicitado') || 'Não informado')}</strong></div>
-            <div><span>Tempo total</span><strong>${tempoTotal} dias</strong></div>
-            <div><span>Tempo parado</span><strong>${tempoParado} dias</strong></div>
+            <div><span>Tempo normal</span><strong>${tempoNormal} dias</strong></div>
+            <div><span>Espera para retirada</span><strong>${tempoRetirada} dias</strong></div>
           </div>
         </section>
 
