@@ -99,13 +99,38 @@
     return /[T ]\d{2}:\d{2}(?::\d{2})?/.test(t) || /^\d{2}\/\d{2}\/\d{4}[, ]+\d{2}:\d{2}/.test(t);
   }
 
+  const FUSO_HORARIO_OFICIAL = 'America/Sao_Paulo';
+
   function formatarData(v, hora = true) {
+    if (!v) return 'Data não informada';
+
+    // Preserva datas civis sem horário, evitando deslocamento para o dia anterior.
+    const bruto = texto(v);
+    let m = bruto.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+    m = bruto.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (m) return `${m[1]}/${m[2]}/${m[3]}`;
+
     const d = dataValida(v);
     if (!d) return 'Data não informada';
+
     const mostrarHora = hora && temHorarioReal(v);
-    return d.toLocaleString('pt-BR', mostrarHora
-      ? { dateStyle:'short', timeStyle:'short' }
-      : { dateStyle:'short' });
+    return new Intl.DateTimeFormat('pt-BR', mostrarHora
+      ? {
+          timeZone: FUSO_HORARIO_OFICIAL,
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        }
+      : {
+          timeZone: FUSO_HORARIO_OFICIAL,
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric'
+        }).format(d);
   }
 
   function diasEntre(inicio, fim = new Date()) {
