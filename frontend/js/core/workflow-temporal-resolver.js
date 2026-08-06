@@ -163,6 +163,7 @@
       process && process.created_at,
       process && process.criado_em
     ]);
+    const stage = normalizedStage(process);
     const deferred = firstValid([
       process && process.deferido_em,
       process && process.data_deferimento
@@ -170,32 +171,48 @@
     const withdrawn = firstValid([
       process && process.retirado_em,
       process && process.data_retirada,
-      normalizedStage(process) === 'RETIRADO' ? process && process.data_etapa_atual : null
+      stage === 'RETIRADO' ? process && process.data_etapa_atual : null
+    ]);
+    const terminal = firstValid([
+      stage === 'INDEFERIDO' ? process && process.finalizado_em : null,
+      stage === 'RETIRADO' ? (withdrawn || (process && process.finalizado_em)) : null
     ]);
     const stageStart = firstValid([
+      (stage === 'AGUARDANDO RETIRADA' || stage === 'DEFERIDO') ? deferred : null,
       process && process.data_etapa_atual,
-      process && process.data_etapa,
+      process && process.etapa_iniciada_em,
       process && process.prazo_inicio,
+      process && process.data_etapa,
       opening
     ]);
 
-    const totalEnd = deferred || currentNow;
-    const postDeferredEnd = withdrawn || currentNow;
-    const stage = normalizedStage(process);
-    const stageEnd = stage === 'RETIRADO' ? (withdrawn || currentNow)
-      : stage === 'AGUARDANDO RETIRADA' || stage === 'DEFERIDO' ? currentNow
+    // Contagem normal: abertura até deferimento; indeferimento encerra diretamente.
+    const normalEnd = deferred || terminal || currentNow;
+    // Espera para retirada: deferimento até retirada.
+    const withdrawalEnd = withdrawn || currentNow;
+    // Tempo integral: abertura até retirada/indeferimento, ou até agora enquanto aberto.
+    const overallEnd = terminal || withdrawn || currentNow;
+    const stageEnd = (stage === 'RETIRADO' || stage === 'INDEFERIDO')
+      ? (terminal || withdrawn || currentNow)
       : currentNow;
 
     return Object.freeze({
       opening,
       deferred,
       withdrawn,
+      terminal,
       stageStart,
-      totalDays: calendarDaysBetween(opening, totalEnd),
-      postDeferredDays: deferred ? calendarDaysBetween(deferred, postDeferredEnd) : 0,
+      normalEnd,
+      overallEnd,
+      totalDays: calendarDaysBetween(opening, normalEnd),
+      normalDays: calendarDaysBetween(opening, normalEnd),
+      postDeferredDays: deferred ? calendarDaysBetween(deferred, withdrawalEnd) : 0,
+      withdrawalDays: deferred ? calendarDaysBetween(deferred, withdrawalEnd) : 0,
+      overallDays: calendarDaysBetween(opening, overallEnd),
       stageDays: calendarDaysBetween(stageStart, stageEnd),
-      totalFrozen: Boolean(deferred),
-      postDeferredFrozen: Boolean(deferred && withdrawn)
+      totalFrozen: Boolean(deferred || terminal),
+      postDeferredFrozen: Boolean(deferred && withdrawn),
+      overallFrozen: Boolean(terminal || withdrawn)
     });
   }
 
