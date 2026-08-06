@@ -272,11 +272,16 @@
         return null;
     }
     function prazoVisual(p) {
-        const temporal = estadoTemporal(p);
-        const dias = temporal ? temporal.days : diasDesde(dataInicioCiclo(p));
-        const limite = prazoEtapa(processoEtapa(p));
-        if (!limite) return `${dias} dias`;
-        const classe = dias > limite ? 'text-red-300' : dias >= Math.ceil(limite * .8) ? 'text-amber-300' : 'text-emerald-300';
+        // RC10.8.30: contador e selo consomem a mesma avaliação oficial.
+        const avaliacao = avaliarPrazoProcesso(p);
+        const dias = Number(avaliacao.dias || 0);
+        const limite = avaliacao.limite;
+        if (limite == null) return `${dias} dias`;
+        const classe = avaliacao.vencido
+            ? 'text-red-300'
+            : dias >= Math.ceil(Number(limite) * .8)
+                ? 'text-amber-300'
+                : 'text-emerald-300';
         return `<span class="font-black ${classe}">${dias}/${limite}</span>`;
     }
     function prioridadeBadge(valor) {
@@ -641,7 +646,7 @@
             ? window.SIGEE_PRAZO_ETAPA.calcular(p)
             : null;
         const dias = temporal ? Number(temporal.days || 0) : (prazoUnico?.diasNaEtapa ?? diasDesde(
-            cicloDesarquivamento ? dataInicioCiclo(p) : (p && (p.data_etapa_atual || p.data_etapa || p.etapa_iniciada_em || p.prazo_inicio))
+            cicloDesarquivamento ? dataInicioCiclo(p) : (p && (p.data_etapa_atual || p.etapa_iniciada_em || p.prazo_inicio || p.data_etapa))
         ));
 
         let tipo = '';
