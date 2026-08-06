@@ -110,13 +110,13 @@ body.sigee-prontuario-aberto { overflow: hidden !important; }
 
 
 /* RC10.8.7 — metadados cronológicos por etapa */
-.sigee-pep-metadados-etapa{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:12px 0;padding:10px;border:1px solid #d8e2ee;border-radius:12px;background:#f7f9fc}
+.sigee-pep-metadados-etapa{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:12px 0;padding:10px;border:1px solid #d8e2ee;border-radius:12px;background:#f7f9fc}
 .sigee-pep-metadados-etapa>div{min-width:0}
 .sigee-pep-metadados-etapa span{display:block;font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:#60738a;font-weight:800;margin-bottom:4px}
 .sigee-pep-metadados-etapa strong{display:block;font-size:12px;color:#14263d;overflow-wrap:anywhere}
 .sigee-pep-vazio-etapa{padding:14px;border:1px dashed #cbd7e5;border-radius:10px;color:#66778d;background:#fafcff}
 @media(max-width:900px){.sigee-pep-metadados-etapa{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media print{.sigee-pep-metadados-etapa{grid-template-columns:repeat(4,minmax(0,1fr))!important;break-inside:avoid}}
+@media print{.sigee-pep-metadados-etapa{grid-template-columns:repeat(5,minmax(0,1fr))!important;break-inside:avoid}}
 
 /* RC10.8.21 — prazo calculado pelo motor único */
 .sigee-pep-prazo-vencido { color:#b91c1c; font-size:.72rem; margin-left:.4rem; text-transform:uppercase; }
