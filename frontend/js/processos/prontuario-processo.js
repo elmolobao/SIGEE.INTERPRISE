@@ -405,6 +405,25 @@
     return lista;
   }
 
+  function diasEntreDatas(inicio, fim) {
+    const di = dataValida(inicio);
+    const df = dataValida(fim);
+    if (!di || !df || df < di) return null;
+
+    // Diferença por dias de calendário, preservando a leitura operacional do prontuário.
+    // Ex.: 17/07 a 27/07 = 10 dias; início e término no mesmo dia = 0 dia.
+    const inicioDia = new Date(di.getFullYear(), di.getMonth(), di.getDate());
+    const fimDia = new Date(df.getFullYear(), df.getMonth(), df.getDate());
+    return Math.max(0, Math.round((fimDia.getTime() - inicioDia.getTime()) / 86400000));
+  }
+
+  function textoTempoEtapa(grupo) {
+    const fim = grupo?.concluidoEm || new Date();
+    const dias = diasEntreDatas(grupo?.enviadoEm, fim);
+    if (dias == null) return 'Não calculado';
+    return `${dias} ${dias === 1 ? 'dia' : 'dias'}${grupo?.concluidoEm ? '' : ' (em andamento)'}`;
+  }
+
   function rotuloEtapaGrupo(grupo) {
     const base = ETAPAS.find(e => e.tipo === grupo.etapaTipo)?.label || 'Outros registros';
     return base;
@@ -566,8 +585,9 @@
             <button type="button" aria-expanded="false" data-pep-expandir="grupo-${gi}">Ver ações</button>
           </header>
           <div class="sigee-pep-metadados-etapa">
-            <div><span>Enviado em</span><strong>${escapar(formatarData(grupo.enviadoEm))}</strong></div>
-            <div><span>Concluído em</span><strong>${grupo.concluidoEm ? escapar(formatarData(grupo.concluidoEm)) : 'Em andamento'}</strong></div>
+            <div><span>Início da etapa</span><strong>${escapar(formatarData(grupo.enviadoEm))}</strong></div>
+            <div><span>Término da etapa</span><strong>${grupo.concluidoEm ? escapar(formatarData(grupo.concluidoEm)) : 'Em andamento'}</strong></div>
+            <div><span>Tempo na etapa</span><strong>${escapar(textoTempoEtapa(grupo))}</strong></div>
             <div><span>Técnico responsável</span><strong>${escapar(grupo.responsavel)}</strong></div>
             <div><span>Situação</span><strong>${escapar(grupo.situacao)}</strong></div>
           </div>
