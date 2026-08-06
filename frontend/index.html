@@ -246,11 +246,11 @@
 <div class="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_220px] gap-2 items-end">
 <div>
 <label class="block text-[10px] font-black text-gray-500 uppercase mb-1" for="filtro-processos-nte">Pesquisar</label>
-<input class="w-full p-2 bg-gray-50 text-xs border rounded-lg focus:outline-none font-medium" id="busca-proc-nome" oninput="renderizarProcessosFlutuantes()" placeholder="🔎 Pesquisar por Código SIGEE, aluno ou escola..." type="text"/>
+<input class="w-full p-2 bg-gray-50 text-xs border rounded-lg focus:outline-none font-medium" id="busca-proc-nome" placeholder="🔎 Pesquisar por Código SIGEE, aluno ou escola..." type="text"/>
 </div>
 <div>
 <label class="block text-[10px] font-black text-gray-500 uppercase mb-1" for="filtro-processos-nte">NTE</label>
-<select class="w-full p-2 bg-gray-50 text-xs border rounded-lg focus:outline-none font-bold" id="filtro-processos-nte" onchange="renderizarProcessosFlutuantes()">
+<select class="w-full p-2 bg-gray-50 text-xs border rounded-lg focus:outline-none font-bold" id="filtro-processos-nte">
 <option value="TODOS">Todos os NTEs</option>
 </select>
 </div>
@@ -742,7 +742,7 @@
 <script src="js/core/workflow.event.manager.js"></script>
 <script src="js/core/workflow.state.manager.js?v=0.9.5.1"></script>
 <script src="js/core/workflow.clock.js"></script>
-<script src="js/core/prazo-etapa.js?v=RC10.8.21"></script>
+<script src="js/core/prazo-etapa.js?v=RC10.8.30"></script>
 <script src="js/core/workflow.timer.manager.js"></script>
 <script src="js/core/workflow-engine.js?v=0.9.5.1"></script>
 <script src="js/core/transition-manager.js?v=10.8.1"></script>
@@ -765,7 +765,7 @@
 <script src="js/core/login-controller.js?v=RC10.8.17"></script>
 <script src="js/core/workflow-temporal-resolver.js?v=RC10.2.3"></script>
 <script src="js/core/popup-prazos-login.js?v=RC10.8.20"></script>
-<script src="js/processos/processos.js?v=RC10.8.29"></script>
+<script src="js/processos/processos.js?v=RC10.8.30"></script>
 <script src="js/migracao/migracao-historica.js?v=RC7.1.2"></script>
 <script src="js/migracao/motor-persistencia.js?v=M5.2.2"></script>
 <script src="js/migracao/importacao-oficial.js?v=M5.2.2"></script>
@@ -801,7 +801,7 @@ window.filtrarTabelaUsuariosSIGEE = function (termo) {
 <!-- RC4.5.29: arquitetura única da Nova Solicitação. Serviço primeiro; controlador único depois. -->
 <script src="js/processos/duplicidade-nova-solicitacao.js?v=RC4.6.0"></script>
 <script src="js/processos/nova-solicitacao-controller.js?v=RC8.1.0"></script>
-<script src="js/processos/central-processos-controller.js?v=RC9.1.0"></script>
+<script src="js/processos/central-processos-controller.js?v=RC9.1.1"></script>
 
 <script src="js/admin/controle-acesso-ntes.js?v=RC8.8.0-CACHE-CONSOLIDADO"></script>
 
