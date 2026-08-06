@@ -1,5 +1,5 @@
 /* =====================================================================
-   SIGEE Enterprise — RC10.8.33
+   SIGEE Enterprise — RC10.8.34
    Motor único de prazo por etapa e congelamento temporal.
 
    Regras homologadas:
@@ -13,10 +13,11 @@
    ===================================================================== */
 (function (global) {
   'use strict';
-  if (global.SIGEE_PRAZO_ETAPA?.versao === 'RC10.8.33') return;
+  if (global.SIGEE_PRAZO_ETAPA?.versao === 'RC10.8.34') return;
 
   const DIA_MS = 86400000;
   const normalizar = v => String(v ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toUpperCase();
+  const PRAZOS_OFICIAIS = Object.freeze({ ANALISE: 7, DIGITACAO: 15, CONFERENCIA: 10, ASSINATURA: 7, DESARQUIVAMENTO: 30 });
 
   function dataCivil(valor) {
     if (!valor) return null;
@@ -41,11 +42,11 @@
   function prazoPadrao(etapa) {
     const e = etapaNormalizada(etapa);
     if (e.includes('PEND')) return null;
-    if (e.includes('ANAL')) return 7;
-    if (e.includes('DIGIT')) return 15;
-    if (e.includes('CONFER')) return 10;
-    if (e.includes('ASSIN')) return 7;
-    if (e.includes('DESARQ')) return 30;
+    if (e.includes('ANAL')) return PRAZOS_OFICIAIS.ANALISE;
+    if (e.includes('DIGIT')) return PRAZOS_OFICIAIS.DIGITACAO;
+    if (e.includes('CONFER')) return PRAZOS_OFICIAIS.CONFERENCIA;
+    if (e.includes('ASSIN')) return PRAZOS_OFICIAIS.ASSINATURA;
+    if (e.includes('DESARQ')) return PRAZOS_OFICIAIS.DESARQUIVAMENTO;
     return null;
   }
 
@@ -97,6 +98,6 @@
   }
 
   global.SIGEE_PRAZO_ETAPA = Object.freeze({
-    versao: 'RC10.8.33', dataCivil, etapaNormalizada, prazoPadrao, inicioEtapa, calcular
+    versao: 'RC10.8.34', PRAZOS_OFICIAIS, dataCivil, etapaNormalizada, prazoPadrao, inicioEtapa, calcular
   });
 })(window);
