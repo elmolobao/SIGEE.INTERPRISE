@@ -478,7 +478,7 @@
         return {
             id: p.id,
             aluno_nome: processoAluno(p),
-            nome_social: p.nome_social || processoAluno(p),
+            nome_social: p.nome_social || null,
             escola_nome: processoEscola(p),
             documento_tipo: processoDocumento(p),
             etapa_atual: processoEtapa(p),
@@ -518,7 +518,7 @@
             updated_at: p.updated_at || new Date().toISOString()
         };
     }
-    async function salvarProcesso(p, opcoes = {}) {
+    async function salvarProcesso(p) {
         try { if (typeof salvarBancoLocalSIGEE === 'function') salvarBancoLocalSIGEE(); } catch (e) {}
         try {
             const c = supabaseClient();
@@ -603,47 +603,50 @@
                 if (erroInicioNovo) throw erroInicioNovo;
             }
 
-            let resposta;
-            if (p.id != null && p.id !== '') {
-                resposta = await c.from(tabelaProcessos)
-                    .update(payload)
+            let confirmado = null;
+            if (p.id != null) {
+                const payloadUpdate = { ...payload };
+                delete payloadUpdate.id;
+                const { data, error } = await c.from(tabelaProcessos)
+                    .update(payloadUpdate)
                     .eq('id', p.id)
-                    .select('*')
-                    .maybeSingle();
+                    .select('id,aluno_nome,nome_social,escola_nome,documento_tipo,modalidade,nivel_oferta,nte,tecnico_responsavel,updated_at')
+                    .single();
+                if (error) throw error;
+                confirmado = data;
+
+                // RC10.8.38 — Supabase é a autoridade após edição cadastral.
+                // Não aceitar sucesso quando o nome confirmado divergir do nome enviado.
+                const enviadoAluno = normalizar(payload.aluno_nome || '');
+                const confirmadoAluno = normalizar(confirmado?.aluno_nome || '');
+                if (enviadoAluno && confirmadoAluno !== enviadoAluno) {
+                    throw new Error(`Supabase não confirmou aluno_nome: enviado="${payload.aluno_nome}"; retornado="${confirmado?.aluno_nome || ''}".`);
+                }
+
+                if (confirmado) {
+                    p.aluno_nome = confirmado.aluno_nome || p.aluno_nome;
+                    p.aluno = confirmado.aluno_nome || p.aluno;
+                    p.nome_social = confirmado.nome_social || null;
+                    p.escola_nome = confirmado.escola_nome || p.escola_nome;
+                    p.escola = confirmado.escola_nome || p.escola;
+                    p.documento_tipo = confirmado.documento_tipo || p.documento_tipo;
+                    p.documento = confirmado.documento_tipo || p.documento;
+                    p.modalidade = confirmado.modalidade ?? p.modalidade;
+                    p.nivel_oferta = confirmado.nivel_oferta ?? p.nivel_oferta;
+                    p.nte = confirmado.nte || p.nte;
+                    p.tecnico_responsavel = confirmado.tecnico_responsavel ?? p.tecnico_responsavel;
+                    p.updated_at = confirmado.updated_at || p.updated_at;
+                }
             } else {
-                resposta = await c.from(tabelaProcessos)
+                const { data, error } = await c.from(tabelaProcessos)
                     .upsert(payload, { onConflict: 'id' })
                     .select('*')
-                    .maybeSingle();
+                    .single();
+                if (error) throw error;
+                confirmado = data || payload;
             }
-
-            if (resposta.error) throw resposta.error;
-            if (!resposta.data) {
-                throw new Error(`Processo ${p.id ?? payload.codigo_sigee ?? ''} não foi confirmado após a gravação.`);
-            }
-
-            // Confirma que os campos cadastrais solicitados chegaram ao banco.
-            const esperado = {
-                aluno_nome: payload.aluno_nome,
-                escola_nome: payload.escola_nome,
-                documento_tipo: payload.documento_tipo,
-                modalidade: payload.modalidade,
-                nivel_oferta: payload.nivel_oferta,
-                ano: payload.ano,
-                serie: payload.serie
-            };
-            const divergencias = Object.entries(esperado).filter(([campo, valor]) => {
-                const a = valor == null ? '' : String(valor).trim();
-                const b = resposta.data[campo] == null ? '' : String(resposta.data[campo]).trim();
-                return a !== b;
-            });
-            if (opcoes?.confirmar && divergencias.length) {
-                throw new Error('O banco retornou valores divergentes: ' + divergencias.map(([c]) => c).join(', '));
-            }
-
-            Object.assign(p, resposta.data);
             try { window.SIGEE6?.timelineService?.invalidar?.(p.id); } catch (_) {}
-            return resposta.data;
+            return confirmado || payload;
         } catch (e) {
             console.error('SIGEE Parte 4: Supabase não confirmou o processo.', e);
             throw e;
@@ -1586,8 +1589,8 @@
     return {
       ...r,
       id: Number(r.id) || r.id,
-      aluno: r.nome_social || r.aluno_nome || r.aluno || r.nome_solicitante || '',
-      nome_social: r.nome_social || r.aluno_nome || r.aluno || '',
+      aluno: r.aluno_nome || r.aluno || r.nome_social || r.nome_solicitante || '',
+      nome_social: r.nome_social || '',
       aluno_nome: r.aluno_nome || r.aluno || '',
       escola: r.escola_nome || r.escola || r.nome_escola || r.instituicao || '',
       escola_nome: r.escola_nome || r.escola || '',
