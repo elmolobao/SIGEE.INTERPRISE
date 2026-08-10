@@ -222,6 +222,7 @@
     document.getElementById('modal-cadastro-usuario').classList.remove('hidden');
   };
 
+  window.abrirModalCriarUsuarioMaster = window.abrirModalNovoUsuarioMaster;
   window.abrirModalEditarUsuarioMaster = function(id){
     const u = baseUsuarios().map(normalizarUsuario).find(x => String(x.id) === String(id));
     if (!u) return alert('Usuário não localizado.');
@@ -636,14 +637,32 @@
     return n ? `NTE ${String(n).padStart(2,'0')}` : txt(v);
   }
   function nteId(v, perfil){ const p=perfilCanonico(perfil); return (p === 'SEC' || (p === 'Gestor' && ehVinculoGlobal(v))) ? null : numeroNte(v); }
-  function ativo(u){ return u && u.ativo !== false && u.Ativo !== false; }
-  function podeGerir(){ const p = perfilCanonico((usuarioAtual()||{}).perfil); return p === 'Master'; }
+  function ativo(u){ return u ? u.ativo !== false : false; }
+  function capacidade(nome, alvo){ return window.SIGEE_PERMISSOES?.pode?.(nome, alvo || usuarioAtual()) === true; }
+  function podeGerirGlobal(){ return capacidade('usuarios.gerenciar_global'); }
+  function podeGerirNte(){ return capacidade('usuarios.gerenciar_nte'); }
+  function podeVisualizarNte(){ return capacidade('usuarios.visualizar_nte') || podeGerirNte(); }
+  function podeVisualizarUsuarios(){ return podeGerirGlobal() || podeVisualizarNte(); }
+  function podeGerir(){ return podeGerirGlobal() || podeGerirNte(); }
   function isEstagiario(u){ return perfilCanonico((u||usuarioAtual()||{}).perfil) === 'Estagiário'; }
-  function isGlobal(u){ const p = perfilCanonico((u||usuarioAtual()||{}).perfil); return p === 'Master'; }
+  function isGlobal(u){ return window.SIGEE_ESCOPO?.ehGlobal?.(u || usuarioAtual()) === true; }
+  function nteAtualId(){ return window.SIGEE_ESCOPO?.nteIdUsuario?.(usuarioAtual()) ?? numeroNte(usuarioAtual()?.nte_id ?? usuarioAtual()?.nte); }
+  function mesmoEscopo(u){
+    if (podeGerirGlobal()) return true;
+    const proprio = nteAtualId();
+    const alvo = numeroNte(u?.nte_id ?? u?.nte);
+    return proprio !== null && alvo !== null && proprio === alvo;
+  }
+  const PERFIS_GERENCIAVEIS_NTE = new Set(['Técnico','Atendimento','Estagiário','Consulta']);
+  function perfilGerenciavelNoNte(perfil){ return PERFIS_GERENCIAVEIS_NTE.has(perfilCanonico(perfil)); }
+  function podeEditarAlvo(u){
+    if (!u) return false;
+    if (podeGerirGlobal()) return true;
+    return podeGerirNte() && mesmoEscopo(u) && perfilGerenciavelNoNte(u.perfil);
+  }
 
   function normalizarUsuario(u){
-    const perfil = perfilCanonico(u && u.perfil) || 'Tecnico';
-    const senha = txt((u||{}).senha || (u||{}).senha_hash || SENHA_PADRAO);
+    const perfil = perfilCanonico(u && u.perfil) || 'Técnico';
     const nte = formatarNte((u||{}).nte || (u||{}).nte_id, perfil);
     const idNte = nteId((u||{}).nte_id || nte, perfil);
     return {
@@ -651,13 +670,10 @@
       id: (u||{}).id,
       nome: txt((u||{}).nome || (u||{}).name || 'USUÁRIO').toUpperCase(),
       email: low((u||{}).email),
-      senha,
-      senha_hash: txt((u||{}).senha_hash || senha),
       perfil,
       nte,
       nte_id: idNte,
       ativo: ativo(u),
-      Ativo: ativo(u),
       pode_editar: perfil === 'Estagiário' || perfil === 'Consulta' ? false : ((u||{}).pode_editar !== false),
       forcar_troca_senha: (u||{}).forcar_troca_senha === true
     };
@@ -670,23 +686,33 @@
   function sincronizarBase(lista){
     window.usuariosDB = (lista || []).map(normalizarUsuario).filter(u => u.email && u.nome);
     try { usuariosDB = window.usuariosDB; } catch(e) {}
-    try { localStorage.setItem('SIGEE_USUARIOS_COMPLETO_V41', JSON.stringify(window.usuariosDB)); } catch(e) {}
+    try { localStorage.removeItem('SIGEE_USUARIOS_COMPLETO_V41'); } catch(e) {}
     return window.usuariosDB;
   }
   let consultaUsuariosEmAndamento = null;
   let ultimaConsultaUsuarios = 0;
   const TTL_USUARIOS_MS = 30000;
   async function carregarUsuariosSupabase(opcoes={}){
+    if (!podeVisualizarUsuarios()) throw new Error('Seu perfil não possui permissão para visualizar usuários.');
     const agora=Date.now();
     if(!opcoes.forcar && baseUsuarios().length && (agora-ultimaConsultaUsuarios)<TTL_USUARIOS_MS) return baseUsuarios();
-    if(consultaUsuariosEmAndamento) return consultaUsuariosEmAndamento;
+    if(consultaUsuariosEmAndamento && !opcoes.forcar) return consultaUsuariosEmAndamento;
     const c = client();
-    if (!c) return baseUsuarios();
+    if (!c) throw new Error('Cliente Supabase indisponível.');
     consultaUsuariosEmAndamento=(async()=>{
-      const { data, error } = await c.from(TABELA).select('*').order('nome', { ascending:true });
+      let q = c.from(TABELA)
+        .select('id,nome,email,perfil,nte,nte_id,ativo,forcar_troca_senha,pode_editar,criado_em,ultima_atividade,grupo_id,perfil_acesso_id,permissoes_override')
+        .order('nome', { ascending:true });
+      if (!podeGerirGlobal() && !isGlobal(usuarioAtual())) {
+        const idNte = nteAtualId();
+        if (!idNte) throw new Error('Usuário territorial sem NTE válido.');
+        q = q.eq('nte_id', idNte);
+      }
+      const { data, error } = await q;
       if (error) throw error;
+      const lista = (data || []).filter(u => podeGerirGlobal() || isGlobal(usuarioAtual()) || mesmoEscopo(u));
       ultimaConsultaUsuarios=Date.now();
-      return sincronizarBase(data || []);
+      return sincronizarBase(lista);
     })();
     try{return await consultaUsuariosEmAndamento;}finally{consultaUsuariosEmAndamento=null;}
   }
@@ -701,11 +727,12 @@
       nte: n.nte,
       nte_id: n.nte_id,
       ativo: n.ativo,
+      Ativo: n.ativo,
       pode_editar: n.pode_editar
     };
     if (modo === 'criar') {
-      p.senha = n.senha;
-      p.senha_hash = n.senha_hash;
+      p.senha = txt(u?.senha || SENHA_PADRAO);
+      p.senha_hash = txt(u?.senha_hash || u?.senha || SENHA_PADRAO);
       p.forcar_troca_senha = true;
     }
     return p;
@@ -725,7 +752,7 @@
     for (const candidato of tentativas) {
       let q = modo === 'criar' ? c.from(TABELA).insert(candidato) : c.from(TABELA).update(candidato);
       if (modo !== 'criar') q = filtro.id ? q.eq('id', filtro.id) : q.eq('email', filtro.emailOriginal || filtro.email);
-      const { data, error } = await q.select('*').maybeSingle();
+      const { data, error } = await q.select('id,nome,email,perfil,nte,nte_id,ativo,forcar_troca_senha,pode_editar').maybeSingle();
       if (!error) return normalizarUsuario(data || { ...filtro, ...candidato });
       ultimoErro = error;
       if (!erroColunaAusente(error)) break;
@@ -735,26 +762,49 @@
   async function salvarUsuario(u, modo, original){
     const c = client();
     if (!c) throw new Error('Cliente Supabase indisponível.');
+    if (modo === 'criar') {
+      if (!podeGerir()) throw new Error('Seu perfil não possui permissão para cadastrar usuários.');
+      if (!podeGerirGlobal()) {
+        if (!podeGerirNte()) throw new Error('Seu perfil não possui permissão para cadastrar usuários.');
+        if (!perfilGerenciavelNoNte(u.perfil)) throw new Error('Administrador territorial não pode criar perfis administrativos ou globais.');
+        u.nte_id = nteAtualId();
+        u.nte = formatarNte(u.nte_id, u.perfil);
+      }
+    } else {
+      const alvo = original || u;
+      if (!podeEditarAlvo(alvo)) throw new Error('Acesso negado: o usuário não pertence ao seu escopo de gestão.');
+      if (!podeGerirGlobal() && !perfilGerenciavelNoNte(u.perfil)) throw new Error('Administrador territorial não pode promover usuários para perfis administrativos ou globais.');
+      if (!podeGerirGlobal()) {
+        u.nte_id = nteAtualId();
+        u.nte = formatarNte(u.nte_id, u.perfil);
+      }
+    }
     const p = payload(u, modo);
     if (modo === 'criar') {
       const { data: existente, error: errConsulta } = await c.from(TABELA).select('id,email').eq('email', p.email).maybeSingle();
       if (errConsulta) throw errConsulta;
       if (existente) throw new Error('E-mail já cadastrado. Use outro e-mail ou edite o usuário existente.');
-      return executarMutacaoCompativel(c, 'criar', {}, p);
+      const salvo = await executarMutacaoCompativel(c, 'criar', {}, p);
+      ultimaConsultaUsuarios = 0;
+      return salvo;
     }
     const filtro = { id: u.id || original?.id, email: p.email, emailOriginal: low(original?.email || p.email) };
     if (!filtro.id && !filtro.emailOriginal) throw new Error('Identificador do usuário não localizado.');
-    return executarMutacaoCompativel(c, 'editar', filtro, p);
+    const salvo = await executarMutacaoCompativel(c, 'editar', filtro, p);
+    ultimaConsultaUsuarios = 0;
+    return salvo;
   }
   async function excluirUsuario(u){
+    if (!podeGerirGlobal()) throw new Error('Exclusão de usuários é exclusiva do perfil Master.');
+    const atual = usuarioAtual();
+    if (String(u?.id || '') === String(atual?.id || '') || low(u?.email) === low(atual?.email)) throw new Error('Não é permitido excluir o próprio usuário conectado.');
     const c = client(); if (!c) throw new Error('Cliente Supabase indisponível.');
-    if (u.id) {
-      const { error } = await c.from(TABELA).delete().eq('id', u.id);
-      if (error) throw error;
-    } else {
-      const { error } = await c.from(TABELA).delete().eq('email', u.email);
-      if (error) throw error;
-    }
+    let q = u.id ? c.from(TABELA).delete().eq('id', u.id) : c.from(TABELA).delete().eq('email', u.email);
+    const { data, error } = await q.select('id,email');
+    if (error) throw error;
+    if (!Array.isArray(data) || data.length !== 1) throw new Error('O Supabase não confirmou a exclusão de exatamente um usuário.');
+    ultimaConsultaUsuarios = 0;
+    return data[0];
   }
   function preencherPerfis(select, valor){
     if (!select) return;
@@ -770,15 +820,30 @@
     if (atual) select.value = formatarNte(atual, document.getElementById('user-form-perfil')?.value || '');
   }
   function prepararSelectsUsuario(valorPerfil, valorNte){
-    if (window.SIGEE_CONFIG_UTILS?.preencherSelectPerfis) window.SIGEE_CONFIG_UTILS.preencherSelectPerfis(document.getElementById('user-form-perfil'), valorPerfil, true);
-    else preencherPerfis(document.getElementById('user-form-perfil'), valorPerfil);
-    preencherNtes(document.getElementById('user-form-nte'), valorNte);
     const pf = document.getElementById('user-form-perfil');
     const nt = document.getElementById('user-form-nte');
+    if (podeGerirGlobal()) {
+      if (window.SIGEE_CONFIG_UTILS?.preencherSelectPerfis) window.SIGEE_CONFIG_UTILS.preencherSelectPerfis(pf, valorPerfil, true);
+      else preencherPerfis(pf, valorPerfil);
+      preencherNtes(nt, valorNte);
+      if (nt) nt.disabled = false;
+    } else {
+      if (pf) {
+        const permitidos = PERFIS.filter(item => PERFIS_GERENCIAVEIS_NTE.has(perfilCanonico(item.value)));
+        pf.innerHTML = permitidos.map(p => `<option value="${p.value}">${p.label}</option>`).join('');
+        pf.value = perfilGerenciavelNoNte(valorPerfil) ? perfilCanonico(valorPerfil) : 'Técnico';
+      }
+      if (nt) {
+        const idNte = nteAtualId();
+        nt.innerHTML = idNte ? `<option value="NTE ${String(idNte).padStart(2,'0')}">NTE ${String(idNte).padStart(2,'0')}</option>` : '<option value="">NTE indisponível</option>';
+        nt.value = idNte ? `NTE ${String(idNte).padStart(2,'0')}` : '';
+        nt.disabled = true;
+      }
+    }
     if (pf && !pf.dataset.sigee26Change) {
       pf.dataset.sigee26Change = '1';
       pf.addEventListener('change', () => {
-        if (['SEC','Gestor'].includes(perfilCanonico(pf.value)) && nt && !nt.value) nt.value = 'SEC - TODOS OS NTEs';
+        if (podeGerirGlobal() && ['SEC','Gestor'].includes(perfilCanonico(pf.value)) && nt && !nt.value) nt.value = 'SEC - TODOS OS NTEs';
       });
     }
   }
@@ -788,26 +853,26 @@
     const email = low(document.getElementById('user-form-email')?.value);
     const perfil = perfilCanonico(document.getElementById('user-form-perfil')?.value);
     const nteRaw = txt(document.getElementById('user-form-nte')?.value);
-    const senhaInformada = txt(document.getElementById('user-form-senha')?.value);
     const modo = id ? 'editar' : 'criar';
     const existente = id ? normalizarUsuario(baseUsuarios().find(x => String(x.id) === String(id)) || {}) : null;
-    const senha = modo === 'criar' ? SENHA_PADRAO : (senhaInformada || existente?.senha || existente?.senha_hash || SENHA_PADRAO);
     const estaAtivo = modo === 'criar' ? true : (existente ? existente.ativo !== false : true);
-    return { id, nome, email, perfil, nte: formatarNte(nteRaw, perfil), nte_id: nteId(nteRaw, perfil), senha, senha_hash: senha, ativo:estaAtivo, forcar_troca_senha: modo === 'criar', pode_editar: perfil !== 'Estagiário' && perfil !== 'Consulta' };
+    return { id, nome, email, perfil, nte: formatarNte(nteRaw, perfil), nte_id: nteId(nteRaw, perfil), senha:SENHA_PADRAO, senha_hash:SENHA_PADRAO, ativo:estaAtivo, forcar_troca_senha: modo === 'criar', pode_editar: perfil !== 'Estagiário' && perfil !== 'Consulta' };
   }
   function renderTabelaUsuarios(){
     const corpo = document.getElementById('tabela-usuarios-corpo');
     if (!corpo) return;
-    const uLog = usuarioAtual();
     corpo.innerHTML = '';
-    baseUsuarios().slice().sort((a,b)=>txt(a.nome).localeCompare(txt(b.nome))).forEach(u0 => {
+    const lista = baseUsuarios().filter(u => podeGerirGlobal() || isGlobal(usuarioAtual()) || mesmoEscopo(u));
+    lista.slice().sort((a,b)=>txt(a.nome).localeCompare(txt(b.nome))).forEach(u0 => {
       const u = normalizarUsuario(u0);
-      const botoes = podeGerir() ? `<div class="flex items-center justify-center gap-1.5 flex-wrap">
+      const editar = podeEditarAlvo(u);
+      const excluir = podeGerirGlobal();
+      const botoes = editar ? `<div class="flex items-center justify-center gap-1.5 flex-wrap">
         <button onclick="abrirModalEditarUsuarioMaster(${u.id})" class="bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded font-bold cursor-pointer">Editar</button>
         <button onclick="toggleStatusUsuarioMaster(${u.id})" class="${u.ativo?'bg-red-600':'bg-emerald-600'} text-white text-[10px] px-2 py-0.5 rounded font-bold cursor-pointer">${u.ativo?'Desativar':'Ativar'}</button>
         <button onclick="resetarSenhaUsuarioMaster(${u.id})" class="bg-gray-700 text-white text-[10px] px-2 py-0.5 rounded font-bold cursor-pointer">Resetar Senha</button>
-        <button onclick="excluirUsuarioSistemaMasterV45(${u.id})" class="bg-black text-white text-[10px] px-2 py-0.5 rounded font-bold cursor-pointer">Excluir</button>
-      </div>` : '<span class="text-xs text-gray-400 italic">Sem permissão</span>';
+        ${excluir ? `<button onclick="excluirUsuarioSistemaMasterV45(${u.id})" class="bg-black text-white text-[10px] px-2 py-0.5 rounded font-bold cursor-pointer">Excluir</button>` : ''}
+      </div>` : '<span class="text-xs text-gray-400 italic">Consulta</span>';
       corpo.insertAdjacentHTML('beforeend', `<tr class="text-xs">
         <td class="p-3 font-bold">${u.nome}<br><span class="text-xs text-gray-400 font-normal font-mono">${u.email}</span></td>
         <td class="p-3 font-medium">${u.perfil === 'Estagiário' ? 'Estagiário' : u.perfil}</td>
@@ -818,31 +883,32 @@
     });
   }
   async function atualizarListaUsuarios(){
-    try { await carregarUsuariosSupabase(); } catch(e) { console.warn('[SIGEE 2.6] Falha ao carregar usuários do Supabase:', e); }
+    try { await carregarUsuariosSupabase({forcar:true}); } catch(e) { console.warn('[SIGEE 2.6] Falha ao carregar usuários do Supabase:', e); }
     renderTabelaUsuarios();
   }
 
   window.abrirModalNovoUsuarioMaster = function(){
-    if (!podeGerir()) return alert('Apenas o perfil Master pode cadastrar usuários.');
+    if (!podeGerir()) return alert('Seu perfil não possui permissão para cadastrar usuários.');
     prepararSelectsUsuario('', '');
     const set = (id,val)=>{ const el=document.getElementById(id); if(el) el.value=val; };
-    set('user-form-id',''); set('user-form-nome',''); set('user-form-email',''); set('user-form-senha', SENHA_PADRAO);
+    set('user-form-id',''); set('user-form-nome',''); set('user-form-email',''); set('user-form-senha','');
     const modal = document.getElementById('modal-cadastro-usuario'); if (modal) modal.classList.remove('hidden');
   };
   window.abrirModalEditarUsuarioMaster = function(id){
-    if (!podeGerir()) return alert('Apenas o perfil Master pode editar usuários.');
+    if (!podeGerir()) return alert('Seu perfil não possui permissão para editar usuários.');
     const u = normalizarUsuario(baseUsuarios().find(x => String(x.id) === String(id)) || {});
     if (!u.email) return alert('Usuário não localizado.');
+    if (!podeEditarAlvo(u)) return alert('Acesso negado: usuário fora do seu escopo de gestão.');
     prepararSelectsUsuario(u.perfil, u.nte);
     const set = (id,val)=>{ const el=document.getElementById(id); if(el) el.value=val; };
-    set('user-form-id', u.id); set('user-form-nome', u.nome); set('user-form-email', u.email); set('user-form-senha', u.senha || u.senha_hash || SENHA_PADRAO);
+    set('user-form-id', u.id); set('user-form-nome', u.nome); set('user-form-email', u.email); set('user-form-senha','');
     const modal = document.getElementById('modal-cadastro-usuario'); if (modal) modal.classList.remove('hidden');
   };
   let salvamentoEmAndamento = false;
   window.salvarNovoUsuarioFormularioMaster = async function(ev){
     if (ev) { ev.preventDefault(); ev.stopPropagation(); if (ev.stopImmediatePropagation) ev.stopImmediatePropagation(); }
     if (salvamentoEmAndamento) return false;
-    if (!podeGerir()) return alert('Apenas o perfil Master pode salvar usuários.');
+    if (!podeGerir()) return alert('Seu perfil não possui permissão para salvar usuários.');
     const sessaoAntes = window.SIGEE_SESSION?.getUser?.() || window.usuarioLogado || null;
     const u = formUsuario();
     const original = u.id ? normalizarUsuario(baseUsuarios().find(x => String(x.id) === String(u.id)) || {}) : null;
@@ -856,11 +922,7 @@
     if (botao) { botao.disabled = true; botao.dataset.textoOriginal = botao.textContent; botao.textContent = 'Salvando...'; }
     try {
       const salvo = await salvarUsuario(u, u.id ? 'editar' : 'criar', original);
-      const base=baseUsuarios();
-      const indice=base.findIndex(x=>String(x.id||'')===String(salvo.id||u.id||'') || low(x.email)===low(original?.email || salvo.email));
-      const consolidado=normalizarUsuario({...(indice>=0?base[indice]:{}),...u,...salvo});
-      if(indice>=0) base[indice]=consolidado; else base.push(consolidado);
-      sincronizarBase(base);
+      await carregarUsuariosSupabase({forcar:true});
       renderTabelaUsuarios();
       document.getElementById('modal-cadastro-usuario')?.classList.add('hidden');
       alert('Usuário salvo com sucesso.');
@@ -885,24 +947,41 @@
     }
   };
   window.resetarSenhaUsuarioMaster = async function(id){
-    if (!podeGerir()) return alert('Apenas o perfil Master pode resetar senha.');
+    if (!podeGerir()) return alert('Seu perfil não possui permissão para resetar senha.');
     const u = normalizarUsuario(baseUsuarios().find(x => String(x.id) === String(id)) || {});
     if (!u.email) return alert('Usuário não localizado.');
+    if (!podeEditarAlvo(u)) return alert('Acesso negado: usuário fora do seu escopo de gestão.');
     try {
-      u.senha = SENHA_PADRAO; u.senha_hash = SENHA_PADRAO; u.forcar_troca_senha = true;
-      await salvarUsuario(u, 'editar');
+      const c = client(); if (!c) throw new Error('Cliente Supabase indisponível.');
+      const { data, error } = await c.from(TABELA)
+        .update({senha:SENHA_PADRAO, senha_hash:SENHA_PADRAO, forcar_troca_senha:true})
+        .eq('id', u.id).select('id,email,forcar_troca_senha').maybeSingle();
+      if (error) throw error;
+      if (!data || String(data.id) !== String(u.id)) throw new Error('O Supabase não confirmou o reset de senha.');
+      ultimaConsultaUsuarios = 0;
       await atualizarListaUsuarios();
       alert('Senha resetada para SEC@2026. No próximo login, o usuário deverá cadastrar nova senha.');
     } catch(e) { alert('Erro ao resetar senha: ' + (e.message || e)); }
   };
   window.toggleStatusUsuarioMaster = async function(id){
-    if (!podeGerir()) return alert('Apenas o perfil Master pode ativar/desativar usuários.');
+    if (!podeGerir()) return alert('Seu perfil não possui permissão para ativar/desativar usuários.');
     const u = normalizarUsuario(baseUsuarios().find(x => String(x.id) === String(id)) || {});
     if (!u.email) return alert('Usuário não localizado.');
-    try { u.ativo = u.Ativo = !u.ativo; await salvarUsuario(u, 'editar'); await atualizarListaUsuarios(); } catch(e){ alert('Erro ao alterar usuário: ' + (e.message || e)); }
+    if (!podeEditarAlvo(u)) return alert('Acesso negado: usuário fora do seu escopo de gestão.');
+    const atual = usuarioAtual();
+    if ((String(u.id||'') === String(atual?.id||'') || low(u.email) === low(atual?.email)) && u.ativo) return alert('Não é permitido inativar o próprio usuário conectado.');
+    try {
+      const c = client(); if (!c) throw new Error('Cliente Supabase indisponível.');
+      const novoStatus = !u.ativo;
+      const { data, error } = await c.from(TABELA).update({ativo:novoStatus, Ativo:novoStatus}).eq('id',u.id).select('id,email,ativo,Ativo').maybeSingle();
+      if (error) throw error;
+      if (!data || data.ativo !== novoStatus || data.Ativo !== novoStatus) throw new Error('O Supabase não confirmou a alteração de status.');
+      ultimaConsultaUsuarios = 0;
+      await atualizarListaUsuarios();
+    } catch(e){ alert('Erro ao alterar usuário: ' + (e.message || e)); }
   };
   window.excluirUsuarioSistemaMasterV45 = window.excluirUsuarioSistemaSIGEE = async function(id){
-    if (!podeGerir()) return alert('Apenas o perfil Master pode excluir usuários.');
+    if (!podeGerirGlobal()) return alert('Exclusão de usuários é exclusiva do perfil Master.');
     const u = normalizarUsuario(baseUsuarios().find(x => String(x.id) === String(id)) || {});
     if (!u.email) return alert('Usuário não localizado.');
     if (!confirm(`Confirma excluir o usuário ${u.nome}?`)) return;
@@ -928,34 +1007,38 @@
   window.carregarListaUsuarios = atualizarListaUsuarios;
   try { carregarListaUsuarios = window.carregarListaUsuarios; } catch(e) {}
 
-  window.SIGEE_USUARIOS_26 = { SENHA_PADRAO, PERFIS, perfilCanonico, normalizarUsuario, carregarUsuariosSupabase, salvarUsuario, atualizarListaUsuarios, isEstagiario, isGlobal };
+  window.SIGEE_USUARIOS_26 = { SENHA_PADRAO, PERFIS, perfilCanonico, normalizarUsuario, carregarUsuariosSupabase, salvarUsuario, atualizarListaUsuarios, isEstagiario, isGlobal, podeGerirGlobal, podeGerirNte, podeEditarAlvo, versao:'RC10.8.40' };
 })();
 
 
-/* RC7.3.0 — Guarda de domínio do CRUD de Usuários.
-   Não controla menu, navegação, login ou visibilidade de elementos. */
+/* RC10.8.40 — Guarda de domínio do CRUD de Usuários por capacidade e escopo. */
 (function(window){
   'use strict';
-  const ACOES = [
+  const ACOES_GERIR = [
     'abrirModalCriarUsuarioMaster','abrirModalNovoUsuarioMaster','abrirModalEditarUsuarioMaster',
-    'salvarNovoUsuarioFormularioMaster','toggleStatusUsuarioMaster','resetarSenhaUsuarioMaster',
-    'excluirUsuarioSistemaSIGEE','excluirUsuarioSistemaMasterV45'
+    'salvarNovoUsuarioFormularioMaster','toggleStatusUsuarioMaster','resetarSenhaUsuarioMaster'
   ];
-  function autorizado(){
-    return window.SIGEE_PERMISSOES?.pode?.('usuarios.gerenciar_global') === true;
+  const ACOES_GLOBAL = ['excluirUsuarioSistemaSIGEE','excluirUsuarioSistemaMasterV45'];
+  function autorizadoGerir(){
+    return window.SIGEE_PERMISSOES?.pode?.('usuarios.gerenciar_global') === true ||
+           window.SIGEE_PERMISSOES?.pode?.('usuarios.gerenciar_nte') === true;
   }
-  function proteger(nome){
+  function autorizadoGlobal(){ return window.SIGEE_PERMISSOES?.pode?.('usuarios.gerenciar_global') === true; }
+  function proteger(nome, verificador, mensagem){
     const original=window[nome];
     if(typeof original!=='function'||original.__SIGEE_USUARIOS_DOMAIN_GUARD__)return;
     const protegido=function(){
-      if(!autorizado()){ alert('Operação permitida apenas para o perfil Master.'); return false; }
+      if(!verificador()){ alert(mensagem); return false; }
       return original.apply(this,arguments);
     };
     protegido.__SIGEE_USUARIOS_DOMAIN_GUARD__=true;
     protegido.__original=original;
     window[nome]=protegido;
   }
-  function instalar(){ ACOES.forEach(proteger); }
+  function instalar(){
+    ACOES_GERIR.forEach(nome=>proteger(nome,autorizadoGerir,'Seu perfil não possui permissão para gerenciar usuários.'));
+    ACOES_GLOBAL.forEach(nome=>proteger(nome,autorizadoGlobal,'Exclusão de usuários é exclusiva do perfil Master.'));
+  }
   document.addEventListener('DOMContentLoaded',instalar,{once:true});
   document.addEventListener('sigee:usuario-logado',instalar);
   window.addEventListener('load',instalar,{once:true});
