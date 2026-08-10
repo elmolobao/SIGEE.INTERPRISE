@@ -518,12 +518,11 @@
             updated_at: p.updated_at || new Date().toISOString()
         };
     }
-    async function salvarProcesso(p) {
+    async function salvarProcesso(p, opcoes = {}) {
         try { if (typeof salvarBancoLocalSIGEE === 'function') salvarBancoLocalSIGEE(); } catch (e) {}
         try {
             const c = supabaseClient();
-            if (!p) throw new Error('Processo inválido para persistência.');
-            if (!c) throw new Error('Conexão com o Supabase indisponível.');
+            if (!c || !p) return;
             const tabelaProcessos = (window.SIGEE_SUPABASE_TABELAS && window.SIGEE_SUPABASE_TABELAS.processos) || 'processos';
             await garantirWorkflowInstanceIdSIGEE(p, c);
 
@@ -604,25 +603,47 @@
                 if (erroInicioNovo) throw erroInicioNovo;
             }
 
-            let respostaPersistencia;
-            if (p.id != null) {
-                respostaPersistencia = await c.from(tabelaProcessos)
+            let resposta;
+            if (p.id != null && p.id !== '') {
+                resposta = await c.from(tabelaProcessos)
                     .update(payload)
                     .eq('id', p.id)
-                    .select('id,aluno_nome,escola_nome,documento_tipo,nte,tecnico_responsavel,etapa_atual,updated_at')
+                    .select('*')
                     .maybeSingle();
             } else {
-                respostaPersistencia = await c.from(tabelaProcessos)
-                    .insert(payload)
-                    .select('id,aluno_nome,escola_nome,documento_tipo,nte,tecnico_responsavel,etapa_atual,updated_at')
+                resposta = await c.from(tabelaProcessos)
+                    .upsert(payload, { onConflict: 'id' })
+                    .select('*')
                     .maybeSingle();
             }
-            if (respostaPersistencia.error) throw respostaPersistencia.error;
-            if (!respostaPersistencia.data) throw new Error('O Supabase não confirmou a gravação do processo.');
 
-            Object.assign(p, respostaPersistencia.data);
+            if (resposta.error) throw resposta.error;
+            if (!resposta.data) {
+                throw new Error(`Processo ${p.id ?? payload.codigo_sigee ?? ''} não foi confirmado após a gravação.`);
+            }
+
+            // Confirma que os campos cadastrais solicitados chegaram ao banco.
+            const esperado = {
+                aluno_nome: payload.aluno_nome,
+                escola_nome: payload.escola_nome,
+                documento_tipo: payload.documento_tipo,
+                modalidade: payload.modalidade,
+                nivel_oferta: payload.nivel_oferta,
+                ano: payload.ano,
+                serie: payload.serie
+            };
+            const divergencias = Object.entries(esperado).filter(([campo, valor]) => {
+                const a = valor == null ? '' : String(valor).trim();
+                const b = resposta.data[campo] == null ? '' : String(resposta.data[campo]).trim();
+                return a !== b;
+            });
+            if (opcoes?.confirmar && divergencias.length) {
+                throw new Error('O banco retornou valores divergentes: ' + divergencias.map(([c]) => c).join(', '));
+            }
+
+            Object.assign(p, resposta.data);
             try { window.SIGEE6?.timelineService?.invalidar?.(p.id); } catch (_) {}
-            return respostaPersistencia.data;
+            return resposta.data;
         } catch (e) {
             console.error('SIGEE Parte 4: Supabase não confirmou o processo.', e);
             throw e;
@@ -1260,13 +1281,9 @@
 
                 registrar(`[${admin?'ADMINISTRADOR':'MASTER'}] Editou processo ID ${p.id}${alteracoes.length ? ' — ' + alteracoes.join('; ') : ' — sem alteração de valores'}.`);
                 await salvarProcesso(p);
-                if (typeof window.recarregarCentralProcessosSIGEE === 'function') {
-                    await window.recarregarCentralProcessosSIGEE(true, false);
-                } else {
-                    atualizarTelas();
-                }
+                atualizarTelas();
                 fechar();
-                try { if (typeof mostrarToast === 'function') mostrarToast('Processo atualizado e confirmado no Supabase.'); } catch (_) {}
+                try { if (typeof mostrarToast === 'function') mostrarToast('Processo atualizado com sucesso.'); } catch (_) {}
             } catch (erro) {
                 console.error('[SIGEE] Falha ao editar processo:', erro);
                 alert('Não foi possível salvar a edição do processo: ' + (erro && erro.message ? erro.message : 'erro desconhecido'));
