@@ -474,10 +474,20 @@
     return campos.map(([k,v]) => `<div><span>${k}</span><strong>${escapar(v)}</strong></div>`).join('') + extras;
   }
 
+  function comTimeoutProntuario(promise, ms, rotulo) {
+    let timer = null;
+    return Promise.race([
+      Promise.resolve(promise).finally(() => { if (timer) clearTimeout(timer); }),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`${rotulo || 'Operação'} excedeu ${ms} ms`)), ms);
+      })
+    ]);
+  }
+
   async function carregarEventos(p) {
     try {
       if (window.SIGEE6?.timeline?.carregar) {
-        const timeline = await window.SIGEE6.timeline.carregar(p.id, p);
+        const timeline = await comTimeoutProntuario(window.SIGEE6.timeline.carregar(p.id, p), 7000, 'Timeline Enterprise');
         return {
           eventos: Array.isArray(timeline?.eventos) ? timeline.eventos : [],
           marcos: timeline?.marcos || { pastaRecebida:false, documentoRecebido:false },
@@ -492,11 +502,11 @@
     const cliente = supabase();
     if (cliente && p?.id != null) {
       try {
-        const { data, error } = await cliente
+        const { data, error } = await comTimeoutProntuario(cliente
           .from('historico_processos')
           .select('*')
           .eq('processo_id', p.id)
-          .order('created_at', { ascending: true });
+          .order('created_at', { ascending: true }), 7000, 'Consulta do histórico');
         if (!error && Array.isArray(data)) eventos.push(...data);
       } catch (e) {
         console.warn('[SIGEE Prontuário] histórico_processos indisponível:', e);
@@ -747,7 +757,19 @@
     document.body.appendChild(carregando);
     document.body.classList.add('sigee-prontuario-aberto');
 
-    const timeline = await carregarEventos(p);
+    let timeline;
+    try {
+      timeline = await comTimeoutProntuario(carregarEventos(p), 15000, 'Preparação do prontuário');
+    } catch (erro) {
+      console.error('[SIGEE Prontuário] Falha ao preparar prontuário:', erro);
+      const atual = document.getElementById('sigee-prontuario-overlay');
+      if (atual) {
+        atual.innerHTML = `<div class="sigee-pep-erro-carregamento"><strong>Não foi possível carregar o prontuário.</strong><small>${escapar(erro?.message || 'Falha de comunicação com a base de dados.')}</small><button type="button" data-pep-tentar> Tentar novamente </button><button type="button" data-pep-fechar> Fechar </button></div>`;
+        atual.querySelector('[data-pep-tentar]')?.addEventListener('click', () => abrir(id));
+        atual.querySelector('[data-pep-fechar]')?.addEventListener('click', fechar);
+      }
+      return;
+    }
     const eventos = timeline.eventos || [];
     const processoAtualizado = timeline.processo || p;
     carregando.outerHTML = modalHTML(processoAtualizado, eventos, timeline.marcos || {});
