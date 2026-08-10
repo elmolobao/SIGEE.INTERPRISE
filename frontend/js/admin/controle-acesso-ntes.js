@@ -8,8 +8,8 @@
   const TABELA_NTES='ntes_sigee';
   // RC7.2.0 Performance: evita leitura idêntica a cada minuto por sessão.
   // A suspensão continua sendo validada no login, no retorno à aba e por varredura de segurança.
-  const INTERVALO_VALIDACAO=15*60*1000;
-  const TTL_CONTROLE=15*60*1000;
+  const INTERVALO_VALIDACAO=60*1000;
+  const TTL_CONTROLE=60*1000;
   const CACHE_STORAGE_KEY='sigee_controle_acesso_ntes_cache_v1';
   const cacheValidacao=new Map();
   const consultasEmCurso=new Map();
@@ -43,7 +43,7 @@
 
   const texto=v=>v==null?'':String(v).trim();
   const token=v=>texto(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
-  const perfilMaster=u=>token(u?.perfil).includes('MASTER');
+  const perfilMaster=u=>window.SIGEE_PERMISSOES?.pode?.('sistema.suspender_nte',u)===true || token(u?.perfil).includes('MASTER');
   const nteCanonico=v=>{
     const t=token(v);
     const m=t.match(/(?:NTE\s*[-–—]?\s*)?(\d{1,2})/);
@@ -91,7 +91,7 @@
   async function consultarUsuarioPorEmail(email){
     const c=cliente(); if(!c) throw new Error('Cliente Supabase indisponível.');
     const tabela=window.SIGEE_CONFIG?.tabelas?.usuarios||window.SIGEE_SUPABASE_TABELAS?.usuarios||'usuarios_sigee';
-    const {data,error}=await c.from(tabela).select('id,nome,email,perfil,nte,nte_id,nte_nome,ativo,status').ilike('email',texto(email).toLowerCase()).limit(1).maybeSingle();
+    const {data,error}=await c.from(tabela).select('id,nome,email,perfil,nte,nte_id,ativo').ilike('email',texto(email).toLowerCase()).limit(1).maybeSingle();
     if(error) throw error; return data||null;
   }
 
@@ -102,7 +102,7 @@
     try{
       const usuario=await consultarUsuarioPorEmail(email);
       if(!usuario||perfilMaster(usuario)) return original?.call(window,event);
-      const registro=await buscarControle(usuario.nte||usuario.nte_nome||usuario.nte_id,{forcar:true});
+      const registro=await buscarControle(usuario.nte||usuario.nte_id,{forcar:true});
       if(registro&&registro.acesso_ativo===false){
         alert(`ACESSO TEMPORARIAMENTE SUSPENSO\n\n${mensagemRegistro(registro)}${registro.motivo?`\n\nMotivo: ${registro.motivo}`:''}`);
         window.SIGEE_SESSION?.clear?.({persist:true,emit:true});
@@ -119,7 +119,7 @@
   async function validarSessaoAtual(opcoes={}){
     const u=usuarioAtual(); if(!u||perfilMaster(u)) return true;
     try{
-      const r=await buscarControle(u.nte||u.nte_nome||u.nte_id,opcoes);
+      const r=await buscarControle(u.nte||u.nte_id,opcoes);
       if(r&&r.acesso_ativo===false){
         window.SIGEE_SESSION?.clear?.({persist:true,emit:true});
         document.getElementById('sistema-dashboard')?.classList.add('hidden');
@@ -154,7 +154,7 @@
 
   function garantirItemMenu(){
     const u=usuarioAtual();
-    if(!perfilMaster(u)) return false;
+    if(!window.SIGEE_PERMISSOES?.pode?.('sistema.suspender_nte',u)) return false;
 
     const referencia=document.getElementById('menu-usuarios')||document.getElementById('menu-logs');
     const container=document.getElementById('submenu-administracao')||referencia?.parentElement;
@@ -232,7 +232,7 @@
   }
 
   async function alterarStatus(nte,estaAtivo){
-    const u=usuarioAtual(); if(!perfilMaster(u)) return alert('Ação exclusiva do perfil Master.');
+    const u=usuarioAtual(); if(!window.SIGEE_PERMISSOES?.pode?.('sistema.suspender_nte',u)) return alert('Seu perfil não possui permissão para suspender NTEs.');
     let motivo='',mensagem='';
     if(estaAtivo){
       motivo=texto(prompt(`Informe o motivo da suspensão de ${nte}:`)); if(!motivo) return alert('O motivo da suspensão é obrigatório.');
@@ -249,9 +249,25 @@
     alert(`Acesso do ${nte} ${estaAtivo?'suspenso':'reativado'} com sucesso.`); carregarPainel();
   }
 
+  let canalRealtime=null;
+  function instalarRealtime(){
+    try{
+      const c=cliente();
+      if(!c?.channel || canalRealtime) return false;
+      canalRealtime=c.channel('sigee-controle-acesso-ntes')
+        .on('postgres_changes',{event:'*',schema:'public',table:TABELA},payload=>{
+          const nte=payload?.new?.nte||payload?.old?.nte;
+          invalidarCache(nte);
+          if(usuarioAtual()&&!perfilMaster(usuarioAtual())) validarSessaoAtual({forcar:true});
+          if(!document.getElementById('aba-controle-acesso-ntes')?.classList.contains('hidden')) carregarPainel();
+        })
+        .subscribe();
+      return true;
+    }catch(e){console.warn('[SIGEE RC10.8.40] Realtime territorial indisponível.',e);return false;}
+  }
   function iniciar(){
-    instalarProtecaoLogin(); criarTela(); garantirItemMenu();
-    clearInterval(timerSessao); timerSessao=setInterval(validarSessaoAtual,INTERVALO_VALIDACAO);
+    instalarProtecaoLogin(); criarTela(); garantirItemMenu(); instalarRealtime();
+    clearInterval(timerSessao); timerSessao=setInterval(()=>validarSessaoAtual({forcar:true}),INTERVALO_VALIDACAO);
   }
   document.addEventListener('DOMContentLoaded',()=>setTimeout(iniciar,200));
   let tentativasMenu=0; const retryMenu=setInterval(()=>{tentativasMenu++; if(garantirItemMenu()||tentativasMenu>=30) clearInterval(retryMenu);},500);
