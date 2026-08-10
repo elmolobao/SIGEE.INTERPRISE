@@ -1,3 +1,4 @@
+/* SIGEE RC10.8.37 — edição: sucesso de persistência não é revertido por falha secundária de auditoria/refresh */
 /* RC7.3.0 — Compatibilidade legada de aplicação.
    Este arquivo não é autoridade de perfis, permissões, menus ou Nova Solicitação. */
 /* SIGEE RC5.7.3 — bootstrap leve e autoridade única do Dashboard */
@@ -8685,11 +8686,29 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
       });
       estado.original = snapshot(p);
 
-      await registrarHistorico(p, alteracoes);
+      // A persistência do cadastro já foi confirmada acima pelo próprio Supabase.
+      // Falhas secundárias de auditoria ou atualização de tela não podem transformar
+      // uma gravação bem-sucedida em mensagem de erro para o usuário.
+      try {
+        await registrarHistorico(p, alteracoes);
+      } catch (erroHistorico) {
+        console.warn('[SIGEE Formulário] Cadastro consolidado, mas o histórico não pôde ser registrado.', erroHistorico);
+        try { window.registrarLog?.(`[AUDITORIA PENDENTE] Processo ID ${p.id} atualizado no Supabase, mas houve falha ao registrar histórico: ${erroHistorico?.message || erroHistorico}`); } catch(_){}
+      }
       try { window.registrarLog?.(`[${pf.toUpperCase()}] Atualizou cadastro do processo ID ${p.id}.`); } catch(_){}
+
       el('modal-nova-solicitacao')?.classList.add('hidden');
-      window.SIGEE_Processos?.contar?.();
-      if (window.recarregarCentralProcessosSIGEE) await window.recarregarCentralProcessosSIGEE(true, true);
+
+      try { await window.SIGEE_Processos?.contar?.(); }
+      catch (erroContagem) { console.warn('[SIGEE Formulário] Falha ao atualizar contadores após edição já consolidada.', erroContagem); }
+
+      try {
+        if (window.recarregarCentralProcessosSIGEE) await window.recarregarCentralProcessosSIGEE(true, true);
+        else window.SIGEE_Processos?.renderizar?.();
+      } catch (erroRecarga) {
+        console.warn('[SIGEE Formulário] Falha ao recarregar a Central após edição já consolidada.', erroRecarga);
+      }
+
       if (typeof window.mostrarToast === 'function') window.mostrarToast('Alterações consolidadas no Supabase.');
       else alert('Alterações consolidadas no Supabase.');
     } catch(e) {
