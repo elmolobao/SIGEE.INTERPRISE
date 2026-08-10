@@ -11,10 +11,10 @@ const ROTAS = Object.freeze({
   painel: 'relatorios.visualizar',
   processos: 'processos.visualizar',
   escolas: 'escolas.visualizar',
-  usuarios: ['usuarios.gerenciar_global', 'usuarios.gerenciar_nte'],
+  usuarios: ['usuarios.gerenciar_global', 'usuarios.gerenciar_nte', 'usuarios.visualizar_nte'],
   logs: 'logs.visualizar',
   diagnostico: 'logs.visualizar',
-  'controle-acesso-ntes': 'usuarios.gerenciar_global',
+  'controle-acesso-ntes': 'sistema.suspender_nte',
   'sala-situacao': 'indicadores.visualizar',
   'centro-inteligencia': 'indicadores.visualizar',
   'nova-solicitacao': 'processos.criar',
@@ -32,10 +32,10 @@ const MENU_PRINCIPAL = Object.freeze([
 ]);
 
 const MENU_ADMIN = Object.freeze([
-  { id:'menu-usuarios', rota:'usuarios', icone:'👥', rotulo:'Usuários', capacidade:['usuarios.gerenciar_global','usuarios.gerenciar_nte'], perfis:['Master','Administrador'] },
+  { id:'menu-usuarios', rota:'usuarios', icone:'👥', rotulo:'Usuários', capacidade:['usuarios.gerenciar_global','usuarios.gerenciar_nte','usuarios.visualizar_nte'], perfis:['Master','Gestor','Administrador'] },
   { id:'menu-logs', rota:'logs', icone:'📜', rotulo:'Histórico de Atividades', capacidade:'logs.visualizar', perfis:['Master'] },
   { id:'menu-diagnostico', rota:'diagnostico', icone:'🩺', rotulo:'Centro de Diagnóstico', capacidade:'logs.visualizar', perfis:['Master'] },
-  { id:'menu-controle-acesso-ntes', rota:'controle-acesso-ntes', icone:'⛔', rotulo:'Controle de Acesso dos NTEs', capacidade:'usuarios.gerenciar_global', perfis:['Master'] },
+  { id:'menu-controle-acesso-ntes', rota:'controle-acesso-ntes', icone:'⛔', rotulo:'Controle de Acesso dos NTEs', capacidade:'sistema.suspender_nte', perfis:['Master'] },
   { id:'menu-migracao-historica', rota:'migracao-historica', icone:'🧬', rotulo:'Migração Histórica', capacidade:'migracao.executar', perfis:['Master'] }
 ]);
 

@@ -50,12 +50,21 @@ const LEGADO=Object.freeze({
 function user(target){return target||window.SIGEE_SESSION?.getUser?.()||null;}
 function profile(target){return window.SIGEE_PERFIS?.normalizar?.(user(target)?.perfil)||window.SIGEE_SESSION?.normalizarPerfil?.(user(target)?.perfil)||'';}
 function capability(action){return LEGADO[action]||action;}
-function can(action,target){return Boolean(C[profile(target)]?.[capability(action)]);}
+function gestorSecGlobal(target){
+ const u=user(target),p=profile(u);if(p!=='Gestor')return false;
+ const vinc=String(u?.nte??u?.nte_nome??u?.grupo??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
+ const id=Number(u?.nte_id);return (!Number.isFinite(id)||id<=0)&&(vinc.includes('SEC')||vinc.includes('TODOS'));
+}
+function can(action,target){
+ const cap=capability(action),p=profile(target);
+ if(cap==='escopo.global'&&gestorSecGlobal(target))return true;
+ return Boolean(C[p]?.[cap]);
+}
 function requireCapability(action,target,message){if(can(action,target))return true;if(message!==false)alert(message||'Seu perfil não possui permissão para esta ação.');return false;}
 function apply(){
  const u=user();if(!u||!document.body)return false;
  const p=profile(u);document.body.dataset.sigeePerfil=p;document.body.dataset.sigeeEscopo=can('escopo.global',u)?'GLOBAL':'NTE';
  return true;
 }
-window.SIGEE_PERMISSOES=Object.freeze({MATRIZ:C,LEGADO,pode:can,exigir:requireCapability,aplicar:apply,perfil:profile,capacidade:capability});
+window.SIGEE_PERMISSOES=Object.freeze({MATRIZ:C,LEGADO,pode:can,exigir:requireCapability,aplicar:apply,perfil:profile,capacidade:capability,gestorSecGlobal,versao:'RC10.8.40'});
 })(window);
