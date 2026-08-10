@@ -1,4 +1,3 @@
-/* SIGEE RC10.8.37 — edição: sucesso de persistência não é revertido por falha secundária de auditoria/refresh */
 /* RC7.3.0 — Compatibilidade legada de aplicação.
    Este arquivo não é autoridade de perfis, permissões, menus ou Nova Solicitação. */
 /* SIGEE RC5.7.3 — bootstrap leve e autoridade única do Dashboard */
@@ -511,8 +510,8 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         function processoParaSupabaseSIGEE(p) {
             return {
                 id: Number(p.id) || gerarProximoIdSIGEE(processosDB, 101),
-                aluno_nome: normalizarMaiusculoSIGEE(p.nome_social || p.aluno || p.aluno_nome),
-                nome_social: normalizarMaiusculoSIGEE(p.nome_social || p.aluno || p.aluno_nome),
+                aluno_nome: normalizarMaiusculoSIGEE(p.aluno_nome || p.aluno || p.nome_social),
+                nome_social: normalizarMaiusculoSIGEE(p.nome_social || '') || null,
                 escola_nome: normalizarMaiusculoSIGEE(p.escola || p.escola_nome),
                 documento_tipo: normalizarTextoSIGEE(p.documento || p.documento_tipo || 'HISTÓRICO'),
                 nivel_oferta: normalizarTextoSIGEE(p.nivel_oferta || p.ensino || null) || null,
@@ -549,8 +548,8 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         function processoDoSupabaseParaLocalSIGEE(p, indice) {
             return {
                 id: Number(p.id) || (101 + indice),
-                aluno: normalizarMaiusculoSIGEE(p.nome_social || p.aluno_nome || p.aluno || p.nome_aluno || p.requerente),
-                nome_social: normalizarMaiusculoSIGEE(p.nome_social || p.aluno_nome || p.aluno || ''),
+                aluno: normalizarMaiusculoSIGEE(p.aluno_nome || p.aluno || p.nome_social || p.nome_aluno || p.requerente),
+                nome_social: normalizarMaiusculoSIGEE(p.nome_social || ''),
                 escola: normalizarMaiusculoSIGEE(p.escola_nome || p.escola || p.instituicao || p.nome_escola),
                 documento: normalizarTextoSIGEE(p.documento_tipo || p.documento || p.tipo_documento || 'HISTÓRICO'),
                 etapa: normalizarTextoSIGEE(p.etapa_atual || p.etapa || p.status || 'Desarquivamento'),
@@ -8490,7 +8489,7 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
   function aplicarPermissoes(modo){
     const idsEditaveisMaster = [
       'novo-proc-aluno','novo-proc-escola','novo-proc-documento',
-      'novo-proc-modalidade','novo-proc-ensino','novo-proc-ano','novo-proc-serie'
+      'novo-proc-modalidade','novo-proc-ensino'
     ];
     const idsEditaveisAdmin = ['novo-proc-aluno','novo-proc-escola'];
     const todos = [
@@ -8500,23 +8499,19 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
       'novo-autofill-local-acervo'
     ];
 
-    const complementares = el('sigee-edicao-complementar-processo');
     if (modo === 'novo') {
-      if (complementares) complementares.classList.add('hidden');
       todos.forEach(id => {
         const campo = el(id);
         const autofill = id.startsWith('novo-autofill-');
         bloquearCampo(campo, autofill);
       });
-      ['novo-proc-ano','novo-proc-serie'].forEach(id => bloquearCampo(el(id), false));
       return;
     }
 
-    if (complementares) complementares.classList.remove('hidden');
     const permitidos = perfil() === 'Master' ? idsEditaveisMaster
       : perfil() === 'Administrador' ? idsEditaveisAdmin : [];
 
-    todos.concat(['novo-proc-ano','novo-proc-serie']).forEach(id => bloquearCampo(el(id), !permitidos.includes(id)));
+    todos.forEach(id => bloquearCampo(el(id), !permitidos.includes(id)));
     const chk = el('f01-chk-acolhido');
     bloquearCampo(chk, true);
   }
@@ -8532,8 +8527,6 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     setValor('novo-proc-documento', valor(p,'documento_tipo','documento','documento_solicitado','tipo_documento'));
     setValor('novo-proc-modalidade', valor(p,'modalidade','oferta_modalidade'));
     setValor('novo-proc-ensino', valor(p,'nivel_oferta','ensino','oferta_nivel','nivel'));
-    setValor('novo-proc-ano', valor(p,'ano','ano_conclusao','ano_letivo'));
-    setValor('novo-proc-serie', valor(p,'serie','serie_conclusao'));
     setValor('novo-autofill-mec', codMec);
     setValor('novo-autofill-nte', valor(p,'nte','nte_nome','grupo'));
     setValor('novo-autofill-municipio', valor(p,'municipio','escola_municipio'));
@@ -8579,8 +8572,6 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
       documento: valor(p,'documento_tipo','documento'),
       modalidade: valor(p,'modalidade','oferta_modalidade'),
       ensino: valor(p,'nivel_oferta','ensino','oferta_nivel'),
-      ano: valor(p,'ano','ano_conclusao','ano_letivo'),
-      serie: valor(p,'serie','serie_conclusao'),
       nte: valor(p,'nte','nte_nome','grupo'),
       municipio: valor(p,'municipio')
     };
@@ -8614,8 +8605,7 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
   function alteracoesEntre(antes, depois){
     const nomes = {
       aluno:'Nome do aluno', escola:'Escola', documento:'Documento',
-      modalidade:'Modalidade', ensino:'Nível de oferta', ano:'Ano de conclusão',
-      serie:'Série', nte:'NTE', municipio:'Município'
+      modalidade:'Modalidade', ensino:'Nível de oferta', nte:'NTE', municipio:'Município'
     };
     return Object.keys(antes).filter(k => txt(antes[k]) !== txt(depois[k])).map(k => ({
       campo: nomes[k] || k,
@@ -8649,13 +8639,9 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
       const documento = txt(el('novo-proc-documento')?.value);
       const modalidade = txt(el('novo-proc-modalidade')?.value);
       const ensino = txt(el('novo-proc-ensino')?.value);
-      const ano = txt(el('novo-proc-ano')?.value);
-      const serie = txt(el('novo-proc-serie')?.value);
       if (documento) p.documento = p.documento_tipo = documento;
       p.modalidade = modalidade;
       p.ensino = p.nivel_oferta = ensino;
-      p.ano = p.ano_conclusao = ano || null;
-      p.serie = p.serie_conclusao = serie || null;
     }
 
     p.updated_at = new Date().toISOString();
@@ -8671,49 +8657,17 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     if (btn) { btn.disabled = true; btn.textContent = 'Salvando alterações...'; }
 
     try {
-      if (!window.SIGEE_Processos?.salvar) throw new Error('Módulo de persistência de processos indisponível.');
-      const confirmado = await window.SIGEE_Processos.salvar(p, { confirmar: true });
-      if (!confirmado || String(confirmado.id) !== String(p.id)) {
-        throw new Error('O Supabase não devolveu confirmação do registro atualizado.');
-      }
-
-      // Autoridade do banco: substitui o objeto local pelos valores efetivamente persistidos.
-      Object.assign(p, confirmado, {
-        aluno: confirmado.aluno_nome ?? p.aluno,
-        escola: confirmado.escola_nome ?? p.escola,
-        documento: confirmado.documento_tipo ?? p.documento,
-        ensino: confirmado.nivel_oferta ?? p.ensino
-      });
-      estado.original = snapshot(p);
-
-      // A persistência do cadastro já foi confirmada acima pelo próprio Supabase.
-      // Falhas secundárias de auditoria ou atualização de tela não podem transformar
-      // uma gravação bem-sucedida em mensagem de erro para o usuário.
-      try {
-        await registrarHistorico(p, alteracoes);
-      } catch (erroHistorico) {
-        console.warn('[SIGEE Formulário] Cadastro consolidado, mas o histórico não pôde ser registrado.', erroHistorico);
-        try { window.registrarLog?.(`[AUDITORIA PENDENTE] Processo ID ${p.id} atualizado no Supabase, mas houve falha ao registrar histórico: ${erroHistorico?.message || erroHistorico}`); } catch(_){}
-      }
+      if (window.SIGEE_Processos?.salvar) await window.SIGEE_Processos.salvar(p);
+      await registrarHistorico(p, alteracoes);
       try { window.registrarLog?.(`[${pf.toUpperCase()}] Atualizou cadastro do processo ID ${p.id}.`); } catch(_){}
-
       el('modal-nova-solicitacao')?.classList.add('hidden');
-
-      try { await window.SIGEE_Processos?.contar?.(); }
-      catch (erroContagem) { console.warn('[SIGEE Formulário] Falha ao atualizar contadores após edição já consolidada.', erroContagem); }
-
-      try {
-        if (window.recarregarCentralProcessosSIGEE) await window.recarregarCentralProcessosSIGEE(true, true);
-        else window.SIGEE_Processos?.renderizar?.();
-      } catch (erroRecarga) {
-        console.warn('[SIGEE Formulário] Falha ao recarregar a Central após edição já consolidada.', erroRecarga);
-      }
-
-      if (typeof window.mostrarToast === 'function') window.mostrarToast('Alterações consolidadas no Supabase.');
-      else alert('Alterações consolidadas no Supabase.');
+      window.SIGEE_Processos?.contar?.();
+      if (window.recarregarCentralProcessosSIGEE) await window.recarregarCentralProcessosSIGEE(true);
+      if (typeof window.mostrarToast === 'function') window.mostrarToast('Alterações salvas com sucesso.');
+      else alert('Alterações salvas com sucesso.');
     } catch(e) {
       console.error('[SIGEE Formulário] Falha ao salvar edição.', e);
-      alert(`Não foi possível consolidar as alterações no Supabase. ${e?.message || 'Tente novamente.'}`);
+      alert('Não foi possível salvar as alterações. Verifique a conexão e tente novamente.');
     } finally {
       if (btn) { btn.disabled = false; btn.textContent = rotulo || 'Salvar Alterações'; }
     }
@@ -8790,7 +8744,7 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     }`;
   document.head.appendChild(estilo);
 
-  console.info('[SIGEE] Formulário Inteligente do Processo RC10.8.36 carregado.');
+  console.info('[SIGEE] Formulário Inteligente do Processo 2.3.3A carregado.');
 })();
 /* =====================================================================
    SIGEE Sprint 2.4.7J — Autoridade final do Módulo de Escolas
