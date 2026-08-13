@@ -113,6 +113,16 @@
     return eventos.map(e=>({...e,ciencia:mapa.get(String(e.id))||null}));
   }
 
+  async function listarCiencias(agendaIds=[]){
+    if(!master()) throw new Error('Acesso restrito ao perfil Master.');
+    const ids=[...new Set((Array.isArray(agendaIds)?agendaIds:[agendaIds]).filter(Boolean).map(String))];
+    if(!ids.length) return [];
+    const c=cliente(); if(!c) throw new Error('Cliente Supabase indisponível.');
+    const {data,error}=await c.from(TABELA_CIENCIA).select('*').in('agenda_id',ids).order('ciencia_at',{ascending:true,nullsFirst:false});
+    if(error) erroBanco(error);
+    return data||[];
+  }
+
   async function marcarVisualizado(agendaId){
     const u=usuario(); const nte=nteUsuario(); const c=cliente(); if(!u?.email||!nte||!c) return false;
     const payload={agenda_id:agendaId,nte_numero:nte,usuario_id:u.id||null,usuario_nome:u.nome||'',usuario_email:String(u.email).toLowerCase(),visualizado_at:new Date().toISOString()};
@@ -128,5 +138,5 @@
     return true;
   }
 
-  window.SIGEE_TERRITORIAL_AGENDA_SERVICE=Object.freeze({listar,salvar,excluir,notificacoesUsuario,marcarVisualizado,confirmarCiencia,nteUsuario,master,versao:'GT-04.0'});
+  window.SIGEE_TERRITORIAL_AGENDA_SERVICE=Object.freeze({listar,salvar,excluir,notificacoesUsuario,listarCiencias,marcarVisualizado,confirmarCiencia,nteUsuario,master,versao:'GT-04.3'});
 })(window);
