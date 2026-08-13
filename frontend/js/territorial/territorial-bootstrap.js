@@ -12,6 +12,7 @@
     mapa:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6.5 8.5 4 15 6.5 21 4v13.5L15 20l-6.5-2.5L3 20V6.5Z"></path><path d="M8.5 4v13.5M15 6.5V20"></path></svg>',
     agenda:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2"></rect><path d="M7 3v4M17 3v4M3.5 9h17M7 13h3M14 13h3M7 16h3"></path></svg>',
     monitoramento:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"></circle><path d="m15.5 15.5 5 5M7.5 11l2 2 4-5"></path></svg>',
+    pesquisa:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v12H8l-4 4V4Z"></path><path d="M8 8h8M8 12h5"></path></svg>',
     formacoes:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9 12 4l9 5-9 5-9-5Z"></path><path d="M6 11.5V16c3.5 2.5 8.5 2.5 12 0v-4.5M21 9v6"></path></svg>',
     sei:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6.5h7l2 2h9v10.5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6.5Z"></path><path d="M3 9h18"></path></svg>',
     relatorios:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6V3Z"></path><path d="M14 3v5h5M9 12h6M9 16h6"></path></svg>'
@@ -21,6 +22,7 @@
     ['mapa','Mapa'],
     ['agenda','Agenda'],
     ['monitoramento','Monitoramento'],
+    ['pesquisa','Pesquisa de Satisfação'],
     ['formacoes','Formações'],
     ['sei','Controle SEI'],
     ['relatorios','Relatórios']
@@ -103,6 +105,7 @@
     if(id==='mapa') return mapa();
     if(id==='agenda') return '<div id="gt-agenda-corpo"><div class="gt-empty">Carregando Agenda Institucional...</div></div>';
     if(id==='monitoramento') return '<div id="gt-monitoramento-corpo"><div class="gt-empty">Carregando Monitoramento Territorial...</div></div>';
+    if(id==='pesquisa') return '<div id="gt-pesquisa-corpo"><div class="gt-empty">Carregando Pesquisa de Satisfação...</div></div>';
     if(id==='formacoes') return '<div id="gt-formacoes-corpo"><div class="gt-empty">Carregando cobertura das formações...</div></div>';
     if(id==='sei') return estruturaArea('Controle SEI','Acompanhamento dos expedientes administrativos relacionados ao setor.',[['Conselho','Encaminhamentos e retornos do Conselho.'],['Comunicações Internas','Regulamentação e padronização dos processos internos.'],['Prazos','Controle de datas, retornos e pendências.'],['Referências','Vínculo com NTE, processo SIGEE e atos internos.']]);
     return '<div id="gt-relatorios-corpo"><div class="gt-empty">Carregando Relatórios Territoriais...</div></div>';
@@ -112,7 +115,7 @@
     abaAtual=ABAS.some(x=>x[0]===id)?id:'visao-geral';
     const sec=criarTela(); if(!sec) return false;
     sec.querySelectorAll('[data-gt-aba]').forEach(b=>{const ativo=b.dataset.gtAba===abaAtual;b.classList.toggle('ativo',ativo);b.setAttribute('aria-current',ativo?'page':'false');});
-    const box=sec.querySelector('#gt-conteudo'); if(box){ box.innerHTML=conteudo(abaAtual); if(abaAtual==='agenda') setTimeout(()=>window.SIGEE_TERRITORIAL_AGENDA?.carregar?.(box),0); if(abaAtual==='monitoramento') setTimeout(()=>window.SIGEE_TERRITORIAL_MONITORAMENTO?.carregar?.(box),0); if(abaAtual==='formacoes') setTimeout(()=>window.SIGEE_TERRITORIAL_FORMACOES?.carregar?.(box),0); if(abaAtual==='relatorios') setTimeout(()=>window.SIGEE_TERRITORIAL_RELATORIOS?.carregar?.(box),0); }
+    const box=sec.querySelector('#gt-conteudo'); if(box){ box.innerHTML=conteudo(abaAtual); if(abaAtual==='agenda') setTimeout(()=>window.SIGEE_TERRITORIAL_AGENDA?.carregar?.(box),0); if(abaAtual==='monitoramento') setTimeout(()=>window.SIGEE_TERRITORIAL_MONITORAMENTO?.carregar?.(box),0); if(abaAtual==='pesquisa') setTimeout(()=>window.SIGEE_TERRITORIAL_PESQUISA?.painel?.(box),0); if(abaAtual==='formacoes') setTimeout(()=>window.SIGEE_TERRITORIAL_FORMACOES?.carregar?.(box),0); if(abaAtual==='relatorios') setTimeout(()=>window.SIGEE_TERRITORIAL_RELATORIOS?.carregar?.(box),0); }
     return true;
   }
 
@@ -131,5 +134,5 @@
   document.addEventListener('sigee:processos-atualizados',atualizar);
   window.addEventListener('sigee:session-ready',()=>{if(autorizado())criarTela();});
 
-  window.SIGEE_GESTAO_TERRITORIAL=Object.freeze({abrir,abrirAba,atualizar,autorizado,versao:'GT-05.0'});
+  window.SIGEE_GESTAO_TERRITORIAL=Object.freeze({abrir,abrirAba,atualizar,autorizado,versao:'GT-05.2.1'});
 })(window,document);
