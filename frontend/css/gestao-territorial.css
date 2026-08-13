@@ -23,60 +23,6 @@
 @media(max-width:720px){.gt-form-section-title{display:block}.gt-form-section-title small{display:block;margin-top:.15rem}.gt-nte-toolbar{align-items:stretch;flex-direction:column}.gt-nte-toolbar>div{justify-content:flex-end}.gt-nte-options{grid-template-columns:1fr 1fr}}
 @media(max-width:460px){.gt-nte-options{grid-template-columns:1fr}}
 
-/* GT-02.1.1 — correção definitiva de contraste das abas da Central Master.
-   O seletor inclui #sistema-dashboard para superar as regras globais do enterprise.css. */
-#sistema-dashboard .sigee-territorial .gt-tabs button[data-gt-aba]{
-  color:#183b5b!important;
-  background:#ffffff!important;
-  border:1px solid #b9c9d9!important;
-  border-radius:.65rem!important;
-  opacity:1!important;
-  box-shadow:none!important;
-  transform:none!important;
-  text-shadow:none!important;
-}
-#sistema-dashboard .sigee-territorial .gt-tabs button[data-gt-aba] > span{
-  color:inherit!important;
-  opacity:1!important;
-  visibility:visible!important;
-}
-#sistema-dashboard .sigee-territorial .gt-tabs button[data-gt-aba] .gt-tab-icon,
-#sistema-dashboard .sigee-territorial .gt-tabs button[data-gt-aba] .gt-tab-icon svg{
-  color:inherit!important;
-  opacity:1!important;
-  visibility:visible!important;
-}
-#sistema-dashboard .sigee-territorial .gt-tabs button[data-gt-aba] .gt-tab-icon svg{
-  fill:none!important;
-  stroke:currentColor!important;
-}
-#sistema-dashboard .sigee-territorial .gt-tabs button[data-gt-aba]::after{
-  display:none!important;
-  content:none!important;
-}
-#sistema-dashboard .sigee-territorial .gt-tabs button[data-gt-aba]:hover{
-  color:#0b3d6e!important;
-  background:#edf5fc!important;
-  border-color:#7fa5c7!important;
-  box-shadow:none!important;
-  transform:none!important;
-}
-#sistema-dashboard .sigee-territorial .gt-tabs button[data-gt-aba].ativo,
-#sistema-dashboard .sigee-territorial .gt-tabs button[data-gt-aba][aria-current="page"]{
-  color:#ffffff!important;
-  background:#0b3d6e!important;
-  border-color:#0b3d6e!important;
-  box-shadow:0 1px 2px rgba(11,61,110,.18)!important;
-  transform:none!important;
-}
-#sistema-dashboard .sigee-territorial .gt-tabs button[data-gt-aba].ativo > span,
-#sistema-dashboard .sigee-territorial .gt-tabs button[data-gt-aba][aria-current="page"] > span,
-#sistema-dashboard .sigee-territorial .gt-tabs button[data-gt-aba].ativo .gt-tab-icon,
-#sistema-dashboard .sigee-territorial .gt-tabs button[data-gt-aba][aria-current="page"] .gt-tab-icon{
-  color:#ffffff!important;
-  opacity:1!important;
-}
-#sistema-dashboard .sigee-territorial .gt-tabs button[data-gt-aba]:focus-visible{
-  outline:3px solid rgba(11,79,138,.28)!important;
-  outline-offset:2px!important;
-}
+/* GT-03 — Monitoramento Territorial */
+.gt-monitor-regra{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin:.9rem 0}.gt-monitor-regra>div{border:1px solid #d8e4ef;border-left:4px solid #0b4f8a;border-radius:.7rem;padding:.75rem;background:#fbfdff}.gt-monitor-regra b,.gt-monitor-regra span{display:block}.gt-monitor-regra b{color:#173b5f;font-size:.77rem}.gt-monitor-regra span{color:#5d7187;font-size:.7rem;margin-top:.2rem;line-height:1.45}.gt-monitor-regra>div+div{border-left-color:#2c6b48}.gt-monitor-kpis{margin-top:.8rem}.gt-monitor-toolbar{margin-top:.85rem}.gt-monitor-grupos{display:grid;gap:1rem}.gt-monitor-grupo{border:1px solid #dbe3ef;border-radius:.85rem;background:#fff;overflow:hidden}.gt-monitor-grupo>header{display:flex;justify-content:space-between;align-items:center;gap:.8rem;padding:.7rem .85rem;background:#f8fbfe;border-bottom:1px solid #e4ebf3}.gt-monitor-grupo>header span,.gt-monitor-grupo>header strong{display:block}.gt-monitor-grupo>header span{color:#0b3d6e;font-size:.77rem;font-weight:900}.gt-monitor-grupo>header strong,.gt-monitor-grupo>header small{color:#64748b;font-size:.66rem}.gt-monitor-timeline{position:relative;padding:.75rem .85rem .85rem 1.55rem}.gt-monitor-timeline:before{content:"";position:absolute;left:1.03rem;top:.9rem;bottom:.9rem;width:2px;background:#d9e5ef}.gt-monitor-item{position:relative;padding:0 0 .7rem .75rem}.gt-monitor-item:last-child{padding-bottom:0}.gt-monitor-marker{position:absolute;left:-.84rem;top:.7rem;width:.68rem;height:.68rem;border-radius:50%;background:#0b4f8a;border:2px solid #fff;box-shadow:0 0 0 1px #b8cfe2}.gt-monitor-card{border:1px solid #e0e8f1;border-radius:.72rem;padding:.72rem .8rem;background:#fff}.gt-monitor-card-head{display:flex;justify-content:space-between;gap:.75rem;align-items:center}.gt-monitor-card-head>div{display:flex;gap:.4rem;flex-wrap:wrap}.gt-monitor-card-head time{color:#718096;font-size:.64rem}.gt-monitor-fase,.gt-monitor-natureza{display:inline-flex;align-items:center;border-radius:999px;padding:.2rem .45rem;font-size:.61rem;font-weight:900}.gt-monitor-fase.pre{background:#eaf4ff;color:#0b4f8a}.gt-monitor-fase.pos{background:#e7f7ed;color:#2c6b48}.gt-monitor-natureza{background:#eef2f6;color:#43576d}.gt-monitor-card h3{margin:.45rem 0 .2rem;color:#102f4d;font-size:.82rem}.gt-monitor-card p{margin:0;color:#3e5165;font-size:.72rem;line-height:1.5;white-space:pre-wrap}.gt-monitor-meta{display:flex;gap:.7rem;flex-wrap:wrap;margin-top:.55rem;padding-top:.5rem;border-top:1px solid #edf1f5}.gt-monitor-meta span{color:#64748b;font-size:.64rem}.gt-monitor-meta b{color:#334155}.gt-monitor-evidencia{margin-top:.45rem;padding:.45rem .55rem;border-radius:.5rem;background:#f7fafc;color:#53677b;font-size:.66rem}.gt-monitor-card footer{display:flex;justify-content:flex-end;gap:.35rem;margin-top:.55rem}.gt-monitor-card footer button{border:1px solid #cbd5e1;background:#fff;color:#334155;border-radius:.5rem;padding:.38rem .55rem;font-size:.64rem;font-weight:800;cursor:pointer}.gt-monitor-card footer button.danger{color:#9f2f2f;border-color:#e7bcbc}
+@media(max-width:720px){.gt-monitor-regra{grid-template-columns:1fr}.gt-monitor-card-head{align-items:flex-start;flex-direction:column}.gt-monitor-timeline{padding-left:1.35rem}.gt-monitor-timeline:before{left:.84rem}.gt-monitor-marker{left:-.72rem}}
