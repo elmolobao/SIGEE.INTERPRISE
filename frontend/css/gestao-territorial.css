@@ -22,3 +22,61 @@
 .gt-form-section{border:1px solid #e0e8f1;border-radius:.8rem;padding:.85rem;background:#fbfdff}.gt-form-section-title{display:flex;justify-content:space-between;gap:.75rem;align-items:baseline;margin-bottom:.7rem}.gt-form-section-title b{color:#173b5f;font-size:.78rem}.gt-form-section-title small{color:#667b91;font-size:.67rem}.gt-form-grid-inner{gap:.7rem}.gt-nte-picker{display:grid;gap:.65rem}.gt-nte-toolbar{display:flex;justify-content:space-between;align-items:end;gap:.75rem}.gt-nte-toolbar>label{display:grid;gap:.25rem;color:#41566e;font-size:.7rem;font-weight:800;flex:1}.gt-nte-toolbar input{width:100%;border:1px solid #cbd8e6;border-radius:.55rem;background:#fff;padding:.55rem .65rem;color:#172033}.gt-nte-toolbar>div{display:flex;gap:.4rem}.gt-nte-toolbar button,.gt-nte-selector summary{border:1px solid #cbd8e6;background:#fff;color:#29445e;border-radius:.55rem;padding:.5rem .65rem;font-size:.68rem;font-weight:800;cursor:pointer}.gt-nte-chips{display:flex;gap:.35rem;flex-wrap:wrap;min-height:1.7rem;align-items:center}.gt-nte-chips span{display:inline-flex;border:1px solid #c6d9ea;background:#eef6fc;color:#153f65;border-radius:999px;padding:.25rem .5rem;font-size:.64rem;font-weight:800}.gt-nte-chips small{color:#64748b;font-size:.68rem}.gt-nte-selector{padding:0;border:1px solid #dbe3ef;background:#fff;overflow:hidden}.gt-nte-selector summary{border:0;border-radius:0;display:flex;justify-content:space-between;align-items:center;list-style:none}.gt-nte-selector summary::-webkit-details-marker{display:none}.gt-nte-selector summary strong{color:#0b4f8a;font-size:.66rem}.gt-nte-options{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:.35rem;padding:.65rem;border-top:1px solid #e6edf5;max-height:240px;overflow:auto}.gt-nte-option{display:flex!important;align-items:center!important;gap:.5rem!important;border:1px solid #e6edf5!important;border-radius:.55rem!important;padding:.45rem!important;background:#fbfdff!important;font-size:.7rem!important}.gt-nte-option input{width:auto!important;min-width:auto!important}.gt-nte-option b,.gt-nte-option small{display:block}.gt-nte-option b{color:#173b5f;font-size:.7rem}.gt-nte-option small{color:#64748b;font-size:.64rem}.gt-observacoes{display:grid;gap:.3rem;color:#41566e;font-size:.72rem;font-weight:800;margin-top:.7rem}.gt-observacoes textarea{width:100%;box-sizing:border-box;border:1px solid #cbd8e6;border-radius:.6rem;background:#fff;color:#172033;padding:.62rem .7rem;font:inherit;font-size:.78rem;resize:vertical}.gt-form-grid input::placeholder,.gt-form-grid textarea::placeholder,.gt-nte-toolbar input::placeholder{color:#7c8fa3;opacity:1}
 @media(max-width:720px){.gt-form-section-title{display:block}.gt-form-section-title small{display:block;margin-top:.15rem}.gt-nte-toolbar{align-items:stretch;flex-direction:column}.gt-nte-toolbar>div{justify-content:flex-end}.gt-nte-options{grid-template-columns:1fr 1fr}}
 @media(max-width:460px){.gt-nte-options{grid-template-columns:1fr}}
+
+/* GT-02.1.1 — correção definitiva de contraste das abas da Central Master.
+   O seletor inclui #sistema-dashboard para superar as regras globais do enterprise.css. */
+#sistema-dashboard .sigee-territorial .gt-tabs button[data-gt-aba]{
+  color:#183b5b!important;
+  background:#ffffff!important;
+  border:1px solid #b9c9d9!important;
+  border-radius:.65rem!important;
+  opacity:1!important;
+  box-shadow:none!important;
+  transform:none!important;
+  text-shadow:none!important;
+}
+#sistema-dashboard .sigee-territorial .gt-tabs button[data-gt-aba] > span{
+  color:inherit!important;
+  opacity:1!important;
+  visibility:visible!important;
+}
+#sistema-dashboard .sigee-territorial .gt-tabs button[data-gt-aba] .gt-tab-icon,
+#sistema-dashboard .sigee-territorial .gt-tabs button[data-gt-aba] .gt-tab-icon svg{
+  color:inherit!important;
+  opacity:1!important;
+  visibility:visible!important;
+}
+#sistema-dashboard .sigee-territorial .gt-tabs button[data-gt-aba] .gt-tab-icon svg{
+  fill:none!important;
+  stroke:currentColor!important;
+}
+#sistema-dashboard .sigee-territorial .gt-tabs button[data-gt-aba]::after{
+  display:none!important;
+  content:none!important;
+}
+#sistema-dashboard .sigee-territorial .gt-tabs button[data-gt-aba]:hover{
+  color:#0b3d6e!important;
+  background:#edf5fc!important;
+  border-color:#7fa5c7!important;
+  box-shadow:none!important;
+  transform:none!important;
+}
+#sistema-dashboard .sigee-territorial .gt-tabs button[data-gt-aba].ativo,
+#sistema-dashboard .sigee-territorial .gt-tabs button[data-gt-aba][aria-current="page"]{
+  color:#ffffff!important;
+  background:#0b3d6e!important;
+  border-color:#0b3d6e!important;
+  box-shadow:0 1px 2px rgba(11,61,110,.18)!important;
+  transform:none!important;
+}
+#sistema-dashboard .sigee-territorial .gt-tabs button[data-gt-aba].ativo > span,
+#sistema-dashboard .sigee-territorial .gt-tabs button[data-gt-aba][aria-current="page"] > span,
+#sistema-dashboard .sigee-territorial .gt-tabs button[data-gt-aba].ativo .gt-tab-icon,
+#sistema-dashboard .sigee-territorial .gt-tabs button[data-gt-aba][aria-current="page"] .gt-tab-icon{
+  color:#ffffff!important;
+  opacity:1!important;
+}
+#sistema-dashboard .sigee-territorial .gt-tabs button[data-gt-aba]:focus-visible{
+  outline:3px solid rgba(11,79,138,.28)!important;
+  outline-offset:2px!important;
+}
