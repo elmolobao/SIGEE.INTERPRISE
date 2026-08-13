@@ -1,5 +1,5 @@
 /**
- * SIGEE Enterprise — Pacote GT-01
+ * SIGEE Enterprise — Pacote GT-02
  * Fundação da Central de Gestão Territorial (somente Master).
  * Sem persistência própria nesta entrega: cria a rota, a tela, as áreas e lê apenas dados existentes.
  */
@@ -92,7 +92,7 @@
   function conteudo(id){
     if(id==='visao-geral') return visaoGeral();
     if(id==='mapa') return mapa();
-    if(id==='agenda') return estruturaArea('Agenda Institucional','Agenda gerencial do Master, com comunicação direcionada aos NTEs envolvidos.',[['Reuniões','Agenda, pauta e ciência do território.'],['Alinhamentos técnicos','Registro das ações de diagnóstico e orientação.'],['Formações','Programação do ciclo territorial de 7 dias.'],['Outras atividades','Visitas, acompanhamentos e compromissos institucionais.']]);
+    if(id==='agenda') return '<div id="gt-agenda-corpo"><div class="gt-empty">Carregando Agenda Institucional...</div></div>';
     if(id==='monitoramento') return estruturaArea('Monitoramento Territorial','Repositório técnico que documentará ocorrências, orientações, diagnósticos, alinhamentos e intervenções.',[['Pré-formação','Caráter diagnóstico e priorização para formação.'],['Pós-formação','Critérios ampliados de conformidade e desempenho.'],['Linha do tempo','Memória integral das medidas adotadas.'],['Evidências','Vínculo com processo SIGEE e documentação de suporte.']]);
     if(id==='formacoes') return estruturaArea('Formações Territoriais','Gestão da intervenção estruturada de sete dias realizada no próprio território.',[['Planejamento','Período, NTE, público, objetivos e programação.'],['Conteúdo','Componentes teóricos e práticos.'],['Avaliações','Instrumentos e resultados durante a formação.'],['Pós-formação','Marco para início do monitoramento qualificado.']]);
     if(id==='sei') return estruturaArea('Controle SEI','Acompanhamento dos expedientes administrativos relacionados ao setor.',[['Conselho','Encaminhamentos e retornos do Conselho.'],['Comunicações Internas','Regulamentação e padronização dos processos internos.'],['Prazos','Controle de datas, retornos e pendências.'],['Referências','Vínculo com NTE, processo SIGEE e atos internos.']]);
@@ -103,7 +103,7 @@
     abaAtual=ABAS.some(x=>x[0]===id)?id:'visao-geral';
     const sec=criarTela(); if(!sec) return false;
     sec.querySelectorAll('[data-gt-aba]').forEach(b=>{const ativo=b.dataset.gtAba===abaAtual;b.classList.toggle('ativo',ativo);b.setAttribute('aria-current',ativo?'page':'false');});
-    const box=sec.querySelector('#gt-conteudo'); if(box) box.innerHTML=conteudo(abaAtual);
+    const box=sec.querySelector('#gt-conteudo'); if(box){ box.innerHTML=conteudo(abaAtual); if(abaAtual==='agenda') setTimeout(()=>window.SIGEE_TERRITORIAL_AGENDA?.carregar?.(box),0); }
     return true;
   }
 
@@ -122,5 +122,5 @@
   document.addEventListener('sigee:processos-atualizados',atualizar);
   window.addEventListener('sigee:session-ready',()=>{if(autorizado())criarTela();});
 
-  window.SIGEE_GESTAO_TERRITORIAL=Object.freeze({abrir,abrirAba,atualizar,autorizado,versao:'GT-01.0'});
+  window.SIGEE_GESTAO_TERRITORIAL=Object.freeze({abrir,abrirAba,atualizar,autorizado,versao:'GT-02.0'});
 })(window,document);

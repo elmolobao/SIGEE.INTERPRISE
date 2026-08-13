@@ -76,5 +76,5 @@
     };
   }
 
-  window.SIGEE_TERRITORIAL_DATA=Object.freeze({NTES,numeroNte,producaoPorNte,resumo,versao:'GT-01.0'});
+  window.SIGEE_TERRITORIAL_DATA=Object.freeze({NTES,numeroNte,producaoPorNte,resumo,versao:'GT-02.0'});
 })(window);

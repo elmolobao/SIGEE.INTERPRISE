@@ -1,0 +1,70 @@
+/** SIGEE Enterprise — GT-02 Interface da Agenda Institucional (Master). */
+(function(window,document){
+'use strict';
+if(window.SIGEE_TERRITORIAL_AGENDA) return;
+let eventos=[];
+
+const TIPOS={REUNIAO:'Reunião',ALINHAMENTO_TECNICO:'Alinhamento técnico',FORMACAO_TERRITORIAL:'Formação territorial',VISITA_TECNICA:'Visita técnica',ACOMPANHAMENTO:'Acompanhamento',OUTRA:'Outra atividade'};
+const STATUS={PLANEJADO:'Planejado',AGENDADO:'Agendado',EM_ANDAMENTO:'Em andamento',REALIZADO:'Realizado',REMARCADO:'Remarcado',CANCELADO:'Cancelado'};
+const MODALIDADES={PRESENCIAL:'Presencial',ONLINE:'Online',HIBRIDA:'Híbrida'};
+function esc(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
+function service(){return window.SIGEE_TERRITORIAL_AGENDA_SERVICE;}
+function fmtData(v){if(!v)return '—';try{return new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'short'}).format(new Date(v));}catch(_){return v;}}
+function localInput(v){if(!v)return '';const d=new Date(v);const p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;}
+function nteLabel(n){const x=(window.SIGEE_TERRITORIAL_DATA?.NTES||[]).find(y=>y.numero===Number(n));return x?`${x.codigo} — ${x.sede}`:`NTE ${String(n).padStart(2,'0')}`;}
+function badge(status){return `<span class="gt-agenda-badge gt-agenda-${String(status||'').toLowerCase()}">${esc(STATUS[status]||status||'—')}</span>`;}
+function ntesResumo(ntes){const arr=Array.isArray(ntes)?ntes:[];if(arr.length<=3)return arr.map(n=>nteLabel(n)).join(', ');return `${arr.slice(0,3).map(n=>nteLabel(n)).join(', ')} +${arr.length-3}`;}
+
+function kpis(){
+ const agora=Date.now();const fimSemana=agora+7*86400000;
+ const proximas=eventos.filter(e=>new Date(e.inicio).getTime()>=agora&&new Date(e.inicio).getTime()<=fimSemana&&!['CANCELADO','REALIZADO'].includes(e.situacao)).length;
+ const agendadas=eventos.filter(e=>['PLANEJADO','AGENDADO','REMARCADO','EM_ANDAMENTO'].includes(e.situacao)).length;
+ const formacoes=eventos.filter(e=>e.tipo==='FORMACAO_TERRITORIAL'&&!['CANCELADO','REALIZADO'].includes(e.situacao)).length;
+ const comunicadas=eventos.filter(e=>e.comunicar_ntes).length;
+ return `<div class="gt-kpis gt-agenda-kpis"><article><span>Próximos 7 dias</span><strong>${proximas}</strong><small>compromissos ativos</small></article><article><span>Agenda ativa</span><strong>${agendadas}</strong><small>planejados e agendados</small></article><article><span>Formações programadas</span><strong>${formacoes}</strong><small>formações territoriais</small></article><article><span>Com comunicação</span><strong>${comunicadas}</strong><small>atividades informadas aos NTEs</small></article></div>`;
+}
+
+function filtros(){
+ const ntes=window.SIGEE_TERRITORIAL_DATA?.NTES||[];
+ return `<div class="gt-agenda-toolbar"><div class="gt-agenda-filtros"><label>Tipo<select id="gt-agenda-filtro-tipo"><option value="">Todos</option>${Object.entries(TIPOS).map(([v,l])=>`<option value="${v}">${l}</option>`).join('')}</select></label><label>Situação<select id="gt-agenda-filtro-status"><option value="">Todas</option>${Object.entries(STATUS).map(([v,l])=>`<option value="${v}">${l}</option>`).join('')}</select></label><label>NTE<select id="gt-agenda-filtro-nte"><option value="">Todos</option>${ntes.map(n=>`<option value="${n.numero}">${n.codigo} — ${esc(n.sede)}</option>`).join('')}</select></label></div><button type="button" class="gt-primary" id="gt-agenda-nova">+ Nova atividade</button></div>`;
+}
+
+function lista(f={}){
+ let dados=eventos.slice(); if(f.tipo)dados=dados.filter(x=>x.tipo===f.tipo);if(f.status)dados=dados.filter(x=>x.situacao===f.status);if(f.nte)dados=dados.filter(x=>(x.ntes||[]).map(Number).includes(Number(f.nte)));
+ if(!dados.length)return '<div class="gt-empty">Nenhuma atividade encontrada para os filtros selecionados.</div>';
+ return `<div class="gt-agenda-lista">${dados.map(e=>`<article class="gt-agenda-item" data-id="${e.id}"><div class="gt-agenda-data"><b>${new Date(e.inicio).toLocaleDateString('pt-BR',{day:'2-digit',month:'short'}).replace('.','')}</b><span>${new Date(e.inicio).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</span></div><div class="gt-agenda-info"><div class="gt-agenda-title"><strong>${esc(e.titulo)}</strong>${badge(e.situacao)}</div><span>${esc(TIPOS[e.tipo]||e.tipo)} • ${esc(MODALIDADES[e.modalidade]||e.modalidade)}${e.local?' • '+esc(e.local):''}</span><small>${esc(ntesResumo(e.ntes))}</small>${e.objetivo?`<p>${esc(e.objetivo)}</p>`:''}<div class="gt-agenda-meta">${e.comunicar_ntes?'<span>📨 Comunicação aos NTEs habilitada</span>':'<span>🔒 Registro interno Master</span>'}<span>Fim: ${esc(fmtData(e.fim))}</span></div></div><div class="gt-agenda-actions"><button type="button" data-editar="${e.id}">Editar</button><button type="button" class="danger" data-excluir="${e.id}">Excluir</button></div></article>`).join('')}</div>`;
+}
+
+function bindLista(root){
+ const aplicar=()=>{const box=root.querySelector('#gt-agenda-lista');if(box)box.innerHTML=lista({tipo:root.querySelector('#gt-agenda-filtro-tipo')?.value,status:root.querySelector('#gt-agenda-filtro-status')?.value,nte:root.querySelector('#gt-agenda-filtro-nte')?.value});bindAcoes(root);};
+ ['#gt-agenda-filtro-tipo','#gt-agenda-filtro-status','#gt-agenda-filtro-nte'].forEach(s=>root.querySelector(s)?.addEventListener('change',aplicar));
+ root.querySelector('#gt-agenda-nova')?.addEventListener('click',()=>modal()); bindAcoes(root);
+}
+function bindAcoes(root){
+ root.querySelectorAll('[data-editar]').forEach(b=>b.addEventListener('click',()=>modal(eventos.find(x=>String(x.id)===String(b.dataset.editar)))));
+ root.querySelectorAll('[data-excluir]').forEach(b=>b.addEventListener('click',async()=>{const ev=eventos.find(x=>String(x.id)===String(b.dataset.excluir));if(!confirm(`Excluir a atividade “${ev?.titulo||''}”?`))return;try{await service().excluir(b.dataset.excluir);await carregar(root);}catch(e){alert(e.message||e);}}));
+}
+
+async function carregar(root){
+ root=root||document.querySelector('#gt-conteudo');if(!root)return;
+ const area=root.querySelector('#gt-agenda-corpo');if(area)area.innerHTML='<div class="gt-empty">Carregando agenda institucional...</div>';
+ try{eventos=await service().listar();render(root);}catch(e){eventos=[];render(root,e);}
+}
+function render(root,erro){
+ root=root||document.querySelector('#gt-conteudo');if(!root)return;
+ root.innerHTML=`<article class="gt-panel gt-panel-full gt-agenda"><header><div><span>AGENDA INSTITUCIONAL • GT-02</span><h2>Planejamento das ações territoriais</h2><p>Reuniões, alinhamentos, formações, visitas e demais compromissos vinculados aos NTEs.</p></div><span class="gt-status">Persistência Supabase</span></header>${erro?`<div class="gt-agenda-alert"><strong>Configuração necessária</strong><span>${esc(erro.message||erro)}</span><small>Execute o arquivo supabase/migrations/GT02_AGENDA_INSTITUCIONAL.sql no SQL Editor do Supabase.</small></div>`:''}${kpis()}${filtros()}<div id="gt-agenda-lista">${lista()}</div></article>`;
+ bindLista(root);
+}
+
+function modal(ev={}){
+ document.getElementById('gt-agenda-modal')?.remove();
+ const ntes=window.SIGEE_TERRITORIAL_DATA?.NTES||[];const selecionados=new Set((ev.ntes||[]).map(Number));
+ const m=document.createElement('div');m.id='gt-agenda-modal';m.className='gt-modal-backdrop';
+ m.innerHTML=`<div class="gt-modal" role="dialog" aria-modal="true" aria-labelledby="gt-agenda-modal-titulo"><header><div><span>AGENDA INSTITUCIONAL</span><h2 id="gt-agenda-modal-titulo">${ev.id?'Editar atividade':'Nova atividade'}</h2></div><button type="button" data-fechar aria-label="Fechar">×</button></header><div class="gt-modal-body"><div class="gt-form-grid"><label class="span2">Título<input id="gta-titulo" value="${esc(ev.titulo||'')}" maxlength="180" placeholder="Ex.: Reunião de acompanhamento territorial"></label><label>Tipo<select id="gta-tipo">${Object.entries(TIPOS).map(([v,l])=>`<option value="${v}" ${ev.tipo===v?'selected':''}>${l}</option>`).join('')}</select></label><label>Situação<select id="gta-status">${Object.entries(STATUS).map(([v,l])=>`<option value="${v}" ${(ev.situacao||'AGENDADO')===v?'selected':''}>${l}</option>`).join('')}</select></label><label>Início<input id="gta-inicio" type="datetime-local" value="${localInput(ev.inicio)}"></label><label>Fim<input id="gta-fim" type="datetime-local" value="${localInput(ev.fim)}"></label><label>Modalidade<select id="gta-modalidade">${Object.entries(MODALIDADES).map(([v,l])=>`<option value="${v}" ${(ev.modalidade||'PRESENCIAL')===v?'selected':''}>${l}</option>`).join('')}</select></label><label>Prioridade<select id="gta-prioridade"><option value="NORMAL" ${(ev.prioridade||'NORMAL')==='NORMAL'?'selected':''}>Normal</option><option value="ALTA" ${ev.prioridade==='ALTA'?'selected':''}>Alta</option><option value="URGENTE" ${ev.prioridade==='URGENTE'?'selected':''}>Urgente</option></select></label><label class="span2">Local / link<input id="gta-local" value="${esc(ev.local||'')}" placeholder="Local físico ou referência da reunião online"></label><label class="span2">Objetivo<textarea id="gta-objetivo" rows="2" placeholder="Objetivo da atividade">${esc(ev.objetivo||'')}</textarea></label><label class="span2">Pauta / conteúdo<textarea id="gta-pauta" rows="3" placeholder="Pauta, conteúdo ou pontos a serem trabalhados">${esc(ev.pauta||'')}</textarea></label><fieldset class="span2 gt-nte-selector"><legend>NTEs relacionados</legend><div>${ntes.map(n=>`<label><input type="checkbox" value="${n.numero}" ${selecionados.has(n.numero)?'checked':''}><span>${n.codigo}<small>${esc(n.sede)}</small></span></label>`).join('')}</div></fieldset><label class="span2 gt-check"><input id="gta-comunicar" type="checkbox" ${ev.comunicar_ntes?'checked':''}><span><strong>Comunicar os NTEs selecionados</strong><small>Usuários territoriais receberão a agenda e poderão confirmar ciência.</small></span></label><label class="span2">Observações<textarea id="gta-observacoes" rows="2">${esc(ev.observacoes||'')}</textarea></label></div></div><footer><button type="button" data-fechar>Cancelar</button><button type="button" class="gt-primary" id="gta-salvar">Salvar atividade</button></footer></div>`;
+ document.body.appendChild(m);m.querySelectorAll('[data-fechar]').forEach(b=>b.addEventListener('click',()=>m.remove()));m.addEventListener('click',e=>{if(e.target===m)m.remove();});
+ m.querySelector('#gta-salvar').addEventListener('click',async()=>{const btn=m.querySelector('#gta-salvar');try{btn.disabled=true;btn.textContent='Salvando...';const ini=m.querySelector('#gta-inicio').value,fim=m.querySelector('#gta-fim').value;if(!ini)throw new Error('Informe o início da atividade.');if(fim&&new Date(fim)<new Date(ini))throw new Error('A data final não pode ser anterior ao início.');const payload={id:ev.id||null,titulo:m.querySelector('#gta-titulo').value,tipo:m.querySelector('#gta-tipo').value,situacao:m.querySelector('#gta-status').value,inicio:new Date(ini).toISOString(),fim:new Date(fim||ini).toISOString(),modalidade:m.querySelector('#gta-modalidade').value,prioridade:m.querySelector('#gta-prioridade').value,local:m.querySelector('#gta-local').value,objetivo:m.querySelector('#gta-objetivo').value,pauta:m.querySelector('#gta-pauta').value,observacoes:m.querySelector('#gta-observacoes').value,comunicar_ntes:m.querySelector('#gta-comunicar').checked,ntes:[...m.querySelectorAll('.gt-nte-selector input:checked')].map(x=>Number(x.value))};await service().salvar(payload);m.remove();await carregar(document.querySelector('#gt-conteudo'));}catch(e){alert(e.message||e);btn.disabled=false;btn.textContent='Salvar atividade';}});
+}
+
+window.SIGEE_TERRITORIAL_AGENDA=Object.freeze({render,carregar,modal,versao:'GT-02.0'});
+document.addEventListener('sigee:gt-agenda-atualizada',()=>{const box=document.querySelector('#gt-agenda-lista');if(box)carregar(document.querySelector('#gt-conteudo'));});
+})(window,document);
