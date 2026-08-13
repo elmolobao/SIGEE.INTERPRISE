@@ -161,3 +161,8 @@
 .gt-dossie-timeline li.ocorrencia.negativa{border-left-color:#a44a42;background:#fffafa}
 @media(max-width:1000px){.gt-monitor-toolbar-5 .gt-agenda-filtros{grid-template-columns:repeat(2,minmax(0,1fr))}.gt-report-monitoria-grid{grid-template-columns:1fr}}
 @media(max-width:650px){.gt-monitor-toolbar-5 .gt-agenda-filtros{grid-template-columns:1fr}}
+
+/* GT-05.1.1 — média territorial da monitoria */
+.gt-monitor-score strong,.gt-report-score strong{font-variant-numeric:tabular-nums;}
+.gt-monitor-atuacao-numeros .gt-monitor-score{border-width:2px;}
+.gt-report-monitoria-grid>div span:first-of-type{margin-top:4px;}
