@@ -7,14 +7,23 @@
   'use strict';
   if(window.SIGEE_GESTAO_TERRITORIAL) return;
 
+  const ICONES = Object.freeze({
+    'visao-geral':'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"></circle><circle cx="12" cy="12" r="3"></circle></svg>',
+    mapa:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6.5 8.5 4 15 6.5 21 4v13.5L15 20l-6.5-2.5L3 20V6.5Z"></path><path d="M8.5 4v13.5M15 6.5V20"></path></svg>',
+    agenda:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2"></rect><path d="M7 3v4M17 3v4M3.5 9h17M7 13h3M14 13h3M7 16h3"></path></svg>',
+    monitoramento:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"></circle><path d="m15.5 15.5 5 5M7.5 11l2 2 4-5"></path></svg>',
+    formacoes:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9 12 4l9 5-9 5-9-5Z"></path><path d="M6 11.5V16c3.5 2.5 8.5 2.5 12 0v-4.5M21 9v6"></path></svg>',
+    sei:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6.5h7l2 2h9v10.5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6.5Z"></path><path d="M3 9h18"></path></svg>',
+    relatorios:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6V3Z"></path><path d="M14 3v5h5M9 12h6M9 16h6"></path></svg>'
+  });
   const ABAS = Object.freeze([
-    ['visao-geral','◉','Visão Geral'],
-    ['mapa','🗺️','Mapa'],
-    ['agenda','📅','Agenda'],
-    ['monitoramento','🔎','Monitoramento'],
-    ['formacoes','🎓','Formações'],
-    ['sei','📁','Controle SEI'],
-    ['relatorios','📄','Relatórios']
+    ['visao-geral','Visão Geral'],
+    ['mapa','Mapa'],
+    ['agenda','Agenda'],
+    ['monitoramento','Monitoramento'],
+    ['formacoes','Formações'],
+    ['sei','Controle SEI'],
+    ['relatorios','Relatórios']
   ]);
   let abaAtual='visao-geral';
 
@@ -45,9 +54,9 @@
       <div id="gt-conteudo" class="gt-conteudo" aria-live="polite"></div>`;
     alvo.appendChild(sec);
     const nav=sec.querySelector('#gt-tabs');
-    ABAS.forEach(([id,icone,rotulo])=>{
+    ABAS.forEach(([id,rotulo])=>{
       const b=document.createElement('button'); b.type='button'; b.dataset.gtAba=id;
-      b.innerHTML=`<span aria-hidden="true">${icone}</span><span>${rotulo}</span>`;
+      b.innerHTML=`<span class="gt-tab-icon">${ICONES[id]||''}</span><span>${rotulo}</span>`;
       b.addEventListener('click',()=>abrirAba(id)); nav.appendChild(b);
     });
     return sec;
