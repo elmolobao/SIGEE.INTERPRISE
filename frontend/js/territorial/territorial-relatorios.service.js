@@ -9,12 +9,13 @@ function master(){return perfil()==='Master';}
 function exigir(){if(!master())throw new Error('Acesso restrito ao perfil Master.');const c=cliente();if(!c)throw new Error('Cliente Supabase indisponível.');return c;}
 async function carregarNte(nte){
   const c=exigir(), n=Number(nte); if(!n) throw new Error('Selecione um NTE.');
-  const [agenda,monitor,notifs]=await Promise.all([
+  const [agenda,monitor,notifs,pesquisa]=await Promise.all([
     c.from('gt_agenda').select('*').contains('ntes',[n]).order('inicio',{ascending:true}),
     c.from('gt_monitoramento').select('*').eq('nte_numero',n).order('data_registro',{ascending:true}),
-    c.from('gt_monitoramento_notificacoes').select('*').eq('nte_numero',n).order('data_notificacao',{ascending:true})
+    c.from('gt_monitoramento_notificacoes').select('*').eq('nte_numero',n).order('data_notificacao',{ascending:true}),
+    c.from('gt_pesquisa_satisfacao').select('*').eq('nte_numero',n).order('data_resposta',{ascending:true})
   ]);
-  if(agenda.error)throw agenda.error;if(monitor.error)throw monitor.error;if(notifs.error)throw notifs.error;
+  if(agenda.error)throw agenda.error;if(monitor.error)throw monitor.error;if(notifs.error)throw notifs.error;if(pesquisa.error)throw pesquisa.error;
   const ocorrencias=monitor.data||[], ids=ocorrencias.map(x=>x.id), acoes=[];
   if(ids.length){
     const ra=await c.from('gt_monitoramento_acoes').select('*').in('monitoramento_id',ids).order('data_acao',{ascending:true});
@@ -27,12 +28,12 @@ async function carregarNte(nte){
       rows.forEach(x=>acoes.push({...x,tecnicos:mapa.get(x.id)||[]}));
     }
   }
-  return {agenda:agenda.data||[],ocorrencias,acoes,notificacoes:notifs.data||[]};
+  return {agenda:agenda.data||[],ocorrencias,acoes,notificacoes:notifs.data||[],pesquisa:pesquisa.data||[]};
 }
 async function salvarNotificacao(payload){
   const svc=window.SIGEE_TERRITORIAL_MONITORAMENTO_SERVICE;
   if(!svc?.salvarNotificacao) throw new Error('Serviço de notificações indisponível.');
   return svc.salvarNotificacao(payload);
 }
-window.SIGEE_TERRITORIAL_RELATORIOS_SERVICE=Object.freeze({carregarNte,salvarNotificacao,master,versao:'GT-05.0'});
+window.SIGEE_TERRITORIAL_RELATORIOS_SERVICE=Object.freeze({carregarNte,salvarNotificacao,master,versao:'GT-05.2'});
 })(window);
