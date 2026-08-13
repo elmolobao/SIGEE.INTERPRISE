@@ -14,7 +14,7 @@ const C=Object.freeze({
     'indicadores.visualizar':1,'relatorios.visualizar':1,'relatorios.exportar':1,'produtividade.visualizar':1,
     'escolas.visualizar':1,'escolas.editar_operacional':1,'escolas.editar_cadastral':1,'escolas.excluir':1,'escolas.importar':1,'escolas.exportar':1,
     'usuarios.visualizar':1,'usuarios.visualizar_nte':1,'usuarios.gerenciar_nte':1,'usuarios.gerenciar_global':1,
-    'logs.visualizar':1,'migracao.executar':1,'sistema.suspender_nte':1
+    'logs.visualizar':1,'migracao.executar':1,'sistema.suspender_nte':1,'gestao_territorial.gerenciar':1
   }),
   SEC:Object.freeze({
     'escopo.global':1,'processos.visualizar':1,'indicadores.visualizar':1,'relatorios.visualizar':1,'relatorios.exportar':1,'produtividade.visualizar':1,'escolas.visualizar':1
@@ -66,5 +66,5 @@ function apply(){
  const p=profile(u);document.body.dataset.sigeePerfil=p;document.body.dataset.sigeeEscopo=can('escopo.global',u)?'GLOBAL':'NTE';
  return true;
 }
-window.SIGEE_PERMISSOES=Object.freeze({MATRIZ:C,LEGADO,pode:can,exigir:requireCapability,aplicar:apply,perfil:profile,capacidade:capability,gestorSecGlobal,versao:'RC10.8.40'});
+window.SIGEE_PERMISSOES=Object.freeze({MATRIZ:C,LEGADO,pode:can,exigir:requireCapability,aplicar:apply,perfil:profile,capacidade:capability,gestorSecGlobal,versao:'GT-01.0'});
 })(window);

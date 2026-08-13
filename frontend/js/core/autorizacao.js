@@ -19,7 +19,8 @@ const ROTAS = Object.freeze({
   'centro-inteligencia': 'indicadores.visualizar',
   'nova-solicitacao': 'processos.criar',
   relatorios: 'relatorios.visualizar',
-  'migracao-historica': 'migracao.executar'
+  'migracao-historica': 'migracao.executar',
+  'gestao-territorial': 'gestao_territorial.gerenciar'
 });
 
 const MENU_PRINCIPAL = Object.freeze([
@@ -32,6 +33,7 @@ const MENU_PRINCIPAL = Object.freeze([
 ]);
 
 const MENU_ADMIN = Object.freeze([
+  { id:'menu-gestao-territorial', rota:'gestao-territorial', icone:'🗺️', rotulo:'Gestão Territorial', capacidade:'gestao_territorial.gerenciar', perfis:['Master'] },
   { id:'menu-usuarios', rota:'usuarios', icone:'👥', rotulo:'Usuários', capacidade:['usuarios.gerenciar_global','usuarios.gerenciar_nte','usuarios.visualizar_nte'], perfis:['Master','Gestor','Administrador'] },
   { id:'menu-logs', rota:'logs', icone:'📜', rotulo:'Histórico de Atividades', capacidade:'logs.visualizar', perfis:['Master'] },
   { id:'menu-diagnostico', rota:'diagnostico', icone:'🩺', rotulo:'Centro de Diagnóstico', capacidade:'logs.visualizar', perfis:['Master'] },
@@ -309,7 +311,7 @@ function garantirRotaVisivel(rota){
     usuarios:'aba-usuarios', logs:'aba-logs', diagnostico:'aba-diagnostico',
     'controle-acesso-ntes':'aba-controle-acesso-ntes', relatorios:'aba-painel',
     'sala-situacao':'aba-sala-situacao', 'centro-inteligencia':'aba-painel',
-    'migracao-historica':'aba-migracao-historica'
+    'migracao-historica':'aba-migracao-historica', 'gestao-territorial':'aba-gestao-territorial'
   };
   const id=mapa[rota];
   if(!id)return;
@@ -399,6 +401,12 @@ function navegarPara(rota, opcoes={}){
     if(window.SIGEE_MIGRACAO_HISTORICA?.abrir) window.SIGEE_MIGRACAO_HISTORICA.abrir();
     else garantirRotaVisivel('migracao-historica');
     return true;
+  }
+
+  if (rota === 'gestao-territorial') {
+    if(window.SIGEE_GESTAO_TERRITORIAL?.abrir) return window.SIGEE_GESTAO_TERRITORIAL.abrir();
+    alert('A Central de Gestão Territorial ainda não concluiu o carregamento.');
+    return false;
   }
 
   const destino = rotaCanonica(rota);
