@@ -20,11 +20,20 @@
   function nteUsuario(){const u=usuario()||{}; return nteNumero(u.nte_id ?? u.nte ?? u.nte_nome);}
   function erroBanco(error){
     const msg=String(error?.message||error||'Erro desconhecido');
-    if(/gt_agenda|relation .* does not exist|schema cache/i.test(msg)) {
-      const e=new Error('A Agenda Institucional ainda não foi habilitada no Supabase. Execute o SQL GT-02 antes de usar este recurso.');
-      e.code='GT02_SCHEMA_AUSENTE'; throw e;
+    const code=String(error?.code||'');
+    // Somente erros reais de tabela/relação ausente devem ser traduzidos como schema ausente.
+    // Antes, qualquer mensagem contendo "gt_agenda" era mascarada, inclusive erros de coluna, tipo ou constraint.
+    if(code==='42P01' || code==='PGRST205' || /relation [\"']?(public\.)?gt_agenda[\"']? does not exist/i.test(msg)) {
+      const e=new Error('A Agenda Institucional não foi localizada pela API do Supabase. As tabelas gt_agenda/gt_agenda_ciencias devem existir e estar expostas no schema public.');
+      e.code='GT02_SCHEMA_AUSENTE';
+      e.cause=error;
+      throw e;
     }
-    throw error;
+    const detalhe=[error?.details,error?.hint].filter(Boolean).join(' | ');
+    const e=new Error(`Falha ao gravar/consultar a Agenda no Supabase: ${msg}${detalhe?` — ${detalhe}`:''}`);
+    e.code=code||'GT_AGENDA_DB_ERROR';
+    e.cause=error;
+    throw e;
   }
   function sanitizarNtes(ntes){
     return [...new Set((Array.isArray(ntes)?ntes:[]).map(Number).filter(n=>n>=1&&n<=27))].sort((a,b)=>a-b);
@@ -118,5 +127,5 @@
     return true;
   }
 
-  window.SIGEE_TERRITORIAL_AGENDA_SERVICE=Object.freeze({listar,salvar,excluir,notificacoesUsuario,marcarVisualizado,confirmarCiencia,nteUsuario,master,versao:'GT-02.0'});
+  window.SIGEE_TERRITORIAL_AGENDA_SERVICE=Object.freeze({listar,salvar,excluir,notificacoesUsuario,marcarVisualizado,confirmarCiencia,nteUsuario,master,versao:'GT-03.1.1'});
 })(window);
