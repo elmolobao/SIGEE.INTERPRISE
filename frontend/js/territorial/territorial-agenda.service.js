@@ -63,6 +63,7 @@
       fim:payload.fim||payload.inicio,
       modalidade:String(payload.modalidade||'PRESENCIAL').toUpperCase(),
       local:String(payload.local||'').trim()||null,
+      motivo:String(payload.motivo||'').trim()||null,
       objetivo:String(payload.objetivo||'').trim()||null,
       pauta:String(payload.pauta||'').trim()||null,
       situacao:String(payload.situacao||'AGENDADO').toUpperCase(),
@@ -127,5 +128,5 @@
     return true;
   }
 
-  window.SIGEE_TERRITORIAL_AGENDA_SERVICE=Object.freeze({listar,salvar,excluir,notificacoesUsuario,marcarVisualizado,confirmarCiencia,nteUsuario,master,versao:'GT-03.1.1'});
+  window.SIGEE_TERRITORIAL_AGENDA_SERVICE=Object.freeze({listar,salvar,excluir,notificacoesUsuario,marcarVisualizado,confirmarCiencia,nteUsuario,master,versao:'GT-04.0'});
 })(window);

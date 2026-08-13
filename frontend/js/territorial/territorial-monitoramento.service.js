@@ -44,7 +44,15 @@ async function buscarProcessos(nte,termo){
   if(locais.length)return locais;
   const c=exigir();const safe=q.replace(/[%_,]/g,'');const {data,error}=await c.from('processos').select('id,codigo_sigee,aluno_nome,nte').or(`codigo_sigee.ilike.%${safe}%,aluno_nome.ilike.%${safe}%`).limit(40);if(error){console.warn(error);return[];}return(data||[]).filter(p=>processoNte(p)===n).slice(0,12).map(p=>({id:p.id,codigo_sigee:p.codigo_sigee,aluno_nome:p.aluno_nome}));
 }
+
+async function listarAgendaAtuacoes(){
+  const c=exigir();
+  const {data,error}=await c.from('gt_agenda').select('id,tipo,titulo,motivo,objetivo,inicio,fim,situacao,ntes').in('tipo',['REUNIAO','VISITA_TECNICA']).eq('situacao','REALIZADO').order('inicio',{ascending:false});
+  if(error){console.warn('[GT-04] Falha ao carregar reuniões/visitas:',error);return[];}
+  return data||[];
+}
+
 async function listarNotificacoes(nte){const c=exigir();let q=c.from(NOTIFS).select('*').order('data_notificacao',{ascending:false});if(nte)q=q.eq('nte_numero',Number(nte));const {data,error}=await q;if(error)erroBanco(error);return data||[];}
 async function salvarNotificacao(payload){const c=exigir();const n=numeroNte(payload.nte_numero);if(!n)throw new Error('NTE inválido.');const reg={nte_numero:n,monitoramento_id:payload.monitoramento_id?Number(payload.monitoramento_id):null,data_notificacao:new Date().toISOString(),tipo:'INSTITUCIONAL',numero_documento:txt(payload.numero_documento)||null,referencia_sei:txt(payload.referencia_sei)||null,destinatario:txt(payload.destinatario)||null,assunto:txt(payload.assunto),resumo:txt(payload.resumo)||null,observacoes:txt(payload.observacoes)||null,updated_at:new Date().toISOString(),...autor()};if(!reg.assunto)throw new Error('Informe o assunto da notificação.');const {data,error}=await c.from(NOTIFS).insert(reg).select('*').single();if(error)erroBanco(error);document.dispatchEvent(new CustomEvent('sigee:gt-monitoramento-atualizado'));return data;}
-window.SIGEE_TERRITORIAL_MONITORAMENTO_SERVICE=Object.freeze({listar,salvarOcorrencia,excluir,faseDoNte,listarAcoes,salvarAcao,listarTecnicos,buscarProcessos,listarNotificacoes,salvarNotificacao,master,versao:'GT-03.1'});
+window.SIGEE_TERRITORIAL_MONITORAMENTO_SERVICE=Object.freeze({listar,salvarOcorrencia,excluir,faseDoNte,listarAcoes,salvarAcao,listarTecnicos,buscarProcessos,listarAgendaAtuacoes,listarNotificacoes,salvarNotificacao,master,versao:'GT-04.0'});
 })(window);
