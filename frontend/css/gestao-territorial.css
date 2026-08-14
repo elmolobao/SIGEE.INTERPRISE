@@ -522,3 +522,20 @@
 }
 /* O marcador ativo mantém o centro geográfico; a ampliação não altera a ancoragem. */
 .gt-map-marker.selecionado{transform-origin:50% 50%!important;}
+
+/* ===== GT-06.2.1 — acabamento territorial chapado =====
+   Preserva a geometria institucional; reforça cor/contraste da camada territorial
+   e reduz a interferência visual da base cartográfica. */
+.gt-map-stage>img{
+  filter:saturate(1.34) contrast(1.08) brightness(1.015)!important;
+}
+.gt-map-marker{
+  z-index:6!important;
+}
+.gt-map-marker.selecionado{
+  z-index:9!important;
+  box-shadow:0 0 0 4px #fff,0 0 0 9px rgba(74,222,128,.52),0 0 24px rgba(74,222,128,.42),0 8px 24px rgba(8,35,67,.46)!important;
+}
+.gt-map-marker-label{
+  z-index:10!important;
+}
