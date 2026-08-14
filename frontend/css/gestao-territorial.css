@@ -477,3 +477,21 @@
 .gt-map-detail-head{min-height:86px}.gt-map-detail-head>div>span{font-size:17px!important}.gt-map-detail-head h3{font-size:21px!important}.gt-map-detail-grid{gap:9px!important;margin:12px 0!important}.gt-map-detail-grid>span{min-height:78px!important;padding:10px 11px!important}.gt-map-detail-grid b{font-size:20px!important}.gt-map-kpi-destaque b{font-size:27px!important}
 .gt-map-layer-tabs{margin-top:12px}.gt-map-source{margin-top:8px}
 @media (max-width:1280px) and (min-width:1001px){.gt-map-layout{grid-template-columns:minmax(0,3fr) minmax(340px,1fr)}.gt-map-marker{--gt-marker-size:36px!important}.gt-map-nte-key{width:min(390px,44%)}}
+
+/* ===== GT-06.1.8 — Refinamento cartográfico: textura territorial ===== */
+.gt-map-stage{
+  background:#fff;
+}
+.gt-map-stage>img{
+  filter:contrast(1.07) saturate(1.20) brightness(1.015);
+  image-rendering:auto;
+}
+.gt-map-canvas{
+  box-shadow:0 3px 14px rgba(15,39,64,.08), inset 0 0 0 1px rgba(255,255,255,.55);
+}
+.gt-map-marker{
+  box-shadow:0 3px 10px rgba(8,35,67,.30),0 0 0 1px rgba(8,35,67,.16),inset 0 1px 0 rgba(255,255,255,.28)!important;
+}
+.gt-map-marker.selecionado{
+  box-shadow:0 0 0 4px #fff,0 0 0 8px rgba(74,222,128,.46),0 8px 22px rgba(8,35,67,.42)!important;
+}
