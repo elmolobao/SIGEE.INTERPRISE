@@ -1,7 +1,7 @@
-/** SIGEE Enterprise — GT-05.1.1 Monitoramento Territorial — 4 critérios e seleção explícita. */
+/** SIGEE Enterprise — GT-05.2.4 Monitoramento Territorial — critérios técnicos + Pesquisa de Satisfação. */
 (function(window){
 'use strict';
-if(window.SIGEE_TERRITORIAL_MONITORAMENTO_SERVICE?.versao==='GT-05.1.1') return;
+if(window.SIGEE_TERRITORIAL_MONITORAMENTO_SERVICE?.versao==='GT-05.2.4') return;
 const TABELA='gt_monitoramento', ACOES='gt_monitoramento_acoes', TECNICOS='gt_monitoramento_acao_tecnicos', NOTIFS='gt_monitoramento_notificacoes';
 function cliente(){try{return window.SIGEE_SUPABASE?.criarCliente?.()||window.SIGEE_SUPABASE_CLIENT||window.supabaseClient||null;}catch(_){return null;}}
 function usuario(){return window.SIGEE_SESSION?.getUser?.()||window.usuarioLogado||null;}
@@ -24,8 +24,8 @@ async function salvarOcorrencia(payload){
   const fase=await faseDoNte(nte);
   const item=String(payload.item_monitoria||'').toUpperCase();
   const avaliacao=String(payload.avaliacao||'').toUpperCase();
-  const categoriasPorItem={COMUNICACAO_EMAIL:'COMUNICACAO',REGISTRO_SISTEMA:'CADASTRO',CUMPRIMENTO_PRAZOS:'PRAZO',EXECUCAO_PROCEDIMENTO:'PROCEDIMENTO'};
-  if(!['COMUNICACAO_EMAIL','REGISTRO_SISTEMA','CUMPRIMENTO_PRAZOS','EXECUCAO_PROCEDIMENTO'].includes(item))throw new Error('Selecione o item de monitoria.');
+  const categoriasPorItem={COMUNICACAO_EMAIL:'COMUNICACAO',REGISTRO_SISTEMA:'CADASTRO',CUMPRIMENTO_PRAZOS:'PRAZO',EXECUCAO_PROCEDIMENTO:'PROCEDIMENTO',PESQUISA_SATISFACAO:'PESQUISA'};
+  if(!['COMUNICACAO_EMAIL','REGISTRO_SISTEMA','CUMPRIMENTO_PRAZOS','EXECUCAO_PROCEDIMENTO','PESQUISA_SATISFACAO'].includes(item))throw new Error('Selecione o item de monitoria.');
   if(!['POSITIVA','NEGATIVA'].includes(avaliacao))throw new Error('Selecione se a constatação é positiva ou negativa.');
   const relevancia=String(payload.relevancia||'').toUpperCase();
   if(!['INFORMATIVA','BAIXA','MODERADA','ALTA','CRITICA'].includes(relevancia))throw new Error('Selecione a relevância da constatação.');
@@ -62,5 +62,5 @@ async function listarAgendaAtuacoes(){
 
 async function listarNotificacoes(nte){const c=exigir();let q=c.from(NOTIFS).select('*').order('data_notificacao',{ascending:false});if(nte)q=q.eq('nte_numero',Number(nte));const {data,error}=await q;if(error)erroBanco(error);return data||[];}
 async function salvarNotificacao(payload){const c=exigir();const n=numeroNte(payload.nte_numero);if(!n)throw new Error('NTE inválido.');const reg={nte_numero:n,monitoramento_id:payload.monitoramento_id?Number(payload.monitoramento_id):null,data_notificacao:new Date().toISOString(),tipo:'INSTITUCIONAL',numero_documento:txt(payload.numero_documento)||null,referencia_sei:txt(payload.referencia_sei)||null,destinatario:txt(payload.destinatario)||null,assunto:txt(payload.assunto),resumo:txt(payload.resumo)||null,observacoes:txt(payload.observacoes)||null,updated_at:new Date().toISOString(),...autor()};if(!reg.assunto)throw new Error('Informe o assunto da notificação.');const {data,error}=await c.from(NOTIFS).insert(reg).select('*').single();if(error)erroBanco(error);document.dispatchEvent(new CustomEvent('sigee:gt-monitoramento-atualizado'));return data;}
-window.SIGEE_TERRITORIAL_MONITORAMENTO_SERVICE=Object.freeze({listar,salvarOcorrencia,excluir,faseDoNte,listarAcoes,salvarAcao,listarTecnicos,buscarProcessos,listarAgendaAtuacoes,listarNotificacoes,salvarNotificacao,master,versao:'GT-05.1.1'});
+window.SIGEE_TERRITORIAL_MONITORAMENTO_SERVICE=Object.freeze({listar,salvarOcorrencia,excluir,faseDoNte,listarAcoes,salvarAcao,listarTecnicos,buscarProcessos,listarAgendaAtuacoes,listarNotificacoes,salvarNotificacao,master,versao:'GT-05.2.4'});
 })(window);

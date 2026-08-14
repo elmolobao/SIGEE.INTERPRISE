@@ -1,12 +1,12 @@
-/** SIGEE Enterprise — GT-04.1 Painel de cobertura + filtro NTE + Dossiê Territorial. */
+/** SIGEE Enterprise — GT-05.2.4 Painel de cobertura + Dossiê Territorial. */
 (function(window,document){
 'use strict';
-if(window.SIGEE_TERRITORIAL_FORMACOES?.versao==='GT-05.1') return;
+if(window.SIGEE_TERRITORIAL_FORMACOES?.versao==='GT-05.2.4') return;
 let agenda=[],monitor=[];
 const STATUS={CONCLUIDA:'Concluída',EM_REALIZACAO:'Em realização',AGENDADA:'Agendada',PENDENTE:'Pendente'};
 const TIPOS={REUNIAO:'Reunião',ALINHAMENTO_TECNICO:'Alinhamento técnico',FORMACAO_TERRITORIAL:'Formação territorial',VISITA_TECNICA:'Visita técnica',ACOMPANHAMENTO:'Acompanhamento',OUTRA:'Outra atividade'};
 const ACOES={ORIENTACAO:'Orientação',ALINHAMENTO:'Alinhamento técnico',INTERVENCAO:'Intervenção'};
-const ITENS_MONITORIA={COMUNICACAO_EMAIL:'Comunicação por e-mail',REGISTRO_SISTEMA:'Registro em sistema',CUMPRIMENTO_PRAZOS:'Cumprimento de prazos'};
+const ITENS_MONITORIA={COMUNICACAO_EMAIL:'Comunicação por e-mail',REGISTRO_SISTEMA:'Registro em sistema',CUMPRIMENTO_PRAZOS:'Cumprimento de prazos',EXECUCAO_PROCEDIMENTO:'Execução de procedimento',PESQUISA_SATISFACAO:'Pesquisa de Satisfação'};
 function svc(){const s=window.SIGEE_TERRITORIAL_FORMACOES_SERVICE;if(!s)throw new Error('Serviço de Formações indisponível.');return s;}
 function esc(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
 function fmt(v,opt={}){if(!v)return'—';try{return new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',...(opt.hora?{timeStyle:'short'}:{})}).format(new Date(v));}catch(_){return String(v);}}
@@ -28,6 +28,6 @@ function bind(root){root.querySelectorAll('[data-dossie-nte]').forEach(b=>b.addE
 function atualizarLista(root){root.querySelector('#gtf-lista').innerHTML=tabela(dadosFiltrados(root));bind(root);syncCards(root);}
 function render(root){root=root||document.querySelector('#gt-conteudo');if(!root)return;root.innerHTML=`<article class="gt-panel gt-panel-full gt-formacoes"><header><div><span>FORMAÇÕES TERRITORIAIS • GT-04.2</span><h2>Cobertura e atuação por território</h2><p>A formação concluída define o marco do pós-formação. Use o filtro por NTE ou abra o dossiê para consultar todo o histórico territorial.</p></div><span class="gt-status">27 NTEs monitorados</span></header>${resumo()}<div class="gt-formacao-toolbar gt-formacao-toolbar-3"><label>NTE<select id="gtf-nte"><option value="">Todos</option>${ntes().map(n=>`<option value="${n.numero}">${n.codigo} — ${esc(n.sede)}</option>`).join('')}</select></label><label>Situação<select id="gtf-status"><option value="">Todas</option><option value="PROXIMAS">Agendada / em realização</option>${Object.entries(STATUS).filter(([v])=>!['AGENDADA','EM_REALIZACAO'].includes(v)).map(([v,l])=>`<option value="${v}">${l}</option>`).join('')}<option value="AGENDADA">Somente agendada</option><option value="EM_REALIZACAO">Somente em realização</option></select></label><label>Ordenar<select id="gtf-ordem"><option value="NTE">Número do NTE</option><option value="PENDENTES">Pendentes primeiro</option><option value="CONCLUIDAS">Concluídas primeiro</option></select></label><small>“Ver território” consolida Agenda, monitoria positiva/negativa, ações e notificações.</small></div><div id="gtf-lista">${tabela(ntes().map(n=>({n,status:statusFormacao(n.numero),form:primeiraFormacao(n.numero),m:metricasNte(n.numero)})))}</div></article>`;['#gtf-nte','#gtf-status','#gtf-ordem'].forEach(s=>root.querySelector(s)?.addEventListener('change',()=>atualizarLista(root)));bind(root);syncCards(root);}
 async function carregar(root){root=root||document.querySelector('#gt-conteudo');if(!root)return;root.innerHTML='<div class="gt-empty">Carregando cobertura das formações...</div>';try{const d=await svc().carregar();agenda=d.agenda||[];monitor=d.monitoramento||[];render(root);}catch(e){root.innerHTML=`<div class="gt-agenda-alert"><strong>Não foi possível carregar as formações</strong><span>${esc(e.message||e)}</span></div>`;}}
-window.SIGEE_TERRITORIAL_FORMACOES=Object.freeze({render,carregar,abrirDossie,versao:'GT-05.1'});
+window.SIGEE_TERRITORIAL_FORMACOES=Object.freeze({render,carregar,abrirDossie,versao:'GT-05.2.4'});
 document.addEventListener('sigee:gt-agenda-atualizada',()=>{if(document.querySelector('.gt-formacoes'))carregar();});
 })(window,document);
