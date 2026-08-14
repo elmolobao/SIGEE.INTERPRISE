@@ -3479,6 +3479,93 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         };
     }
 
+    // RC10.8.39 — seleção autoritativa do responsável pelo Desarquivamento.
+    // Motivo: o projeto possui múltiplas implementações legadas de
+    // preencherSelectTecnicosPorNte; algumas usam apenas o cache usuariosDB e
+    // podem deixar o select vazio mesmo com técnicos ativos no Supabase.
+    window.preencherResponsaveisDesarquivamentoSIGEE = async function(selectId, nteFiltro){
+        const select = document.getElementById(selectId);
+        if(!select) return [];
+
+        const txtR = v => (v == null ? '' : String(v).trim());
+        const normR = v => txtR(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
+        const nteNumR = v => {
+            const m = txtR(v).match(/NTE\s*[- ]?\s*(\d{1,2})/i);
+            if(m) return Number(m[1]);
+            const soNumero = txtR(v).match(/^\s*(\d{1,2})\s*$/);
+            return soNumero ? Number(soNumero[1]) : null;
+        };
+        const nteTextoR = u => {
+            if(!u) return '';
+            const direto = txtR(u.nte || u.nte_nome || u.nte_vinculado || u.grupo);
+            if(direto) return direto;
+            const id = Number(u.nte_id);
+            if(id && typeof obterNomeNtePorIdSIGEE_V19 === 'function') {
+                try { return txtR(obterNomeNtePorIdSIGEE_V19(id)); } catch(_) {}
+            }
+            return id ? `NTE-${String(id).padStart(2,'0')}` : '';
+        };
+        const mesmoNteR = (a,b) => {
+            const na = nteNumR(a), nb = nteNumR(b);
+            if(na && nb) return na === nb;
+            return normR(a).replace(/[^A-Z0-9]/g,'') === normR(b).replace(/[^A-Z0-9]/g,'');
+        };
+        const perfilR = u => normR(u?.perfil || u?.role || u?.tipo_perfil || u?.tipo || '');
+        const ativoR = u => u && u.ativo !== false && normR(u.status || 'ATIVO') !== 'INATIVO';
+        const elegivelR = u => {
+            const pf = perfilR(u);
+            return ativoR(u) && (pf.includes('TECNIC') || pf.includes('ADMIN'));
+        };
+
+        select.disabled = true;
+        select.innerHTML = '<option value="">Carregando servidores...</option>';
+        const mapa = new Map();
+        const adicionar = u => {
+            if(!u) return;
+            const item = {...u, nome: txtR(u.nome || u.nome_completo || u.display_name || u.email), nte: nteTextoR(u)};
+            if(!item.nome) return;
+            const chave = normR(u.email || item.nome) + '|' + normR(item.nte);
+            if(chave && !mapa.has(chave)) mapa.set(chave,item);
+        };
+
+        try { (Array.isArray(window.usuariosDB) ? window.usuariosDB : []).forEach(adicionar); } catch(_) {}
+        try {
+            const c = typeof obterSupabaseSIGEE === 'function' ? obterSupabaseSIGEE() : null;
+            if(c){
+                const {data,error} = await c.from('usuarios_sigee').select('*');
+                if(error) throw error;
+                (data || []).forEach(adicionar);
+            }
+        } catch(e) {
+            console.warn('[SIGEE RC10.8.39] Não foi possível complementar responsáveis do Desarquivamento pelo Supabase.', e);
+        }
+
+        const nteBase = txtR(nteFiltro || usuarioLogado?.nte || '');
+        let lista = [...mapa.values()].filter(elegivelR);
+        if(nteBase) lista = lista.filter(u => mesmoNteR(u.nte, nteBase));
+        lista.sort((a,b) => txtR(a.nome).localeCompare(txtR(b.nome),'pt-BR'));
+
+        select.innerHTML = '<option value="">-- Selecione o Servidor --</option>';
+        lista.forEach(u => {
+            const opt = document.createElement('option');
+            opt.value = u.nome;
+            opt.textContent = `${u.nome}${u.nte ? ' — ' + u.nte : ''}`;
+            opt.dataset.nte = u.nte || '';
+            opt.dataset.perfil = txtR(u.perfil || '');
+            select.appendChild(opt);
+        });
+        if(!lista.length){
+            const opt = document.createElement('option');
+            opt.disabled = true;
+            opt.textContent = `Nenhum técnico/administrador ativo localizado para ${nteBase || 'este NTE'}`;
+            select.appendChild(opt);
+            console.warn(`[SIGEE RC10.8.39] Nenhum responsável de Desarquivamento localizado para ${nteBase || 'NTE não identificado'}.`);
+        }
+        select.disabled = false;
+        try { window.validarDesarquivamentoV27?.(); } catch(_) {}
+        return lista;
+    };
+
     // RC10.8.37 — Recebimento da pasta -> Desarquivamento
     // O recebimento físico/operacional da pasta não encaminha mais o processo
     // diretamente para Análise. Nesta triagem, define-se o responsável pelo
@@ -3488,7 +3575,10 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         document.getElementById('f00-id').value = p.id;
         ['f00-tipo','f00-local','f00-prioridade'].forEach(i=>{ const el=document.getElementById(i); if(el) el.value=''; });
         const chkRecebimento=document.getElementById('f00-chk-email'); if(chkRecebimento) chkRecebimento.checked=false;
-        preencherSelectTecnicosPorNte('f00-analista', p.nte || usuarioLogado?.nte || '');
+        // RC10.8.39 — o Recebimento da Pasta usa fonte autoritativa própria.
+        // Não depende do cache legado usuariosDB nem das várias sobrescritas de
+        // preencherSelectTecnicosPorNte existentes no app.
+        window.preencherResponsaveisDesarquivamentoSIGEE?.('f00-analista', p.nte || usuarioLogado?.nte || '');
         setDisabled('f00-submit', true); setTexto('f00-submit','Enviar para Desarquivamento');
         if(typeof aplicarEstadoCamposDesarquivamentoSIGEE === 'function') aplicarEstadoCamposDesarquivamentoSIGEE(false);
         const cont=document.getElementById('f00-container-alertas');
