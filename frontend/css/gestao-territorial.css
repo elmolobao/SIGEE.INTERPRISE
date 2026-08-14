@@ -205,3 +205,102 @@
 .gt-map-marker.des-critico,.gt-map-legend i.des-critico,.gt-map-marker.pri-prioritaria,.gt-map-legend i.pri-prioritaria{background:#ffd0d0;color:#9b1c1c}
 @media(max-width:1000px){.gt-map-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.gt-map-toolbar{grid-template-columns:1fr 1fr}.gt-map-toolbar small{grid-column:1/-1}.gt-map-layout{grid-template-columns:1fr}.gt-map-detail{position:static}.gt-map-canvas{min-height:460px}.gt-map-canvas>img{min-height:460px}}
 @media(max-width:640px){.gt-map-kpis,.gt-map-toolbar{grid-template-columns:1fr}.gt-map-canvas{min-height:390px}.gt-map-canvas>img{min-height:390px}.gt-map-detail-kpis{grid-template-columns:1fr 1fr}.gt-map-marker{--gt-marker-size:28px!important;font-size:10px}}
+
+
+/* ===== GT-06.1 — Mapa territorial: nitidez, contraste e marcadores de alta visibilidade ===== */
+.gt-map-canvas{
+  background:#fff;
+  border-color:#cbd9e8;
+  border-radius:18px;
+  min-height:620px;
+  box-shadow:inset 0 0 0 1px rgba(2,106,167,.03);
+}
+.gt-map-canvas>img{
+  display:block;
+  width:100%;
+  height:auto;
+  min-height:0;
+  object-fit:contain;
+  object-position:center top;
+  image-rendering:auto;
+  filter:contrast(1.045) saturate(1.12);
+  backface-visibility:hidden;
+  transform:translateZ(0);
+}
+.gt-map-marker{
+  --gt-marker-size:44px;
+  border:4px solid #fff;
+  box-shadow:0 3px 10px rgba(8,35,67,.34),0 0 0 1px rgba(8,35,67,.15);
+  font-size:14px;
+  font-weight:900;
+  color:#fff;
+  text-shadow:0 1px 2px rgba(0,0,0,.28);
+  transition:transform .16s ease,box-shadow .16s ease,filter .16s ease;
+}
+.gt-map-marker:hover{
+  transform:translate(-50%,-50%) scale(1.18);
+  box-shadow:0 5px 18px rgba(8,35,67,.44),0 0 0 4px rgba(255,255,255,.72);
+  filter:saturate(1.08) brightness(1.03);
+  z-index:10;
+}
+.gt-map-marker.selecionado{
+  transform:translate(-50%,-50%) scale(1.27);
+  outline:0;
+  box-shadow:0 0 0 4px #fff,0 0 0 8px rgba(23,133,69,.44),0 7px 24px rgba(8,35,67,.5);
+  z-index:14;
+}
+.gt-map-marker.form-concluida,.gt-map-legend i.form-concluida,
+.gt-map-marker.des-excelente,.gt-map-legend i.des-excelente{background:#16a34a;color:#fff}
+.gt-map-marker.form-em_realizacao,.gt-map-legend i.form-em_realizacao,
+.gt-map-marker.des-bom,.gt-map-legend i.des-bom{background:#1473e6;color:#fff}
+.gt-map-marker.form-agendada,.gt-map-legend i.form-agendada,
+.gt-map-marker.des-atencao,.gt-map-legend i.des-atencao,
+.gt-map-marker.pri-moderada,.gt-map-legend i.pri-moderada{background:#f6c400;color:#172033;text-shadow:none}
+.gt-map-marker.form-pendente,.gt-map-legend i.form-pendente,
+.gt-map-marker.des-critico,.gt-map-legend i.des-critico,
+.gt-map-marker.pri-prioritaria,.gt-map-legend i.pri-prioritaria{background:#ef3038;color:#fff}
+.gt-map-marker.des-alerta,.gt-map-legend i.des-alerta,
+.gt-map-marker.pri-alta,.gt-map-legend i.pri-alta{background:#f97316;color:#fff}
+.gt-map-marker.pri-baixa,.gt-map-legend i.pri-baixa{background:#1473e6;color:#fff}
+.gt-map-marker.neutral,.gt-map-legend i.neutral{background:#94a3b8;color:#fff}
+.gt-map-legend{
+  gap:10px 20px;
+  padding:12px 14px;
+  background:#fff;
+  border-color:#d9e4ef;
+}
+.gt-map-legend span{font-size:13px;font-weight:700;color:#243b53}
+.gt-map-legend i{width:16px;height:16px;border:2px solid #fff;box-shadow:0 0 0 1px rgba(15,39,64,.18)}
+.gt-map-detail{
+  border:1px solid #173d6d;
+  background:linear-gradient(180deg,#0b2b58 0%,#071d3e 100%);
+  box-shadow:0 14px 28px rgba(7,29,62,.22);
+  color:#fff;
+}
+.gt-map-detail>div:first-child span{color:#35a7ff;font-size:13px}
+.gt-map-detail h3{color:#fff;font-size:20px;margin-top:5px}
+.gt-map-detail small{color:#d6e4f3}
+.gt-map-detail-kpis span{
+  border-color:rgba(255,255,255,.24);
+  background:rgba(255,255,255,.035);
+  color:#b9cbe0;
+  min-height:64px;
+}
+.gt-map-detail-kpis b{color:#fff;font-size:17px}
+.gt-map-detail button{
+  min-height:46px;
+  background:#0b82d8;
+  box-shadow:0 7px 18px rgba(0,122,211,.22);
+  font-size:14px;
+}
+.gt-map-detail button:hover{background:#1496ee}
+.gt-map-source{font-size:12px}
+@media(max-width:1000px){
+  .gt-map-canvas{min-height:520px}
+  .gt-map-canvas>img{min-height:0}
+}
+@media(max-width:640px){
+  .gt-map-canvas{min-height:420px}
+  .gt-map-canvas>img{min-height:0}
+  .gt-map-marker{--gt-marker-size:36px!important;font-size:12px;border-width:3px}
+}
