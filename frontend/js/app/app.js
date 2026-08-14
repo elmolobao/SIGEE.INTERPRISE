@@ -3479,14 +3479,17 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         };
     }
 
-    // 00 - Desarquivamento: Documento Recebido -> Análise
+    // RC10.8.37 — Recebimento da pasta -> Desarquivamento
+    // O recebimento físico/operacional da pasta não encaminha mais o processo
+    // diretamente para Análise. Nesta triagem, define-se o responsável pelo
+    // Desarquivamento e inicia-se/reinicia-se o prazo operacional de 30 dias.
     window.abrirModalFluxoDesarquivamento = function(id){
         const p = obterProcessoSIGEE(id); if(!p) return;
         document.getElementById('f00-id').value = p.id;
         ['f00-tipo','f00-local','f00-prioridade'].forEach(i=>{ const el=document.getElementById(i); if(el) el.value=''; });
-        const chkEmail=document.getElementById('f00-chk-email'); if(chkEmail) chkEmail.checked=false;
+        const chkRecebimento=document.getElementById('f00-chk-email'); if(chkRecebimento) chkRecebimento.checked=false;
         preencherSelectTecnicosPorNte('f00-analista', p.nte || usuarioLogado?.nte || '');
-        setDisabled('f00-submit', true); setTexto('f00-submit','Enviar para Análise');
+        setDisabled('f00-submit', true); setTexto('f00-submit','Enviar para Desarquivamento');
         if(typeof aplicarEstadoCamposDesarquivamentoSIGEE === 'function') aplicarEstadoCamposDesarquivamentoSIGEE(false);
         const cont=document.getElementById('f00-container-alertas');
         if(cont){
@@ -3505,7 +3508,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         event.preventDefault();
         const p = obterProcessoSIGEE(valor('f00-id')); if(!p) return;
         if(!valor('f00-tipo') || !valor('f00-local') || !valor('f00-prioridade') || !valor('f00-analista') || !chk('f00-chk-email')){
-            alert('Preencha todos os campos obrigatórios e confirme o envio do E-mail 02.');
+            alert('Preencha todos os campos obrigatórios, selecione o responsável e confirme o recebimento da pasta.');
             return;
         }
 
@@ -3514,8 +3517,8 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         const tipoArquivo = valor('f00-tipo');
         const localArquivo = valor('f00-local');
         const prioridade = valor('f00-prioridade');
-        const analista = valor('f00-analista');
-        const prazoFim = new Date(Date.now() + 7 * 86400000).toISOString();
+        const responsavelDesarquivamento = valor('f00-analista');
+        const prazoFim = new Date(Date.now() + 30 * 86400000).toISOString();
         const cliente = obterSupabaseSIGEE();
 
         if (!cliente) {
@@ -3523,30 +3526,24 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             return;
         }
 
-        /*
-         * RC6.1.3 — Persistência segura do Documento Recebido.
-         * Atualiza somente campos operacionais por ID. Não envia escola_id,
-         * escola_nome, aluno_nome, NTE, código MEC ou outros dados cadastrais.
-         */
         const atualizacaoOperacional = {
-            etapa_atual: 'Análise',
-            etapa_codigo: 'ANA',
+            etapa_atual: 'Desarquivamento',
+            etapa_codigo: 'DES',
             data_etapa_atual: recebidoEmSIGEE,
-            prazo_etapa: 7,
+            prazo_etapa: 30,
             prazo_inicio: recebidoEmSIGEE,
             prazo_fim: prazoFim,
             prioridade: prioridade,
-            tecnico_responsavel: analista,
+            tecnico_responsavel: responsavelDesarquivamento,
             workflow_ciclo: cicloAtual,
             ciclo: cicloAtual,
-            ultimo_evento_workflow: 'DOCUMENTO_RECEBIDO',
-            ultima_mensagem_workflow: '02',
-            contexto_analise: 'DOCUMENTO_RECEBIDO',
+            ultimo_evento_workflow: 'PASTA_RECEBIDA',
+            contexto_analise: null,
             updated_at: recebidoEmSIGEE
         };
 
         setDisabled('f00-submit', true);
-        setTexto('f00-submit', 'Registrando...');
+        setTexto('f00-submit', 'Enviando...');
 
         try {
             const tabelaProcessos = (window.SIGEE_SUPABASE_TABELAS && window.SIGEE_SUPABASE_TABELAS.processos) || 'processos';
@@ -3554,7 +3551,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 .from(tabelaProcessos)
                 .update(atualizacaoOperacional)
                 .eq('id', p.id)
-                .select('id,etapa_atual,etapa_codigo,data_etapa_atual,prazo_etapa,prazo_inicio,prazo_fim,prioridade,tecnico_responsavel,workflow_ciclo,ciclo,ultimo_evento_workflow,ultima_mensagem_workflow,contexto_analise,updated_at')
+                .select('id,etapa_atual,etapa_codigo,data_etapa_atual,prazo_etapa,prazo_inicio,prazo_fim,prioridade,tecnico_responsavel,workflow_ciclo,ciclo,ultimo_evento_workflow,contexto_analise,updated_at')
                 .maybeSingle();
 
             if (erroProcesso) throw erroProcesso;
@@ -3562,55 +3559,40 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 throw new Error('O Supabase não confirmou a atualização do processo correto.');
             }
 
-            // Atualiza somente os campos operacionais no objeto em memória.
             Object.assign(p, atualizacaoOperacional, {
-                etapa: 'Análise',
-                fase_atual: 'Análise',
+                etapa: 'Desarquivamento',
+                fase_atual: 'Desarquivamento',
                 tipo_arquivo: tipoArquivo,
                 local_arquivo: localArquivo,
-                analista: analista,
-                analista_nome: analista,
-                tecnico_responsavel_nome: analista,
-                data_arquivo_recebido: recebidoEmSIGEE
+                responsavel: responsavelDesarquivamento,
+                responsavel_nome: responsavelDesarquivamento,
+                tecnico_responsavel_nome: responsavelDesarquivamento,
+                data_pasta_recebida: recebidoEmSIGEE
             });
 
-            const historicoPayload = {
+            const pastaPayload = {
                 processo_id: p.id,
                 workflow_instance_id: p.workflow_instance_id || null,
                 codigo_sigee: p.codigo_sigee || null,
                 nte: p.nte || usuarioLogado?.nte || null,
-                etapa: 'Análise',
-                acao: 'DOCUMENTO_RECEBIDO',
-                observacao: `Documento recebido (${tipoArquivo}) no local ${localArquivo}. E-mail 02 confirmado. Processo encaminhado para Análise sem reinício do ciclo.`,
+                etapa: 'Desarquivamento',
+                acao: 'PASTA_RECEBIDA',
+                observacao: `Pasta/acervo recebido (${tipoArquivo}) no local ${localArquivo}. Processo encaminhado ao Desarquivamento sob responsabilidade de ${responsavelDesarquivamento}.`,
                 usuario_nome: usuarioLogado?.nome || usuarioLogado?.email || null,
                 usuario_email: usuarioLogado?.email || null,
                 usuario_perfil: usuarioLogado?.perfil || null,
                 dados: {
-                    etapa_origem: 'Desarquivamento',
-                    etapa_destino: 'Análise',
-                    mensagem: '02',
+                    etapa_origem: p.etapa_atual || p.etapa || null,
+                    etapa_destino: 'Desarquivamento',
                     ciclo: cicloAtual,
                     tipo_arquivo: tipoArquivo,
                     local_arquivo: localArquivo,
                     prioridade: prioridade,
-                    analista: analista,
-                    prazo_dias: 7,
-                    reinicia_ciclo: false
+                    responsavel_desarquivamento: responsavelDesarquivamento,
+                    prazo_dias: 30,
+                    pasta_recebida: true
                 },
                 created_at: recebidoEmSIGEE
-            };
-
-            // RC6.1.4 — registra os dois marcos operacionais separadamente.
-            // O recebimento da pasta é um fato distinto do recebimento do documento.
-            const pastaPayload = {
-                ...historicoPayload,
-                acao: 'PASTA_RECEBIDA',
-                observacao: `Pasta/acervo recebido no local ${localArquivo}. Registro vinculado ao recebimento do documento ${tipoArquivo}.`,
-                dados: {
-                    ...historicoPayload.dados,
-                    marco: 'PASTA_RECEBIDA',
-                    pasta_recebida: true
-                }
             };
 
             const { error: erroPasta } = await cliente
@@ -3618,42 +3600,37 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 .insert(pastaPayload);
             if (erroPasta) throw erroPasta;
 
-            const { error: erroHistorico } = await cliente
-                .from('historico_processos')
-                .insert(historicoPayload);
-            if (erroHistorico) throw erroHistorico;
-
             const logPayload = {
                 usuario_id: usuarioLogado?.id || null,
                 nome: usuarioLogado?.nome || null,
                 email: usuarioLogado?.email || null,
-                acao: 'Documento recebido e processo encaminhado para Análise.',
+                acao: 'Pasta recebida e processo encaminhado para Desarquivamento.',
                 created_at: recebidoEmSIGEE,
                 nte: p.nte || usuarioLogado?.nte || null,
                 perfil: usuarioLogado?.perfil || null,
-                detalhes: `Processo ${p.codigo_sigee || p.id} | ID ${p.id} | Tipo ${tipoArquivo} | Local ${localArquivo} | Analista ${analista}`,
+                detalhes: `Processo ${p.codigo_sigee || p.id} | ID ${p.id} | Tipo ${tipoArquivo} | Local ${localArquivo} | Responsável ${responsavelDesarquivamento}`,
                 modulo: 'processos',
                 processo_id: p.id,
                 codigo_sigee: p.codigo_sigee || null,
-                etapa: 'Análise',
+                etapa: 'Desarquivamento',
                 sessao_id: window.SIGEE_SESSAO_ID || null
             };
 
             const { error: erroLog } = await cliente.from('logs_sigee').insert(logPayload);
-            if (erroLog) console.warn('[SIGEE RC6.1.4] Processo e histórico confirmados, mas o log complementar falhou:', erroLog);
+            if (erroLog) console.warn('[SIGEE RC10.8.37] Processo e histórico confirmados, mas o log complementar falhou:', erroLog);
 
             try { salvarBancoLocalSIGEE(); } catch (_) {}
             try { window.SIGEE6?.timelineService?.invalidar?.(p.id); } catch (_) {}
-            try { window.SIGEE6?.events?.emit?.('workflow:changed', { processoId: p.id, evento: 'DOCUMENTO_RECEBIDO' }); } catch (_) {}
-            window.dispatchEvent(new CustomEvent('sigee:arquivo-recebido', { detail: { processoId: p.id } }));
+            try { window.SIGEE6?.events?.emit?.('workflow:changed', { processoId: p.id, evento: 'PASTA_RECEBIDA' }); } catch (_) {}
+            window.dispatchEvent(new CustomEvent('sigee:pasta-recebida', { detail: { processoId: p.id } }));
 
             fecharModalFluxo('desarquivamento');
             carregarEContarProcessosHorizontais();
-        } catch (erroSalvarDocumento) {
-            console.error('[SIGEE RC6.1.4] Falha na persistência segura do Documento Recebido:', erroSalvarDocumento);
-            alert('Não foi possível concluir o Documento Recebido. Nenhum dado cadastral do processo foi alterado.');
+        } catch (erroSalvarPasta) {
+            console.error('[SIGEE RC10.8.37] Falha ao encaminhar a pasta para Desarquivamento:', erroSalvarPasta);
+            alert('Não foi possível enviar a pasta para Desarquivamento. Nenhum dado cadastral do processo foi alterado.');
             setDisabled('f00-submit', false);
-            setTexto('f00-submit', 'Enviar para Análise');
+            setTexto('f00-submit', 'Enviar para Desarquivamento');
         }
     };
 
@@ -3749,7 +3726,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     window.addEventListener('load', function(){
         try{
             const pend=document.getElementById('f01-pendencia'); if(pend && !pend.querySelector('option[value=""]')) pend.insertAdjacentHTML('afterbegin','<option value="">-- Selecione --</option>');
-            const f00=document.getElementById('f00-submit'); if(f00) f00.innerText='Enviar para Análise';
+            const f00=document.getElementById('f00-submit'); if(f00) f00.innerText='Enviar para Desarquivamento';
             const f01=document.getElementById('f01-submit'); if(f01) f01.innerText='Enviar para Digitação';
             const f02=document.getElementById('f02-submit'); if(f02) f02.innerText='Enviar para Digitação';
             const f05=document.getElementById('f05-submit'); if(f05) f05.innerText='Enviar para Conferência';
