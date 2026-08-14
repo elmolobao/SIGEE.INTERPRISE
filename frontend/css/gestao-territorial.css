@@ -539,3 +539,48 @@
 .gt-map-marker-label{
   z-index:10!important;
 }
+
+
+/* ===== GT-06.2.2 — artboard cartográfico e hierarquia territorial =====
+   A imagem e os marcadores compartilham exatamente a mesma caixa 425×410.
+   Isso elimina deslocamento provocado pelo espaço lateral responsivo. */
+.gt-map-stage{
+  position:absolute!important;inset:0!important;
+  display:flex!important;align-items:flex-start!important;justify-content:center!important;
+  overflow:hidden!important;background:#fff!important;
+}
+.gt-map-artboard{
+  position:relative!important;
+  height:100%!important;
+  width:auto!important;
+  aspect-ratio:425/410!important;
+  max-width:100%!important;
+  flex:0 0 auto!important;
+}
+.gt-map-artboard>img{
+  position:absolute!important;inset:0!important;
+  width:100%!important;height:100%!important;
+  object-fit:fill!important;object-position:center!important;
+  filter:saturate(1.12) contrast(1.04) brightness(1.01)!important;
+  user-select:none!important;pointer-events:none!important;
+}
+.gt-map-artboard>.gt-map-markers{position:absolute!important;inset:0!important;z-index:5!important}
+.gt-map-artboard>.gt-map-nte-key{z-index:8!important}
+/* sede acompanha sempre o círculo; selecionada ganha a hierarquia já homologada */
+.gt-map-marker-label{
+  display:block!important;font-size:9px!important;font-weight:800!important;
+  top:calc(100% + 4px)!important;padding:1px 3px!important;
+  background:rgba(255,255,255,.68)!important;color:#26384c!important;
+  text-shadow:0 1px 0 #fff,0 0 2px #fff!important;
+  opacity:.88!important;
+}
+.gt-map-marker-label.ativo{
+  font-size:16px!important;font-weight:900!important;top:calc(100% + 9px)!important;
+  opacity:1!important;background:rgba(255,255,255,.82)!important;color:#10243b!important;
+}
+.gt-map-marker.selecionado{
+  box-shadow:0 0 0 4px #fff,0 0 0 8px rgba(8,35,67,.42),0 0 20px 7px rgba(255,255,255,.72),0 8px 24px rgba(8,35,67,.46)!important;
+}
+@media(max-width:1000px){
+  .gt-map-artboard{width:min(100%,calc(100vh * 425 / 410))!important;height:auto!important;aspect-ratio:425/410!important}
+}
