@@ -2123,7 +2123,34 @@
 
   async function abrirTratarPendencia(id){
     const p=processo(id);if(!p)return;contextoRetorno=()=>abrirTratarPendencia(id);const dados=await carregarPendencias(id);const pendentes=dados.filter(x=>x.status==='pendente'),recebidos=dados.filter(x=>x.status==='recebido');
-    if(!pendentes.length){modal(`⚠️ Pendência — ${escapar(p.codigo_sigee||p.id)}`,`${resumo(p)}<div class="sigee-vazio33">Não há pendências abertas para este processo.</div><div class="sigee-acoes33"><button class="btn33 btn33-vermelho" data-hist33>Histórico</button></div>`,'pendencia').querySelector('[data-hist33]')?.addEventListener('click',()=>abrirHistorico(id,()=>abrirTratarPendencia(id)));return;}
+    if(!pendentes.length){
+      /* RC10.8.36 — autorrecuperação do fluxo após a última pendência recebida.
+         Se a base já não possui itens pendentes e o processo ainda está na aba
+         Pendência, não deixa o usuário preso na janela de consulta: encaminha
+         diretamente para a seleção do digitador. Isso também recupera processos
+         que ficaram parados por falha/interrupção entre o recebimento e a abertura
+         da próxima janela. */
+      const etapaAtual=norm(p.etapa_atual||p.etapa);
+      if(etapaAtual==='PENDENCIA' && !p.pendencia_aberta && !somenteLeitura()){
+        fecharModal();
+        setTimeout(()=>{
+          const wf=window.SIGEE_WORKFLOW_093;
+          if(wf?.abrirEncaminharDigitacaoPendencia) wf.abrirEncaminharDigitacaoPendencia(id);
+          else if(typeof window.abrirEncaminharDigitacaoPendenciaSIGEE==='function') window.abrirEncaminharDigitacaoPendenciaSIGEE(id);
+          else alert('Pendência resolvida. Atualize a página para selecionar o digitador.');
+        },0);
+        return;
+      }
+      const elSemPendencia=modal(`⚠️ Pendência — ${escapar(p.codigo_sigee||p.id)}`,`${resumo(p)}<div class="sigee-vazio33">Não há pendências abertas para este processo.</div><div class="sigee-acoes33"><button class="btn33 btn33-vermelho" data-hist33>Histórico</button>${somenteLeitura()?'':`<button class="btn33 btn33-verde" data-seguir-dig33>Selecionar Digitador</button>`}</div>`,'pendencia');
+      elSemPendencia.querySelector('[data-hist33]')?.addEventListener('click',()=>abrirHistorico(id,()=>abrirTratarPendencia(id)));
+      elSemPendencia.querySelector('[data-seguir-dig33]')?.addEventListener('click',()=>{
+        fecharModal();
+        const wf=window.SIGEE_WORKFLOW_093;
+        if(wf?.abrirEncaminharDigitacaoPendencia) wf.abrirEncaminharDigitacaoPendencia(id);
+        else window.abrirEncaminharDigitacaoPendenciaSIGEE?.(id);
+      });
+      return;
+    }
     const itens=pendentes.map(x=>`<label class="sigee-pend-item331"><input type="checkbox" name="receb331" value="${x.id}" data-grupo-pendencia="${escapar(x.grupo||'')}"><span><strong>${escapar(x.item)}</strong><small>${x.grupo==='aluno'?'Aluno/Requerente':'Instituição'}${x.complemento?` — ${escapar(x.complemento)}`:''}</small></span></label>`).join('');
     const ator=identidadeSessao();
     const responsavel=`<section class="sigee-responsavel-acao33"><div class="sigee-responsavel-icone33">👤</div><div><span>RESPONSÁVEL PELA AÇÃO</span><input type="text" value="${escapar(ator.nome)}" disabled><small>${escapar(ator.perfil||'Usuário')} · ${escapar(ator.nte||'SIGEE')}</small></div></section>`;
