@@ -584,3 +584,7 @@
 @media(max-width:1000px){
   .gt-map-artboard{width:min(100%,calc(100vh * 425 / 410))!important;height:auto!important;aspect-ratio:425/410!important}
 }
+
+/* GT-07 Controle SEI */
+.gt-sei-toolbar .gt-agenda-filtros{display:grid;grid-template-columns:repeat(3,minmax(170px,1fr));gap:.65rem}.gt-sei-lista{display:grid;gap:.65rem}.gt-sei-item{display:flex;justify-content:space-between;gap:1rem;border:1px solid #dbe3ef;border-radius:.8rem;padding:.9rem;background:#fff}.gt-sei-main{min-width:0}.gt-sei-main>span,.gt-sei-main>small{display:block;color:#64748b;font-size:.7rem;margin-top:.18rem}.gt-sei-main h3{font-size:.82rem;margin:.4rem 0;color:#172033}.gt-sei-main p{font-size:.72rem;color:#334155;margin:.45rem 0 0}.gt-sei-vencido{background:#fdecec;color:#9f2f2f}.gt-sei-kpis{margin-top:1rem}
+@media(max-width:760px){.gt-sei-toolbar .gt-agenda-filtros{grid-template-columns:1fr}.gt-sei-item{flex-direction:column}.gt-sei-item .gt-agenda-actions{justify-content:flex-end}}
