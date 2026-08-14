@@ -2344,22 +2344,28 @@
     };
     (Array.isArray(window.usuariosDB)?window.usuariosDB:[]).forEach(adicionar);
 
-    /* Para Master e SEC, garante a leitura de todos os técnicos no Supabase,
-       mesmo quando o cache local foi carregado apenas com o NTE do último acesso. */
-    if(usuarioTemAcessoGlobal()){
-      try{
-        const c=cliente();
-        if(c){
-          const {data,error}=await c.from('usuarios_sigee').select('*');
-          if(error) throw error;
-          (data||[]).forEach(adicionar);
-        }
-      }catch(e){
-        console.warn('[SIGEE] Não foi possível complementar a lista global de técnicos.',e);
+    /* RC10.8.35 — a lista do workflow não pode depender somente de usuariosDB.
+       Em alguns NTEs esse cache chega parcial após o login e o seletor de Digitação
+       ficava vazio. A fonte autoritativa passa a ser usuarios_sigee; o filtro
+       territorial continua sendo aplicado abaixo e as RLS do Supabase permanecem ativas. */
+    try{
+      const c=cliente();
+      if(c){
+        const {data,error}=await c.from('usuarios_sigee').select('*');
+        if(error) throw error;
+        (data||[]).forEach(adicionar);
       }
+    }catch(e){
+      console.warn('[SIGEE] Não foi possível complementar a lista de servidores do workflow.',e);
     }
 
-    let base=[...mapa.values()].filter(u=>u.ativo && norm(u.perfil).includes('TECNIC'));
+    /* Digitação pode ser atribuída aos perfis operacionais do NTE.
+       Perfis exclusivamente de consulta/estágio permanecem fora da seleção. */
+    let base=[...mapa.values()].filter(u=>{
+      if(!u.ativo) return false;
+      const p=norm(u.perfil);
+      return p.includes('TECNIC') || p.includes('ADMIN');
+    });
 
     /* Somente Master e SEC têm visão global. Todos os demais perfis ficam
        limitados ao NTE cadastrado no próprio usuário, e não ao NTE do processo. */
@@ -2390,18 +2396,15 @@
   async function preencherSelectTecnicoWorkflow(select,p){
     if(!select) return;
     const valorAnterior=select.value;
-    /* Usa a mesma fonte/regra consolidada do seletor de Analista.
-       Master e SEC veem todos os NTEs; demais perfis, somente o NTE de cadastro. */
-    if(typeof window.preencherSelectTecnicosPorNte==='function'){
-      try{
-        const nteFiltro=usuarioTemAcessoGlobal() ? 'SEC - TODOS OS NTEs' : nteCadastroUsuario();
-        window.preencherSelectTecnicosPorNte(select.id,nteFiltro);
-        if(valorAnterior && [...select.options].some(o=>o.value===valorAnterior)) select.value=valorAnterior;
-        return;
-      }catch(e){ console.warn('[SIGEE] Falha ao usar seletor oficial de técnicos.',e); }
-    }
+    /* RC10.8.35 — carrega diretamente da rotina assíncrona do workflow.
+       A função global preencherSelectTecnicosPorNte usa cache local e podia retornar
+       somente a opção padrão antes que os usuários do NTE fossem sincronizados. */
     const lista=await usuariosElegiveis(p);
     select.innerHTML='<option value="">Selecione o profissional...</option>'+lista.map(u=>`<option value="${esc(u.nome||u.email)}">${esc(u.nome||u.email)}${u.nte?` — ${esc(u.nte)}`:''}</option>`).join('');
+    if(!lista.length){
+      const nte=usuarioTemAcessoGlobal()?'escopo global':(nteCadastroUsuario()||'NTE não identificado');
+      console.warn(`[SIGEE] Nenhum servidor operacional ativo localizado para ${nte}.`);
+    }
   }
 
   function atualizarDestaqueTecnico(el,sel){
