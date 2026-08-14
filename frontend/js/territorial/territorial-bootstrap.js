@@ -95,10 +95,7 @@
     return `<article class="gt-panel gt-panel-full"><header><div><span>FUNDAÇÃO GT-01</span><h2>${titulo}</h2><p>${descricao}</p></div><span class="gt-status">Estrutura preparada</span></header><div class="gt-feature-grid">${itens.map(x=>`<div><strong>${x[0]}</strong><span>${x[1]}</span></div>`).join('')}</div><div class="gt-note">A persistência e os formulários operacionais serão ativados nos próximos pacotes, sobre esta mesma estrutura.</div></article>`;
   }
 
-  function mapa(){
-    const dados=window.SIGEE_TERRITORIAL_DATA?.NTES || [];
-    return `<article class="gt-panel gt-panel-full"><header><div><span>27 NÚCLEOS TERRITORIAIS</span><h2>Base para o Mapa da Bahia</h2><p>Camada territorial preparada para receber os estados de Formação, Prioridade, Produção e Situação Territorial.</p></div><span class="gt-status">Mapa vetorial: próximo pacote</span></header><div class="gt-nte-grid">${dados.map(n=>`<div><b>${n.codigo}</b><span>${n.sede}</span><small>${n.municipios} município(s)</small></div>`).join('')}</div></article>`;
-  }
+  function mapa(){ return '<div id="gt-mapa-corpo"><div class="gt-empty">Carregando Mapa Territorial...</div></div>'; }
 
   function conteudo(id){
     if(id==='visao-geral') return visaoGeral();
@@ -115,7 +112,7 @@
     abaAtual=ABAS.some(x=>x[0]===id)?id:'visao-geral';
     const sec=criarTela(); if(!sec) return false;
     sec.querySelectorAll('[data-gt-aba]').forEach(b=>{const ativo=b.dataset.gtAba===abaAtual;b.classList.toggle('ativo',ativo);b.setAttribute('aria-current',ativo?'page':'false');});
-    const box=sec.querySelector('#gt-conteudo'); if(box){ box.innerHTML=conteudo(abaAtual); if(abaAtual==='agenda') setTimeout(()=>window.SIGEE_TERRITORIAL_AGENDA?.carregar?.(box),0); if(abaAtual==='monitoramento') setTimeout(()=>window.SIGEE_TERRITORIAL_MONITORAMENTO?.carregar?.(box),0); if(abaAtual==='pesquisa') setTimeout(()=>window.SIGEE_TERRITORIAL_PESQUISA?.painel?.(box),0); if(abaAtual==='formacoes') setTimeout(()=>window.SIGEE_TERRITORIAL_FORMACOES?.carregar?.(box),0); if(abaAtual==='relatorios') setTimeout(()=>window.SIGEE_TERRITORIAL_RELATORIOS?.carregar?.(box),0); }
+    const box=sec.querySelector('#gt-conteudo'); if(box){ box.innerHTML=conteudo(abaAtual); if(abaAtual==='mapa') setTimeout(()=>window.SIGEE_TERRITORIAL_MAPA?.carregar?.(box),0); if(abaAtual==='agenda') setTimeout(()=>window.SIGEE_TERRITORIAL_AGENDA?.carregar?.(box),0); if(abaAtual==='monitoramento') setTimeout(()=>window.SIGEE_TERRITORIAL_MONITORAMENTO?.carregar?.(box),0); if(abaAtual==='pesquisa') setTimeout(()=>window.SIGEE_TERRITORIAL_PESQUISA?.painel?.(box),0); if(abaAtual==='formacoes') setTimeout(()=>window.SIGEE_TERRITORIAL_FORMACOES?.carregar?.(box),0); if(abaAtual==='relatorios') setTimeout(()=>window.SIGEE_TERRITORIAL_RELATORIOS?.carregar?.(box),0); }
     return true;
   }
 
@@ -134,5 +131,5 @@
   document.addEventListener('sigee:processos-atualizados',atualizar);
   window.addEventListener('sigee:session-ready',()=>{if(autorizado())criarTela();});
 
-  window.SIGEE_GESTAO_TERRITORIAL=Object.freeze({abrir,abrirAba,atualizar,autorizado,versao:'GT-05.2.1'});
+  window.SIGEE_GESTAO_TERRITORIAL=Object.freeze({abrir,abrirAba,atualizar,autorizado,versao:'GT-06.0'});
 })(window,document);
