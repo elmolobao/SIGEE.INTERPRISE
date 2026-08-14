@@ -76,19 +76,50 @@
 
   function visaoGeral(){
     const r=window.SIGEE_TERRITORIAL_DATA?.resumo?.() || {ntes:27,municipios:0,processos:0,ntesComProducao:0};
-    return `
+    return `<div id="gt-visao-executiva">
       <div class="gt-kpis">
         <article><span>NTEs monitorados</span><strong>${r.ntes}</strong><small>cobertura estadual</small></article>
-        <article><span>Municípios abrangidos</span><strong>${formatarNumero(r.municipios)}</strong><small>base territorial de referência</small></article>
-        <article><span>Processos carregados</span><strong>${formatarNumero(r.processos)}</strong><small>leitura do núcleo operacional</small></article>
-        <article><span>NTEs com produção carregada</span><strong>${r.ntesComProducao}</strong><small>nesta sessão</small></article>
+        <article><span>Municípios abrangidos</span><strong>${formatarNumero(r.municipios)}</strong><small>base territorial</small></article>
+        <article><span>Processos carregados</span><strong>${formatarNumero(r.processos)}</strong><small>núcleo operacional</small></article>
+        <article><span>NTEs com produção</span><strong>${r.ntesComProducao}</strong><small>nesta sessão</small></article>
       </div>
+      <div class="gt-exec-loading">Consolidando Monitoramento, Formações, Pesquisa e Controle SEI...</div>
       <div class="gt-grid">
-        <article class="gt-panel gt-panel-wide"><header><div><span>PRODUÇÃO TERRITORIAL</span><h2>Leitura inicial por NTE</h2></div><small>Dados existentes • sem duplicação</small></header>${topProducao()}</article>
+        <article class="gt-panel gt-panel-wide"><header><div><span>PRODUÇÃO TERRITORIAL</span><h2>Produção por NTE</h2></div><small>Dados operacionais</small></header>${topProducao()}</article>
         <article class="gt-panel"><header><div><span>MODELO DE GESTÃO</span><h2>Ciclo territorial</h2></div></header>
-          <ol class="gt-cycle"><li><b>Pré-formação</b><span>Monitoramento, orientação, diagnóstico e alinhamento técnico.</span></li><li><b>Formação territorial</b><span>7 dias no território, com teoria, prática e avaliações.</span></li><li><b>Pós-formação</b><span>Monitoramento qualificado, conformidade e evolução.</span></li><li><b>Relatório institucional</b><span>Consolidação das medidas e fundamentação quando cabível.</span></li></ol>
+          <ol class="gt-cycle"><li><b>Pré-formação</b><span>Monitoramento e diagnóstico.</span></li><li><b>Formação territorial</b><span>Teoria, prática e avaliações.</span></li><li><b>Pós-formação</b><span>Conformidade e evolução.</span></li><li><b>Relatório institucional</b><span>Consolidação das medidas.</span></li></ol>
         </article>
-      </div>`;
+      </div></div>`;
+  }
+
+  function classeNte(c){return String(c||'SEM_AMOSTRA').toLowerCase().replaceAll('_','-');}
+  async function carregarVisaoExecutiva(){
+    const box=document.getElementById('gt-visao-executiva'); if(!box)return;
+    const svc=window.SIGEE_TERRITORIAL_VISAO_GERAL_SERVICE; if(!svc?.carregar)return;
+    const load=box.querySelector('.gt-exec-loading');
+    try{
+      const d=await svc.carregar(); if(!document.body.contains(box))return;
+      const top=d.indices.filter(x=>x.indiceConsolidado!=null).sort((a,b)=>b.indiceConsolidado-a.indiceConsolidado).slice(0,6);
+      const radar=d.indices.filter(x=>['CRITICO','ALERTA','ATENCAO'].includes(x.classeDesempenho)).sort((a,b)=>(a.indiceConsolidado??999)-(b.indiceConsolidado??999)).slice(0,6);
+      load.outerHTML=`<section class="gt-exec-section"><header class="gt-exec-title"><div><span>PAINEL EXECUTIVO</span><h2>Situação da Gestão Territorial</h2></div><small>Consolidação dos módulos em tempo real</small></header>
+        <div class="gt-exec-kpis">
+          <article><span>Ocorrências ativas</span><strong>${d.ocorrAtivas}</strong><small>${d.ocorrConcluidas} concluída(s)</small></article>
+          <article><span>NTEs com formação realizada</span><strong>${d.ntesFormados}/27</strong><small>${d.formacoesRealizadas} formação(ões)</small></article>
+          <article class="${d.seiVencidos?'gt-kpi-alert':''}"><span>SEI ativos</span><strong>${d.seiAtivos}</strong><small>${d.seiVencidos} vencido(s) • ${d.seiConcluidos} concluído(s)</small></article>
+          <article class="${d.pesquisa.triagem?'gt-kpi-alert':''}"><span>Pesquisa de satisfação</span><strong>${d.pesquisa.media==null?'—':d.pesquisa.media+'%'}</strong><small>${d.pesquisa.triagem||0} aguardando triagem • ${d.pesquisa.naoLidas||0} não lida(s)</small></article>
+        </div>
+        <div class="gt-exec-kpis gt-exec-kpis-secondary">
+          <article><span>Constatações positivas</span><strong>${d.positivas}</strong><small>monitoramento territorial</small></article>
+          <article><span>Constatações negativas</span><strong>${d.negativas}</strong><small>monitoramento territorial</small></article>
+          <article class="${d.criticos?'gt-kpi-danger':''}"><span>NTEs em alerta/crítico</span><strong>${d.criticos}</strong><small>${d.atencao} em atenção</small></article>
+          <article><span>SEI concluídos</span><strong>${d.seiConcluidos}</strong><small>controle institucional</small></article>
+        </div>
+        <div class="gt-exec-grid">
+          <article class="gt-panel"><header><div><span>DESEMPENHO</span><h2>Melhores índices consolidados</h2></div></header>${top.length?`<div class="gt-exec-nte-list">${top.map(x=>`<div><span><b>${x.codigo}</b> ${x.sede}</span><strong>${x.indiceConsolidado}</strong></div>`).join('')}</div>`:'<p class="gt-empty">Ainda não há amostra suficiente para índice consolidado.</p>'}</article>
+          <article class="gt-panel"><header><div><span>ATENÇÃO GERENCIAL</span><h2>Territórios que exigem acompanhamento</h2></div></header>${radar.length?`<div class="gt-exec-nte-list">${radar.map(x=>`<div><span><b>${x.codigo}</b> ${x.sede}</span><em class="gt-classe ${classeNte(x.classeDesempenho)}">${String(x.classeDesempenho).replace('_',' ')}</em></div>`).join('')}</div>`:'<p class="gt-empty">Nenhum território classificado em atenção, alerta ou crítico.</p>'}</article>
+        </div>
+      </section>`;
+    }catch(e){console.error('[GT-08]',e);load.innerHTML=`Não foi possível consolidar o painel executivo: ${String(e?.message||e)}`;}
   }
 
   function estruturaArea(titulo,descricao,itens){
@@ -112,7 +143,7 @@
     abaAtual=ABAS.some(x=>x[0]===id)?id:'visao-geral';
     const sec=criarTela(); if(!sec) return false;
     sec.querySelectorAll('[data-gt-aba]').forEach(b=>{const ativo=b.dataset.gtAba===abaAtual;b.classList.toggle('ativo',ativo);b.setAttribute('aria-current',ativo?'page':'false');});
-    const box=sec.querySelector('#gt-conteudo'); if(box){ box.innerHTML=conteudo(abaAtual); if(abaAtual==='mapa') setTimeout(()=>window.SIGEE_TERRITORIAL_MAPA?.carregar?.(box),0); if(abaAtual==='agenda') setTimeout(()=>window.SIGEE_TERRITORIAL_AGENDA?.carregar?.(box),0); if(abaAtual==='monitoramento') setTimeout(()=>window.SIGEE_TERRITORIAL_MONITORAMENTO?.carregar?.(box),0); if(abaAtual==='pesquisa') setTimeout(()=>window.SIGEE_TERRITORIAL_PESQUISA?.painel?.(box),0); if(abaAtual==='formacoes') setTimeout(()=>window.SIGEE_TERRITORIAL_FORMACOES?.carregar?.(box),0); if(abaAtual==='sei') setTimeout(()=>window.SIGEE_TERRITORIAL_SEI?.carregar?.(box),0); if(abaAtual==='relatorios') setTimeout(()=>window.SIGEE_TERRITORIAL_RELATORIOS?.carregar?.(box),0); }
+    const box=sec.querySelector('#gt-conteudo'); if(box){ box.innerHTML=conteudo(abaAtual); if(abaAtual==='visao-geral') setTimeout(()=>carregarVisaoExecutiva(),0); if(abaAtual==='mapa') setTimeout(()=>window.SIGEE_TERRITORIAL_MAPA?.carregar?.(box),0); if(abaAtual==='agenda') setTimeout(()=>window.SIGEE_TERRITORIAL_AGENDA?.carregar?.(box),0); if(abaAtual==='monitoramento') setTimeout(()=>window.SIGEE_TERRITORIAL_MONITORAMENTO?.carregar?.(box),0); if(abaAtual==='pesquisa') setTimeout(()=>window.SIGEE_TERRITORIAL_PESQUISA?.painel?.(box),0); if(abaAtual==='formacoes') setTimeout(()=>window.SIGEE_TERRITORIAL_FORMACOES?.carregar?.(box),0); if(abaAtual==='sei') setTimeout(()=>window.SIGEE_TERRITORIAL_SEI?.carregar?.(box),0); if(abaAtual==='relatorios') setTimeout(()=>window.SIGEE_TERRITORIAL_RELATORIOS?.carregar?.(box),0); }
     return true;
   }
 
@@ -131,5 +162,5 @@
   document.addEventListener('sigee:processos-atualizados',atualizar);
   window.addEventListener('sigee:session-ready',()=>{if(autorizado())criarTela();});
 
-  window.SIGEE_GESTAO_TERRITORIAL=Object.freeze({abrir,abrirAba,atualizar,autorizado,versao:'GT-07.0'});
+  window.SIGEE_GESTAO_TERRITORIAL=Object.freeze({abrir,abrirAba,atualizar,autorizado,versao:'GT-08.0'});
 })(window,document);
