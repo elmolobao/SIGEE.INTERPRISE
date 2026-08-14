@@ -513,3 +513,12 @@
   white-space:nowrap;
 }
 @media(max-width:640px){.gt-map-marker-label{font-size:13px;top:calc(100% + 7px)}}
+
+
+/* ===== GT-06.2.0 — calibração conjunta marcador + sede ===== */
+.gt-map-marker-label{
+  margin-left:var(--gt-label-dx,0px);
+  margin-top:var(--gt-label-dy,0px);
+}
+/* O marcador ativo mantém o centro geográfico; a ampliação não altera a ancoragem. */
+.gt-map-marker.selecionado{transform-origin:50% 50%!important;}
