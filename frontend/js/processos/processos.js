@@ -2386,12 +2386,12 @@
       console.warn('[SIGEE] Não foi possível complementar a lista de servidores do workflow.',e);
     }
 
-    /* Digitação pode ser atribuída aos perfis operacionais do NTE.
-       Perfis exclusivamente de consulta/estágio permanecem fora da seleção. */
+    /* RC10.8.38 — Digitação pode ser atribuída aos perfis operacionais do NTE,
+       incluindo Estagiário. Perfil Consulta permanece fora da seleção. */
     let base=[...mapa.values()].filter(u=>{
       if(!u.ativo) return false;
       const p=norm(u.perfil);
-      return p.includes('TECNIC') || p.includes('ADMIN');
+      return p.includes('TECNIC') || p.includes('ADMIN') || p.includes('ESTAG');
     });
 
     /* Somente Master e SEC têm visão global. Todos os demais perfis ficam
