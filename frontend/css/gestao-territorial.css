@@ -585,6 +585,7 @@
   .gt-map-artboard{width:min(100%,calc(100vh * 425 / 410))!important;height:auto!important;aspect-ratio:425/410!important}
 }
 
-/* GT-07 Controle SEI */
-.gt-sei-toolbar .gt-agenda-filtros{display:grid;grid-template-columns:repeat(3,minmax(170px,1fr));gap:.65rem}.gt-sei-lista{display:grid;gap:.65rem}.gt-sei-item{display:flex;justify-content:space-between;gap:1rem;border:1px solid #dbe3ef;border-radius:.8rem;padding:.9rem;background:#fff}.gt-sei-main{min-width:0}.gt-sei-main>span,.gt-sei-main>small{display:block;color:#64748b;font-size:.7rem;margin-top:.18rem}.gt-sei-main h3{font-size:.82rem;margin:.4rem 0;color:#172033}.gt-sei-main p{font-size:.72rem;color:#334155;margin:.45rem 0 0}.gt-sei-vencido{background:#fdecec;color:#9f2f2f}.gt-sei-kpis{margin-top:1rem}
-@media(max-width:760px){.gt-sei-toolbar .gt-agenda-filtros{grid-template-columns:1fr}.gt-sei-item{flex-direction:column}.gt-sei-item .gt-agenda-actions{justify-content:flex-end}}
+
+/* ===== GT-06.2.3 — calibração individual dos 27 marcadores + caixas compactas ===== */
+.gt-map-marker-label{font-size:8px!important;padding:1px 2px!important;border-radius:3px!important;line-height:1.05!important;max-width:112px!important;box-shadow:0 1px 3px rgba(8,35,67,.12)!important;}
+.gt-map-marker-label.ativo{font-size:14px!important;padding:1px 4px!important;top:calc(100% + 7px)!important;max-width:140px!important;}
