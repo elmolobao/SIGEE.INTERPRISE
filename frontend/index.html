@@ -35,7 +35,7 @@
 <link rel="stylesheet" href="css/sala-situacao-2.css?v=RC6.4.1">
 <link rel="stylesheet" href="css/reports.css?v=RC6.6.2"/>
 <link rel="stylesheet" href="css/popup-prazos-login.css?v=RC10.8.20">
-<link rel="stylesheet" href="css/gestao-territorial.css?v=GT-06.1.5">
+<link rel="stylesheet" href="css/gestao-territorial.css?v=GT-06.0">
 </head>
 <body class="bg-gray-100 font-sans text-gray-800 font-normal">
 <div class="min-h-screen flex items-center justify-center bg-blue-900 px-4" id="tela-login">
@@ -373,7 +373,7 @@
 </div>
 <div class="hidden fixed inset-0 bg-blue-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-50" id="modal-fluxo-desarquivamento">
 <div class="bg-white w-full max-w-md rounded-xl shadow-2xl overflow-hidden">
-<div class="bg-blue-900 text-white px-5 py-4 flex justify-between items-center"><h3 class="font-bold text-sm">📥 Triagem: Documento Recebido</h3><button class="text-white font-bold cursor-pointer" onclick="fecharModalFluxo('desarquivamento')">✕</button></div>
+<div class="bg-blue-900 text-white px-5 py-4 flex justify-between items-center"><h3 class="font-bold text-sm">📥 Recebimento da Pasta</h3><button class="text-white font-bold cursor-pointer" onclick="fecharModalFluxo('desarquivamento')">✕</button></div>
 <form class="p-5 space-y-4" onsubmit="executarTransicaoDesarquivamento(event)">
 <input id="f00-id" type="hidden"/>
 <div class="hidden space-y-2" id="f00-container-alertas"></div>
@@ -396,18 +396,18 @@
 </select>
 </div>
 <div>
-<label class="block text-xs font-bold text-gray-700 uppercase mb-1">Selecionar Analista (Filtrado por NTE)</label>
+<label class="block text-xs font-bold text-gray-700 uppercase mb-1">Selecionar Responsável pelo Desarquivamento (Filtrado por NTE)</label>
 <select class="w-full p-2 border rounded-lg text-xs font-medium focus:outline-none bg-gray-50" id="f00-analista" required=""></select>
 </div>
 <div class="bg-amber-50 p-3 rounded-lg border border-amber-200">
 <label class="flex items-start gap-2 cursor-pointer text-xs font-semibold text-amber-950">
 <input class="mt-0.5" id="f00-chk-email" onchange="toggleBotaoHabilitar('f00-chk-email', 'f00-submit')" required="" type="checkbox"/>
-<span>CONFIRMO ENVIAR E-MAIL: 02-Aluno (Análise)</span>
+<span>CONFIRMO O RECEBIMENTO DA PASTA E O ENVIO PARA DESARQUIVAMENTO</span>
 </label>
 </div>
 <div class="flex justify-end gap-2 border-t pt-3">
 <button class="px-4 py-2 border rounded-lg text-xs font-medium bg-gray-100 cursor-pointer" onclick="fecharModalFluxo('desarquivamento')" type="button">Voltar</button>
-<button class="bg-emerald-600 disabled:opacity-40 text-white font-bold px-4 py-2 rounded-lg text-xs shadow cursor-pointer" disabled="" id="f00-submit" type="submit">Enviar para Análise</button>
+<button class="bg-emerald-600 disabled:opacity-40 text-white font-bold px-4 py-2 rounded-lg text-xs shadow cursor-pointer" disabled="" id="f00-submit" type="submit">Enviar para Desarquivamento</button>
 </div>
 </form>
 </div>
@@ -762,11 +762,11 @@
 <script src="js/components/WorkflowActionModal.js?v=RC10.8.9"></script>
 <script src="js/core/normalizacao-nte.js?v=RC5.2.0"></script>
 <script>window.__SIGEE_ARQUITETURA_DADOS_MODERNA__ = true;</script>
-<script src="js/app/app.js?v=RC8.6.4-PERFORMANCE"></script>
+<script src="js/app/app.js?v=RC10.8.37"></script>
 <script src="js/core/login-controller.js?v=RC10.8.17"></script>
 <script src="js/core/workflow-temporal-resolver.js?v=RC10.8.34"></script>
 <script src="js/core/popup-prazos-login.js?v=RC10.8.20"></script>
-<script src="js/processos/processos.js?v=RC10.8.36"></script>
+<script src="js/processos/processos.js?v=RC10.8.37"></script>
 <script src="js/migracao/migracao-historica.js?v=RC7.1.2"></script>
 <script src="js/migracao/motor-persistencia.js?v=M5.2.2"></script>
 <script src="js/migracao/importacao-oficial.js?v=M5.2.2"></script>
@@ -807,7 +807,7 @@ window.filtrarTabelaUsuariosSIGEE = function (termo) {
 <script src="js/admin/controle-acesso-ntes.js?v=RC10.8.40"></script>
 <script src="js/territorial/territorial-data.service.js?v=GT-02.0"></script>
 <script src="js/territorial/territorial-indicadores.service.js?v=GT-06.0"></script>
-<script src="js/territorial/territorial-mapa.js?v=GT-06.1.6"></script>
+<script src="js/territorial/territorial-mapa.js?v=GT-06.0"></script>
 <script src="js/territorial/territorial-agenda.service.js?v=GT-04.3"></script>
 <script src="js/territorial/territorial-agenda.js?v=GT-04.3"></script>
 <script src="js/territorial/territorial-notificacoes.js?v=GT-04.3"></script>
