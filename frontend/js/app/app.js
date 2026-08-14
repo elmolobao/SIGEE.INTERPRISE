@@ -3528,6 +3528,10 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             if(chave && !mapa.has(chave)) mapa.set(chave,item);
         };
 
+        // RC10.8.40 — usa também o cache lexical real do app. Em sessões territoriais
+        // window.usuariosDB pode ainda não ter sido publicado, embora usuariosDB já esteja
+        // carregado. Isso explicava o comportamento diferente entre Master e NTE.
+        try { (Array.isArray(usuariosDB) ? usuariosDB : []).forEach(adicionar); } catch(_) {}
         try { (Array.isArray(window.usuariosDB) ? window.usuariosDB : []).forEach(adicionar); } catch(_) {}
         try {
             const c = typeof obterSupabaseSIGEE === 'function' ? obterSupabaseSIGEE() : null;
@@ -3537,10 +3541,13 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 (data || []).forEach(adicionar);
             }
         } catch(e) {
-            console.warn('[SIGEE RC10.8.39] Não foi possível complementar responsáveis do Desarquivamento pelo Supabase.', e);
+            // Em perfil territorial a política de leitura pode não devolver o mesmo conjunto
+            // do Master. O fluxo não fica dependente desta consulta: o cache sincronizado acima
+            // permanece como fonte operacional de contingência.
+            console.warn('[SIGEE RC10.8.40] Consulta complementar de responsáveis não disponível; usando cache operacional.', e);
         }
 
-        const nteBase = txtR(nteFiltro || usuarioLogado?.nte || '');
+        const nteBase = txtR(nteFiltro || (typeof usuarioLogado !== 'undefined' ? usuarioLogado?.nte : '') || '');
         let lista = [...mapa.values()].filter(elegivelR);
         if(nteBase) lista = lista.filter(u => mesmoNteR(u.nte, nteBase));
         lista.sort((a,b) => txtR(a.nome).localeCompare(txtR(b.nome),'pt-BR'));
@@ -3555,6 +3562,16 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             select.appendChild(opt);
         });
         if(!lista.length){
+            // Se o login territorial abriu o modal antes do fim da sincronização em segundo
+            // plano, tenta novamente uma única vez após o cache ser publicado.
+            const tentativa = Number(select.dataset.sigeeTentativaResponsaveis || '0');
+            if(tentativa < 1){
+                select.dataset.sigeeTentativaResponsaveis = String(tentativa + 1);
+                select.innerHTML = '<option value="">Sincronizando servidores do NTE...</option>';
+                select.disabled = false;
+                setTimeout(() => window.preencherResponsaveisDesarquivamentoSIGEE?.(selectId, nteBase), 1400);
+                return [];
+            }
             const opt = document.createElement('option');
             opt.disabled = true;
             opt.textContent = `Nenhum técnico/administrador ativo localizado para ${nteBase || 'este NTE'}`;
@@ -3578,7 +3595,9 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         // RC10.8.39 — o Recebimento da Pasta usa fonte autoritativa própria.
         // Não depende do cache legado usuariosDB nem das várias sobrescritas de
         // preencherSelectTecnicosPorNte existentes no app.
-        window.preencherResponsaveisDesarquivamentoSIGEE?.('f00-analista', p.nte || usuarioLogado?.nte || '');
+        const selRespDesarq = document.getElementById('f00-analista');
+        if(selRespDesarq) selRespDesarq.dataset.sigeeTentativaResponsaveis = '0';
+        window.preencherResponsaveisDesarquivamentoSIGEE?.('f00-analista', p.nte || (typeof usuarioLogado !== 'undefined' ? usuarioLogado?.nte : '') || '');
         setDisabled('f00-submit', true); setTexto('f00-submit','Enviar para Desarquivamento');
         if(typeof aplicarEstadoCamposDesarquivamentoSIGEE === 'function') aplicarEstadoCamposDesarquivamentoSIGEE(false);
         const cont=document.getElementById('f00-container-alertas');
