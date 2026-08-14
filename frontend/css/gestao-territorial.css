@@ -478,20 +478,38 @@
 .gt-map-layer-tabs{margin-top:12px}.gt-map-source{margin-top:8px}
 @media (max-width:1280px) and (min-width:1001px){.gt-map-layout{grid-template-columns:minmax(0,3fr) minmax(340px,1fr)}.gt-map-marker{--gt-marker-size:36px!important}.gt-map-nte-key{width:min(390px,44%)}}
 
-/* ===== GT-06.1.8 — Refinamento cartográfico: textura territorial ===== */
-.gt-map-stage{
-  background:#fff;
-}
-.gt-map-stage>img{
-  filter:contrast(1.07) saturate(1.20) brightness(1.015);
-  image-rendering:auto;
-}
-.gt-map-canvas{
-  box-shadow:0 3px 14px rgba(15,39,64,.08), inset 0 0 0 1px rgba(255,255,255,.55);
-}
-.gt-map-marker{
-  box-shadow:0 3px 10px rgba(8,35,67,.30),0 0 0 1px rgba(8,35,67,.16),inset 0 1px 0 rgba(255,255,255,.28)!important;
-}
+
+/* ===== GT-06.1.9 — Seleção territorial homologada =====
+   Marcador ativo: aro branco + brilho leve. O nome da sede aparece uma única vez,
+   abaixo do marcador; o número do NTE permanece exclusivamente no círculo. */
 .gt-map-marker.selecionado{
-  box-shadow:0 0 0 4px #fff,0 0 0 8px rgba(74,222,128,.46),0 8px 22px rgba(8,35,67,.42)!important;
+  transform:translate(-50%,-50%) scale(1.16)!important;
+  outline:0!important;
+  box-shadow:
+    0 0 0 4px #fff,
+    0 0 0 7px rgba(8,35,67,.38),
+    0 0 18px 7px rgba(255,255,255,.62),
+    0 8px 22px rgba(8,35,67,.42)!important;
+  z-index:20!important;
 }
+.gt-map-marker-label{
+  position:absolute;
+  left:50%;
+  top:calc(100% + 9px);
+  transform:translateX(-50%);
+  display:block;
+  width:max-content;
+  max-width:150px;
+  padding:1px 4px;
+  color:#10243b;
+  background:rgba(255,255,255,.72);
+  border-radius:4px;
+  font-size:16px;
+  font-weight:900;
+  line-height:1.15;
+  letter-spacing:-.01em;
+  text-shadow:0 1px 0 #fff,0 0 3px #fff;
+  pointer-events:none;
+  white-space:nowrap;
+}
+@media(max-width:640px){.gt-map-marker-label{font-size:13px;top:calc(100% + 7px)}}
