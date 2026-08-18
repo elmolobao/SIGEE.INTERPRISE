@@ -1,5 +1,5 @@
 /* =====================================================================
-   SIGEE RC10.8.41 — Diretório Único de Responsáveis
+   SIGEE RC10.8.46 — Diretório Único de Responsáveis
    Fonte autoritativa: public.usuarios_sigee
    Objetivos:
    - eliminar usuários fantasmas oriundos de cache/dados legados;
@@ -23,10 +23,10 @@
   };
   const nteTexto = u => {
     if(!u) return '';
-    const direto = txt(u.nte || u.nte_nome || u.nte_vinculado || u.grupo);
-    if(direto) return direto;
-    const n = Number(u.nte_id);
-    return Number.isFinite(n) && n > 0 ? `NTE-${String(n).padStart(2,'0')}` : '';
+    // RC10.8.46: nte_id é a autoridade territorial. O texto nte é apenas rótulo.
+    const n = Number(u.nte_id ?? u.nteId ?? u.id_nte ?? u.territorio_id);
+    if(Number.isFinite(n) && n > 0) return `NTE ${String(n).padStart(2,'0')}`;
+    return txt(u.nte || u.nte_nome || u.nte_vinculado || '');
   };
   const mesmoNte = (a,b) => {
     const na = nteNumero(a), nb = nteNumero(b);
@@ -35,7 +35,13 @@
   };
   const perfil = u => norm(u?.perfil || u?.role || u?.tipo_perfil || u?.tipo || u?.nivel || '');
   const ativo = u => {
-    if(!u || u.ativo === false || u.bloqueado === true) return false;
+    if(!u || u.bloqueado === true) return false;
+    // Banco atual possui legado "Ativo" e coluna canônica ativo.
+    // Se uma delas declarar explicitamente false e a outra não for true, considera inativo.
+    const atual = u.ativo;
+    const legado = u['Ativo'];
+    if(atual === false && legado !== true) return false;
+    if(legado === false && atual !== true) return false;
     const st = norm(u.status || u.situacao || 'ATIVO');
     return !st.includes('INATIV') && !st.includes('BLOQUEAD') && !st.includes('EXCLUID');
   };
@@ -59,52 +65,59 @@
     } catch(_) { return null; }
   };
 
-  async function consultarOficial(tentativas=3){
+  async function consultarOficial({nteId=null,tentativas=3}={}){
     let ultimoErro = null;
     for(let i=0;i<Math.max(1,tentativas);i++){
       try{
         const c = cliente();
         if(!c) throw new Error('Cliente Supabase indisponível.');
-        const {data,error} = await c.from('usuarios_sigee').select('*');
+        let q = c.from('usuarios_sigee').select('*');
+        const id = Number(nteId);
+        if(Number.isFinite(id) && id > 0) q = q.eq('nte_id', id);
+        const {data,error} = await q;
         if(error) throw error;
         return {ok:true, dados:Array.isArray(data)?data:[], erro:null};
       }catch(e){
         ultimoErro = e;
-        if(i < tentativas-1) await sleep(350 * (i+1));
+        if(i < tentativas-1) await sleep(400 * (i+1));
       }
     }
     return {ok:false, dados:[], erro:ultimoErro};
   }
 
-  async function listar({nte='', incluirEstagiarios=false, tentativas=3}={}){
+  async function listar({nte='',nteId=null,incluirEstagiarios=false,tentativas=3}={}){
     const alvo = txt(nte);
-    const resp = await consultarOficial(tentativas);
+    let idAlvo = Number(nteId);
+    if(!Number.isFinite(idAlvo) || idAlvo <= 0) idAlvo = nteNumero(alvo);
+    const resp = await consultarOficial({nteId:idAlvo,tentativas});
     if(!resp.ok){
-      console.error('[SIGEE RC10.8.41] Falha ao consultar diretório oficial de responsáveis.', resp.erro);
-      return {ok:false, lista:[], erro:resp.erro, nte:alvo, fonte:'usuarios_sigee'};
+      console.error('[SIGEE RC10.8.46] Falha ao consultar diretório oficial de responsáveis.', resp.erro);
+      return {ok:false, lista:[], erro:resp.erro, nte:alvo, nteId:idAlvo||null, fonte:'usuarios_sigee'};
     }
 
     const mapa = new Map();
     resp.dados.map(normalizar).forEach(u => {
-      if(!u.nome || !u.email) return;
-      const chave = u.email || `${norm(u.nome)}|${norm(u.nte)}`;
+      if(!u.nome) return;
+      const chave = u.email || `${norm(u.nome)}|${Number(u.nte_id)||norm(u.nte)}`;
       mapa.set(chave,u);
     });
 
     let lista = [...mapa.values()].filter(u => elegivel(u, incluirEstagiarios));
-    if(alvo) lista = lista.filter(u => mesmoNte(u.nte, alvo));
+    if(idAlvo){
+      lista = lista.filter(u => Number(u.nte_id) === idAlvo || nteNumero(u.nte) === idAlvo);
+    } else if(alvo){
+      lista = lista.filter(u => mesmoNte(u.nte, alvo));
+    }
     lista.sort((a,b) => txt(a.nome).localeCompare(txt(b.nome),'pt-BR'));
-
-    // Publica somente o retrato oficial retornado pelo Supabase; nunca acrescenta cache legado.
     try { w.__SIGEE_USUARIOS_OFICIAIS = resp.dados.map(normalizar); } catch(_) {}
-    return {ok:true, lista, erro:null, nte:alvo, fonte:'usuarios_sigee'};
+    return {ok:true, lista, erro:null, nte:alvo, nteId:idAlvo||null, fonte:'usuarios_sigee'};
   }
 
-  async function preencherSelect(select, {nte='', incluirEstagiarios=false, placeholder='Selecione o profissional...', vazio='Nenhum profissional ativo cadastrado para este NTE.', erro='Não foi possível carregar os profissionais. Tente novamente.'}={}){
+  async function preencherSelect(select, {nte='', nteId=null, incluirEstagiarios=false, placeholder='Selecione o profissional...', vazio='Nenhum profissional ativo cadastrado para este NTE.', erro='Não foi possível carregar os profissionais. Tente novamente.'}={}){
     if(!select) return {ok:false,lista:[],erro:new Error('Select inexistente')};
     select.disabled = true;
     select.innerHTML = '<option value="">Carregando cadastro oficial...</option>';
-    const r = await listar({nte,incluirEstagiarios,tentativas:3});
+    const r = await listar({nte,nteId,incluirEstagiarios,tentativas:3});
     select.innerHTML = `<option value="">${placeholder}</option>`;
     if(!r.ok){
       const o=document.createElement('option'); o.disabled=true; o.textContent=erro; select.appendChild(o); select.disabled=false; return r;
@@ -123,12 +136,13 @@
   w.SIGEE_DIRETORIO_RESPONSAVEIS = Object.freeze({listar, preencherSelect, normalizar, mesmoNte, nteNumero});
 
   // Autoridade final para o Desarquivamento.
-  w.preencherResponsaveisDesarquivamentoSIGEE = async function(selectId, nteFiltro){
+  w.preencherResponsaveisDesarquivamentoSIGEE = async function(selectId, nteFiltro, nteIdFiltro){
     const select=document.getElementById(selectId);
     if(!select) return [];
     const nte=txt(nteFiltro || w.usuarioLogado?.nte || '');
     const r=await preencherSelect(select,{
       nte,
+      nteId:nteIdFiltro,
       incluirEstagiarios:false,
       placeholder:'-- Selecione o Servidor --',
       vazio:`Nenhum técnico/administrador ativo cadastrado para ${nte || 'este NTE'}.`,
@@ -138,5 +152,5 @@
     return r.lista || [];
   };
 
-  console.info('[SIGEE] RC10.8.41 Diretório Único de Responsáveis ativo.');
+  console.info('[SIGEE] RC10.8.46 Diretório Único de Responsáveis ativo.');
 })(window);
