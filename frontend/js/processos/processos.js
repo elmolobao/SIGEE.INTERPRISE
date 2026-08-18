@@ -2362,54 +2362,26 @@
     };
   }
   async function usuariosElegiveis(p){
-    const mapa=new Map();
-    const adicionar=(u)=>{
-      const item=normalizarUsuarioTecnico(u);
-      if(!item) return;
-      const chave=norm(item.email || item.nome) + '|' + norm(item.nte);
-      if(chave && !mapa.has(chave)) mapa.set(chave,item);
-    };
-    (Array.isArray(window.usuariosDB)?window.usuariosDB:[]).forEach(adicionar);
-
-    /* RC10.8.35 — a lista do workflow não pode depender somente de usuariosDB.
-       Em alguns NTEs esse cache chega parcial após o login e o seletor de Digitação
-       ficava vazio. A fonte autoritativa passa a ser usuarios_sigee; o filtro
-       territorial continua sendo aplicado abaixo e as RLS do Supabase permanecem ativas. */
-    try{
-      const c=cliente();
-      if(c){
-        const {data,error}=await c.from('usuarios_sigee').select('*');
-        if(error) throw error;
-        (data||[]).forEach(adicionar);
-      }
-    }catch(e){
-      console.warn('[SIGEE] Não foi possível complementar a lista de servidores do workflow.',e);
+    /* RC10.8.41 — fonte única e autoritativa.
+       O NTE de referência é sempre o NTE do processo; o usuário logado
+       só é usado como fallback quando o processo não possui NTE. */
+    const nteAlvo=txt(p?.nte || p?.nte_nome || nteCadastroUsuario());
+    const diretorio=window.SIGEE_DIRETORIO_RESPONSAVEIS;
+    if(!diretorio?.listar){
+      console.error('[SIGEE RC10.8.41] Diretório de responsáveis não carregado.');
+      return [];
     }
-
-    /* RC10.8.38 — Digitação pode ser atribuída aos perfis operacionais do NTE,
-       incluindo Estagiário. Perfil Consulta permanece fora da seleção. */
-    let base=[...mapa.values()].filter(u=>{
-      if(!u.ativo) return false;
-      const p=norm(u.perfil);
-      return p.includes('TECNIC') || p.includes('ADMIN') || p.includes('ESTAG');
-    });
-
-    /* Somente Master e SEC têm visão global. Todos os demais perfis ficam
-       limitados ao NTE cadastrado no próprio usuário, e não ao NTE do processo. */
-    if(!usuarioTemAcessoGlobal()){
-      const ntePermitido=nteCadastroUsuario();
-      base=base.filter(u=>mesmoNte(u.nte,ntePermitido));
+    const r=await diretorio.listar({nte:nteAlvo,incluirEstagiarios:true,tentativas:3});
+    if(!r.ok){
+      console.error('[SIGEE RC10.8.41] Cadastro oficial de responsáveis indisponível.',r.erro);
+      return [];
     }
-    return base.sort((a,b)=>{
-      const na=nteNumero(a.nte)||99;
-      const nb=nteNumero(b.nte)||99;
-      return na-nb || txt(a.nome||a.email).localeCompare(txt(b.nome||b.email),'pt-BR');
-    });
+    return r.lista;
   }
   function selectTecnico(p,id,rotulo,lista){
     lista=Array.isArray(lista)?lista:[];
     const op=lista.map(u=>`<option value="${esc(u.nome||u.email)}">${esc(u.nome||u.email)}${(u.nte||u.nte_nome||u.grupo)?` — ${esc(u.nte||u.nte_nome||u.grupo)}`:''}</option>`).join('');
-    const escopo=usuarioTemAcessoGlobal()?'Todos os NTEs':'NTE de cadastro do usuário';
+    const escopo=txt(p?.nte || p?.nte_nome || nteCadastroUsuario() || 'NTE do processo');
     return `<section class="sigee-selecao-obrigatoria093" data-selecao-tecnico093 style="margin:18px 0;padding:20px;border:3px solid #f59e0b;border-radius:18px;background:linear-gradient(135deg,rgba(146,64,14,.58),rgba(15,23,42,.98));box-shadow:0 0 0 5px rgba(245,158,11,.16),0 16px 34px rgba(0,0,0,.38)">
       <div class="sigee-selecao-cabecalho093">
         <span class="sigee-selecao-icone093">👤</span>
@@ -2426,12 +2398,21 @@
     /* RC10.8.35 — carrega diretamente da rotina assíncrona do workflow.
        A função global preencherSelectTecnicosPorNte usa cache local e podia retornar
        somente a opção padrão antes que os usuários do NTE fossem sincronizados. */
+    const nteAlvo=txt(p?.nte || p?.nte_nome || nteCadastroUsuario());
+    const diretorio=window.SIGEE_DIRETORIO_RESPONSAVEIS;
+    if(diretorio?.preencherSelect){
+      const r=await diretorio.preencherSelect(select,{
+        nte:nteAlvo,
+        incluirEstagiarios:true,
+        placeholder:'Selecione o profissional...',
+        vazio:`Nenhum técnico/administrador/estagiário ativo cadastrado para ${nteAlvo || 'este NTE'}.`,
+        erro:'Falha ao carregar o cadastro oficial. Feche e abra novamente esta etapa.'
+      });
+      if(!r.ok) console.error('[SIGEE RC10.8.41] Falha no diretório oficial.',r.erro);
+      return;
+    }
     const lista=await usuariosElegiveis(p);
     select.innerHTML='<option value="">Selecione o profissional...</option>'+lista.map(u=>`<option value="${esc(u.nome||u.email)}">${esc(u.nome||u.email)}${u.nte?` — ${esc(u.nte)}`:''}</option>`).join('');
-    if(!lista.length){
-      const nte=usuarioTemAcessoGlobal()?'escopo global':(nteCadastroUsuario()||'NTE não identificado');
-      console.warn(`[SIGEE] Nenhum servidor operacional ativo localizado para ${nte}.`);
-    }
   }
 
   function atualizarDestaqueTecnico(el,sel){
