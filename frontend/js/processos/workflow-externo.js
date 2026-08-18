@@ -421,9 +421,12 @@
 
   function openLegacyDocumentReceived(id) {
     closeMenu();
-    if (typeof originalOpenDesarquivamento === 'function') {
-      return originalOpenDesarquivamento(id);
+    // RC10.8.46: Recebimento da Pasta sempre usa o procedimento canônico,
+    // impedindo que implementações legadas de fluxo esvaziem o seletor de técnicos.
+    if (typeof window.SIGEE_ABRIR_RECEBIMENTO_PASTA_CANONICO === 'function') {
+      return window.SIGEE_ABRIR_RECEBIMENTO_PASTA_CANONICO(id);
     }
+    if (typeof originalOpenDesarquivamento === 'function') return originalOpenDesarquivamento(id);
     toast('O procedimento Documento Recebido não está disponível.', 'error');
   }
 
