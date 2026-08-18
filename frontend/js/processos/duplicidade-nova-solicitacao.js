@@ -1,5 +1,5 @@
 /**
- * SIGEE RC4.5.30 — Serviço único de validação de duplicidade da Nova Solicitação.
+ * SIGEE RC4.7.0 — Bloqueio definitivo de duplicidade da Nova Solicitação.
  * Regra: Nome completo normalizado + escola selecionada.
  * Não altera cadastro, workflow, autenticação ou edição de processo.
  */
@@ -14,8 +14,7 @@
     buscaProcessos: 'busca-proc-nome'
   });
 
-  const ETAPAS_FINALIZADAS = new Set(['RETIRADO', 'INDEFERIDO']);
-
+  
   function el(id) { return document.getElementById(id); }
   function texto(valor) { return valor == null ? '' : String(valor).trim(); }
   function normalizar(valor) {
@@ -103,32 +102,59 @@
     return normalizar(escolaNomeDoProcesso(processo)) === normalizar(escola.nome);
   }
 
+
+  async function buscarRemotoPorCampo(supabase, campo, valor) {
+    const registros = [];
+    const tamanhoPagina = 500;
+    let inicio = 0;
+
+    while (true) {
+      const resposta = await supabase
+        .from(tabelaProcessos())
+        .select('id,codigo_sigee,aluno_nome,escola_id,escola_nome,cod_mec,etapa_atual,created_at,tecnico_responsavel')
+        .eq(campo, valor)
+        .order('created_at', { ascending: false })
+        .range(inicio, inicio + tamanhoPagina - 1);
+
+      if (resposta.error) throw resposta.error;
+      const lote = Array.isArray(resposta.data) ? resposta.data : [];
+      registros.push(...lote);
+      if (lote.length < tamanhoPagina) break;
+      inicio += tamanhoPagina;
+    }
+    return registros;
+  }
+
   async function localizarDuplicidades(nome, escola) {
     const nomeNormalizado = normalizar(nome);
     if (nomeNormalizado.length < 3 || (!escola.id && normalizar(escola.nome).length < 2)) return [];
 
-    let registros = [];
     const supabase = cliente();
-    if (supabase) {
-      try {
-        const termo = texto(nome).replace(/[,%_]/g, ' ').replace(/\s+/g, ' ').trim();
-        const resposta = await supabase
-          .from(tabelaProcessos())
-          .select('id,codigo_sigee,aluno_nome,escola_nome,etapa_atual,created_at')
-          .ilike('aluno_nome', `%${termo}%`)
-          .order('created_at', { ascending: false })
-          .limit(50);
-        if (resposta.error) throw resposta.error;
-        if (Array.isArray(resposta.data)) registros = resposta.data;
-      } catch (erro) {
-        console.warn('[SIGEE Duplicidade] Consulta remota falhou; usando base local.', erro);
-      }
+    if (!supabase) {
+      throw new Error('Cliente Supabase indisponível para validação de duplicidade.');
     }
 
-    const baseLocal = Array.isArray(window.processosDB) ? window.processosDB : [];
-    if (!registros.length && baseLocal.length) registros = baseLocal;
+    let registros = [];
+    try {
+      const consultas = [];
+      if (escola.id) consultas.push(buscarRemotoPorCampo(supabase, 'escola_id', escola.id));
+      if (escola.nome) consultas.push(buscarRemotoPorCampo(supabase, 'escola_nome', escola.nome));
 
-    return registros.filter(processo => corresponde(processo, nomeNormalizado, escola)).slice(0, 10);
+      const resultados = await Promise.all(consultas);
+      const mapa = new Map();
+      resultados.flat().forEach(registro => {
+        const chave = texto(registro?.id || registro?.codigo_sigee || `${registro?.aluno_nome}|${registro?.escola_nome}|${registro?.created_at}`);
+        if (!mapa.has(chave)) mapa.set(chave, registro);
+      });
+      registros = Array.from(mapa.values());
+    } catch (erro) {
+      console.error('[SIGEE Duplicidade RC4.7.0] Falha na consulta oficial ao Supabase.', erro);
+      throw new Error('Não foi possível confirmar a inexistência de duplicidade no banco oficial.');
+    }
+
+    return registros
+      .filter(processo => corresponde(processo, nomeNormalizado, escola))
+      .slice(0, 20);
   }
 
   function garantirEstiloModal() {
@@ -206,7 +232,6 @@
       #modal-duplicidade-nova-solicitacao .sigee-dup-btn:focus-visible { outline: 3px solid rgba(11,117,189,.28); outline-offset: 2px; }
       #modal-duplicidade-nova-solicitacao .sigee-dup-cancelar { background: #e7ebf0; color: #42546b; }
       #modal-duplicidade-nova-solicitacao .sigee-dup-visualizar { background: #075b9c; color: #fff; box-shadow: 0 5px 14px rgba(7,91,156,.22); }
-      #modal-duplicidade-nova-solicitacao .sigee-dup-continuar { background: #d99a1f; color: #fff; box-shadow: 0 5px 14px rgba(217,154,31,.24); }
       @media (max-width: 620px) {
         #modal-duplicidade-nova-solicitacao { padding: 12px; align-items: flex-end; }
         #modal-duplicidade-nova-solicitacao .sigee-dup-card { width: 100%; max-height: calc(100vh - 20px); border-radius: 16px 16px 10px 10px; }
@@ -239,7 +264,7 @@
             </div>
           </header>
           <div class="sigee-dup-body">
-            <p class="sigee-dup-intro">Já existe processo cadastrado para este aluno nesta escola. Confira os dados antes de decidir como prosseguir.</p>
+            <p class="sigee-dup-intro">Já existe processo cadastrado para este aluno nesta escola. Por segurança e integridade da base, uma nova solicitação não pode ser criada.</p>
             <div class="sigee-dup-dados">
               <div class="sigee-dup-item sigee-largo"><span class="sigee-dup-label">Código SIGEE</span><span class="sigee-dup-valor sigee-dup-codigo">${escapar(codigoDoProcesso(principal))}</span></div>
               <div class="sigee-dup-item sigee-largo"><span class="sigee-dup-label">Aluno</span><span class="sigee-dup-valor">${escapar(nomeDoProcesso(principal))}</span></div>
@@ -249,7 +274,7 @@
               <div class="sigee-dup-item"><span class="sigee-dup-label">Data de abertura</span><span class="sigee-dup-valor">${escapar(dataDoProcesso(principal))}</span></div>
             </div>
             ${registros.length > 1 ? `<div class="sigee-dup-contagem"><span aria-hidden="true">ⓘ</span><span>Foram encontrados ${registros.length} registros coincidentes.</span></div>` : ''}
-            <p class="sigee-dup-alerta">A criação de uma nova solicitação somente continuará após confirmação expressa.</p>
+            <p class="sigee-dup-alerta"><strong>Cadastro bloqueado.</strong> Utilize o processo já existente ou revise os dados informados.</p>
           </div>
           <footer class="sigee-dup-footer" data-acoes></footer>
         </section>`;
@@ -257,9 +282,8 @@
       const concluir = decisao => { fundo.remove(); resolve(decisao); };
       const acoes = fundo.querySelector('[data-acoes]');
       const botoes = [
-        ['Cancelar', 'cancelar', 'sigee-dup-cancelar'],
-        ['Visualizar processo', 'visualizar', 'sigee-dup-visualizar'],
-        ['Continuar e abrir novo chamado', 'continuar', 'sigee-dup-continuar']
+        ['Fechar', 'cancelar', 'sigee-dup-cancelar'],
+        ['Visualizar processo existente', 'visualizar', 'sigee-dup-visualizar']
       ];
       botoes.forEach(([rotulo, valor, classe]) => {
         const botao = document.createElement('button');
@@ -294,7 +318,7 @@
     if (!encontrados.length) return true;
     const decisao = await abrirModal(encontrados);
     if (decisao === 'visualizar') visualizar(encontrados[0]);
-    return decisao === 'continuar';
+    return false;
   }
 
 
@@ -302,5 +326,5 @@
     validar,
     localizarDuplicidades
   });
-  console.info('[SIGEE RC4.5.30] Serviço de duplicidade da Nova Solicitação disponível.');
+  console.info('[SIGEE RC4.7.0] Bloqueio definitivo de duplicidade da Nova Solicitação disponível.');
 })(window, document);
