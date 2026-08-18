@@ -219,11 +219,9 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             "NTE-26 Salvador", "NTE-27 Eunápolis"
         ];
 
-        let usuariosDB = [
-            { id: 1, nome: "ELMO LOBÃO", email: "elmo.lobao@enova.educacao.ba.gov.br", senha: "123", perfil: "Master", nte: "NTE-26 Salvador", ativo: true },
-            { id: 2, nome: "ANA COSTA", email: "ana.costa@enova.educacao.ba.gov.br", senha: "123", perfil: "Técnico", nte: "NTE-26 Salvador", ativo: true },
-            { id: 3, nome: "CARLOS SOUZA", email: "carlos.souza@enova.educacao.ba.gov.br", senha: "123", perfil: "Técnico", nte: "NTE-19 Feira de Santana", ativo: true }
-        ];
+        // RC10.8.41 — sem técnicos fictícios no frontend.
+        // A relação operacional é carregada exclusivamente de usuarios_sigee.
+        let usuariosDB = [];
 
         let escolasDB = [
             { id: 1, cod_mec: "290001", nome: "COLÉGIO ESTADUAL DA BAHIA (EXTINTO)", municipio: "SALVADOR", nte: "NTE-26 Salvador", dependencia: "Estadual", situacao: "Extinta", acervo: "Recolhido", local_acervo: "Acervo do NTE" },
@@ -2219,9 +2217,12 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
 
         function perfilCanonicoSIGEE(perfil) {
             const p = semAcentoSIGEE(perfil);
+            if (p.includes('SEC')) return 'SEC';
             if (p.includes('MASTER')) return 'Master';
             if (p.includes('ADMIN')) return 'Administrador';
+            if (p.includes('ESTAG')) return 'Estagiario';
             if (p.includes('CONSULT')) return 'Consulta';
+            if (p.includes('TECNIC')) return 'Tecnico';
             return 'Tecnico';
         }
 
@@ -2393,7 +2394,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 email: emailNormalizado,
                 senha: normalizarTextoSIGEE(u.senha || u.password || '123'),
                 perfil: perfilFinal,
-                nte: normalizarTextoSIGEE(u.nte || u.nte_vinculado || obterNomeNtePorIdSIGEE_V19(u.nte_id) || 'NTE-26 Salvador'),
+                nte: normalizarTextoSIGEE(u.nte || u.nte_vinculado || (u.nte_id ? obterNomeNtePorIdSIGEE_V19(u.nte_id) : '') || ''),
                 ativo: (u.ativo === undefined || u.ativo === null) ? true : !!u.ativo
             };
         };
