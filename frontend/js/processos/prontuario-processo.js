@@ -1,12 +1,12 @@
 /* =====================================================================
-   SIGEE Enterprise — RC10.8.42
+   SIGEE Enterprise — RC10.8.44
    Prontuário Eletrônico do Processo
    Camada aditiva: não altera regras, transições ou persistência do workflow.
    ===================================================================== */
 (function () {
   'use strict';
-  if (window.__SIGEE_PRONTUARIO_RC10842__) return;
-  window.__SIGEE_PRONTUARIO_RC10842__ = true;
+  if (window.__SIGEE_PRONTUARIO_RC10844__) return;
+  window.__SIGEE_PRONTUARIO_RC10844__ = true;
 
   const ETAPAS = Object.freeze([
     { tipo:'SOLICITACAO', label:'Solicitação' },
@@ -19,7 +19,7 @@
     { tipo:'DIGITACAO', label:'Digitação' },
     { tipo:'CONFERENCIA', label:'Conferência' },
     { tipo:'ASSINATURA', label:'Assinatura' },
-    { tipo:'DEFERIDO', label:'Deferido' },
+    { tipo:'DEFERIDO', label:'Aguardando Retirada' },
     { tipo:'RETIRADO', label:'Retirado' }
   ]);
 
@@ -264,7 +264,17 @@
 
   function etapaOperacionalEvento(ev) {
     const acao = codigoAcao(ev);
-    const base = normalizar(`${ev?.etapa || ''} ${ev?.acao || ''} ${ev?.evento || ''} ${ev?.tipo || ''}`);
+    const etapa = normalizar(ev?.etapa || ev?.etapa_atual || '');
+    const acaoTexto = normalizar(ev?.acao || ev?.evento || ev?.titulo || '');
+    const base = normalizar(`${ev?.etapa || ''} ${ev?.acao || ''} ${ev?.evento || ''} ${ev?.tipo || ''} ${ev?.observacao || ''}`);
+
+    // RC10.8.44 — separação semântica definitiva:
+    // "Aguardando Retirada" é uma etapa em andamento após deferimento;
+    // "Retirado" só existe após evidência efetiva de retirada/entrega.
+    // A etapa persistida prevalece sobre palavras soltas do texto do evento.
+    if (/AGUARDANDO RETIRADA|DEFERIDO/.test(etapa)) return 'DEFERIDO';
+    if (/^RETIRADO$/.test(etapa)) return 'RETIRADO';
+
     if (ACOES_DESARQUIVAMENTO.includes(acao)
       || /REITER|CONFIRMACAO DOS DADOS|PEDIDO DE ATAS|RETIFIC|DESARQUIV/.test(base)
       || payloadCiencia(ev)) return 'DESARQUIVAMENTO';
@@ -277,8 +287,10 @@
     if (/DIGITACAO/.test(base)) return 'DIGITACAO';
     if (/CONFERENCIA/.test(base)) return 'CONFERENCIA';
     if (/ASSINATURA/.test(base)) return 'ASSINATURA';
-    if (/DEFERID/.test(base)) return 'DEFERIDO';
-    if (/RETIRAD/.test(base)) return 'RETIRADO';
+    if (/INDEFER/.test(base)) return 'OUTROS';
+    if (/DEFERID|AGUARDANDO RETIRADA|DISPONIVEL PARA RETIRADA/.test(base)) return 'DEFERIDO';
+    if (/DOCUMENTO RETIRADO|RETIRADA (PELO|POR|REGISTRADA|CONCLUIDA)|CONCLUIR RETIRADA|^RETIRADO$/.test(acaoTexto)
+      || /DOCUMENTO RETIRADO|RETIRADA (PELO|POR|REGISTRADA|CONCLUIDA)/.test(base)) return 'RETIRADO';
     return 'OUTROS';
   }
 
@@ -770,7 +782,7 @@
                 <div><dt>Conferente</dt><dd>${escapar(valor(p,'conferente','conferente_nome') || 'Não atribuído')}</dd></div>
               </dl>
             </section>
-            <section class="sigee-pep-selo"><b>Registro Institucional</b><span>Eventos auditáveis do SIGEE Enterprise</span><small>RC10.8.42</small></section>
+            <section class="sigee-pep-selo"><b>Registro Institucional</b><span>Eventos auditáveis do SIGEE Enterprise</span><small>RC10.8.44</small></section>
           </aside>
         </div>
         <footer class="sigee-pep-rodape-impressao">
@@ -790,7 +802,7 @@
 
   function mostrarErroCarregamento(id, erro, token) {
     if (token !== sequenciaAbertura) return;
-    console.error('[SIGEE RC10.8.42] Falha ao abrir prontuário:', erro);
+    console.error('[SIGEE RC10.8.44] Falha ao abrir prontuário:', erro);
     const atual = document.getElementById('sigee-prontuario-overlay');
     if (!atual) return;
     atual.classList.remove('sigee-pep-carregando');
