@@ -6,7 +6,7 @@
   if(window.__SIGEE_M52_IMPORTACAO_OFICIAL__) return;
   window.__SIGEE_M52_IMPORTACAO_OFICIAL__=true;
 
-  const VERSION='M5.2.1-RC7.3.0';
+  const VERSION='M5.2.1-RC10.8.43';
   let payloadPreparado=null;
   let preflightConfirmado=null;
   let resultadoImportacao=null;
@@ -26,11 +26,11 @@
     return [...new Uint8Array(digest)].map(b=>b.toString(16).padStart(2,'0')).join('');
   }
 
-  function usuariosAtuais(){return window.usuariosDB||window.usuariosSIGEE||window.usuarios||window.listaUsuarios||[];}
+  // RC10.8.43 — nunca converter responsável histórico por ID de usuário do frontend.
+  // IDs locais/legados podem colidir com IDs reais e atribuir a migração ao usuário errado.
+  // A autoridade é o nome que veio da planilha homologada; na ausência dele, fica vazio.
   function nomeTecnicoAtual(p){
-    if(!p.tecnico_responsavel_id) return '';
-    const u=usuariosAtuais().find(x=>String(x.id)===String(p.tecnico_responsavel_id));
-    return txt(u&&(u.nome||u.nome_completo||u.display_name));
+    return txt(p?.tecnico_responsavel_historico || '');
   }
 
   function prepararEventos(p){
