@@ -1,12 +1,12 @@
 /* =====================================================================
-   SIGEE Enterprise — RC10.8.10
+   SIGEE Enterprise — RC10.8.42
    Prontuário Eletrônico do Processo
    Camada aditiva: não altera regras, transições ou persistência do workflow.
    ===================================================================== */
 (function () {
   'use strict';
-  if (window.__SIGEE_PRONTUARIO_RC10810__) return;
-  window.__SIGEE_PRONTUARIO_RC10810__ = true;
+  if (window.__SIGEE_PRONTUARIO_RC10842__) return;
+  window.__SIGEE_PRONTUARIO_RC10842__ = true;
 
   const ETAPAS = Object.freeze([
     { tipo:'SOLICITACAO', label:'Solicitação' },
@@ -636,6 +636,9 @@
     const inicio = metricas?.opening || valor(p, 'data_abertura', 'data_solicitacao', 'created_at', 'criado_em', 'data_inicio_desarquivamento');
     const tempoNormal = metricas?.normalDays ?? metricas?.totalDays ?? diasEntre(inicio, valor(p,'deferido_em','data_deferimento','finalizado_em') || agoraWorkflow());
     const tempoRetirada = metricas?.withdrawalDays ?? metricas?.postDeferredDays ?? 0;
+    // RC10.8.42: processos deferidos usavam esta variável no template sem declará-la.
+    // O ReferenceError ocorria depois da Timeline carregar e deixava o overlay preso em "Preparando...".
+    const tempoPosDeferimento = metricas?.postDeferredDays ?? metricas?.withdrawalDays ?? 0;
     const tempoTotal = metricas?.overallDays ?? diasEntre(inicio, valor(p,'retirado_em','finalizado_em') || agoraWorkflow());
     const etapa = etapaAtual(p);
     const comunicacoes = resumoComunicacoes(eventos);
@@ -710,7 +713,7 @@
               <div class="sigee-pep-marco-status">
                 <strong>${marcos.pastaRecebida ? '✓ Pasta recebida' : 'Aguardando registro'}</strong>
                 <span>${marcos.pastaRecebida ? 'Há evidência auditável na fonte oficial da cronologia.' : 'Nenhum recebimento da pasta foi localizado nas fontes consultadas.'}</span>
-                <small class="sigee-pep-fontes">Fontes verificadas: ${(marcos.fontesConsultadas || ['processos','historico_processos','logs_sigee']).map(escapar).join(' • ')}</small>
+                <small class="sigee-pep-fontes">Fontes verificadas: ${(Array.isArray(marcos?.fontesConsultadas) && marcos.fontesConsultadas.length ? marcos.fontesConsultadas : ['processos','historico_processos','logs_sigee']).map(escapar).join(' • ')}</small>
               </div>
             </section>
             <section><h3>Prazos</h3>
@@ -729,7 +732,7 @@
                 <div><dt>Conferente</dt><dd>${escapar(valor(p,'conferente','conferente_nome') || 'Não atribuído')}</dd></div>
               </dl>
             </section>
-            <section class="sigee-pep-selo"><b>Registro Institucional</b><span>Eventos auditáveis do SIGEE Enterprise</span><small>RC10.8.10</small></section>
+            <section class="sigee-pep-selo"><b>Registro Institucional</b><span>Eventos auditáveis do SIGEE Enterprise</span><small>RC10.8.42</small></section>
           </aside>
         </div>
         <footer class="sigee-pep-rodape-impressao">
@@ -741,51 +744,87 @@
   }
 
   let prontuarioAbertoId = null;
+  let sequenciaAbertura = 0;
+
+  function erroCarregamentoHTML(erro) {
+    return `<div class="sigee-pep-erro-carregamento"><strong>Não foi possível carregar o prontuário.</strong><small>${escapar(erro?.message || 'Falha de comunicação ou de montagem do prontuário.')}</small><button type="button" data-pep-tentar>Tentar novamente</button><button type="button" data-pep-fechar>Fechar</button></div>`;
+  }
+
+  function mostrarErroCarregamento(id, erro, token) {
+    if (token !== sequenciaAbertura) return;
+    console.error('[SIGEE RC10.8.42] Falha ao abrir prontuário:', erro);
+    const atual = document.getElementById('sigee-prontuario-overlay');
+    if (!atual) return;
+    atual.classList.remove('sigee-pep-carregando');
+    atual.innerHTML = erroCarregamentoHTML(erro);
+    atual.querySelector('[data-pep-tentar]')?.addEventListener('click', () => abrir(id));
+    atual.querySelector('[data-pep-fechar]')?.addEventListener('click', fechar);
+  }
 
   async function abrir(id) {
-    prontuarioAbertoId = id;
+    const token = ++sequenciaAbertura;
     const p = processo(id);
     if (!p) {
-      alert('Processo não localizado para abertura do prontuário.');
+      alert('Processo não localizado para abertura do prontuário. Atualize a Central de Processos e tente novamente.');
       return;
     }
+
     fechar();
+    // fechar() zera o ID; a atribuição deve ocorrer depois dele.
+    prontuarioAbertoId = id;
+
     const carregando = document.createElement('div');
     carregando.id = 'sigee-prontuario-overlay';
     carregando.className = 'sigee-pep-overlay sigee-pep-carregando';
-    carregando.innerHTML = '<div><span></span><strong>Preparando Prontuário Eletrônico...</strong></div>';
+    carregando.innerHTML = '<div><span></span><strong>Preparando Prontuário Eletrônico...</strong><small>Consultando dados auditáveis do processo.</small></div>';
     document.body.appendChild(carregando);
     document.body.classList.add('sigee-prontuario-aberto');
 
-    let timeline;
-    try {
-      timeline = await comTimeoutProntuario(carregarEventos(p), 15000, 'Preparação do prontuário');
-    } catch (erro) {
-      console.error('[SIGEE Prontuário] Falha ao preparar prontuário:', erro);
+    // Defesa adicional: nenhum prontuário pode permanecer indefinidamente no spinner.
+    const watchdog = setTimeout(() => {
+      if (token !== sequenciaAbertura) return;
       const atual = document.getElementById('sigee-prontuario-overlay');
-      if (atual) {
-        atual.innerHTML = `<div class="sigee-pep-erro-carregamento"><strong>Não foi possível carregar o prontuário.</strong><small>${escapar(erro?.message || 'Falha de comunicação com a base de dados.')}</small><button type="button" data-pep-tentar> Tentar novamente </button><button type="button" data-pep-fechar> Fechar </button></div>`;
-        atual.querySelector('[data-pep-tentar]')?.addEventListener('click', () => abrir(id));
-        atual.querySelector('[data-pep-fechar]')?.addEventListener('click', fechar);
+      if (atual?.classList.contains('sigee-pep-carregando')) {
+        mostrarErroCarregamento(id, new Error('A abertura ultrapassou o tempo máximo de segurança. Verifique a conexão e tente novamente.'), token);
       }
-      return;
-    }
-    const eventos = timeline.eventos || [];
-    const processoAtualizado = timeline.processo || p;
-    carregando.outerHTML = modalHTML(processoAtualizado, eventos, timeline.marcos || {});
+    }, 20000);
 
-    const overlay = document.getElementById('sigee-prontuario-overlay');
-    overlay?.querySelector('[data-pep-fechar]')?.addEventListener('click', fechar);
-    overlay?.addEventListener('click', e => { if (e.target === overlay) fechar(); });
-    overlay?.querySelectorAll('[data-pep-expandir]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const id = btn.dataset.pepExpandir;
-        const box = overlay.querySelector(`[data-pep-detalhes="${id}"]`);
-        const aberto = box.classList.toggle('aberto');
-        btn.textContent = aberto ? 'Ocultar detalhes' : 'Ver detalhes';
-        btn.setAttribute('aria-expanded', String(aberto));
+    try {
+      const timeline = await comTimeoutProntuario(carregarEventos(p), 15000, 'Preparação do prontuário');
+      if (token !== sequenciaAbertura) return;
+
+      const eventos = Array.isArray(timeline?.eventos) ? timeline.eventos : [];
+      const processoAtualizado = timeline?.processo || p;
+      const marcos = timeline?.marcos && typeof timeline.marcos === 'object' ? timeline.marcos : {};
+
+      // A montagem também precisa ficar protegida. Antes da RC10.8.42, qualquer
+      // erro de template após a consulta deixava o usuário preso no carregamento.
+      const html = modalHTML(processoAtualizado, eventos, marcos);
+      if (token !== sequenciaAbertura) return;
+
+      const atual = document.getElementById('sigee-prontuario-overlay');
+      if (!atual) return;
+      atual.outerHTML = html;
+
+      const overlay = document.getElementById('sigee-prontuario-overlay');
+      if (!overlay) throw new Error('O prontuário foi montado, mas a janela não pôde ser exibida.');
+      overlay.querySelector('[data-pep-fechar]')?.addEventListener('click', fechar);
+      overlay.addEventListener('click', e => { if (e.target === overlay) fechar(); });
+      overlay.querySelectorAll('[data-pep-expandir]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const detalheId = btn.dataset.pepExpandir;
+          const box = overlay.querySelector(`[data-pep-detalhes="${detalheId}"]`);
+          if (!box) return;
+          const aberto = box.classList.toggle('aberto');
+          btn.textContent = aberto ? 'Ocultar detalhes' : 'Ver detalhes';
+          btn.setAttribute('aria-expanded', String(aberto));
+        });
       });
-    });
+    } catch (erro) {
+      mostrarErroCarregamento(id, erro, token);
+    } finally {
+      clearTimeout(watchdog);
+    }
   }
 
   function renomearBotoes() {
@@ -841,5 +880,5 @@
     ? document.addEventListener('DOMContentLoaded', renomearBotoes)
     : renomearBotoes();
 
-  console.info('[SIGEE RC10.8.7] Prontuário consolidado com processo recarregado, relógio de homologação e resolvedor temporal único.');
+  console.info('[SIGEE RC10.8.42] Prontuário com abertura protegida, watchdog e correção para processos deferidos.');
 })();
