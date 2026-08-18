@@ -323,6 +323,44 @@
     return texto(ev?.tecnico_responsavel || ev?.responsavel_etapa || ev?.executado_por_nome || ev?.usuario_nome || ev?.responsavel || ev?.executado_por);
   }
 
+  // RC10.8.43 — autoridade histórica do responsável.
+  // Eventos reconstruídos pela migração nunca podem herdar o usuário atual do processo
+  // quando a planilha não informa um responsável para aquela etapa.
+  function eventoMigrado(ev) {
+    if (!ev) return false;
+    return Boolean(
+      ev.processo_migrado === true ||
+      ev.historico_reconstruido === true ||
+      normalizar(ev.origem).includes('MIGRA') ||
+      normalizar(ev.origem_registro).includes('MIGRA')
+    );
+  }
+
+  function processoMigrado(p) {
+    if (!p) return false;
+    return Boolean(
+      p.processo_migrado === true ||
+      normalizar(p.origem_registro).includes('MIGRA') ||
+      normalizar(p.selo_origem).includes('MIGRA') ||
+      normalizar(p.migration_key)
+    );
+  }
+
+  function responsavelDoGrupo(grupo, p) {
+    const eventos = Array.isArray(grupo?.eventos) ? grupo.eventos : [];
+    const responsavelExplicito = eventos.map(responsavelEvento).find(Boolean);
+    if (responsavelExplicito) return responsavelExplicito;
+
+    // Se a etapa nasceu exclusivamente da reconstrução histórica e não há nome
+    // no evento, não usa tecnico_responsavel/responsavel do processo como fallback.
+    // Isso evita que o executor da importação (ex.: Master) seja mostrado como técnico.
+    const historicoSemAutor = processoMigrado(p) && eventos.length > 0 && eventos.every(eventoMigrado);
+    if (historicoSemAutor) return 'Migração Histórica';
+
+    return (p ? responsavelPersistidoPorEtapa(p, grupo?.etapaTipo) : '') ||
+      (processoMigrado(p) ? 'Migração Histórica' : 'Não identificado');
+  }
+
   function responsavelPersistidoPorEtapa(p, etapaTipo) {
     const campos = {
       SOLICITACAO:['criado_por_nome','criado_por','usuario_lancamento_nome','responsavel'],
@@ -380,7 +418,7 @@
         dtEnvio = new Date(limiteAnterior);
       }
       grupo.enviadoEm = enviado;
-      grupo.responsavel = grupo.eventos.map(responsavelEvento).find(Boolean) || (p ? responsavelPersistidoPorEtapa(p, grupo.etapaTipo) : '') || 'Não identificado';
+      grupo.responsavel = responsavelDoGrupo(grupo, p);
       grupo.atual = grupo.atual || grupo.etapaTipo === atual;
       grupo.situacao = grupo.atual ? 'Em andamento' : 'Concluída';
       limiteAnterior = dtEnvio || limiteAnterior;
