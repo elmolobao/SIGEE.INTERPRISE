@@ -2,7 +2,7 @@
   'use strict';
 
   const root = global.SIGEE6 = global.SIGEE6 || {};
-  const VERSION = 'RC10.6.0';
+  const VERSION = 'RC10.8.44';
   const texto = (v) => v == null ? '' : String(v).trim();
   const normalizar = (v) => texto(v).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[_\-]+/g, ' ').replace(/\s+/g, ' ').trim().toUpperCase();
 
@@ -97,6 +97,18 @@
 
   function classificar(obj) {
     const n = textoBusca(obj);
+    const etapa = normalizar(valor(obj, 'etapa', 'etapa_atual'));
+    const acao = normalizar(valor(obj, 'acao', 'evento', 'titulo'));
+
+    // RC10.8.44 — "Aguardando Retirada" NÃO é "Retirado".
+    // A classificação anterior usava /RETIRAD/ sobre todo o texto do registro;
+    // por isso frases como "Processo recebido na etapa Aguardando Retirada"
+    // eram convertidas indevidamente em RETIRADO.
+    // A etapa persistida tem precedência. Retirada somente é reconhecida quando
+    // houver estado/ação inequívoca de entrega do documento.
+    if (/AGUARDANDO RETIRADA|DEFERIDO/.test(etapa)) return 'DEFERIDO';
+    if (/^RETIRADO$/.test(etapa)) return 'RETIRADO';
+
     if (ehPastaRecebida(obj)) return 'PASTA_RECEBIDA';
     if (/DOCUMENTO RECEBIDO/.test(n)) return 'DOCUMENTO_RECEBIDO';
     if (/DOCUMENTO SOLICITADO|SOLICITACAO DE DOCUMENTO|E-?MAIL 0?2/.test(n)) return 'DOCUMENTO_SOLICITADO';
@@ -114,8 +126,8 @@
     if (/CONFERENCIA/.test(n)) return 'CONFERENCIA';
     if (/ASSINATURA/.test(n)) return 'ASSINATURA';
     if (/INDEFER/.test(n)) return 'INDEFERIDO';
-    if (/DEFERID/.test(n)) return 'DEFERIDO';
-    if (/RETIRAD/.test(n)) return 'RETIRADO';
+    if (/DEFERID|AGUARDANDO RETIRADA|DISPONIVEL PARA RETIRADA/.test(n)) return 'DEFERIDO';
+    if (/DOCUMENTO RETIRADO|RETIRADA (PELO|POR|REGISTRADA|CONCLUIDA)|CONCLUIR RETIRADA|^RETIRADO$/.test(acao) || /DOCUMENTO RETIRADO|RETIRADA (PELO|POR|REGISTRADA|CONCLUIDA)/.test(n)) return 'RETIRADO';
     if (/EMAIL|E-MAIL|MENSAGEM ENVIADA|COMUNICACAO/.test(n)) return 'COMUNICACAO';
     return 'MOVIMENTACAO';
   }
