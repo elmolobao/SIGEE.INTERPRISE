@@ -2,7 +2,7 @@
   'use strict';
   if (global.__SIGEE6_BOOTSTRAP__?.state === 'ready') return;
 
-  const VERSION = 'RC6.1.1';
+  const VERSION = 'RC6.1.2';
   const BASE = 'js/';
   const manifest = Object.freeze([
     { name: 'events', path: 'core/sigee-events.js' },
@@ -10,7 +10,7 @@
     { name: 'cache', path: 'core/sigee-cache.js' },
     { name: 'api', path: 'core/sigee-api.js' },
     { name: 'core', path: 'core/sigee-core.js' },
-    { name: 'timeline.service', path: 'services/timeline.service.js?v=RC10.6.0' },
+    { name: 'timeline.service', path: 'services/timeline.service.js?v=RC10.8.44' },
     { name: 'timeline.engine', path: 'timeline/timeline-engine.js?v=RC10.1.0' }
   ]);
 
@@ -21,7 +21,7 @@
   function load(module) {
     return new Promise((resolve, reject) => {
       const script = document.createElement('script');
-      script.src = `${BASE}${module.path}?v=${VERSION}`;
+      script.src = `${BASE}${module.path}${module.path.includes('?') ? '&' : '?'}v=${VERSION}`;
       script.async = false;
       script.dataset.sigee6Module = module.name;
       script.onload = () => { state.loaded.push(module.path); resolve(module.path); };
