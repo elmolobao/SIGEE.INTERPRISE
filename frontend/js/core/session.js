@@ -15,7 +15,8 @@
     const p=String(value??'').trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
     if(!p) return '';
     if(p.includes('MASTER')) return 'Master';
-    if(p==='SEC'||p.includes('SECRETARIA')) return 'SEC';
+    if(p==='SEC') return 'SEC';
+    if(p.includes('SECRETARIA')) return 'Secretaria';
     if(p.includes('GESTOR')||p.includes('DIRIGENTE')) return 'Gestor';
     if(p.includes('ADMIN')) return 'Administrador';
     if(p.includes('TECNIC')) return 'Técnico';
