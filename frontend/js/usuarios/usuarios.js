@@ -675,7 +675,12 @@
       nte_id: idNte,
       ativo: ativo(u),
       pode_editar: perfil === 'Estagiário' || perfil === 'Consulta' ? false : ((u||{}).pode_editar !== false),
-      forcar_troca_senha: (u||{}).forcar_troca_senha === true
+      forcar_troca_senha: (u||{}).forcar_troca_senha === true,
+      grupo_id: (u||{}).grupo_id ?? null,
+      perfil_acesso_id: (u||{}).perfil_acesso_id ?? null,
+      unidade_tipo: txt((u||{}).unidade_tipo || (idNte ? 'NTE' : '')).toUpperCase() || null,
+      escola_id: (u||{}).escola_id == null || (u||{}).escola_id === '' ? null : (Number((u||{}).escola_id) || null),
+      permissoes_override: (u||{}).permissoes_override ?? null
     };
   }
   function baseUsuarios(){
@@ -701,7 +706,7 @@
     if (!c) throw new Error('Cliente Supabase indisponível.');
     consultaUsuariosEmAndamento=(async()=>{
       let q = c.from(TABELA)
-        .select('id,nome,email,perfil,nte,nte_id,ativo,forcar_troca_senha,pode_editar,criado_em,ultima_atividade,grupo_id,perfil_acesso_id,permissoes_override')
+        .select('id,nome,email,perfil,nte,nte_id,ativo,forcar_troca_senha,pode_editar,criado_em,ultima_atividade,grupo_id,perfil_acesso_id,permissoes_override,unidade_tipo,escola_id')
         .order('nome', { ascending:true });
       if (!podeGerirGlobal() && !isGlobal(usuarioAtual())) {
         const idNte = nteAtualId();
@@ -728,7 +733,12 @@
       nte_id: n.nte_id,
       ativo: n.ativo,
       Ativo: n.ativo,
-      pode_editar: n.pode_editar
+      pode_editar: n.pode_editar,
+      grupo_id: n.grupo_id,
+      perfil_acesso_id: n.perfil_acesso_id,
+      unidade_tipo: n.unidade_tipo,
+      escola_id: n.escola_id,
+      permissoes_override: n.permissoes_override
     };
     if (modo === 'criar') {
       p.senha = txt(u?.senha || SENHA_PADRAO);
@@ -752,7 +762,7 @@
     for (const candidato of tentativas) {
       let q = modo === 'criar' ? c.from(TABELA).insert(candidato) : c.from(TABELA).update(candidato);
       if (modo !== 'criar') q = filtro.id ? q.eq('id', filtro.id) : q.eq('email', filtro.emailOriginal || filtro.email);
-      const { data, error } = await q.select('id,nome,email,perfil,nte,nte_id,ativo,forcar_troca_senha,pode_editar').maybeSingle();
+      const { data, error } = await q.select('id,nome,email,perfil,nte,nte_id,ativo,forcar_troca_senha,pode_editar,grupo_id,perfil_acesso_id,permissoes_override,unidade_tipo,escola_id').maybeSingle();
       if (!error) return normalizarUsuario(data || { ...filtro, ...candidato });
       ultimoErro = error;
       if (!erroColunaAusente(error)) break;
