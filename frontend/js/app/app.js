@@ -3597,27 +3597,8 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         // Não depende do cache legado usuariosDB nem das várias sobrescritas de
         // preencherSelectTecnicosPorNte existentes no app.
         const selRespDesarq = document.getElementById('f00-analista');
-        if(selRespDesarq){
-            selRespDesarq.dataset.sigeeTentativaResponsaveis = '0';
-            const usuarioAtualDes = (typeof usuarioLogado !== 'undefined' ? usuarioLogado : window.usuarioLogado) || {};
-            const nteIdDes = Number(p.nte_id || p.nteId || usuarioAtualDes.nte_id || 0) || null;
-            const nteDes = p.nte || p.nte_nome || usuarioAtualDes.nte || (nteIdDes ? `NTE ${String(nteIdDes).padStart(2,'0')}` : '');
-            const dir = window.SIGEE_DIRETORIO_RESPONSAVEIS;
-            if(dir?.preencherSelect){
-                void dir.preencherSelect(selRespDesarq,{
-                    nte: nteDes,
-                    nteId: nteIdDes,
-                    incluirEstagiarios:false,
-                    placeholder:'-- Selecione o Servidor --',
-                    vazio:`Nenhum técnico/administrador ativo cadastrado para ${nteDes || 'este NTE'}.`,
-                    erro:'Falha ao carregar os servidores do NTE. Feche e abra novamente a etapa.'
-                }).then(()=>window.validarDesarquivamentoV27?.());
-            }else{
-                selRespDesarq.innerHTML='<option value="">Diretório de servidores indisponível</option>';
-                selRespDesarq.disabled=false;
-                console.error('[SIGEE RC10.8.46] Diretório oficial de responsáveis não carregado.');
-            }
-        }
+        if(selRespDesarq) selRespDesarq.dataset.sigeeTentativaResponsaveis = '0';
+        window.preencherResponsaveisDesarquivamentoSIGEE?.('f00-analista', p.nte || (typeof usuarioLogado !== 'undefined' ? usuarioLogado?.nte : '') || '');
         setDisabled('f00-submit', true); setTexto('f00-submit','Enviar para Desarquivamento');
         if(typeof aplicarEstadoCamposDesarquivamentoSIGEE === 'function') aplicarEstadoCamposDesarquivamentoSIGEE(false);
         const cont=document.getElementById('f00-container-alertas');
@@ -3627,8 +3608,6 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         }
         document.getElementById('modal-fluxo-desarquivamento').classList.remove('hidden');
     };
-    // RC10.8.46: referência estável. Outros módulos não devem substituir este procedimento.
-    window.SIGEE_ABRIR_RECEBIMENTO_PASTA_CANONICO = window.abrirModalFluxoDesarquivamento;
     window.validarDesarquivamentoV27 = function(){
         const ok = valor('f00-tipo') && valor('f00-local') && valor('f00-prioridade') && valor('f00-analista') && chk('f00-chk-email');
         setDisabled('f00-submit', !ok);
@@ -10081,7 +10060,7 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
       try {
         const { data } = await c
           .from(TABELA_USUARIOS)
-          .select('id,email,nome,perfil,nte_id,nte,ativo,Ativo,forcar_troca_senha,pode_editar')
+          .select('id,email,nome,perfil,nte_id,nte,ativo,Ativo,forcar_troca_senha,pode_editar,grupo_id,perfil_acesso_id,permissoes_override,unidade_tipo,escola_id')
           .eq('email', email)
           .maybeSingle();
         if (data) {
