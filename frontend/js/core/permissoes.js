@@ -19,6 +19,10 @@ const C=Object.freeze({
   SEC:Object.freeze({
     'escopo.global':1,'processos.visualizar':1,'indicadores.visualizar':1,'relatorios.visualizar':1,'relatorios.exportar':1,'produtividade.visualizar':1,'escolas.visualizar':1
   }),
+  Secretaria:Object.freeze({
+    'processos.visualizar':1,'processos.criar':1,'processos.movimentar':1,
+    'indicadores.visualizar':1,'escolas.visualizar':1
+  }),
   Gestor:Object.freeze({
     'processos.visualizar':1,'processos.reatribuir':1,'indicadores.visualizar':1,'relatorios.visualizar':1,'relatorios.exportar':1,'produtividade.visualizar':1,'escolas.visualizar':1,'usuarios.visualizar_nte':1
   }),
@@ -63,7 +67,9 @@ function can(action,target){
 function requireCapability(action,target,message){if(can(action,target))return true;if(message!==false)alert(message||'Seu perfil não possui permissão para esta ação.');return false;}
 function apply(){
  const u=user();if(!u||!document.body)return false;
- const p=profile(u);document.body.dataset.sigeePerfil=p;document.body.dataset.sigeeEscopo=can('escopo.global',u)?'GLOBAL':'NTE';
+ const p=profile(u);document.body.dataset.sigeePerfil=p;
+ const contexto=window.SIGEE_ESCOPO?.contexto?.(u);
+ document.body.dataset.sigeeEscopo=contexto?.tipo || (can('escopo.global',u)?'GLOBAL':'NTE');
  return true;
 }
 window.SIGEE_PERMISSOES=Object.freeze({MATRIZ:C,LEGADO,pode:can,exigir:requireCapability,aplicar:apply,perfil:profile,capacidade:capability,gestorSecGlobal,versao:'GT-01.0'});

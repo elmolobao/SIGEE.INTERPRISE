@@ -1,9 +1,9 @@
 /**
- * SIGEE RC11.2.1 — Coerência visual do Access Scope na Central.
+ * SIGEE RC11.2.2 — Coerência visual do Access Scope na Central.
  * Mantém cabeçalho e filtro alinhados à autoridade SIGEE_ESCOPO.
  */
 (function(window){'use strict';
-if(window.__SIGEE_CENTRAL_SCOPE_VIEW_1121__)return;window.__SIGEE_CENTRAL_SCOPE_VIEW_1121__=true;
+if(window.__SIGEE_CENTRAL_SCOPE_VIEW_1122__)return;window.__SIGEE_CENTRAL_SCOPE_VIEW_1122__=true;
 let applying=false,timer=0;
 function user(){return window.SIGEE_SESSION?.getUser?.()||window.usuarioLogado||null;}
 function profile(u){return window.SIGEE_SESSION?.normalizarPerfil?.(u?.perfil)||String(u?.perfil||'').trim();}
