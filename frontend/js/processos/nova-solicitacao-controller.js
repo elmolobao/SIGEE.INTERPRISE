@@ -1,4 +1,4 @@
-/* SIGEE RC11.2.4 — Escola vinculada obrigatória na Nova Solicitação */
+/* SIGEE RC11.2.5 — Escola vinculada obrigatória com sessão canônica */
 (function () {
   'use strict';
 
@@ -33,12 +33,23 @@
     return null;
   }
 
+  function usuarioCanonico() {
+    /* A sessão RC11 é a autoridade para unidade_tipo/escola_id.
+       usuarioLogado pode ser um espelho legado sem esses campos. */
+    let sessao = {};
+    try { sessao = window.SIGEE_SESSION?.getUser?.() || {}; } catch (_) {}
+    let autorizado = {};
+    try { autorizado = window.SIGEE_AUTORIZACAO?.usuario?.() || {}; } catch (_) {}
+    const legado = (window.usuarioLogado && typeof window.usuarioLogado === 'object') ? window.usuarioLogado : {};
+    return { ...legado, ...autorizado, ...sessao };
+  }
+
   function perfilAtual() {
-    return normalizar(window.usuarioLogado?.perfil || window.SIGEE_SESSION?.getUser?.()?.perfil || '');
+    return normalizar(usuarioCanonico().perfil || '');
   }
 
   function nteAtual() {
-    const u = window.usuarioLogado || window.SIGEE_SESSION?.getUser?.() || {};
+    const u = usuarioCanonico();
     const direto = Number(u.nte_id || u.nteId || u.id_nte || 0);
     if (direto) return direto;
     const m = texto(u.nte || u.nte_nome || u.grupo).match(/\d{1,2}/);
@@ -48,7 +59,7 @@
   function contextoEscopo() {
     try {
       if (window.SIGEE_ESCOPO && typeof window.SIGEE_ESCOPO.contexto === 'function') {
-        return window.SIGEE_ESCOPO.contexto(window.usuarioLogado || window.SIGEE_SESSION?.getUser?.());
+        return window.SIGEE_ESCOPO.contexto(usuarioCanonico());
       }
     } catch (_) {}
     return { tipo: 'NTE', nteId: nteAtual(), escolaId: null };
@@ -700,7 +711,7 @@
     window.abrirFormularioNovaSolicitacao = abrir;
     window.fecharModalNovaSolicitacao = fechar;
     window.handleSelecaoInstituicaoFluxoAutomatico = () => !!texto(campo('novo-proc-escola-id')?.value);
-    window.SIGEE_NOVA_SOLICITACAO_CONTROLLER = { abrir, fechar, limpar: resetarFormulario, selecionarEscola, validarPoliticaEscola, versao: 'RC11.2.4' };
+    window.SIGEE_NOVA_SOLICITACAO_CONTROLLER = { abrir, fechar, limpar: resetarFormulario, selecionarEscola, validarPoliticaEscola, versao: 'RC11.2.5' };
 
     // Garante estado visual neutro na instalação do controlador único.
     resetarFormulario();
