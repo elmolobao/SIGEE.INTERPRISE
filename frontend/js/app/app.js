@@ -1,8 +1,3 @@
-/* RC7.3.0 — Compatibilidade legada de aplicação.
-   Este arquivo não é autoridade de perfis, permissões, menus ou Nova Solicitação. */
-/* SIGEE RC5.7.3 — bootstrap leve e autoridade única do Dashboard */
-/* SIGEE RC4.5.22 — campo de escola digitável sem limpeza tardia */
-/* SIGEE RC4.5.11 — identidade canônica da escola por ID */
 /* SIGEE PATCH 2.5.8 — técnico de lançamento responsável pelo Desarquivamento */
 /* SIGEE PATCH 2.5.7C — responsável persistente no conversor principal e V38 */
 /* SIGEE PATCH 2.5.7B — responsável persistente na Central */
@@ -219,9 +214,11 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             "NTE-26 Salvador", "NTE-27 Eunápolis"
         ];
 
-        // RC10.8.41 — sem técnicos fictícios no frontend.
-        // A relação operacional é carregada exclusivamente de usuarios_sigee.
-        let usuariosDB = [];
+        let usuariosDB = [
+            { id: 1, nome: "ELMO LOBÃO", email: "elmo.lobao@enova.educacao.ba.gov.br", senha: "123", perfil: "Master", nte: "NTE-26 Salvador", ativo: true },
+            { id: 2, nome: "ANA COSTA", email: "ana.costa@enova.educacao.ba.gov.br", senha: "123", perfil: "Técnico", nte: "NTE-26 Salvador", ativo: true },
+            { id: 3, nome: "CARLOS SOUZA", email: "carlos.souza@enova.educacao.ba.gov.br", senha: "123", perfil: "Técnico", nte: "NTE-19 Feira de Santana", ativo: true }
+        ];
 
         let escolasDB = [
             { id: 1, cod_mec: "290001", nome: "COLÉGIO ESTADUAL DA BAHIA (EXTINTO)", municipio: "SALVADOR", nte: "NTE-26 Salvador", dependencia: "Estadual", situacao: "Extinta", acervo: "Recolhido", local_acervo: "Acervo do NTE" },
@@ -261,15 +258,15 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
 
         // =========================================================================
         // ☁️ INTEGRAÇÃO SUPABASE - BANCO REMOTO DO SIGEE
-        // Projeto: uhzscqynbxcezfpmpqqm / schema public
+        // Projeto: ckxbvsfjsknbgpfpxcyy / schema public
         // Tabelas integradas: escolas_sigee, ntes_sigee, processos,
         // solicitacoes_sigee e usuarios_sigee.
         // V15: mantém login rápido e Supabase direto, sem tentar gravar usuarios_sigee
         // porque a estrutura atual da tabela não possui coluna nte.
         // A chave abaixo é anon public. Não utilize service_role no navegador.
         // =========================================================================
-        const SIGEE_SUPABASE_URL = 'https://uhzscqynbxcezfpmpqqm.supabase.co';
-        const SIGEE_SUPABASE_ANON_KEY = 'sb_publishable_-yfLGo_1cAm3DRUVAvKJXg_aOX22Iw8';
+        const SIGEE_SUPABASE_URL = 'https://ckxbvsfjsknbgpfpxcyy.supabase.co';
+        const SIGEE_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNreGJ2c2Zqc2tuYmdwZnB4Y3l5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxOTc4MjUsImV4cCI6MjA5ODc3MzgyNX0.ecJr_MYR9GPnaYMZ3V6kgeed7uGtg-vQ4THpdwAtTxk';
         const SIGEE_SUPABASE_TABELAS = {
             escolas: 'escolas_sigee',
             ntes: 'ntes_sigee',
@@ -508,18 +505,17 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         function processoParaSupabaseSIGEE(p) {
             return {
                 id: Number(p.id) || gerarProximoIdSIGEE(processosDB, 101),
-                aluno_nome: normalizarMaiusculoSIGEE(p.aluno_nome || p.aluno || p.nome_social),
-                nome_social: normalizarMaiusculoSIGEE(p.nome_social || '') || null,
+                aluno_nome: normalizarMaiusculoSIGEE(p.aluno || p.aluno_nome),
                 escola_nome: normalizarMaiusculoSIGEE(p.escola || p.escola_nome),
                 documento_tipo: normalizarTextoSIGEE(p.documento || p.documento_tipo || 'HISTÓRICO'),
                 nivel_oferta: normalizarTextoSIGEE(p.nivel_oferta || p.ensino || null) || null,
                 modalidade: normalizarTextoSIGEE(p.modalidade || null) || null,
-                ano: normalizarTextoSIGEE(p.ano || p.ano_conclusao || null) || null,
-                serie: normalizarTextoSIGEE(p.serie || p.serie_conclusao || null) || null,
                 etapa_atual: normalizarTextoSIGEE(p.etapa || p.etapa_atual || 'Desarquivamento'),
-                nte: window.SIGEE_NORMALIZACAO_NTE?.nteDoProcesso?.(p) || (window.normalizarNteSIGEE ? window.normalizarNteSIGEE(p.nte || 'NTE-26') : normalizarTextoSIGEE(p.nte || 'NTE-26')),
+                nte: normalizarTextoSIGEE(p.nte || 'NTE-26 Salvador'),
                 cod_mec: normalizarTextoSIGEE(p.cod_mec || p.mec || null) || null,
                 escola_id: p.escola_id == null || p.escola_id === '' ? null : (Number(p.escola_id) || p.escola_id),
+                nte_id: p.nte_id == null || p.nte_id === '' ? null : (Number(p.nte_id) || p.nte_id),
+                escopo_tipo: normalizarTextoSIGEE(p.escopo_tipo || 'NTE').toUpperCase(),
                 workflow_instance_id: p.workflow_instance_id || null,
                 workflow_ciclo: Number(p.workflow_ciclo || p.ciclo || 1),
                 ciclo: Number(p.ciclo || p.workflow_ciclo || 1),
@@ -539,21 +535,22 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         const processoParaSupabaseSIGEEOriginal = processoParaSupabaseSIGEE;
         processoParaSupabaseSIGEE = function(p) {
             const payload = processoParaSupabaseSIGEEOriginal(p);
-            if (window.SIGEE_NORMALIZACAO_NTE) window.SIGEE_NORMALIZACAO_NTE.aplicarPayload(payload, p);
             return limparDatasPayloadSupabaseSIGEE(payload);
         };
 
         function processoDoSupabaseParaLocalSIGEE(p, indice) {
             return {
                 id: Number(p.id) || (101 + indice),
-                aluno: normalizarMaiusculoSIGEE(p.aluno_nome || p.aluno || p.nome_social || p.nome_aluno || p.requerente),
-                nome_social: normalizarMaiusculoSIGEE(p.nome_social || ''),
+                aluno: normalizarMaiusculoSIGEE(p.aluno_nome || p.aluno || p.nome_aluno || p.requerente),
                 escola: normalizarMaiusculoSIGEE(p.escola_nome || p.escola || p.instituicao || p.nome_escola),
                 documento: normalizarTextoSIGEE(p.documento_tipo || p.documento || p.tipo_documento || 'HISTÓRICO'),
                 etapa: normalizarTextoSIGEE(p.etapa_atual || p.etapa || p.status || 'Desarquivamento'),
                 data_etapa_atual: normalizarTextoSIGEE(p.data_etapa_atual || p.created_at || obterDataAtualFormatada()),
-                nte: window.normalizarNteSIGEE ? window.normalizarNteSIGEE(p.nte || p.nte_vinculado || 'NTE-26') : normalizarTextoSIGEE(p.nte || p.nte_vinculado || 'NTE-26'),
+                nte: normalizarTextoSIGEE(p.nte || p.nte_vinculado || 'NTE-26 Salvador'),
                 municipio: normalizarMaiusculoSIGEE(p.municipio || p.cidade || ''),
+                nte_id: p.nte_id == null || p.nte_id === '' ? null : (Number(p.nte_id) || p.nte_id),
+                escola_id: p.escola_id == null || p.escola_id === '' ? null : (Number(p.escola_id) || p.escola_id),
+                escopo_tipo: normalizarTextoSIGEE(p.escopo_tipo || 'NTE').toUpperCase(),
 
                 /*
                  * SIGEE PATCH 2.5.7C:
@@ -715,45 +712,21 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             return `${tabela}${codigo}: ${msg}${detalhe}${dica}`;
         }
 
-        async function carregarTabelaSupabaseSIGEE(nomeTabela, selectCampos = '*', ordenarPor = null, limiteMaximo = null) {
+        async function carregarTabelaSupabaseSIGEE(nomeTabela, selectCampos = '*', ordenarPor = null) {
             const client = obterSupabaseSIGEE();
             if (!client) return [];
-
-            // RC4.3.3: proteção contra download integral de tabelas muito grandes.
-            // O catálogo de escolas é consultado sob demanda por escolas.js e solicitações
-            // históricas não devem ser carregadas integralmente na abertura do SIGEE.
-            const limitesSeguros = {
-                usuarios_sigee: 500,
-                ntes_sigee: 100,
-                processos: 5000,
-                solicitacoes_sigee: 1000,
-                escolas_sigee: 1000,
-                logs_sigee: 1000
-            };
-            const teto = Number.isFinite(Number(limiteMaximo))
-                ? Math.max(0, Number(limiteMaximo))
-                : (limitesSeguros[nomeTabela] || 2000);
-            if (teto === 0) return [];
-
             let todos = [];
             let inicio = 0;
-            const tamanhoPagina = Math.min(1000, teto);
-            while (inicio < teto) {
-                const fim = Math.min(inicio + tamanhoPagina - 1, teto - 1);
-                let query = client.from(nomeTabela).select(selectCampos);
-                if (nomeTabela === SIGEE_SUPABASE_TABELAS.processos || nomeTabela === 'processos') {
-                    query = window.SIGEE_ESCOPO?.aplicarQueryProcessos
-                        ? window.SIGEE_ESCOPO.aplicarQueryProcessos(query, window.usuarioLogado || usuarioLogado)
-                        : query;
-                }
-                query = query.range(inicio, fim);
+            const tamanhoPagina = 1000;
+            while (true) {
+                const fim = inicio + tamanhoPagina - 1;
+                let query = client.from(nomeTabela).select(selectCampos).range(inicio, fim);
                 if (ordenarPor) query = query.order(ordenarPor, { ascending: true });
                 const { data, error } = await query;
                 if (error) throw error;
-                const lote = data || [];
-                todos = todos.concat(lote);
-                if (lote.length < (fim - inicio + 1)) break;
-                inicio = fim + 1;
+                todos = todos.concat(data || []);
+                if (!data || data.length < tamanhoPagina) break;
+                inicio += tamanhoPagina;
             }
             return todos;
         }
@@ -800,15 +773,8 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             await Promise.all([
                 carregarSeguro('usuarios', SIGEE_SUPABASE_TABELAS.usuarios, null, usuarioDoSupabaseParaLocalSIGEE, u => u.email && u.nome, dados => { usuariosDB = dados; }),
                 carregarSeguro('escolas', SIGEE_SUPABASE_TABELAS.escolas, null, escolaDoSupabaseParaLocalSIGEE, e => e.cod_mec && e.nome, dados => { escolasDB = dados; }),
-                carregarSeguro('processos', SIGEE_SUPABASE_TABELAS.processos, null, processoDoSupabaseParaLocalSIGEE, p => p.aluno || p.escola, dados => {
-                    processosDB = window.SIGEE_PROCESSOS_STORE?.publicar?.(dados,'APP_CARGA_INICIAL') || (window.SIGEE_ESCOPO?.filtrar ? window.SIGEE_ESCOPO.filtrar(dados, window.usuarioLogado || usuarioLogado) : dados);
-                    window.processosDB = processosDB;
-                }),
-                // RC5.6.1: não carregar o histórico integral de solicitacoes_sigee no login.
-                // A tabela já possui milhares de linhas e a paginação profunda (offset alto)
-                // provoca statement timeout no PostgREST e concorre com o snapshot analítico.
-                // Os fluxos que precisam de solicitações devem consultá-las sob demanda.
-                Promise.resolve().then(() => { solicitacoesDB = []; return true; }),
+                carregarSeguro('processos', SIGEE_SUPABASE_TABELAS.processos, null, processoDoSupabaseParaLocalSIGEE, p => p.aluno || p.escola, dados => { processosDB = dados; }),
+                carregarSeguro('solicitacoes', SIGEE_SUPABASE_TABELAS.solicitacoes, null, solicitacaoDoSupabaseParaLocalSIGEE, s => s.aluno || s.escola, dados => { solicitacoesDB = dados; }),
                 carregarSeguro('ntes', SIGEE_SUPABASE_TABELAS.ntes, null, nteDoSupabaseParaLocalSIGEE, Boolean, dados => {
                     if (dados.length) LISTA_OFICIAL_27_NTES.splice(0, LISTA_OFICIAL_27_NTES.length, ...dados);
                 })
@@ -1058,22 +1024,16 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             }
         }
 
-        function abaVisivelSIGEE(id) {
-            const elemento = document.getElementById(id);
-            return Boolean(elemento && !elemento.classList.contains('hidden'));
-        }
-        window.abaVisivelSIGEE = window.abaVisivelSIGEE || abaVisivelSIGEE;
-
         async function sincronizarSupabaseSegundoPlanoSIGEE() {
             try {
                 await carregarTodasTabelasSupabaseSIGEE(true);
                 if (usuarioLogado) {
                     inicializarSelectsNteEcosystem();
-                    if (abaVisivelSIGEE('aba-painel')) carregarDadosDashboardReal();
-                    if (abaVisivelSIGEE('aba-escolas')) renderizarListaEscolasBufferMemoria();
-                    if (abaVisivelSIGEE('aba-processos')) carregarEContarProcessosHorizontais();
-                    if (abaVisivelSIGEE('aba-usuarios')) carregarListaUsuarios();
-                    if (abaVisivelSIGEE('aba-logs')) carregarLogs();
+                    if (!document.getElementById('aba-painel').classList.contains('hidden')) carregarDadosDashboardReal();
+                    if (!document.getElementById('aba-escolas').classList.contains('hidden')) renderizarListaEscolasBufferMemoria();
+                    if (!document.getElementById('aba-processos').classList.contains('hidden')) carregarEContarProcessosHorizontais();
+                    if (!document.getElementById('aba-usuarios').classList.contains('hidden')) carregarListaUsuarios();
+                    if (!document.getElementById('aba-logs').classList.contains('hidden')) carregarLogs();
                 }
             } catch (erro) {
                 console.warn('Sincronização em segundo plano falhou:', erro);
@@ -1169,13 +1129,10 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 btnLogin.classList.remove('opacity-60');
             }
 
-            // RC8.6.2: a arquitetura moderna possui controlador próprio de autenticação.
-            // Não executar a leitura legada de usuarios_sigee na abertura da página,
-            // pois ela duplicava a consulta realizada pelo login-controller.
+            // V17: login ultrarrápido. Carrega apenas usuários no início e adia o banco pesado.
+            // As demais tabelas sincronizam em segundo plano após a entrada no sistema ou quando a aba for aberta.
             sigEEBancoCarregado = true;
-            sigEEBancoPromessa = window.__SIGEE_ARQUITETURA_DADOS_MODERNA__
-                ? Promise.resolve(true)
-                : carregarUsuariosRapidoSupabaseSIGEE();
+            sigEEBancoPromessa = carregarUsuariosRapidoSupabaseSIGEE();
         };
 
         async function handleLogin(event) {
@@ -1195,11 +1152,10 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             
             if (u) {
                 usuarioLogado = u;
-                window.usuarioLogado = u;
                 document.getElementById('tela-login').classList.add('hidden');
                 document.getElementById('sistema-dashboard').classList.remove('hidden');
                 document.getElementById('user-nome').innerText = u.nome;
-                window.SIGEE_RENDERIZAR_IDENTIDADE_EFETIVA?.();
+                document.getElementById('user-perfil').innerText = `${u.perfil} | ${u.nte}`;
                 
                 const btnImportar = document.getElementById('btn-importar-dados-master');
                 if (u.perfil === "Master") {
@@ -1228,19 +1184,17 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         }
 
         function navegar(aba) {
-            const ocultar = id => document.getElementById(id)?.classList.add('hidden');
-            const mostrar = id => document.getElementById(id)?.classList.remove('hidden');
-
-            ['aba-painel','aba-escolas','aba-processos','aba-usuarios','aba-logs',
-             'aba-relatorio-operacional','aba-relatorio-sla','aba-relatorio-territorial',
-             'aba-relatorio-pendencias','aba-relatorio-produtividade','aba-relatorio-executivo']
-                .forEach(ocultar);
-
-            if (aba === 'painel') { mostrar('aba-painel'); carregarDadosDashboardReal(); }
-            if (aba === 'escolas') { mostrar('aba-escolas'); renderizarListaEscolasBufferMemoria(); if (!sigEESupabaseOnline) setTimeout(() => sincronizarSupabaseSegundoPlanoSIGEE(), 50); }
-            if (aba === 'processos') { mostrar('aba-processos'); carregarEContarProcessosHorizontais(); if (!sigEESupabaseOnline) setTimeout(() => sincronizarSupabaseSegundoPlanoSIGEE(), 50); }
-            if (aba === 'usuarios') { mostrar('aba-usuarios'); carregarListaUsuarios(); }
-            if (aba === 'logs') { mostrar('aba-logs'); carregarLogs(); }
+            document.getElementById('aba-painel').classList.add('hidden');
+            document.getElementById('aba-escolas').classList.add('hidden');
+            document.getElementById('aba-processos').classList.add('hidden');
+            document.getElementById('aba-usuarios').classList.add('hidden');
+            document.getElementById('aba-logs').classList.add('hidden');
+            
+            if (aba === 'painel') { document.getElementById('aba-painel').classList.remove('hidden'); carregarDadosDashboardReal(); } 
+            if (aba === 'escolas') { document.getElementById('aba-escolas').classList.remove('hidden'); renderizarListaEscolasBufferMemoria(); if (!sigEESupabaseOnline) setTimeout(() => sincronizarSupabaseSegundoPlanoSIGEE(), 50); } 
+            if (aba === 'processos') { document.getElementById('aba-processos').classList.remove('hidden'); carregarEContarProcessosHorizontais(); if (!sigEESupabaseOnline) setTimeout(() => sincronizarSupabaseSegundoPlanoSIGEE(), 50); }
+            if (aba === 'usuarios') { document.getElementById('aba-usuarios').classList.remove('hidden'); carregarListaUsuarios(); }
+            if (aba === 'logs') { document.getElementById('aba-logs').classList.remove('hidden'); carregarLogs(); }
         }
 
         function carregarDadosDashboardReal() {
@@ -1801,7 +1755,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         }
 
         function abrirFormularioNovaSolicitacao() {
-            const btnAbrir = document.querySelector('[data-sigee-legado-desativado=\"nova-solicitacao\"]');
+            const btnAbrir = document.querySelector('button[onclick="abrirFormularioNovaSolicitacao()"]');
             if (btnAbrir) { btnAbrir.disabled = true; btnAbrir.dataset.textoOriginal = btnAbrir.innerText; btnAbrir.innerText = 'Carregando...'; }
 
             // V18: abre a nova solicitação sem travar; não bloqueia a tela com alertas de sincronização em segundo plano.
@@ -1885,8 +1839,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                     id: novoId, aluno: nomeAluno, escola: escolaNome, documento: docTipo,
                     etapa: "Desarquivamento", data_etapa_atual: dataHoje, nte: nteVinculo, municipio: mun
                 };
-                window.SIGEE_PROCESSOS_STORE?.upsert?.(novaSolicitacaoSIGEE,'NOVA_SOLICITACAO_LEGADA');
-                processosDB = window.SIGEE_PROCESSOS_STORE?.obter?.() || processosDB;
+                processosDB.push(novaSolicitacaoSIGEE);
                 solicitacoesDB.push({...novaSolicitacaoSIGEE});
 
                 registrarLog(`Nova solicitação cadastrada para ${nomeAluno}. Data de Início: ${dataHoje}`);
@@ -2201,7 +2154,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             });
         }
 
-        function logout() { usuarioLogado = null; window.usuarioLogado = null; document.getElementById('sistema-dashboard').classList.add('hidden'); document.getElementById('tela-login').classList.remove('hidden'); }
+        function logout() { usuarioLogado = null; document.getElementById('sistema-dashboard').classList.add('hidden'); document.getElementById('tela-login').classList.remove('hidden'); }
 
         // =========================================================================
         // ✅ AJUSTES V19 - NOVA SOLICITAÇÃO, DASHBOARD, PERFIS, LOGS E PERFORMANCE
@@ -2217,12 +2170,9 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
 
         function perfilCanonicoSIGEE(perfil) {
             const p = semAcentoSIGEE(perfil);
-            if (p.includes('SEC')) return 'SEC';
             if (p.includes('MASTER')) return 'Master';
             if (p.includes('ADMIN')) return 'Administrador';
-            if (p.includes('ESTAG')) return 'Estagiario';
             if (p.includes('CONSULT')) return 'Consulta';
-            if (p.includes('TECNIC')) return 'Tecnico';
             return 'Tecnico';
         }
 
@@ -2394,7 +2344,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 email: emailNormalizado,
                 senha: normalizarTextoSIGEE(u.senha || u.password || '123'),
                 perfil: perfilFinal,
-                nte: normalizarTextoSIGEE(u.nte || u.nte_vinculado || (u.nte_id ? obterNomeNtePorIdSIGEE_V19(u.nte_id) : '') || ''),
+                nte: normalizarTextoSIGEE(u.nte || u.nte_vinculado || obterNomeNtePorIdSIGEE_V19(u.nte_id) || 'NTE-26 Salvador'),
                 ativo: (u.ativo === undefined || u.ativo === null) ? true : !!u.ativo
             };
         };
@@ -2581,10 +2531,6 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                         : null);
             }
 
-            if (window.SIGEE_NORMALIZACAO_NTE) {
-                window.SIGEE_NORMALIZACAO_NTE.aplicarPayload(processoPayload, proc);
-            }
-
             const respostaProcesso = await client
                 .from(SIGEE_SUPABASE_TABELAS.processos)
                 .insert([processoPayload])
@@ -2613,6 +2559,8 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                     codigo_sigee: proc.codigo_sigee,
                     cod_mec: processoPayload.cod_mec || null,
                     escola_id: processoPayload.escola_id || null,
+                    nte_id: processoPayload.nte_id || null,
+                    escopo_tipo: processoPayload.escopo_tipo || 'NTE',
                     tecnico_responsavel:
                         processoPayload.tecnico_responsavel ||
                         proc.tecnico_responsavel ||
@@ -3185,22 +3133,43 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 const campoBusca =
                     document.getElementById('novo-proc-escola-busca-v23') ||
                     document.getElementById('novo-proc-escola-busca-sigee');
-                const idOculto = document.getElementById('novo-proc-escola-id');
 
-                // RC4.5.11: o ID é a única autoridade. Nome, MEC, cache e variáveis
-                // antigas nunca podem decidir qual escola será gravada.
                 const idSelecionado = String(
-                    idOculto?.value ||
                     campoPrincipal?.dataset?.escolaId ||
                     campoBusca?.dataset?.escolaId ||
-                    window.SIGEE_ESCOLA_NOVA_SOLICITACAO?.id ||
-                    window.SIGEE_ESCOLA_NOVA_SOLICITACAO?.escola_id ||
-                    window.SIGEE_NOVA_SOLICITACAO_ESCOLA_ID ||
                     ''
                 ).trim();
 
-                if (!idSelecionado) return null;
+                const mecSelecionado = String(
+                    campoPrincipal?.dataset?.codMec ||
+                    campoBusca?.dataset?.codMec ||
+                    document.getElementById('novo-proc-escola-cod-mec')?.value ||
+                    document.getElementById('novo-autofill-mec')?.value ||
+                    ''
+                ).trim();
 
+                const nomeSelecionado = upperV25(
+                    campoPrincipal?.value ||
+                    campoBusca?.value ||
+                    ''
+                );
+
+                let escola =
+                    escolaSelecionadaSIGEE_V25 ||
+                    (Array.isArray(escolasDB) ? escolasDB.find(e =>
+                        (idSelecionado && String(e.id || '') === idSelecionado) ||
+                        (mecSelecionado && String(e.cod_mec || '') === mecSelecionado) ||
+                        upperV25(e.nome || e.nome_escola || e.instituicao || '') === nomeSelecionado
+                    ) : null);
+
+                if (escola) return escola;
+
+                /*
+                 * O autocomplete pode vir de um módulo posterior e preencher
+                 * somente o nome/MEC no DOM, sem atualizar escolasDB nem a
+                 * variável interna escolaSelecionadaSIGEE_V25. Nesse caso,
+                 * confirma a escola diretamente no Supabase.
+                 */
                 try {
                     const client =
                         (typeof obterSupabaseSIGEE === 'function' && obterSupabaseSIGEE()) ||
@@ -3209,63 +3178,46 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                             ? window.SIGEE_SUPABASE.criarCliente()
                             : null);
 
-                    if (!client || typeof client.from !== 'function') return null;
+                    if (client && typeof client.from === 'function') {
+                        let query = client
+                            .from((window.SIGEE_SUPABASE_TABELAS && window.SIGEE_SUPABASE_TABELAS.escolas) || 'escolas_sigee')
+                            .select('id,cod_mec,nome_escola,nome,municipio,nte_id,nte,dependencia_adm,dependencia,situacao_funcional,situacao,status_acervo,acervo,local_acervo')
+                            .limit(1);
 
-                    const tabela =
-                        window.SIGEE_CONFIG?.supabase?.tabelas?.escolas ||
-                        (window.SIGEE_SUPABASE_TABELAS && window.SIGEE_SUPABASE_TABELAS.escolas) ||
-                        'escolas_sigee';
-
-                    const { data: escola, error } = await client
-                        .from(tabela)
-                        .select('id,cod_mec,nome_escola,nome,municipio,nte_id,nte,dependencia_adm,dependencia,situacao_funcional,situacao,status_acervo,acervo,local_acervo,ativo')
-                        .eq('id', Number(idSelecionado) || idSelecionado)
-                        .maybeSingle();
-
-                    if (error || !escola) return null;
-
-                    const nomeOficial = String(escola.nome_escola || escola.nome || '').trim();
-                    const escolaCanonica = {
-                        ...escola,
-                        id: String(escola.id),
-                        escola_id: String(escola.id),
-                        nome: nomeOficial,
-                        nome_escola: nomeOficial
-                    };
-
-                    escolaSelecionadaSIGEE_V25 = escolaCanonica;
-                    window.SIGEE_ESCOLA_NOVA_SOLICITACAO = escolaCanonica;
-                    window.SIGEE_NOVA_SOLICITACAO_ESCOLA_ID = String(escola.id);
-                    window.SIGEE_NOVA_SOLICITACAO_ESCOLA_NOME = nomeOficial;
-                    window.SIGEE_NOVA_SOLICITACAO_COD_MEC = String(escola.cod_mec || '');
-
-                    if (idOculto) idOculto.value = String(escola.id);
-                    if (campoPrincipal) {
-                        campoPrincipal.dataset.escolaId = String(escola.id);
-                        campoPrincipal.dataset.escolaNome = nomeOficial;
-                        campoPrincipal.dataset.codMec = String(escola.cod_mec || '');
-                        if (campoPrincipal.tagName === 'SELECT') {
-                            campoPrincipal.innerHTML = '';
-                            const opt = document.createElement('option');
-                            opt.value = nomeOficial;
-                            opt.textContent = nomeOficial;
-                            opt.selected = true;
-                            campoPrincipal.appendChild(opt);
+                        if (idSelecionado) {
+                            query = query.eq('id', Number(idSelecionado) || idSelecionado);
+                        } else if (mecSelecionado) {
+                            query = query.eq('cod_mec', mecSelecionado);
+                        } else if (nomeSelecionado) {
+                            const nomeSeguro = nomeSelecionado.replace(/[,%]/g, ' ').trim();
+                            query = query.or(`nome_escola.ilike.${nomeSeguro},nome.ilike.${nomeSeguro}`);
+                        } else {
+                            return null;
                         }
-                        campoPrincipal.value = nomeOficial;
-                    }
-                    if (campoBusca) {
-                        campoBusca.value = nomeOficial;
-                        campoBusca.dataset.escolaId = String(escola.id);
-                        campoBusca.dataset.codMec = String(escola.cod_mec || '');
-                        campoBusca.dataset.escolaSelecionada = '1';
-                    }
 
-                    return escolaCanonica;
+                        const resposta = await query.maybeSingle();
+                        if (!resposta.error && resposta.data) {
+                            escola = resposta.data;
+                            escolaSelecionadaSIGEE_V25 = escola;
+
+                            if (campoPrincipal) {
+                                campoPrincipal.dataset.escolaId = escola.id || '';
+                                campoPrincipal.dataset.codMec = escola.cod_mec || '';
+                            }
+                            if (campoBusca) {
+                                campoBusca.dataset.escolaId = escola.id || '';
+                                campoBusca.dataset.codMec = escola.cod_mec || '';
+                                campoBusca.dataset.escolaSelecionada = '1';
+                            }
+
+                            return escola;
+                        }
+                    }
                 } catch (erro) {
-                    console.warn('[SIGEE RC4.5.11] Não foi possível confirmar a escola pelo ID.', erro);
-                    return null;
+                    console.warn('[SIGEE 2.5.4] Não foi possível confirmar a escola selecionada.', erro);
                 }
+
+                return null;
             }
 
             window.salvarNovaSolicitacao = async function(event){
@@ -3313,6 +3265,8 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                         municipio: municipio,
                         cod_mec: mec,
                         escola_id: escola.id == null || escola.id === '' ? null : (Number(escola.id) || escola.id),
+                        nte_id: Number(escola.nte_id || window.SIGEE_ESCOPO?.nteIdUsuario?.(usuarioLogado) || 0) || null,
+                        escopo_tipo: window.SIGEE_ESCOPO?.tipo?.(usuarioLogado) === 'ESCOLA' ? 'ESCOLA' : 'NTE',
 
                         /*
                          * SIGEE PATCH 2.5.8:
@@ -3377,8 +3331,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                      * Somente agora o registro entra na memória local.
                      * Isso impede sincronização geral de enviar IDs provisórios.
                      */
-                    window.SIGEE_PROCESSOS_STORE?.upsert?.(processoSalvo,'NOVA_SOLICITACAO_CONFIRMADA');
-                    processosDB = window.SIGEE_PROCESSOS_STORE?.obter?.() || processosDB;
+                    processosDB.unshift(processoSalvo);
 
                     novaSol.id = processoSalvo.id;
                     novaSol.codigo_sigee = processoSalvo.codigo_sigee;
@@ -3480,126 +3433,14 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         };
     }
 
-    // RC10.8.39 — seleção autoritativa do responsável pelo Desarquivamento.
-    // Motivo: o projeto possui múltiplas implementações legadas de
-    // preencherSelectTecnicosPorNte; algumas usam apenas o cache usuariosDB e
-    // podem deixar o select vazio mesmo com técnicos ativos no Supabase.
-    window.preencherResponsaveisDesarquivamentoSIGEE = async function(selectId, nteFiltro){
-        const select = document.getElementById(selectId);
-        if(!select) return [];
-
-        const txtR = v => (v == null ? '' : String(v).trim());
-        const normR = v => txtR(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
-        const nteNumR = v => {
-            const m = txtR(v).match(/NTE\s*[- ]?\s*(\d{1,2})/i);
-            if(m) return Number(m[1]);
-            const soNumero = txtR(v).match(/^\s*(\d{1,2})\s*$/);
-            return soNumero ? Number(soNumero[1]) : null;
-        };
-        const nteTextoR = u => {
-            if(!u) return '';
-            const direto = txtR(u.nte || u.nte_nome || u.nte_vinculado || u.grupo);
-            if(direto) return direto;
-            const id = Number(u.nte_id);
-            if(id && typeof obterNomeNtePorIdSIGEE_V19 === 'function') {
-                try { return txtR(obterNomeNtePorIdSIGEE_V19(id)); } catch(_) {}
-            }
-            return id ? `NTE-${String(id).padStart(2,'0')}` : '';
-        };
-        const mesmoNteR = (a,b) => {
-            const na = nteNumR(a), nb = nteNumR(b);
-            if(na && nb) return na === nb;
-            return normR(a).replace(/[^A-Z0-9]/g,'') === normR(b).replace(/[^A-Z0-9]/g,'');
-        };
-        const perfilR = u => normR(u?.perfil || u?.role || u?.tipo_perfil || u?.tipo || '');
-        const ativoR = u => u && u.ativo !== false && normR(u.status || 'ATIVO') !== 'INATIVO';
-        const elegivelR = u => {
-            const pf = perfilR(u);
-            return ativoR(u) && (pf.includes('TECNIC') || pf.includes('ADMIN'));
-        };
-
-        select.disabled = true;
-        select.innerHTML = '<option value="">Carregando servidores...</option>';
-        const mapa = new Map();
-        const adicionar = u => {
-            if(!u) return;
-            const item = {...u, nome: txtR(u.nome || u.nome_completo || u.display_name || u.email), nte: nteTextoR(u)};
-            if(!item.nome) return;
-            const chave = normR(u.email || item.nome) + '|' + normR(item.nte);
-            if(chave && !mapa.has(chave)) mapa.set(chave,item);
-        };
-
-        // RC10.8.40 — usa também o cache lexical real do app. Em sessões territoriais
-        // window.usuariosDB pode ainda não ter sido publicado, embora usuariosDB já esteja
-        // carregado. Isso explicava o comportamento diferente entre Master e NTE.
-        try { (Array.isArray(usuariosDB) ? usuariosDB : []).forEach(adicionar); } catch(_) {}
-        try { (Array.isArray(window.usuariosDB) ? window.usuariosDB : []).forEach(adicionar); } catch(_) {}
-        try {
-            const c = typeof obterSupabaseSIGEE === 'function' ? obterSupabaseSIGEE() : null;
-            if(c){
-                const {data,error} = await c.from('usuarios_sigee').select('*');
-                if(error) throw error;
-                (data || []).forEach(adicionar);
-            }
-        } catch(e) {
-            // Em perfil territorial a política de leitura pode não devolver o mesmo conjunto
-            // do Master. O fluxo não fica dependente desta consulta: o cache sincronizado acima
-            // permanece como fonte operacional de contingência.
-            console.warn('[SIGEE RC10.8.40] Consulta complementar de responsáveis não disponível; usando cache operacional.', e);
-        }
-
-        const nteBase = txtR(nteFiltro || (typeof usuarioLogado !== 'undefined' ? usuarioLogado?.nte : '') || '');
-        let lista = [...mapa.values()].filter(elegivelR);
-        if(nteBase) lista = lista.filter(u => mesmoNteR(u.nte, nteBase));
-        lista.sort((a,b) => txtR(a.nome).localeCompare(txtR(b.nome),'pt-BR'));
-
-        select.innerHTML = '<option value="">-- Selecione o Servidor --</option>';
-        lista.forEach(u => {
-            const opt = document.createElement('option');
-            opt.value = u.nome;
-            opt.textContent = `${u.nome}${u.nte ? ' — ' + u.nte : ''}`;
-            opt.dataset.nte = u.nte || '';
-            opt.dataset.perfil = txtR(u.perfil || '');
-            select.appendChild(opt);
-        });
-        if(!lista.length){
-            // Se o login territorial abriu o modal antes do fim da sincronização em segundo
-            // plano, tenta novamente uma única vez após o cache ser publicado.
-            const tentativa = Number(select.dataset.sigeeTentativaResponsaveis || '0');
-            if(tentativa < 1){
-                select.dataset.sigeeTentativaResponsaveis = String(tentativa + 1);
-                select.innerHTML = '<option value="">Sincronizando servidores do NTE...</option>';
-                select.disabled = false;
-                setTimeout(() => window.preencherResponsaveisDesarquivamentoSIGEE?.(selectId, nteBase), 1400);
-                return [];
-            }
-            const opt = document.createElement('option');
-            opt.disabled = true;
-            opt.textContent = `Nenhum técnico/administrador ativo localizado para ${nteBase || 'este NTE'}`;
-            select.appendChild(opt);
-            console.warn(`[SIGEE RC10.8.39] Nenhum responsável de Desarquivamento localizado para ${nteBase || 'NTE não identificado'}.`);
-        }
-        select.disabled = false;
-        try { window.validarDesarquivamentoV27?.(); } catch(_) {}
-        return lista;
-    };
-
-    // RC10.8.37 — Recebimento da pasta -> Desarquivamento
-    // O recebimento físico/operacional da pasta não encaminha mais o processo
-    // diretamente para Análise. Nesta triagem, define-se o responsável pelo
-    // Desarquivamento e inicia-se/reinicia-se o prazo operacional de 30 dias.
+    // 00 - Desarquivamento: Documento Recebido -> Análise
     window.abrirModalFluxoDesarquivamento = function(id){
         const p = obterProcessoSIGEE(id); if(!p) return;
         document.getElementById('f00-id').value = p.id;
         ['f00-tipo','f00-local','f00-prioridade'].forEach(i=>{ const el=document.getElementById(i); if(el) el.value=''; });
-        const chkRecebimento=document.getElementById('f00-chk-email'); if(chkRecebimento) chkRecebimento.checked=false;
-        // RC10.8.39 — o Recebimento da Pasta usa fonte autoritativa própria.
-        // Não depende do cache legado usuariosDB nem das várias sobrescritas de
-        // preencherSelectTecnicosPorNte existentes no app.
-        const selRespDesarq = document.getElementById('f00-analista');
-        if(selRespDesarq) selRespDesarq.dataset.sigeeTentativaResponsaveis = '0';
-        window.preencherResponsaveisDesarquivamentoSIGEE?.('f00-analista', p.nte || (typeof usuarioLogado !== 'undefined' ? usuarioLogado?.nte : '') || '');
-        setDisabled('f00-submit', true); setTexto('f00-submit','Enviar para Desarquivamento');
+        const chkEmail=document.getElementById('f00-chk-email'); if(chkEmail) chkEmail.checked=false;
+        preencherSelectTecnicosPorNte('f00-analista', p.nte || usuarioLogado?.nte || '');
+        setDisabled('f00-submit', true); setTexto('f00-submit','Enviar para Análise');
         if(typeof aplicarEstadoCamposDesarquivamentoSIGEE === 'function') aplicarEstadoCamposDesarquivamentoSIGEE(false);
         const cont=document.getElementById('f00-container-alertas');
         if(cont){
@@ -3618,7 +3459,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         event.preventDefault();
         const p = obterProcessoSIGEE(valor('f00-id')); if(!p) return;
         if(!valor('f00-tipo') || !valor('f00-local') || !valor('f00-prioridade') || !valor('f00-analista') || !chk('f00-chk-email')){
-            alert('Preencha todos os campos obrigatórios, selecione o responsável e confirme o recebimento da pasta.');
+            alert('Preencha todos os campos obrigatórios e confirme o envio do E-mail 02.');
             return;
         }
 
@@ -3627,121 +3468,78 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         const tipoArquivo = valor('f00-tipo');
         const localArquivo = valor('f00-local');
         const prioridade = valor('f00-prioridade');
-        const responsavelDesarquivamento = valor('f00-analista');
-        const prazoFim = new Date(Date.now() + 30 * 86400000).toISOString();
-        const cliente = obterSupabaseSIGEE();
+        const analista = valor('f00-analista');
 
-        if (!cliente) {
-            alert('Não foi possível conectar ao banco de dados. A operação não foi realizada.');
-            return;
-        }
+        p.tipo_arquivo = tipoArquivo;
+        p.local_arquivo = localArquivo;
+        p.prioridade = prioridade;
+        p.analista = analista;
+        p.analista_nome = p.analista_nome || analista;
+        p.tecnico_responsavel = analista;
+        p.tecnico_responsavel_nome = analista;
+        p.data_arquivo_recebido = recebidoEmSIGEE;
+        p.ultimo_evento_workflow = 'DOCUMENTO_RECEBIDO';
+        p.ultima_mensagem_workflow = '02';
+        p.contexto_analise = 'DOCUMENTO_RECEBIDO';
+        p.etapa_codigo = 'ANA';
+        p.etapa = 'Análise';
+        p.etapa_atual = 'Análise';
+        p.fase_atual = 'Análise';
+        p.data_etapa_atual = recebidoEmSIGEE;
+        p.prazo_inicio = recebidoEmSIGEE;
+        p.prazo_fim = new Date(Date.now() + 7 * 86400000).toISOString();
+        p.prazo_etapa = 7;
+        p.updated_at = recebidoEmSIGEE;
+        p.workflow_ciclo = cicloAtual;
+        p.ciclo = cicloAtual;
 
-        const atualizacaoOperacional = {
-            etapa_atual: 'Desarquivamento',
-            etapa_codigo: 'DES',
-            data_etapa_atual: recebidoEmSIGEE,
-            prazo_etapa: 30,
-            prazo_inicio: recebidoEmSIGEE,
-            prazo_fim: prazoFim,
-            prioridade: prioridade,
-            tecnico_responsavel: responsavelDesarquivamento,
-            workflow_ciclo: cicloAtual,
-            ciclo: cicloAtual,
-            ultimo_evento_workflow: 'PASTA_RECEBIDA',
-            contexto_analise: null,
-            updated_at: recebidoEmSIGEE
-        };
-
-        setDisabled('f00-submit', true);
-        setTexto('f00-submit', 'Enviando...');
+        registrarLog(`Processo [${p.aluno}]: Documento recebido e encaminhado para Análise. Tipo: ${tipoArquivo}. Local: ${localArquivo}. Analista: ${analista}.`);
 
         try {
-            const tabelaProcessos = (window.SIGEE_SUPABASE_TABELAS && window.SIGEE_SUPABASE_TABELAS.processos) || 'processos';
-            const { data: processoConfirmado, error: erroProcesso } = await cliente
-                .from(tabelaProcessos)
-                .update(atualizacaoOperacional)
-                .eq('id', p.id)
-                .select('id,etapa_atual,etapa_codigo,data_etapa_atual,prazo_etapa,prazo_inicio,prazo_fim,prioridade,tecnico_responsavel,workflow_ciclo,ciclo,ultimo_evento_workflow,contexto_analise,updated_at')
-                .maybeSingle();
-
-            if (erroProcesso) throw erroProcesso;
-            if (!processoConfirmado || String(processoConfirmado.id) !== String(p.id)) {
-                throw new Error('O Supabase não confirmou a atualização do processo correto.');
+            const clienteHistoricoSIGEE = obterSupabaseSIGEE();
+            if (clienteHistoricoSIGEE) {
+                const { error } = await clienteHistoricoSIGEE.from('historico_processos').insert({
+                    processo_id: p.id,
+                    workflow_instance_id: p.workflow_instance_id || null,
+                    codigo_sigee: p.codigo_sigee || null,
+                    nte: p.nte || usuarioLogado?.nte || null,
+                    etapa: 'Análise',
+                    acao: 'DOCUMENTO_RECEBIDO',
+                    observacao: `Documento recebido (${tipoArquivo}) no local ${localArquivo}. E-mail 02 confirmado. Processo encaminhado para Análise sem reinício do ciclo.`,
+                    usuario_nome: usuarioLogado?.nome || usuarioLogado?.email || null,
+                    usuario_email: usuarioLogado?.email || null,
+                    usuario_perfil: usuarioLogado?.perfil || null,
+                    dados: {
+                        etapa_origem: 'Desarquivamento',
+                        etapa_destino: 'Análise',
+                        mensagem: '02',
+                        ciclo: cicloAtual,
+                        tipo_arquivo: tipoArquivo,
+                        local_arquivo: localArquivo,
+                        prioridade: prioridade,
+                        analista: analista,
+                        prazo_dias: 7,
+                        reinicia_ciclo: false
+                    },
+                    created_at: recebidoEmSIGEE
+                });
+                if (error) console.warn('[SIGEE] Evento Documento Recebido não gravado no histórico:', error);
+                else window.dispatchEvent(new CustomEvent('sigee:arquivo-recebido', { detail: { processoId: p.id } }));
             }
-
-            Object.assign(p, atualizacaoOperacional, {
-                etapa: 'Desarquivamento',
-                fase_atual: 'Desarquivamento',
-                tipo_arquivo: tipoArquivo,
-                local_arquivo: localArquivo,
-                responsavel: responsavelDesarquivamento,
-                responsavel_nome: responsavelDesarquivamento,
-                tecnico_responsavel_nome: responsavelDesarquivamento,
-                data_pasta_recebida: recebidoEmSIGEE
-            });
-
-            const pastaPayload = {
-                processo_id: p.id,
-                workflow_instance_id: p.workflow_instance_id || null,
-                codigo_sigee: p.codigo_sigee || null,
-                nte: p.nte || usuarioLogado?.nte || null,
-                etapa: 'Desarquivamento',
-                acao: 'PASTA_RECEBIDA',
-                observacao: `Pasta/acervo recebido (${tipoArquivo}) no local ${localArquivo}. Processo encaminhado ao Desarquivamento sob responsabilidade de ${responsavelDesarquivamento}.`,
-                usuario_nome: usuarioLogado?.nome || usuarioLogado?.email || null,
-                usuario_email: usuarioLogado?.email || null,
-                usuario_perfil: usuarioLogado?.perfil || null,
-                dados: {
-                    etapa_origem: p.etapa_atual || p.etapa || null,
-                    etapa_destino: 'Desarquivamento',
-                    ciclo: cicloAtual,
-                    tipo_arquivo: tipoArquivo,
-                    local_arquivo: localArquivo,
-                    prioridade: prioridade,
-                    responsavel_desarquivamento: responsavelDesarquivamento,
-                    prazo_dias: 30,
-                    pasta_recebida: true
-                },
-                created_at: recebidoEmSIGEE
-            };
-
-            const { error: erroPasta } = await cliente
-                .from('historico_processos')
-                .insert(pastaPayload);
-            if (erroPasta) throw erroPasta;
-
-            const logPayload = {
-                usuario_id: usuarioLogado?.id || null,
-                nome: usuarioLogado?.nome || null,
-                email: usuarioLogado?.email || null,
-                acao: 'Pasta recebida e processo encaminhado para Desarquivamento.',
-                created_at: recebidoEmSIGEE,
-                nte: p.nte || usuarioLogado?.nte || null,
-                perfil: usuarioLogado?.perfil || null,
-                detalhes: `Processo ${p.codigo_sigee || p.id} | ID ${p.id} | Tipo ${tipoArquivo} | Local ${localArquivo} | Responsável ${responsavelDesarquivamento}`,
-                modulo: 'processos',
-                processo_id: p.id,
-                codigo_sigee: p.codigo_sigee || null,
-                etapa: 'Desarquivamento',
-                sessao_id: window.SIGEE_SESSAO_ID || null
-            };
-
-            const { error: erroLog } = await cliente.from('logs_sigee').insert(logPayload);
-            if (erroLog) console.warn('[SIGEE RC10.8.37] Processo e histórico confirmados, mas o log complementar falhou:', erroLog);
-
-            try { salvarBancoLocalSIGEE(); } catch (_) {}
-            try { window.SIGEE6?.timelineService?.invalidar?.(p.id); } catch (_) {}
-            try { window.SIGEE6?.events?.emit?.('workflow:changed', { processoId: p.id, evento: 'PASTA_RECEBIDA' }); } catch (_) {}
-            window.dispatchEvent(new CustomEvent('sigee:pasta-recebida', { detail: { processoId: p.id } }));
-
-            fecharModalFluxo('desarquivamento');
-            carregarEContarProcessosHorizontais();
-        } catch (erroSalvarPasta) {
-            console.error('[SIGEE RC10.8.37] Falha ao encaminhar a pasta para Desarquivamento:', erroSalvarPasta);
-            alert('Não foi possível enviar a pasta para Desarquivamento. Nenhum dado cadastral do processo foi alterado.');
-            setDisabled('f00-submit', false);
-            setTexto('f00-submit', 'Enviar para Desarquivamento');
+        } catch (erroHistoricoSIGEE) {
+            console.warn('[SIGEE] Falha ao registrar Documento Recebido para indicadores:', erroHistoricoSIGEE);
         }
+
+        try {
+            if(window.SIGEE_Processos && typeof window.SIGEE_Processos.salvar === 'function') await window.SIGEE_Processos.salvar(p);
+            else salvarBancoLocalSIGEE();
+        } catch (erroSalvarDocumento) {
+            console.error('[SIGEE] Falha ao salvar Documento Recebido:', erroSalvarDocumento);
+            alert('Não foi possível concluir o Documento Recebido. Tente novamente.');
+            return;
+        }
+        fecharModalFluxo('desarquivamento');
+        carregarEContarProcessosHorizontais();
     };
 
     // 01 - Análise
@@ -3836,7 +3634,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     window.addEventListener('load', function(){
         try{
             const pend=document.getElementById('f01-pendencia'); if(pend && !pend.querySelector('option[value=""]')) pend.insertAdjacentHTML('afterbegin','<option value="">-- Selecione --</option>');
-            const f00=document.getElementById('f00-submit'); if(f00) f00.innerText='Enviar para Desarquivamento';
+            const f00=document.getElementById('f00-submit'); if(f00) f00.innerText='Enviar para Análise';
             const f01=document.getElementById('f01-submit'); if(f01) f01.innerText='Enviar para Digitação';
             const f02=document.getElementById('f02-submit'); if(f02) f02.innerText='Enviar para Digitação';
             const f05=document.getElementById('f05-submit'); if(f05) f05.innerText='Enviar para Conferência';
@@ -3895,61 +3693,8 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         if (!busca) return lista;
         return lista.filter(e => [e.cod_mec, e.nome, e.nome_escola, e.municipio, e.nte].some(v => valorTextoSIGEE(v).toLowerCase().includes(busca)));
     }
-    function obterBaseProcessosExportacaoSIGEE(){
-        // RC exportação: usa a mesma fonte autoritativa da Central de Processos.
-        // Evita exportação vazia quando a variável local processosDB fica desatualizada
-        // após paginação, sincronização, filtros ou atualizações feitas por outros módulos.
-        const candidatas = [
-            window.SIGEE_PROCESSOS_STORE?.snapshot?.(),
-            window.SIGEE_PROCESSOS_STORE?.obter?.(),
-            window.processosDB,
-            (typeof processosDB !== 'undefined' ? processosDB : null)
-        ];
-        const base = candidatas.find(lista => Array.isArray(lista) && lista.length)
-            || candidatas.find(Array.isArray)
-            || [];
-        return base.slice();
-    }
-    async function obterTodosProcessosExportacaoSIGEE(){
-        // Quando a Central usa paginação remota, o Store contém somente a página atual.
-        // Para exportar o relatório completo, consulta todos os registros autorizados,
-        // em lotes, trazendo apenas as colunas necessárias ao PDF/Excel.
-        if (window.__SIGEE_PROCESSOS_ORIGEM__ !== 'REMOTA_PAGINADA') {
-            return obterBaseProcessosExportacaoSIGEE();
-        }
-        const client = obterSupabaseSIGEE?.();
-        if (!client) return obterBaseProcessosExportacaoSIGEE();
-        const tabela = window.SIGEE_CONFIG?.supabase?.tabelas?.processos || SIGEE_SUPABASE_TABELAS?.processos || 'processos';
-        const campos = 'id,codigo_sigee,aluno_nome,escola_nome,documento_tipo,etapa_atual,dias_decorridos,prioridade,nte,tecnico_responsavel,data_etapa,data_etapa_atual,prazo_etapa,prazo_inicio,prazo_fim,status,created_at,updated_at,processo_migrado';
-        const todos = [];
-        const tamanhoLote = 1000;
-        const tetoSeguro = 10000;
-        for (let inicio = 0; inicio < tetoSeguro; inicio += tamanhoLote) {
-            let query = client.from(tabela).select(campos).order('created_at', { ascending:false }).range(inicio, inicio + tamanhoLote - 1);
-            query = window.SIGEE_ESCOPO?.aplicarQueryProcessos
-                ? window.SIGEE_ESCOPO.aplicarQueryProcessos(query, window.usuarioLogado || usuarioLogado)
-                : query;
-            const { data, error } = await query;
-            if (error) throw error;
-            const lote = Array.isArray(data) ? data : [];
-            todos.push(...lote);
-            if (lote.length < tamanhoLote) break;
-        }
-        const convertidos = todos.map(p => {
-            try { return typeof processoDoSupabaseParaLocalSIGEE === 'function' ? processoDoSupabaseParaLocalSIGEE(p) : p; }
-            catch (_) { return p; }
-        }).filter(Boolean);
-        return window.SIGEE_ESCOPO?.filtrar
-            ? window.SIGEE_ESCOPO.filtrar(convertidos, window.usuarioLogado || usuarioLogado)
-            : convertidos;
-    }
-    function processosVisiveisExportacaoSIGEE(baseInformada){
-        let lista = filtrarNteExportacaoSIGEE(Array.isArray(baseInformada) ? baseInformada : obterBaseProcessosExportacaoSIGEE(), 'nte');
-        const filtroNteCentral = document.getElementById('filtro-processos-nte')?.value || 'TODOS';
-        if (filtroNteCentral !== 'TODOS') {
-            const igualNte = (typeof nteIgualSIGEE === 'function') ? nteIgualSIGEE : ((a,b)=>String(a||'').replace(/\D/g,'') === String(b||'').replace(/\D/g,''));
-            lista = lista.filter(p => igualNte(p.nte || p.nte_nome || p.nte_vinculado || '', filtroNteCentral));
-        }
+    function processosVisiveisExportacaoSIGEE(){
+        let lista = filtrarNteExportacaoSIGEE(processosDB || [], 'nte');
         if (typeof etapaFiltroAtual !== 'undefined' && etapaFiltroAtual && etapaFiltroAtual !== 'TODOS') lista = lista.filter(p => p.etapa === etapaFiltroAtual || p.etapa_atual === etapaFiltroAtual);
         const busca = (document.getElementById('busca-proc-nome')?.value || '').toLowerCase().trim();
         if (busca) lista = lista.filter(p => valorTextoSIGEE(p.aluno || p.aluno_nome).toLowerCase().includes(busca));
@@ -3986,7 +3731,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         if (!exigirPerfilExportadorSIGEE()) return;
         const dados = escolasVisiveisExportacaoSIGEE().map(e => ({
             'Código MEC': e.cod_mec || '', 'Escola': e.nome || e.nome_escola || '', 'Município': e.municipio || '',
-            'NTE': window.rotuloNteSIGEE?.(e.nte) || e.nte || '', 'Dependência': e.dependencia || e.dependencia_adm || '', 'Situação': e.situacao || e.situacao_funcional || '',
+            'NTE': e.nte || '', 'Dependência': e.dependencia || e.dependencia_adm || '', 'Situação': e.situacao || e.situacao_funcional || '',
             'Acervo': e.status_acervo || e.acervo || '', 'Local do Acervo': e.local_acervo || ''
         }));
         registrarLog(`Exportou Catálogo de Escolas (${formato.toUpperCase()}) - ${dados.length} registros.`);
@@ -3994,45 +3739,14 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         exportarXLSXSIGEE('SIGEE_Catalogo_Escolas', [{ nome:'Escolas', dados }]);
     };
 
-    function prazoProcessoExportacaoSIGEE(p){
-        const etapa = String(p.etapa || p.etapa_atual || '').trim();
-        const limites = window.SIGEE_CONFIG?.prazosEtapas || { 'Desarquivamento':30, 'Análise':7, 'Digitação':15, 'Conferência':10, 'Assinatura':7 };
-        const limite = limites[etapa];
-        const inicio = p.data_etapa_atual || p.etapa_iniciada_em || p.updated_at || p.created_at;
-        let dias = Number(p.dias_na_etapa ?? p.dias_etapa);
-        if (!Number.isFinite(dias)) dias = (typeof calcularDiasApartirDeDataString === 'function') ? calcularDiasApartirDeDataString(inicio) : 0;
-        dias = Math.max(0, Number(dias) || 0);
-        if (limite == null) return { prazo: `${dias}/—`, situacao: 'SEM PRAZO', dias, limite:null };
-        const situacao = dias > limite ? 'VENCIDO' : dias === limite ? 'VENCE HOJE' : 'DENTRO DO PRAZO';
-        return { prazo: `${dias}/${limite}`, situacao, dias, limite };
-    }
-    window.exportarProcessosSIGEE = async function(formato='xlsx'){
+    window.exportarProcessosSIGEE = function(formato='xlsx'){
         if (!exigirPerfilExportadorSIGEE()) return;
-        let baseCompleta;
-        try {
-            baseCompleta = await obterTodosProcessosExportacaoSIGEE();
-        } catch (erro) {
-            console.error('[SIGEE EXPORTAÇÃO] Falha ao carregar todos os processos:', erro);
-            alert('Não foi possível carregar todas as páginas para exportação. Tente novamente.');
-            return;
-        }
-        const processosExportacao = processosVisiveisExportacaoSIGEE(baseCompleta);
-        if (!processosExportacao.length) {
-            alert('Nenhum processo foi encontrado para os filtros e a abrangência territorial atuais. Revise os filtros da Central de Processos e tente novamente.');
-            return;
-        }
-        const dados = processosExportacao.map(p => {
-            const prazo = prazoProcessoExportacaoSIGEE(p);
-            return {
-                'Aluno': p.aluno || p.aluno_nome || '', 'Escola': p.escola || p.escola_nome || '', 'Documento': p.documento || p.documento_tipo || '',
-                'Etapa': p.etapa || p.etapa_atual || '', 'Prazo': prazo.prazo, 'Situação': prazo.situacao,
-                'Técnico': p.tecnico || p.tecnico_responsavel_nome || p.analista || p.digitador || p.responsavel || (p.migrado ? 'Migrado' : ''),
-                'Prioridade': p.prioridade || '', 'Município': p.municipio || '', 'NTE': window.rotuloNteSIGEE?.(p.nte) || p.nte || ''
-            };
-        }).sort((a,b)=>{
-            const peso=s=>s==='VENCIDO'?0:s==='VENCE HOJE'?1:s==='DENTRO DO PRAZO'?2:3;
-            return peso(a['Situação'])-peso(b['Situação']) || (a['Prioridade']==='Urgente'?-1:1) || String(a.Aluno).localeCompare(String(b.Aluno),'pt-BR');
-        });
+        const dados = processosVisiveisExportacaoSIGEE().map(p => ({
+            'Aluno': p.aluno || p.aluno_nome || '', 'Escola': p.escola || p.escola_nome || '', 'Documento': p.documento || p.documento_tipo || '',
+            'Etapa': p.etapa || p.etapa_atual || '', 'Dias na Etapa': (typeof calcularDiasApartirDeDataString === 'function') ? calcularDiasApartirDeDataString(p.data_etapa_atual || p.created_at) : '',
+            'Técnico': p.tecnico || p.analista || p.digitador || '', 'Prioridade': p.prioridade || '', 'Município': p.municipio || '',
+            'NTE': p.nte || '', 'Data de Abertura': p.data_inicio || p.created_at || '', 'Última Movimentação': p.data_etapa_atual || ''
+        }));
         registrarLog(`Exportou Processos (${formato.toUpperCase()}) - ${dados.length} registros.`);
         if (formato === 'pdf') return exportarPDFSIGEE('Processos / Fluxo', Object.keys(dados[0] || {'Sem dados':''}), dados.map(Object.values), 'SIGEE_Processos');
         exportarXLSXSIGEE('SIGEE_Processos', [{ nome:'Processos', dados }]);
@@ -4041,7 +3755,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     window.exportarLogsSIGEE = function(formato='xlsx'){
         if (!exigirPerfilExportadorSIGEE()) return;
         const dados = logsVisiveisExportacaoSIGEE().map(l => ({
-            'Data': l.data || l.dataHora || '', 'Hora': l.hora || '', 'Usuário': l.nome || '', 'Perfil': l.perfil || '', 'NTE': window.rotuloNteSIGEE?.(l.nte) || l.nte || '', 'E-mail': l.email || '', 'Ação': l.acao || ''
+            'Data': l.data || l.dataHora || '', 'Hora': l.hora || '', 'Usuário': l.nome || '', 'Perfil': l.perfil || '', 'NTE': l.nte || '', 'E-mail': l.email || '', 'Ação': l.acao || ''
         }));
         registrarLog(`Exportou Logs (${formato.toUpperCase()}) - ${dados.length} registros.`);
         if (formato === 'pdf') return exportarPDFSIGEE('Histórico de Atividades / Logs', Object.keys(dados[0] || {'Sem dados':''}), dados.map(Object.values), 'SIGEE_Logs');
@@ -4068,26 +3782,8 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     function dadosInformacoesTecnicasSIGEE(){
         const proc = filtrarNteExportacaoSIGEE(processosDB || [], 'nte');
         const mapa = {};
-        proc.forEach(p => { const k=p.escola || p.escola_nome || 'NÃO INFORMADA'; mapa[k] = mapa[k] || { Escola:k, NTE:window.rotuloNteSIGEE?.(p.nte)||p.nte||'', Quantidade:0 }; mapa[k].Quantidade++; });
+        proc.forEach(p => { const k=p.escola || p.escola_nome || 'NÃO INFORMADA'; mapa[k] = mapa[k] || { Escola:k, NTE:p.nte||'', Quantidade:0 }; mapa[k].Quantidade++; });
         return Object.values(mapa).sort((a,b)=>b.Quantidade-a.Quantidade).slice(0,10);
-    }
-    function dadosAtrasosPorEtapaSIGEE(){
-        const comp = window.__SIGEE_DASHBOARD_COMPLEMENTO__ || {};
-        const lista = Array.isArray(comp.atrasos_por_etapa) ? comp.atrasos_por_etapa : [];
-        return lista.map(x => ({
-            'Etapa': x.nome || x.etapa || 'Não informado',
-            'Total na Etapa': Number(x.total || 0),
-            'Em Atraso': Number(x.em_atraso || x.vencidos || 0),
-            '% em Atraso': Number(x.percentual_atraso || 0)
-        }));
-    }
-    function dadosTemposFluxoSIGEE(){
-        const proc = filtrarNteExportacaoSIGEE(processosDB || [], 'nte');
-        return proc.filter(p=>p.deferido_em||p.retirado_em).map(p=>{
-            const inicio=new Date(p.created_at||p.data_inicio||0), def=p.deferido_em?new Date(p.deferido_em):null, ret=p.retirado_em?new Date(p.retirado_em):null;
-            const dias=(a,b)=>a&&b&&!isNaN(a)&&!isNaN(b)?Math.max(0,Math.round((b-a)/86400000)):'';
-            return {'Código SIGEE':p.codigo_sigee||'', 'Aluno':p.aluno_nome||p.aluno||'', 'NTE':window.rotuloNteSIGEE?.(p.nte)||p.nte||'', 'Dias até Deferimento':dias(inicio,def), 'Dias do Deferimento à Retirada':dias(def,ret)};
-        });
     }
     function dadosIndicadoresNteSIGEE(){
         return LISTA_OFICIAL_27_NTES.map(nte => {
@@ -4096,7 +3792,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             const pend = proc.filter(p => (p.etapa || p.etapa_atual) === 'Pendência').length;
             const dias = proc.map(p => (typeof calcularDiasApartirDeDataString === 'function') ? calcularDiasApartirDeDataString(p.data_etapa_atual || p.created_at) : 0).filter(n => Number.isFinite(n));
             const media = dias.length ? Math.round(dias.reduce((a,b)=>a+b,0)/dias.length) : 0;
-            return { NTE: window.rotuloNteSIGEE?.(nte) || nte, Escolas: escolas.length, Solicitações: proc.length, Pendências: pend, 'Tempo Médio na Etapa': media };
+            return { NTE: nte, Escolas: escolas.length, Solicitações: proc.length, Pendências: pend, 'Tempo Médio na Etapa': media };
         });
     }
 
@@ -4106,23 +3802,16 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         const etapas = dadosProcessosPorEtapaSIGEE();
         const tecnicas = dadosInformacoesTecnicasSIGEE();
         const ntes = dadosIndicadoresNteSIGEE();
-        const atrasos = dadosAtrasosPorEtapaSIGEE();
-        const temposFluxo = dadosTemposFluxoSIGEE();
         registrarLog(`Exportou Relatório Geral do Dashboard (${formato.toUpperCase()}).`);
         if (formato === 'pdf') {
             const linhas = executivo.map(x => [x.Indicador, x.Valor]);
-            linhas.push(['ATRASOS POR ETAPA','']);
-            atrasos.forEach(x=>linhas.push([`${x.Etapa}: ${x['Em Atraso']} de ${x['Total na Etapa']}`,`${x['% em Atraso']}%`]));
-            linhas.push(['TEMPOS DO FLUXO','Deferimento encerra o fluxo principal; retirada é contada separadamente.']);
             return exportarPDFSIGEE('Relatório Geral do Dashboard', ['Indicador','Valor'], linhas, 'SIGEE_Dashboard_Geral');
         }
         exportarXLSXSIGEE('SIGEE_Relatorio_Geral_Dashboard', [
             { nome:'Dashboard Executivo', dados: executivo },
             { nome:'Processos por Etapa', dados: etapas },
             { nome:'Informações Técnicas', dados: tecnicas.length ? tecnicas : [{ Escola:'Sem dados', NTE:'', Quantidade:0 }] },
-            { nome:'Indicadores por NTE', dados: ntes },
-            { nome:'Atrasos por Etapa', dados: atrasos.length ? atrasos : [{ Etapa:'Sem atrasos', 'Total na Etapa':0, 'Em Atraso':0, '% em Atraso':0 }] },
-            { nome:'Tempos do Fluxo', dados: temposFluxo.length ? temposFluxo : [{ 'Código SIGEE':'Sem dados', Aluno:'', NTE:'', 'Dias até Deferimento':'', 'Dias do Deferimento à Retirada':'' }] }
+            { nome:'Indicadores por NTE', dados: ntes }
         ]);
     };
 
@@ -4324,7 +4013,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 document.getElementById('tela-login')?.classList.add('hidden');
                 document.getElementById('sistema-dashboard')?.classList.remove('hidden');
                 const nomeEl = document.getElementById('user-nome'); if(nomeEl) nomeEl.innerText = u.nome;
-                window.SIGEE_RENDERIZAR_IDENTIDADE_EFETIVA?.();
+                const perfEl = document.getElementById('user-perfil'); if(perfEl) perfEl.innerText = `${u.perfil}${u.grupo ? ' / ' + u.grupo : ''} | ${u.nte}`;
                 const podeAdminSistema = isAcessoGlobalV31(u) || perfilCanonicoV31(u.perfil) === 'Administrador';
                 const menuUsuarios = document.getElementById('menu-usuarios'); if(menuUsuarios) menuUsuarios.classList.toggle('hidden', !isAcessoGlobalV31(u));
                 const menuLogs = document.getElementById('menu-logs'); if(menuLogs) menuLogs.classList.toggle('hidden', !podeAdminSistema);
@@ -4494,7 +4183,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     };
 
     // Salvar usuário: mantém campos locais nte/grupo/senha mesmo quando a tabela usuarios_sigee não possui essas colunas.
-    window.__SIGEE_LEGACY_salvarNovoUsuarioFormularioMaster = async function(event){
+    window.salvarNovoUsuarioFormularioMaster = async function(event){
         event.preventDefault();
         const id = valorV31('user-form-id');
         const nome = semAcentoV31(document.getElementById('user-form-nome')?.value || '').trim();
@@ -4529,7 +4218,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         fecharModalUsuario();
         carregarListaUsuarios();
     };
-    /* RC8.0: alias legado de salvar usuário desativado */
+    try { salvarNovoUsuarioFormularioMaster = window.salvarNovoUsuarioFormularioMaster; } catch(e){}
 
     window.carregarListaUsuarios = function(){
         const corpo = document.getElementById('tabela-usuarios-corpo'); if(!corpo) return; corpo.innerHTML = '';
@@ -4569,7 +4258,6 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
    ========================================================================== */
 (function(){
   'use strict';
-  const ARQUITETURA_DADOS_MODERNA = window.__SIGEE_ARQUITETURA_DADOS_MODERNA__ === true;
   const GRUPO_SEC_V32 = 'SEC - TODOS OS NTES';
   const EMAIL_SEC_V32 = 'sec@enova.educacao.ba.gov.br';
   const EMAIL_ADMIN_V32 = 'administrativo@enova.educacao.ba.gov.br';
@@ -4670,41 +4358,26 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     });
     const pf=document.getElementById('user-form-perfil');
     if(pf){
-      const atual = pf.value;
-      const utils = window.SIGEE_CONFIG_UTILS;
-
-      if (utils && typeof utils.preencherSelectPerfis === 'function') {
-        utils.preencherSelectPerfis(pf, atual, false);
-      } else {
-        // Fallback seguro: nunca reduzir o catálogo oficial por uma rotina legada.
-        const perfis = ['Master', 'SEC', 'Gestor', 'Administrador', 'Técnico', 'Estagiário', 'Consulta'];
-        pf.innerHTML = perfis.map(function(perfilItem){
-          return '<option value="' + perfilItem + '">' + perfilItem + '</option>';
-        }).join('');
-        if (atual && perfis.includes(atual)) pf.value = atual;
-      }
+      const atual=perfil(pf.value);
+      pf.innerHTML='<option value="Master">Master</option><option value="Administrador">Administrador</option><option value="Tecnico">Tecnico</option><option value="Consulta">Consulta</option>';
+      pf.value=atual;
     }
   };
 
   async function carregarTabela(tabela){
     try{
-      // RC5.6.5: o histórico integral de solicitações nunca é carregado no bootstrap.
-      // Cadastro, atualização e exclusão continuam disponíveis nos fluxos específicos.
-      const nomeTabela = String(tabela || '').trim();
-      if (nomeTabela === 'solicitacoes_sigee') return [];
       const client = (typeof obterSupabaseSIGEE === 'function') ? obterSupabaseSIGEE() : null;
       if(!client) return [];
-      const {data, error} = await client.from(nomeTabela).select('*').limit(10000);
+      const {data, error} = await client.from(tabela).select('*').limit(10000);
       if(error) throw error;
       return Array.isArray(data) ? data : [];
     }catch(e){ console.warn('SIGEE V32 SELECT', tabela, e); return []; }
   }
   async function carregarDadosOperacionais(){
     const T = window.SIGEE_SUPABASE_TABELAS || SIGEE_SUPABASE_TABELAS;
-    const [us, es, pr, nt] = await Promise.all([
-      carregarTabela(T.usuarios), carregarTabela(T.escolas), carregarTabela(T.processos), carregarTabela(T.ntes)
+    const [us, es, pr, so, nt] = await Promise.all([
+      carregarTabela(T.usuarios), carregarTabela(T.escolas), carregarTabela(T.processos), carregarTabela(T.solicitacoes), carregarTabela(T.ntes)
     ]);
-    const so = [];
     if(us.length) usuariosDB = us.map(normalizarUsuario).filter(u=>u.email);
     garantirUsuariosBase();
     if(es.length && typeof escolaDoSupabaseParaLocalSIGEE === 'function') escolasDB = es.map(escolaDoSupabaseParaLocalSIGEE).filter(e=>e && (e.cod_mec||e.nome));
@@ -4754,16 +4427,15 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     if(!u){ alert('Credenciais inválidas, ou operador desativado no escopo regional.'); return; }
     Object.assign(u, normalizarUsuario(u));
     window.usuarioLogado = usuarioLogado = u;
-    window.SIGEE_RENDERIZAR_IDENTIDADE_EFETIVA?.();
     document.getElementById('tela-login')?.classList.add('hidden');
     document.getElementById('sistema-dashboard')?.classList.remove('hidden');
     const nomeEl=document.getElementById('user-nome'); if(nomeEl) nomeEl.innerText=u.nome;
-    window.SIGEE_RENDERIZAR_IDENTIDADE_EFETIVA?.();
+    const perfEl=document.getElementById('user-perfil'); if(perfEl) perfEl.innerText=`${u.perfil}${isSEC(u)?' / SEC':''} | ${u.nte}`;
     aplicarPermissoes();
     try{ registrarLog('Acesso realizado ao painel operacional.'); }catch(e){}
     try{ navegar('painel'); }catch(e){}
     // Sincronização final em segundo plano para preencher processos/escolas do Técnico sem travar login.
-    if(!ARQUITETURA_DADOS_MODERNA) setTimeout(async()=>{ await carregarDadosOperacionais(); aplicarPermissoes(); try{ navegar('painel'); }catch(e){} }, 250);
+    setTimeout(async()=>{ await carregarDadosOperacionais(); aplicarPermissoes(); try{ navegar('painel'); }catch(e){} }, 250);
   };
   try{ handleLogin = window.handleLogin; }catch(e){}
 
@@ -4825,7 +4497,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   };
 
   // Salvar usuário localmente com perfil e grupo SEC; tenta Supabase apenas com colunas seguras.
-  window.__SIGEE_LEGACY_salvarNovoUsuarioFormularioMaster = async function(event){
+  window.salvarNovoUsuarioFormularioMaster = async function(event){
     event.preventDefault();
     const id = txt(document.getElementById('user-form-id')?.value);
     const u = {
@@ -4854,7 +4526,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
 
   window.addEventListener('load', function(){
     garantirListaNtes(); garantirUsuariosBase(); inicializarSelectsNteEcosystem(); aplicarPermissoes();
-    if(!ARQUITETURA_DADOS_MODERNA) setTimeout(()=>{ carregarDadosOperacionais().then(()=>{ aplicarPermissoes(); try{ if(!document.getElementById('aba-processos')?.classList.contains('hidden')) carregarEContarProcessosHorizontais(); }catch(e){}; }); }, 300);
+    setTimeout(()=>{ carregarDadosOperacionais().then(()=>{ aplicarPermissoes(); try{ if(!document.getElementById('aba-processos')?.classList.contains('hidden')) carregarEContarProcessosHorizontais(); }catch(e){}; }); }, 300);
   });
 })();
 
@@ -5182,7 +4854,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     if(!filtradas.length && !window.__SIGEE_V34_RECARREGANDO_ESCOLAS){
       window.__SIGEE_V34_RECARREGANDO_ESCOLAS = true;
       atualizarInfoEscolas(0);
-      if(!window.__SIGEE_ARQUITETURA_DADOS_MODERNA__) setTimeout(async()=>{
+      setTimeout(async()=>{
         await carregarOperacionalSilencioso();
         window.__SIGEE_V34_RECARREGANDO_ESCOLAS = false;
         renderizarListaEscolasBufferMemoria();
@@ -5233,13 +4905,13 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
       aplicarPermissoes();
       if(aba === 'escolas'){
         setTimeout(()=>{ try{ renderizarListaEscolasBufferMemoria(); }catch(e){} }, 50);
-        if(!window.__SIGEE_ARQUITETURA_DADOS_MODERNA__) setTimeout(async()=>{ await carregarOperacionalSilencioso(); aplicarPermissoes(); try{ renderizarListaEscolasBufferMemoria(); }catch(e){} }, 300);
+        setTimeout(async()=>{ await carregarOperacionalSilencioso(); aplicarPermissoes(); try{ renderizarListaEscolasBufferMemoria(); }catch(e){} }, 300);
       }
       if(aba === 'processos'){
-        if(!window.__SIGEE_ARQUITETURA_DADOS_MODERNA__) setTimeout(async()=>{ await carregarOperacionalSilencioso(); aplicarPermissoes(); try{ carregarEContarProcessosHorizontais(); }catch(e){} }, 300);
+        setTimeout(async()=>{ await carregarOperacionalSilencioso(); aplicarPermissoes(); try{ carregarEContarProcessosHorizontais(); }catch(e){} }, 300);
       }
       if(aba === 'painel'){
-        if(!window.__SIGEE_ARQUITETURA_DADOS_MODERNA__) setTimeout(async()=>{ await carregarOperacionalSilencioso(); aplicarPermissoes(); try{ carregarDadosDashboardReal(); }catch(e){} }, 300);
+        setTimeout(async()=>{ await carregarOperacionalSilencioso(); aplicarPermissoes(); try{ carregarDadosDashboardReal(); }catch(e){} }, 300);
       }
       return r;
     };
@@ -5266,7 +4938,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   window.addEventListener('load', function(){
     garantirSec();
     setTimeout(aplicarPermissoes, 100);
-    if(!window.__SIGEE_ARQUITETURA_DADOS_MODERNA__) setTimeout(async()=>{ await carregarOperacionalSilencioso(); aplicarPermissoes(); }, 600);
+    setTimeout(async()=>{ await carregarOperacionalSilencioso(); aplicarPermissoes(); }, 600);
   });
 })();
 
@@ -5783,7 +5455,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
       try{ if(typeof carregarDadosOperacionaisV32 === 'function') await carregarDadosOperacionaisV32(); }catch(e){}
       try{ if(typeof renderizarListaEscolasBufferMemoria === 'function') renderizarListaEscolasBufferMemoria(); }catch(e){}
       try{ if(typeof carregarEContarProcessosHorizontais === 'function') carregarEContarProcessosHorizontais(); }catch(e){}
-      try{ window.SIGEE_DASHBOARD_RPC?.solicitar?.(); }catch(e){}
+      try{ if(typeof carregarDadosDashboardReal === 'function') carregarDadosDashboardReal(); }catch(e){}
       try{ if(typeof registrarLog === 'function') registrarLog(`Importação V36: escolas inseridas ${insEsc}, atualizadas ${atuEsc}; processos inseridos ${insProc}, atualizados ${atuProc}.`); }catch(e){}
 
       setProg(100, 'Importação concluída.');
@@ -6223,8 +5895,8 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
 (function(){
   'use strict';
   const V='V38 - Carregamento Escolas/Processos/Dashboard';
-  const URL='https://uhzscqynbxcezfpmpqqm.supabase.co';
-  const KEY='sb_publishable_-yfLGo_1cAm3DRUVAvKJXg_aOX22Iw8';
+  const URL='https://ckxbvsfjsknbgpfpxcyy.supabase.co';
+  const KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNreGJ2c2Zqc2tuYmdwZnB4Y3l5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxOTc4MjUsImV4cCI6MjA5ODc3MzgyNX0.ecJr_MYR9GPnaYMZ3V6kgeed7uGtg-vQ4THpdwAtTxk';
   const T={escolas:'escolas_sigee', processos:'processos', solicitacoes:'solicitacoes_sigee', usuarios:'usuarios_sigee', ntes:'ntes_sigee'};
   let carregando=false;
 
@@ -6272,23 +5944,15 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     }
     return null;
   }
-  async function readAll(table, maxRows){
-    // RC5.7.3: o histórico de solicitações nunca participa do bootstrap global.
-    // Os fluxos específicos continuam podendo gravar, editar e excluir registros.
-    if(String(table||'').trim()==='solicitacoes_sigee') return [];
+  async function readAll(table){
     const c=client(); if(!c) throw new Error('Cliente Supabase não disponível');
-    const caps={usuarios_sigee:500,ntes_sigee:100,processos:5000,solicitacoes_sigee:0,escolas_sigee:1000,logs_sigee:1000};
-    const cap=Number.isFinite(Number(maxRows))?Math.max(0,Number(maxRows)):(caps[table]||2000);
-    if(cap===0) return [];
-    let out=[], from=0, size=Math.min(1000,cap);
-    while(from<cap){
-      const to=Math.min(from+size-1,cap-1);
-      const {data,error}=await c.from(table).select('*').range(from,to);
+    let out=[], from=0, size=1000;
+    while(true){
+      const {data,error}=await c.from(table).select('*').range(from, from+size-1);
       if(error) throw error;
-      const lote=data||[];
-      out=out.concat(lote);
-      if(lote.length<(to-from+1)) break;
-      from=to+1;
+      out=out.concat(data||[]);
+      if(!data || data.length<size) break;
+      from += size;
     }
     return out;
   }
@@ -6394,7 +6058,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   async function carregarTudoV38(silencioso=true){
     if(carregando) return false; carregando=true; setInfo('Carregando informações do Supabase, aguarde...');
     try{
-      const [us, es, pr, so, nt]=await Promise.allSettled([readAll(T.usuarios,500),readAll(T.escolas,1000),readAll(T.processos,5000),Promise.resolve([]),readAll(T.ntes,100)]);
+      const [us, es, pr, so, nt]=await Promise.allSettled([readAll(T.usuarios),readAll(T.escolas),readAll(T.processos),readAll(T.solicitacoes),readAll(T.ntes)]);
       if(us.status==='fulfilled' && us.value.length){ usuariosDB=us.value.map(mapUsuario).filter(u=>u.email); window.usuariosDB=usuariosDB; }
       if(!usuariosDB.some(u=>txt(u.email).toLowerCase()==='sec@enova.educacao.ba.gov.br')) usuariosDB.push({id:900001,nome:'USUÁRIO SEC',email:'sec@enova.educacao.ba.gov.br',senha:'123',perfil:'SEC',nte:'SEC - TODOS OS NTEs',grupo:'SEC',ativo:true});
       if(es.status==='fulfilled'){ escolasDB=es.value.map(mapEscola).filter(e=>e.cod_mec||e.nome); window.escolasDB=escolasDB; }
@@ -6406,8 +6070,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
       try{ inicializarSelectsNteEcosystem(); }catch(e){}
       try{ window.aplicarPermissoesV37&&window.aplicarPermissoesV37(); }catch(e){}
       window.sigEESupabaseOnline=true; try{ sigEESupabaseOnline=true; }catch(e){}
-      // RC5.7.3: a navegação/autoridade analítica decide quando atualizar o Dashboard.
-      window.renderizarListaEscolasBufferMemoria(); window.carregarEContarProcessosHorizontais();
+      window.carregarDadosDashboardReal(); window.renderizarListaEscolasBufferMemoria(); window.carregarEContarProcessosHorizontais();
       setInfo(`Exibindo: ${dadosVisiveis(escolasDB).length} registros | Banco: Supabase carregado`);
       return true;
     }catch(err){ console.error('SIGEE V38 erro geral:',err); if(!silencioso) alert('Erro ao carregar dados do Supabase: '+(err.message||err)); return false; }
@@ -6421,9 +6084,9 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     carregando=true;
     try{
       const [pr, so, nt] = await Promise.allSettled([
-        readAll(T.processos,5000),
-        Promise.resolve([]), // RC4.3.3: solicitações históricas não são baixadas na abertura
-        readAll(T.ntes,100)
+        readAll(T.processos),
+        readAll(T.solicitacoes),
+        readAll(T.ntes)
       ]);
 
       if(pr.status==='fulfilled'){
@@ -6458,7 +6121,6 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     }
   }
 
-  window.SIGEE_ESTABILIDADE_DADOS='RC4.3.3';
   window.SIGEE_V38_CARREGAR_BANCOS = carregarTudoV38;
   window.SIGEE_CARREGAR_ESSENCIAL = carregarEssencialV38;
   const oldLogin=window.handleLogin;
@@ -6471,9 +6133,8 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     if(!u && em==='elmo.lobao@enova.educacao.ba.gov.br' && sn==='123') u={id:1,nome:'ELMO LOBÃO',email:em,senha:'123',perfil:'Master',nte:'NTE-26 Salvador',ativo:true};
     if(!u){ alert('Credenciais inválidas, ou operador desativado no escopo regional.'); return; }
     window.usuarioLogado=u; try{ usuarioLogado=u; }catch(e){}
-    window.SIGEE_RENDERIZAR_IDENTIDADE_EFETIVA?.();
     document.getElementById('tela-login')?.classList.add('hidden'); document.getElementById('sistema-dashboard')?.classList.remove('hidden');
-    window.SIGEE_RENDERIZAR_IDENTIDADE_EFETIVA?.();
+    setText('user-nome',u.nome); setText('user-perfil',`${u.perfil} | ${u.nte}`);
     try{ registrarLog('Acesso realizado ao painel operacional.'); }catch(e){}
     try{ window.aplicarPermissoesV37&&window.aplicarPermissoesV37(); }catch(e){}
     try{ navegar('painel'); }catch(e){}
@@ -6481,7 +6142,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   };
   try{ handleLogin=window.handleLogin; }catch(e){}
   const oldNav=window.navegar;
-  if(oldNav){ window.navegar=function(aba){ const r=oldNav.apply(this,arguments); setTimeout(()=>{ /* RC5.7.3: painel é atualizado exclusivamente pelo evento sigee:navegacao-concluida. */ if(aba==='escolas') window.renderizarListaEscolasBufferMemoria(); if(aba==='processos') window.carregarEContarProcessosHorizontais(); },30); return r; }; try{ navegar=window.navegar; }catch(e){} }
+  if(oldNav){ window.navegar=function(aba){ const r=oldNav.apply(this,arguments); setTimeout(()=>{ if(aba==='painel') window.carregarDadosDashboardReal(); if(aba==='escolas') window.renderizarListaEscolasBufferMemoria(); if(aba==='processos') window.carregarEContarProcessosHorizontais(); },30); return r; }; try{ navegar=window.navegar; }catch(e){} }
 
   // Importação final: identifica escolas e processos em qualquer aba da planilha.
   function getCell(row,names){ const ks=Object.keys(row||{}); for(const n of names){ const nn=up(n); const k=ks.find(x=>up(x)===nn || up(x).includes(nn)); if(k && txt(row[k])) return row[k]; } return ''; }
@@ -6586,14 +6247,10 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   function atualizarSelectPerfilV39(){
     const select = document.getElementById('user-form-perfil');
     if(!select) return;
-    if (window.SIGEE_CONFIG_UTILS?.preencherSelectPerfis) {
-      window.SIGEE_CONFIG_UTILS.preencherSelectPerfis(select, select.value || 'Técnico', false);
-      return;
-    }
-    const opcoes = ['Master','SEC','Gestor','Administrador','Técnico','Estagiário','Consulta'];
-    const valorAtual = perfilCanonicoV39(select.value || 'Técnico');
+    const valorAtual = perfilCanonicoV39(select.value || 'Tecnico');
+    const opcoes = ['SEC','Master','Administrador','Tecnico','Consulta'];
     select.innerHTML = opcoes.map(p => `<option value="${p}">${p}</option>`).join('');
-    select.value = opcoes.includes(valorAtual) ? valorAtual : 'Técnico';
+    select.value = opcoes.includes(valorAtual) ? valorAtual : 'Tecnico';
   }
 
   function aplicarPermissoesV39(){
@@ -6621,8 +6278,9 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     if(menuLogs) menuLogs.classList.toggle('hidden', !logs);
 
     const nome = document.getElementById('user-nome');
+    const pf = document.getElementById('user-perfil');
     if(u && nome) nome.innerText = u.nome || '';
-    window.SIGEE_RENDERIZAR_IDENTIDADE_EFETIVA?.();
+    if(u && pf) pf.innerText = `${perfilUsuarioV39(u)} | ${u.nte || ''}`;
   }
 
   // Substitui apenas a leitura do perfil, preservando a rotina de carregamento V38.
@@ -6818,8 +6476,9 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
       .forEach(el => el.classList.toggle('hidden', !podeEditarEscolaV40(u)));
 
     const nome = document.getElementById('user-nome');
+    const pf = document.getElementById('user-perfil');
     if(u && nome) nome.innerText = u.nome || '';
-    window.SIGEE_RENDERIZAR_IDENTIDADE_EFETIVA?.();
+    if(u && pf) pf.innerText = `${perfilV40(u.perfil)} | ${u.nte || ''}`;
 
     // Se um Técnico/Consulta estiver numa aba administrativa por cache/navegação direta, volta ao Dashboard.
     const abaUsuarios = document.getElementById('aba-usuarios');
@@ -7038,7 +6697,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   }
 
   // Substitui salvamento do formulário para não perder perfil/NTE/senha ao sair do sistema.
-  window.__SIGEE_LEGACY_salvarNovoUsuarioFormularioMaster = async function(event){
+  window.salvarNovoUsuarioFormularioMaster = async function(event){
     if(event) event.preventDefault();
     const id = txt(document.getElementById('user-form-id')?.value);
     const novo = normalizarUsuarioV41({
@@ -7062,11 +6721,11 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     try{ if(typeof carregarListaUsuarios==='function') carregarListaUsuarios(); }catch(e){}
     alert('Usuário salvo. As informações complementares de perfil/NTE/senha foram preservadas no SIGEE.');
   };
-  /* RC8.0: alias legado de salvar usuário desativado */
+  try{ salvarNovoUsuarioFormularioMaster = window.salvarNovoUsuarioFormularioMaster; }catch(e){}
 
   // Desativar/ativar também persiste.
   const oldToggle = window.toggleStatusUsuarioMaster || (typeof toggleStatusUsuarioMaster!=='undefined'?toggleStatusUsuarioMaster:null);
-  window.__SIGEE_LEGACY_toggleStatusUsuarioMaster = async function(id){
+  window.toggleStatusUsuarioMaster = async function(id){
     const base = Array.isArray(window.usuariosDB) ? window.usuariosDB : (typeof usuariosDB!=='undefined'?usuariosDB:[]);
     const u = base.find(x => String(x.id)===String(id));
     if(!u){ if(typeof oldToggle==='function') return oldToggle.apply(this, arguments); return; }
@@ -7080,7 +6739,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
 
   // Resetar senha também persiste no cache local.
   const oldReset = window.resetarSenhaUsuarioMaster || (typeof resetarSenhaUsuarioMaster!=='undefined'?resetarSenhaUsuarioMaster:null);
-  window.__SIGEE_LEGACY_resetarSenhaUsuarioMaster = async function(id){
+  window.resetarSenhaUsuarioMaster = async function(id){
     const base = Array.isArray(window.usuariosDB) ? window.usuariosDB : (typeof usuariosDB!=='undefined'?usuariosDB:[]);
     const u = base.find(x => String(x.id)===String(id));
     if(!u){ if(typeof oldReset==='function') return oldReset.apply(this, arguments); return; }
@@ -7093,7 +6752,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     try{ carregarListaUsuarios(); }catch(e){}
     alert('Senha atualizada no SIGEE. Observação: a tabela usuarios_sigee não possui coluna senha; por isso a senha fica preservada na camada complementar local deste navegador.');
   };
-  /* RC8.0: alias legado de reset de senha desativado */
+  try{ resetarSenhaUsuarioMaster = window.resetarSenhaUsuarioMaster; }catch(e){}
 
   // Garante que o login considere os dados complementares salvos.
   const oldLogin = window.handleLogin || (typeof handleLogin!=='undefined'?handleLogin:null);
@@ -7249,14 +6908,14 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
 
     document.querySelectorAll('button[onclick="abrirModalNovaEscola()"], .btn-nova-escola').forEach(el => el.classList.toggle('hidden', !Perm.cadastrarEscola(u)));
     document.querySelectorAll('[data-sigee-permissao="editar-escola"], .btn-editar-escola').forEach(el => el.classList.toggle('hidden', !Perm.alterarEscola(u)));
-    document.querySelectorAll('[data-sigee-legado-desativado="nova-solicitacao"]').forEach(el => el.classList.toggle('hidden', !Perm.abrirSolicitacao(u)));
+    document.querySelectorAll('button[onclick="abrirFormularioNovaSolicitacao()"], .btn-nova-solicitacao').forEach(el => el.classList.toggle('hidden', !Perm.abrirSolicitacao(u)));
 
     const tituloUser = document.querySelector('#aba-usuarios h1, #aba-usuarios .text-3xl');
     const btnCadastrarTecnico = document.querySelector('button[onclick="abrirModalCriarUsuarioMaster()"]');
     if(btnCadastrarTecnico) btnCadastrarTecnico.classList.toggle('hidden', !Perm.cadastrarUsuarios(u));
 
     const nome = document.getElementById('user-nome'); if(nome && u) nome.innerText = u.nome || '';
-    window.SIGEE_RENDERIZAR_IDENTIDADE_EFETIVA?.();
+    const pf = document.getElementById('user-perfil'); if(pf && u) pf.innerText = `${perfilCanonico(u.perfil)} | ${nteUsuario(u)}`;
 
     const abaUsuarios = document.getElementById('aba-usuarios');
     if(abaUsuarios && !abaUsuarios.classList.contains('hidden') && !(Perm.alterarUsuarios(u) || Perm.cadastrarUsuarios(u))){ try{ navegar('painel'); }catch(e){} }
@@ -7288,7 +6947,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   try{ carregarListaUsuarios = window.carregarListaUsuarios; }catch(e){}
 
   // Cadastro/edição de usuário: Admin edita apenas NTE, mas não muda perfil; SEC/Master mudam tudo.
-  window.__SIGEE_LEGACY_salvarNovoUsuarioFormularioMaster = async function(event){
+  window.salvarNovoUsuarioFormularioMaster = async function(event){
     if(event) event.preventDefault();
     garantirBase();
     const uLog = usuarioAtual();
@@ -7320,7 +6979,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     try{ fecharModalUsuario(); }catch(e){ document.getElementById('modal-cadastro-usuario')?.classList.add('hidden'); }
     window.carregarListaUsuarios(); aplicarPermissoes();
   };
-  /* RC8.0: alias legado de salvar usuário desativado */
+  try{ salvarNovoUsuarioFormularioMaster = window.salvarNovoUsuarioFormularioMaster; }catch(e){}
 
   const oldAbrirEditar = window.abrirModalEditarUsuarioMaster || (typeof abrirModalEditarUsuarioMaster !== 'undefined' ? abrirModalEditarUsuarioMaster : null);
   window.abrirModalEditarUsuarioMaster = function(id){
@@ -7389,7 +7048,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   }
 
   document.addEventListener('DOMContentLoaded', function(){ garantirBase(); aplicarPermissoes(); setTimeout(aplicarPermissoes, 700); setTimeout(aplicarPermissoes, 2000); });
-  setInterval(function(){ if(usuarioAtual()) aplicarPermissoes(); }, 120000);
+  setInterval(function(){ if(usuarioAtual()) aplicarPermissoes(); }, 30000);
 })();
 
 
@@ -7442,7 +7101,8 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
 
     const nome = document.getElementById('user-nome');
     if(nome) nome.innerText = u.nome || '';
-    window.SIGEE_RENDERIZAR_IDENTIDADE_EFETIVA?.();
+    const perf = document.getElementById('user-perfil');
+    if(perf) perf.innerText = `${u.perfil} | ${u.nte || ''}`;
 
     const menuUsuarios = document.getElementById('menu-usuarios');
     if(menuUsuarios) menuUsuarios.classList.toggle('hidden', !podeUsuarios());
@@ -7459,7 +7119,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     document.querySelectorAll('.import-only, [data-sigee-importar]').forEach(el=>el.classList.toggle('hidden', !podeImportar()));
     document.querySelectorAll('button[onclick="abrirModalNovaEscola()"], .btn-nova-escola').forEach(el=>el.classList.toggle('hidden', !podeCadastrarEditarEscola()));
     document.querySelectorAll('[data-sigee-permissao="editar-escola"], .btn-editar-escola').forEach(el=>el.classList.toggle('hidden', !podeCadastrarEditarEscola()));
-    document.querySelectorAll('[data-sigee-legado-desativado="nova-solicitacao"]').forEach(el=>el.classList.toggle('hidden', !podeNovaSolicitacao()));
+    document.querySelectorAll('button[onclick="abrirFormularioNovaSolicitacao()"], .btn-nova-solicitacao').forEach(el=>el.classList.toggle('hidden', !podeNovaSolicitacao()));
 
     const abaUsuarios = document.getElementById('aba-usuarios');
     if(abaUsuarios && !abaUsuarios.classList.contains('hidden') && !podeUsuarios()){
@@ -7605,7 +7265,8 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
 
     const nome = document.getElementById('user-nome');
     if(nome) nome.innerText = u.nome || '';
-    window.SIGEE_RENDERIZAR_IDENTIDADE_EFETIVA?.();
+    const perf = document.getElementById('user-perfil');
+    if(perf) perf.innerText = `${u.perfil} | ${u.nte || ''}`;
 
     setHidden(document.getElementById('menu-usuarios'), !canUsers(u));
     setHidden(document.getElementById('menu-logs'), !canLogs(u));
@@ -7623,7 +7284,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     document.querySelectorAll('.import-only, [data-sigee-importar]').forEach(el=>lockButton(el, !canImport(u)));
     document.querySelectorAll('button[onclick="abrirModalNovaEscola()"], .btn-nova-escola').forEach(el=>lockButton(el, !canEditSchool(u)));
     document.querySelectorAll('[data-sigee-permissao="editar-escola"], .btn-editar-escola').forEach(el=>lockButton(el, !canEditSchool(u)));
-    document.querySelectorAll('[data-sigee-legado-desativado="nova-solicitacao"]').forEach(el=>lockButton(el, !canNewRequest(u)));
+    document.querySelectorAll('button[onclick="abrirFormularioNovaSolicitacao()"], .btn-nova-solicitacao').forEach(el=>lockButton(el, !canNewRequest(u)));
 
     const abaUsuarios = document.getElementById('aba-usuarios');
     if(abaUsuarios && !abaUsuarios.classList.contains('hidden') && !canUsers(u)){
@@ -7764,7 +7425,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   }
   function processoPayloadV45(p){
     try{ if(typeof processoParaSupabaseSIGEE==='function') return processoParaSupabaseSIGEE(p); }catch(e){}
-    return { id:p.id, aluno_nome:p.aluno||p.aluno_nome, escola_nome:p.escola||p.escola_nome, documento_tipo:p.documento||p.documento_tipo, etapa_atual:p.etapa||p.etapa_atual, nte:(window.normalizarNteSIGEE?window.normalizarNteSIGEE(p.nte):p.nte), modalidade:p.modalidade||null, nivel_oferta:p.ensino||p.nivel_oferta||null };
+    return { id:p.id, aluno_nome:p.aluno||p.aluno_nome, escola_nome:p.escola||p.escola_nome, documento_tipo:p.documento||p.documento_tipo, etapa_atual:p.etapa||p.etapa_atual, nte:p.nte, modalidade:p.modalidade||null, nivel_oferta:p.ensino||p.nivel_oferta||null };
   }
   async function salvarProcessoV45(p){
     try{ if(typeof salvarBancoLocalSIGEE==='function') salvarBancoLocalSIGEE(); }catch(e){}
@@ -7817,7 +7478,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   };
 
   const oldToggle = window.toggleStatusUsuarioMaster || (typeof toggleStatusUsuarioMaster !== 'undefined' ? toggleStatusUsuarioMaster : null);
-  window.__SIGEE_LEGACY_toggleStatusUsuarioMaster = async function(id){
+  window.toggleStatusUsuarioMaster = async function(id){
     if(!podeGerirUsuarios(user())){ alert('Apenas SEC e Master podem ativar/desativar usuários.'); return; }
     const u=listaUsuarios().find(x=>String(x.id)===String(id)); if(!u) return;
     u.ativo = !(u.ativo!==false);
@@ -7828,7 +7489,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   try{ toggleStatusUsuarioMaster=window.toggleStatusUsuarioMaster; }catch(e){}
 
   const oldReset = window.resetarSenhaUsuarioMaster || (typeof resetarSenhaUsuarioMaster !== 'undefined' ? resetarSenhaUsuarioMaster : null);
-  window.__SIGEE_LEGACY_resetarSenhaUsuarioMaster = async function(id){
+  window.resetarSenhaUsuarioMaster = async function(id){
     if(!podeGerirUsuarios(user())){ alert('Apenas SEC e Master podem resetar senha.'); return; }
     const u=listaUsuarios().find(x=>String(x.id)===String(id)); if(!u) return;
     const nova=prompt('Informe a nova senha provisória:', '123'); if(nova===null) return;
@@ -7838,7 +7499,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     alert('Senha atualizada.');
     refresh();
   };
-  /* RC8.0: alias legado de reset de senha desativado */
+  try{ resetarSenhaUsuarioMaster=window.resetarSenhaUsuarioMaster; }catch(e){}
 
   const oldCarregarUsuarios = window.carregarListaUsuarios || (typeof carregarListaUsuarios !== 'undefined' ? carregarListaUsuarios : null);
   window.carregarListaUsuarios = function(){
@@ -7983,7 +7644,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   'use strict';
 
   const CFG = window.SIGEE_CONFIG || {};
-  const URL = CFG?.supabase?.url || window.SIGEE_SUPABASE_URL_CONFIG || 'https://uhzscqynbxcezfpmpqqm.supabase.co';
+  const URL = CFG?.supabase?.url || window.SIGEE_SUPABASE_URL_CONFIG || 'https://ckxbvsfjsknbgpfpxcyy.supabase.co';
   const KEY = CFG?.supabase?.anonKey || window.SIGEE_SUPABASE_ANON_KEY_CONFIG;
   const T = Object.assign({
     escolas: 'escolas_sigee',
@@ -8006,25 +7667,13 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   function up(v){ return txt(v).toUpperCase(); }
   function noAccent(v){ return txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
   function perfil(v){
-    // RC4.1.11: a autenticação deve consumir a autoridade central de perfis.
-    // Nunca converter um perfil válido e desconhecido localmente para Técnico.
-    if (window.SIGEE_SESSION && typeof window.SIGEE_SESSION.normalizarPerfil === 'function') {
-      const central = window.SIGEE_SESSION.normalizarPerfil(v);
-      if (central) return central;
-    }
-    if (window.SIGEE_CONFIG_UTILS && typeof window.SIGEE_CONFIG_UTILS.normalizarPerfil === 'function') {
-      const central = window.SIGEE_CONFIG_UTILS.normalizarPerfil(v);
-      if (central) return central;
-    }
     const p = noAccent(v).toLowerCase();
-    if (p === 'sec' || p.includes('secretaria')) return 'SEC';
-    if (p.includes('master')) return 'Master';
-    if (p.includes('gestor') || p.includes('dirigente')) return 'Gestor';
-    if (p.includes('administr')) return 'Administrador';
-    if (p.includes('estagi')) return 'Estagiário';
-    if (p.includes('consulta')) return 'Consulta';
-    if (p.includes('tecnico')) return 'Técnico';
-    return txt(v);
+    if(p === 'sec') return 'SEC';
+    if(p.includes('master')) return 'Master';
+    if(p.includes('administr')) return 'Administrador';
+    if(p.includes('tecnico')) return 'Tecnico';
+    if(p.includes('consulta')) return 'Consulta';
+    return txt(v) || 'Tecnico';
   }
   function nteIdFrom(v){
     if(v === null || v === undefined || v === '') return null;
@@ -8058,13 +7707,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
       perfil: perfil(row?.perfil),
       nte_id: idNte,
       nte: idNte ? nteTexto(idNte) : txt(row?.nte || 'SEC - TODOS OS NTEs'),
-      ativo: row?.ativo !== false && row?.Ativo !== false,
-      // RC4.3.4: preservar a sinalização de recadastramento recebida do banco.
-      // Sem este campo, o login normalizava o usuário e descartava a exigência
-      // de troca de senha antes de gravar a sessão.
-      forcar_troca_senha: row?.forcar_troca_senha === true ||
-        String(row?.forcar_troca_senha || '').toLowerCase() === 'true' ||
-        Number(row?.forcar_troca_senha) === 1
+      ativo: row?.ativo !== false && row?.Ativo !== false
     };
   }
   function normalizarEscola(row){
@@ -8134,50 +7777,20 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
       if(u.ativo === false){ alert('Usuário inativo.'); return; }
       const senhaOk = senha === txt(data.senha) || senha === txt(data.senha_hash) || senha === txt(u.senha) || senha === txt(u.senha_hash);
       if(!senhaOk){ alert('Senha inválida.'); return; }
-
-      // RC4.3.11: a senha provisória é um segundo gatilho obrigatório.
-      // Mesmo que o campo forcar_troca_senha tenha sido perdido por algum fluxo legado,
-      // quem entrou com SEC@2026 deve cadastrar uma senha pessoal antes de continuar.
-      const usouSenhaProvisoria = senha === 'SEC@2026';
-      if (usouSenhaProvisoria) {
-        u.forcar_troca_senha = true;
-        u.__senha_provisoria_usada = true;
-        window.__SIGEE_SENHA_PROVISORIA_USADA__ = true;
-      } else {
-        window.__SIGEE_SENHA_PROVISORIA_USADA__ = false;
-      }
       if(!isGlobal(u) && !nteIdUsuario(u)){
         alert('Usuário sem NTE vinculado. Ajuste o cadastro no Supabase.'); return;
       }
       window.usuarioLogado = u;
       try{ usuarioLogado = u; }catch(e){}
-      window.SIGEE_RENDERIZAR_IDENTIDADE_EFETIVA?.();
       try{ localStorage.setItem('SIGEE_USUARIO_LOGADO', JSON.stringify(u)); }catch(e){}
       document.getElementById('user-nome') && (document.getElementById('user-nome').innerText = u.nome);
-      window.SIGEE_RENDERIZAR_IDENTIDADE_EFETIVA?.();
+      document.getElementById('user-perfil') && (document.getElementById('user-perfil').innerText = `${u.perfil} | ${u.nte}`);
       document.getElementById('tela-login')?.classList.add('hidden');
       document.getElementById('sistema-dashboard')?.classList.remove('hidden');
       await carregarBaseUsuarioCore();
       aplicarPermissoesCore();
       await registrarLogCore('LOGIN', `Perfil ${u.perfil} / ${u.nte}`);
-      // RC5.3.1: destino inicial definido exclusivamente por SIGEE_AUTORIZACAO.
-      // Não forçar a Central de Processos durante o login.
-      try {
-        document.dispatchEvent(new CustomEvent('sigee:login-concluido', {
-          detail: { usuario: u, loginConcluido: true, origem: 'app-core' }
-        }));
-      } catch (_) {}
-      // RC4.3.7: marca o login manual desta execução. Sessão antiga armazenada
-      // no navegador não pode abrir o recadastramento sobre a tela de login.
-      window.__SIGEE_LOGIN_CONCLUIDO__ = true;
-      try {
-        const detalheLogin = { usuario: u, loginConcluido: true, senhaProvisoriaUsada: usouSenhaProvisoria };
-        document.dispatchEvent(new CustomEvent('sigee:usuario-logado', { detail: detalheLogin }));
-        // Chamada direta: não depende da ordem dos listeners ou de wrappers legados.
-        if (window.SIGEE_AUTH?.verificarPrimeiroAcesso) {
-          window.SIGEE_AUTH.verificarPrimeiroAcesso({ detail: detalheLogin });
-        }
-      } catch (_) {}
+      if(typeof navegar === 'function') navegar('processos'); else await carregarDashboardCore();
     }catch(e){
       console.error('[SIGEE] Erro login', e);
       alert('Erro no login: ' + (e.message || e));
@@ -8208,23 +7821,25 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   async function carregarBaseUsuarioCore(){
     const c = client(); if(!c) return;
     const u = usuario();
-    // RC4.6: carregamento inicial mínimo. Escolas e processos são buscados
-    // somente quando os respectivos módulos forem abertos.
     try{
-      let q = c.from(T.usuarios)
-        .select('id,nome,email,perfil,nte_id,nte,grupo,ativo,status,primeiro_acesso')
-        .order('nome', { ascending: true })
-        .limit(isGlobal(u) ? 300 : 80);
-      if(!isGlobal(u)){ const id = nteIdUsuario(u); if(id) q = q.eq('nte_id', id); }
-      const {data,error} = await q;
-      if(error) throw error;
-      const usuarios = (data||[]).map(normalizarUsuario);
-      window.escolasDB = Array.isArray(window.escolasDB) ? window.escolasDB : [];
-      window.processosDB = Array.isArray(window.processosDB) ? window.processosDB : [];
+      const [escolas, processos, usuarios] = await Promise.all([
+        queryEscolasBase({limit: isGlobal(u) ? 500 : 1000}),
+        (async()=>{
+          let q = c.from(T.processos).select('*').order('created_at', { ascending: false }).limit(1000);
+          if(!isGlobal(u)) q = q.eq('nte', nteTexto(nteIdUsuario(u)));
+          const {data,error} = await q; if(error) throw error; return (data||[]).map(normalizarProcesso);
+        })(),
+        (async()=>{
+          let q = c.from(T.usuarios).select('*').order('nome', { ascending: true });
+          if(!isGlobal(u)){ const id = nteIdUsuario(u); if(id) q = q.eq('nte_id', id); }
+          const {data,error} = await q; if(error) throw error; return (data||[]).map(normalizarUsuario);
+        })()
+      ]);
+      window.escolasDB = escolas;
+      window.processosDB = processos;
       window.usuariosDB = usuarios;
-      try{ escolasDB = window.escolasDB; processosDB = window.processosDB; usuariosDB = usuarios; }catch(e){}
-      console.info('[SIGEE RC4.6] Base inicial enxuta carregada; módulos pesados sob demanda.');
-    }catch(e){ console.error('[SIGEE] carregar base mínima', e); }
+      try{ escolasDB = escolas; processosDB = processos; usuariosDB = usuarios; }catch(e){}
+    }catch(e){ console.error('[SIGEE] carregar base', e); }
   }
 
   async function countTabela(tabela, filtroFn){
@@ -8394,7 +8009,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     set('novo-autofill-local-acervo', e.local_acervo);
   }
 
-  window.__SIGEE_LEGACY_salvarNovoUsuarioFormularioMaster = async function(event){
+  window.salvarNovoUsuarioFormularioMaster = async function(event){
     if(event) event.preventDefault();
     const u = usuario(); if(!isGlobal(u)){ alert('Apenas Master/SEC podem gerenciar usuários.'); return; }
     const id = txt(document.getElementById('user-form-id')?.value);
@@ -8420,7 +8035,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
       alert('Usuário salvo no Supabase.');
     }catch(e){ console.error('[SIGEE] salvar usuário', e); alert('Erro ao salvar usuário: ' + (e.message || e)); }
   };
-  /* RC8.0: alias legado de salvar usuário desativado */
+  try{ salvarNovoUsuarioFormularioMaster = window.salvarNovoUsuarioFormularioMaster; }catch(e){}
 
   function aplicarPermissoesCore(){
     const u = usuario(); if(!u) return;
@@ -8449,13 +8064,350 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   window.SIGEE_CORE_V2 = { carregarBaseUsuarioCore, queryEscolasBase, aplicarPermissoesCore, normalizarUsuario, normalizarEscola, normalizarProcesso };
 })();
 
+/* ================================================================
+   SIGEE Enterprise - Sprint 2.1 Núcleo/Dashboard Estável
+   Objetivo: consolidar a função global de Dashboard e evitar
+   sobrescritas/hotfixes paralelos. Deve ser a ÚLTIMA definição.
+   ================================================================ */
+(function(){
+  'use strict';
+  if (window.__SIGEE_DASHBOARD_ESTAVEL_INSTALADO__) return;
+  window.__SIGEE_DASHBOARD_ESTAVEL_INSTALADO__ = true;
+
+  const texto = (v) => (v === null || v === undefined) ? '' : String(v);
+  const normalizar = (v) => texto(v)
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase().replace(/\s+/g, ' ').trim();
+  const soDigitos = (v) => texto(v).match(/\d+/)?.[0] || '';
+  const nteLabel = (id) => id ? `NTE ${String(id).padStart(2,'0')}` : '';
+
+  function perfilAtual(){
+    const p = normalizar(window.usuarioLogado?.perfil);
+    if (p === 'MASTER') return 'Master';
+    if (p === 'SEC') return 'SEC';
+    if (p === 'ADMINISTRADOR') return 'Administrador';
+    if (p === 'TECNICO') return 'Tecnico';
+    if (p === 'CONSULTA') return 'Consulta';
+    return texto(window.usuarioLogado?.perfil || '');
+  }
+
+  function isGlobal(){
+    const p = perfilAtual();
+    return p === 'Master' || p === 'SEC';
+  }
+
+  function nteIdUsuario(){
+    const u = window.usuarioLogado || {};
+    if (u.nte_id !== null && u.nte_id !== undefined && texto(u.nte_id) !== '') return Number(u.nte_id);
+    return Number(soDigitos(u.nte || u.grupo || u.nte_nome || '')) || null;
+  }
+
+  function nteTextoUsuario(){
+    const id = nteIdUsuario();
+    return id ? nteLabel(id) : texto(window.usuarioLogado?.nte || window.usuarioLogado?.grupo || '');
+  }
+
+  function itemNteId(item){
+    if (!item) return null;
+    if (item.nte_id !== null && item.nte_id !== undefined && texto(item.nte_id) !== '') return Number(item.nte_id);
+    return Number(soDigitos(item.nte || item.nte_nome || item.grupo || '')) || null;
+  }
+
+  function mesmoNteItem(item, alvo){
+    const alvoId = Number(alvo) || Number(soDigitos(alvo));
+    const itemId = itemNteId(item);
+    if (alvoId && itemId) return itemId === alvoId;
+    return normalizar(item?.nte).replace(/\s/g,'') === normalizar(alvo).replace(/\s/g,'');
+  }
+
+  function valorFiltro(){
+    const select = document.getElementById('filtro-dashboard-nte');
+    return texto(select?.value || window.filtroDashboardNteAtualSIGEE || 'TODOS');
+  }
+
+  function filtrarAbrangencia(lista){
+    const arr = Array.isArray(lista) ? lista : [];
+    if (isGlobal()) {
+      const filtro = valorFiltro();
+      if (!filtro || ['GLOBAL','TODOS','SEC - TODOS OS NTES','SEC - TODOS OS NTEs'].includes(filtro)) return arr;
+      return arr.filter(item => mesmoNteItem(item, filtro));
+    }
+    const id = nteIdUsuario();
+    if (id) return arr.filter(item => itemNteId(item) === id);
+    const nte = nteTextoUsuario();
+    return arr.filter(item => mesmoNteItem(item, nte));
+  }
+
+  function setText(id, valor){
+    const el = document.getElementById(id);
+    if (el) el.textContent = valor;
+  }
+
+  function acervoRecolhido(e){
+    const v = normalizar(e?.status_acervo || e?.acervo || '');
+    return v.includes('RECOLHIDO');
+  }
+
+  function dependenciaEstadual(e){
+    return normalizar(e?.dependencia_adm || e?.dependencia || '').includes('ESTADUAL');
+  }
+
+  function etapa(p){
+    return normalizar(p?.etapa || p?.etapa_atual || p?.fase_atual || '');
+  }
+
+  function carregarFiltroMaster(){
+    const box = document.getElementById('box-filtro-dashboard-master');
+    const select = document.getElementById('filtro-dashboard-nte');
+    if (!box || !select || !window.usuarioLogado) return;
+
+    if (!isGlobal()) {
+      box.classList.add('hidden');
+      return;
+    }
+
+    box.classList.remove('hidden');
+    const anterior = valorFiltro();
+    const ntesSet = new Set();
+    [...(window.escolasDB || []), ...(window.processosDB || [])].forEach(item => {
+      const id = itemNteId(item);
+      if (id) ntesSet.add(id);
+    });
+
+    select.innerHTML = '<option value="TODOS">TODOS</option>';
+    [...ntesSet].sort((a,b)=>a-b).forEach(id => {
+      const opt = document.createElement('option');
+      opt.value = String(id);
+      opt.textContent = nteLabel(id);
+      select.appendChild(opt);
+    });
+    select.value = [...select.options].some(o => o.value === anterior) ? anterior : 'TODOS';
+    window.filtroDashboardNteAtualSIGEE = select.value;
+    select.onchange = function(){
+      window.filtroDashboardNteAtualSIGEE = this.value;
+      window.carregarDadosDashboardReal();
+    };
+  }
+
+  function atualizarIndicadoresTecnicos(processos){
+    const topBox = document.getElementById('dash-tec-top-escolas');
+    if (topBox) {
+      const mapa = {};
+      processos.forEach(p => {
+        const nome = texto(p.escola || p.escola_nome || p.nome_escola || 'NÃO INFORMADA').toUpperCase();
+        if (!mapa[nome]) mapa[nome] = { nome, nte: p.nte || '', qtd: 0 };
+        mapa[nome].qtd++;
+      });
+      const top = Object.values(mapa).sort((a,b)=>b.qtd-a.qtd).slice(0,5);
+      topBox.innerHTML = top.length ? top.map((x,i)=>`<div class="flex justify-between gap-2 border-b border-gray-100 py-1"><span>${i+1}. ${x.nome}<br><small class="text-gray-400">${x.nte || '-'}</small></span><strong>${x.qtd}</strong></div>`).join('') : 'Sem dados';
+    }
+    setText('dash-tec-media-entrega', '0 dias');
+    setText('dash-tec-media-pedidos-dia', processos.length ? String(processos.length).replace('.', ',') : '0');
+    setText('dash-tec-media-pasta-dia', '0');
+  }
+
+  function carregarDadosDashboardReal(){
+    if (!window.usuarioLogado) return;
+    carregarFiltroMaster();
+
+    const escolas = filtrarAbrangencia(window.escolasDB || []);
+    const processos = filtrarAbrangencia(window.processosDB || []);
+
+    setText('dash-escolas', escolas.length);
+    setText('dash-acervos', escolas.filter(acervoRecolhido).length);
+    setText('dash-estaduais', escolas.filter(dependenciaEstadual).length);
+    setText('dash-municipios', new Set(escolas.map(e => normalizar(e.municipio)).filter(Boolean)).size);
+    setText('dash-usuarios', Array.isArray(window.usuariosDB) ? window.usuariosDB.length : 0);
+
+    const mapaEtapas = {
+      'dash-proc-desarquivamento': ['DESARQUIVAMENTO'],
+      'dash-proc-analise': ['ANALISE'],
+      'dash-proc-pendencia': ['PENDENCIA'],
+      'dash-proc-digitacao': ['DIGITACAO'],
+      'dash-proc-conferencia': ['CONFERENCIA'],
+      'dash-proc-assinatura': ['ASSINATURA'],
+      'dash-proc-aguardando': ['AGUARDANDO RETIRADA','DEFERIDO'],
+      'dash-proc-retirado': ['RETIRADO']
+    };
+    Object.entries(mapaEtapas).forEach(([id, nomes]) => setText(id, processos.filter(p => nomes.includes(etapa(p))).length));
+    atualizarIndicadoresTecnicos(processos);
+  }
+
+  let timer = null;
+  function carregarDashboardDebounced(){
+    clearTimeout(timer);
+    timer = setTimeout(carregarDadosDashboardReal, 30);
+  }
+
+  window.inicializarFiltroDashboardMasterSIGEE = carregarFiltroMaster;
+  window.carregarDadosDashboardReal = carregarDashboardDebounced;
+  window.carregarDadosDashboardRealImediato = carregarDadosDashboardReal;
+  window.atualizarDashboardTecnicoSIGEE = function(proc){ atualizarIndicadoresTecnicos(Array.isArray(proc) ? proc : []); };
+
+  const navAnterior = window.navegar;
+  if (!window.__SIGEE_NAV_DASHBOARD_ESTAVEL__) {
+    window.__SIGEE_NAV_DASHBOARD_ESTAVEL__ = true;
+    window.navegar = function(aba){
+      const ret = typeof navAnterior === 'function' ? navAnterior.apply(this, arguments) : undefined;
+      if (aba === 'painel') carregarDashboardDebounced();
+      return ret;
+    };
+    try { navegar = window.navegar; } catch(e) {}
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    if (window.usuarioLogado) carregarDashboardDebounced();
+  });
+})();
+
 /* =====================================================================
-   SIGEE RC4.6.3 — Autoridade única dos indicadores
-   Os dois blocos legados que calculavam o Dashboard a partir de
-   window.escolasDB, window.processosDB e window.usuariosDB foram removidos.
-   A fonte oficial passa a ser exclusivamente js/analytics/dashboard.js,
-   por meio da RPC sigee_dashboard_resumo.
+   SIGEE ENTERPRISE - HOTFIX EMERGENCIAL DASHBOARD OFICIAL
+   Corrige escopo por perfil/NTE, etapas, usuários e indicadores técnicos.
+   Não altera workflow, processos ou persistência.
    ===================================================================== */
+(function(window){
+  'use strict';
+  if (window.__SIGEE_DASHBOARD_EMERGENCIAL_20260713__) return;
+  window.__SIGEE_DASHBOARD_EMERGENCIAL_20260713__ = true;
+
+  const txt = v => (v === null || v === undefined) ? '' : String(v).trim();
+  const norm = v => txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/\s+/g,' ');
+  const digits = v => (txt(v).match(/\d{1,2}/)||[])[0] || '';
+  const set = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=String(v); };
+  const usuario = () => window.usuarioLogado || null;
+  const perfil = () => {
+    const p=norm(usuario()?.perfil);
+    if(p.includes('SEC')) return 'SEC';
+    if(p.includes('MASTER')) return 'MASTER';
+    if(p.includes('ADMIN')) return 'ADMINISTRADOR';
+    if(p.includes('CONSULT')) return 'CONSULTA';
+    if(p.includes('ESTAG')) return 'ESTAGIARIO';
+    return 'TECNICO';
+  };
+  const global = () => ['SEC','MASTER'].includes(perfil());
+  const nteId = obj => {
+    if(!obj) return null;
+    const direto = obj.nte_id ?? obj.nteId;
+    if(direto !== null && direto !== undefined && txt(direto)!=='') return Number(direto)||null;
+    return Number(digits(obj.nte || obj.nte_nome || obj.nte_vinculado || obj.grupo || obj.territorio)) || null;
+  };
+  const mesmoNte = (obj, alvo) => {
+    const a = Number(alvo) || Number(digits(alvo));
+    const b = nteId(obj);
+    if(a && b) return a===b;
+    return norm(obj?.nte || obj?.nte_nome || obj?.grupo) === norm(alvo);
+  };
+  const filtroAtual = () => txt(document.getElementById('filtro-dashboard-nte')?.value || window.filtroDashboardNteAtualSIGEE || 'TODOS');
+  const filtrar = lista => {
+    const base=Array.isArray(lista)?lista:[];
+    if(global()){
+      const f=filtroAtual();
+      if(!f || ['TODOS','GLOBAL','SEC - TODOS OS NTES'].includes(norm(f))) return base;
+      return base.filter(x=>mesmoNte(x,f));
+    }
+    const u=usuario();
+    const id=nteId(u);
+    return id ? base.filter(x=>nteId(x)===id) : base.filter(x=>mesmoNte(x,u?.nte||u?.grupo||''));
+  };
+  const dataValida = v => {
+    if(!v) return null;
+    if(v instanceof Date && !isNaN(v)) return v;
+    const s=txt(v);
+    let d;
+    const br=s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+    if(br) d=new Date(Number(br[3]),Number(br[2])-1,Number(br[1])); else d=new Date(s);
+    return isNaN(d)?null:d;
+  };
+  const abertura = p => dataValida(p.data_abertura||p.data_solicitacao||p.created_at||p.criado_em||p.data_inicio);
+  const conclusao = p => dataValida(p.data_conclusao||p.finalizado_em||p.retirado_em||p.updated_at);
+  const diffDias = (a,b) => Math.max(0,Math.ceil((b-a)/86400000));
+  const etapa = p => norm(p?.etapa || p?.etapa_atual || p?.fase_atual || 'DESARQUIVAMENTO');
+  const ehDesarquivamento = p => {
+    const e=etapa(p), c=norm(p?.etapa_codigo);
+    return ['DES','RET','REU','CFD'].includes(c) || ['DESARQUIVAMENTO','REITERACAO','REITERACAO COM URGENCIA','REITERACAO URGENTE','CONFIRMACAO DOS DADOS DA BUSCA','CONFIRMAR DADOS DA BUSCA','PEDIDO DE ATAS SEM PASTA'].includes(e);
+  };
+
+  function preencherFiltro(){
+    const box=document.getElementById('box-filtro-dashboard-master');
+    const sel=document.getElementById('filtro-dashboard-nte');
+    if(!box||!sel||!usuario()) return;
+    if(!global()){ box.classList.add('hidden'); return; }
+    box.classList.remove('hidden');
+    const anterior=filtroAtual();
+    const ids=new Set(Array.from({length:27},(_,i)=>i+1));
+    sel.innerHTML='<option value="TODOS">GLOBAL - TODOS OS NTEs</option>';
+    [...ids].sort((a,b)=>a-b).forEach(id=>{
+      const o=document.createElement('option'); o.value=String(id); o.textContent='NTE-'+String(id).padStart(2,'0'); sel.appendChild(o);
+    });
+    sel.value=[...sel.options].some(o=>o.value===anterior)?anterior:'TODOS';
+    window.filtroDashboardNteAtualSIGEE=sel.value;
+    sel.onchange=function(){window.filtroDashboardNteAtualSIGEE=this.value;window.carregarDadosDashboardRealImediato();};
+  }
+
+  function atualizarTecnicos(processos){
+    const top=document.getElementById('dash-tec-top-escolas');
+    if(top){
+      const mapa=new Map();
+      processos.forEach(p=>{
+        const nome=txt(p.escola_nome||p.escola||p.nome_escola||p.instituicao||'Não informada');
+        const chave=norm(nome)+'|'+(nteId(p)||norm(p.nte));
+        const atual=mapa.get(chave)||{nome,nte:txt(p.nte||p.nte_nome||''),qtd:0}; atual.qtd++; mapa.set(chave,atual);
+      });
+      const lista=[...mapa.values()].sort((a,b)=>b.qtd-a.qtd||a.nome.localeCompare(b.nome,'pt-BR')).slice(0,5);
+      top.innerHTML=lista.length?lista.map((x,i)=>`<div class="flex justify-between gap-2 border-b border-gray-100 py-1"><span>${i+1}. ${x.nome}<br><small class="text-gray-400">${x.nte||'-'}</small></span><strong>${x.qtd}</strong></div>`).join(''):'Sem dados';
+    }
+    const concluidos=processos.map(p=>({a:abertura(p),b:conclusao(p),e:etapa(p)})).filter(x=>x.a&&x.b&&['RETIRADO','AGUARDANDO RETIRADA','DEFERIDO','INDEFERIDO'].includes(x.e));
+    const media=concluidos.length?Math.round(concluidos.reduce((s,x)=>s+diffDias(x.a,x.b),0)/concluidos.length):0;
+    set('dash-tec-media-entrega',`${media} ${media===1?'dia':'dias'}`);
+    const datasAbertura=processos.map(abertura).filter(Boolean);
+    let diasPeriodo=1;
+    if(datasAbertura.length){const min=new Date(Math.min(...datasAbertura));const max=new Date(Math.max(...datasAbertura));diasPeriodo=Math.max(1,diffDias(min,max)+1);}
+    set('dash-tec-media-pedidos-dia',(processos.length/diasPeriodo).toFixed(1).replace('.',','));
+    const pastas=processos.filter(p=>norm(p.tipo_arquivo||p.tipo_arquivo_recebido||p.arquivo_tipo).includes('PASTA'));
+    set('dash-tec-media-pasta-dia',(pastas.length/diasPeriodo).toFixed(1).replace('.',','));
+  }
+
+  function carregar(){
+    if(!usuario()) return;
+    preencherFiltro();
+    const escolas=filtrar(window.escolasDB||[]);
+    const processos=filtrar(window.processosDB||[]);
+    const usuarios=filtrar((window.usuariosDB||[]).filter(u=>u.ativo!==false && norm(u.status)!=='INATIVO'));
+    set('dash-escolas',escolas.length);
+    set('dash-acervos',escolas.filter(e=>norm(e.status_acervo||e.acervo).includes('RECOLHIDO')).length);
+    set('dash-estaduais',escolas.filter(e=>norm(e.dependencia_adm||e.dependencia).includes('ESTADUAL')).length);
+    const filtroMunicipios = filtroAtual();
+    const visaoGlobalMunicipios = global() && (!filtroMunicipios || ['TODOS','GLOBAL','SEC - TODOS OS NTES'].includes(norm(filtroMunicipios)));
+    const nteMunicipios = visaoGlobalMunicipios ? null : (global() ? Number(digits(filtroMunicipios)) : nteId(usuario()));
+    const totalMunicipios = visaoGlobalMunicipios
+      ? Number(window.SIGEE_TOTAL_MUNICIPIOS_BAHIA || 417)
+      : Number(window.SIGEE_MUNICIPIOS_POR_NTE?.[nteMunicipios] || 0);
+    set('dash-municipios', totalMunicipios);
+    set('dash-usuarios',usuarios.length);
+    set('dash-proc-desarquivamento',processos.filter(ehDesarquivamento).length);
+    const contar=n=>processos.filter(p=>etapa(p)===n).length;
+    set('dash-proc-analise',contar('ANALISE'));
+    set('dash-proc-pendencia',contar('PENDENCIA'));
+    set('dash-proc-digitacao',contar('DIGITACAO'));
+    set('dash-proc-conferencia',contar('CONFERENCIA'));
+    set('dash-proc-assinatura',contar('ASSINATURA'));
+    set('dash-proc-aguardando',processos.filter(p=>['AGUARDANDO RETIRADA','DEFERIDO'].includes(etapa(p))).length);
+    set('dash-proc-retirado',contar('RETIRADO'));
+    atualizarTecnicos(processos);
+  }
+
+  let timer;
+  function agendar(){clearTimeout(timer);timer=setTimeout(carregar,40);}
+  window.carregarDadosDashboardReal=agendar;
+  window.carregarDadosDashboardRealImediato=carregar;
+  window.inicializarFiltroDashboardMasterSIGEE=preencherFiltro;
+
+  const nav=window.navegar;
+  window.navegar=function(aba){const r=typeof nav==='function'?nav.apply(this,arguments):undefined;if(aba==='painel')agendar();return r;};
+  try{navegar=window.navegar;}catch(e){}
+  window.addEventListener('load',()=>setTimeout(carregar,900));
+  setInterval(()=>{const aba=document.getElementById('aba-painel');if(aba&&!aba.classList.contains('hidden'))carregar();},60000);
+})(window);
 
 /* =====================================================================
    SIGEE 1.0.2.006 — Guarda de integridade para novos processos
@@ -8996,7 +8948,7 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
       if (aba === 'processos' && typeof window.carregarEContarProcessosHorizontais === 'function') window.carregarEContarProcessosHorizontais();
       if (aba === 'escolas' && typeof window.renderizarListaEscolasBufferMemoria === 'function') window.renderizarListaEscolasBufferMemoria();
       if (aba === 'usuarios' && typeof window.carregarListaUsuarios === 'function') window.carregarListaUsuarios();
-      if (aba === 'logs' && typeof window.iniciarMonitoramentoLogsSIGEE === 'function') window.iniciarMonitoramentoLogsSIGEE();
+      if (aba === 'logs' && typeof window.carregarLogs === 'function') window.carregarLogs();
       if (aba === 'sala-situacao' && window.SIGEE_SALA_SITUACAO && typeof window.SIGEE_SALA_SITUACAO.render === 'function') window.SIGEE_SALA_SITUACAO.render();
       if ((aba === 'inteligencia' || aba === 'centro-inteligencia') && window.SIGEE_CENTRO_INTELIGENCIA && typeof window.SIGEE_CENTRO_INTELIGENCIA.render === 'function') window.SIGEE_CENTRO_INTELIGENCIA.render();
     } catch (erro) {
@@ -9030,9 +8982,7 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     }
 
     executarPosNavegacao(chave);
-    document.dispatchEvent(new CustomEvent('sigee:navegacao-concluida', {
-      detail: { rota: chave, aba: chave, elementoId: id }
-    }));
+    setTimeout(function () { executarPosNavegacao(chave); }, 80);
     return true;
   }
 
@@ -9047,7 +8997,7 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     install: instalar,
     navegar: navegarCentral,
     ocultarTodas: ocultarTodas,
-    version: '3.2.8-CONSUMO-OTIMIZADO'
+    version: '3.2.7'
   };
   instalar();
 })();
@@ -9105,9 +9055,22 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     );
   }
 
-  // Instalação idempotente: uma única execução é suficiente. As quatro
-  // reinstalações anteriores geravam trabalho e logs redundantes na carga.
   instalarAutoridadeOperacionalSIGEE256();
+
+  if (document.readyState === 'loading') {
+    document.addEventListener(
+      'DOMContentLoaded',
+      instalarAutoridadeOperacionalSIGEE256,
+      { once: true }
+    );
+  }
+
+  window.addEventListener('load', function () {
+    instalarAutoridadeOperacionalSIGEE256();
+    setTimeout(instalarAutoridadeOperacionalSIGEE256, 100);
+    setTimeout(instalarAutoridadeOperacionalSIGEE256, 500);
+    setTimeout(instalarAutoridadeOperacionalSIGEE256, 1500);
+  }, { once: true });
 })();
 
 
@@ -9148,1434 +9111,23 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
   window.SIGEE_REINSTALAR_CENTRAL_PROCESSOS_257B =
     reinstalarCentralOficial257B;
 
-  let timer257B = 0;
-  let execucao257B = false;
-
-  function centralProcessosVisivel257B() {
-    const aba = document.getElementById('aba-processos');
-    return !!aba && !aba.classList.contains('hidden') && aba.getClientRects().length > 0;
-  }
-
-  function agendar257B(atraso = 120, forcar = false) {
-    clearTimeout(timer257B);
-    timer257B = setTimeout(function () {
-      if (document.hidden || execucao257B) return;
-      if (!forcar && !centralProcessosVisivel257B()) return;
-      execucao257B = true;
-      try { reinstalarCentralOficial257B(); }
-      finally { execucao257B = false; }
-    }, atraso);
+  function agendar257B() {
+    reinstalarCentralOficial257B();
+    setTimeout(reinstalarCentralOficial257B, 100);
+    setTimeout(reinstalarCentralOficial257B, 500);
+    setTimeout(reinstalarCentralOficial257B, 1500);
+    setTimeout(reinstalarCentralOficial257B, 3000);
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function () { agendar257B(80, true); }, { once: true });
+    document.addEventListener('DOMContentLoaded', agendar257B, { once: true });
   } else {
-    agendar257B(80, true);
+    agendar257B();
   }
 
-  // Ao retornar à aba do navegador, redesenha somente se a Central estiver visível.
-  // O listener de focus anterior reconstruía a tabela a cada alternância de aba.
-  document.addEventListener('visibilitychange', function () {
-    if (!document.hidden) agendar257B(180, false);
+  window.addEventListener('load', agendar257B, { once: true });
+  window.addEventListener('focus', function () {
+    setTimeout(reinstalarCentralOficial257B, 150);
   });
 })();
 
-
-
-/* =====================================================================
-   CONSOLIDAÇÃO DE NOVA SOLICITAÇÃO E PERFIL ESTAGIÁRIO
-   Consolidado na reorganização RC3.
-   ===================================================================== */
-
-/* ---- origem consolidada: sigee_nova_solicitacao_autocomplete_fix.js ---- */
-/* ============================================================
-   SIGEE - Sprint 2.3
-   Nova Solicitação: campo Escola digitável/autocomplete
-   Deve ser carregado por ÚLTIMO no index.html.
-   ============================================================ */
-(function () {
-  'use strict';
-
-  const IDS = {
-    modal: 'modal-nova-solicitacao',
-    escola: 'novo-proc-escola',
-    aluno: 'novo-proc-aluno',
-    btn: 'btn-submeter-nova-solicitacao',
-    lista: 'novo-proc-escola-resultados-sprint23',
-    codMec: 'novo-proc-escola-cod-mec',
-    nteId: 'novo-proc-escola-nte-id'
-  };
-
-  function $(id) { return document.getElementById(id); }
-  function txt(v) { return String(v ?? '').trim(); }
-  function up(v) { return txt(v).toUpperCase(); }
-  function normalizar(v) {
-    return up(v).normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  }
-  function nteTexto(id) {
-    const n = Number(id);
-    return Number.isFinite(n) && n > 0 ? `NTE ${String(n).padStart(2, '0')}` : '';
-  }
-  function perfilUsuario(u) {
-    return txt(u?.perfil || u?.role || '').toLowerCase();
-  }
-  function isGlobal(u) {
-    const p = perfilUsuario(u);
-    return p === 'master' || p === 'sec' || p === 'administrador sec' || p === 'adminsec';
-  }
-  function nteIdUsuario(u) {
-    if (!u) return null;
-    if (u.nte_id !== null && u.nte_id !== undefined && u.nte_id !== '') return Number(u.nte_id);
-    const m = txt(u.nte || u.nte_nome || '').match(/(\d{1,2})/);
-    return m ? Number(m[1]) : null;
-  }
-  function usuarioAtual() {
-    const candidatos = [
-      window.usuarioLogado,
-      window.usuarioAtual,
-      window.currentUser,
-      window.SIGEE_USUARIO_LOGADO,
-      window.SIGEE_USER
-    ];
-    for (const u of candidatos) if (u && typeof u === 'object') return u;
-    for (const key of ['usuarioLogado', 'SIGEE_USUARIO_LOGADO', 'sigee_usuario_logado', 'usuario_sigee']) {
-      try {
-        const raw = localStorage.getItem(key) || sessionStorage.getItem(key);
-        if (raw) {
-          const u = JSON.parse(raw);
-          if (u && typeof u === 'object') return u;
-        }
-      } catch (_) {}
-    }
-    return null;
-  }
-  function supabaseClient() {
-    const candidatos = [
-      window.supabaseClient,
-      window.sigeeSupabase,
-      window.SIGEE_SUPABASE,
-      window.SUPABASE_CLIENT,
-      window.db,
-      window.supabase
-    ];
-    for (const c of candidatos) {
-      if (c && typeof c.from === 'function') return c;
-    }
-    return null;
-  }
-
-  function mapEscola(e) {
-    return {
-      id: e.id,
-      nome: txt(e.nome_escola || e.nome || e.escola || e.instituicao),
-      cod_mec: txt(e.cod_mec),
-      municipio: txt(e.municipio),
-      nte_id: e.nte_id,
-      nte: txt(e.nte) || nteTexto(e.nte_id),
-      dependencia: txt(e.dependencia_adm || e.dependencia),
-      situacao: txt(e.situacao_funcional || e.situacao),
-      acervo: txt(e.status_acervo || e.acervo),
-      local_acervo: txt(e.local_acervo)
-    };
-  }
-
-  async function buscarEscolas(termo) {
-    const busca = txt(termo);
-    const c = supabaseClient();
-    const u = usuarioAtual();
-    const nteId = nteIdUsuario(u);
-
-    if (c) {
-      let q = c
-        .from('escolas_sigee')
-        .select('id,cod_mec,nome_escola,nome,municipio,nte_id,nte,dependencia_adm,dependencia,situacao_funcional,situacao,acervo,status_acervo,local_acervo')
-        .order('nome_escola', { ascending: true })
-        .limit(30);
-
-      if (!isGlobal(u) && nteId) q = q.eq('nte_id', nteId);
-
-      if (busca.length >= 2) {
-        const safe = busca.replace(/[%_]/g, '');
-        q = q.or(`nome_escola.ilike.%${safe}%,nome.ilike.%${safe}%,municipio.ilike.%${safe}%,cod_mec.ilike.%${safe}%`);
-      }
-
-      const { data, error } = await q;
-      if (error) throw error;
-      return (data || []).map(mapEscola);
-    }
-
-    let base = Array.isArray(window.escolasDB) ? window.escolasDB.map(mapEscola) : [];
-    if (!isGlobal(u) && nteId) base = base.filter(e => Number(e.nte_id) === nteId || normalizar(e.nte).includes(String(nteId).padStart(2, '0')));
-    if (busca.length >= 2) {
-      const n = normalizar(busca);
-      base = base.filter(e => normalizar(e.nome).includes(n) || normalizar(e.municipio).includes(n) || normalizar(e.cod_mec).includes(n));
-    }
-    return base.slice(0, 30);
-  }
-
-  function setValue(id, value) {
-    const el = $(id);
-    if (el) el.value = value || '';
-  }
-
-  function limparAutofill() {
-    ['novo-autofill-mec','novo-autofill-nte','novo-autofill-municipio','novo-autofill-dep','novo-autofill-situacao','novo-autofill-acervo','novo-autofill-local-acervo'].forEach(id => setValue(id, ''));
-    const cod = $(IDS.codMec); if (cod) cod.value = '';
-    const nte = $(IDS.nteId); if (nte) nte.value = '';
-  }
-
-  function habilitarBotaoSePossivel() {
-    const btn = $(IDS.btn);
-    const escola = $(IDS.escola);
-    const aluno = $(IDS.aluno);
-    if (!btn) return;
-    const temEscola = txt(escola?.value).length > 0 && txt(escola?.dataset?.codMec).length > 0;
-    const temAluno = txt(aluno?.value).length > 0;
-    const chk = $('f01-chk-acolhido');
-    const termoOk = chk ? chk.checked : true;
-    btn.disabled = !(temEscola && temAluno && termoOk);
-  }
-
-  function selecionarEscola(e) {
-    const input = $(IDS.escola);
-    const box = $(IDS.lista);
-    if (!input) return;
-
-    input.value = e.nome;
-    input.dataset.codMec = e.cod_mec || '';
-    input.dataset.escolaId = e.id || '';
-    input.dataset.nteId = e.nte_id || '';
-    input.dataset.escolaSelecionada = '1';
-
-    let cod = $(IDS.codMec);
-    if (!cod) {
-      cod = document.createElement('input');
-      cod.type = 'hidden';
-      cod.id = IDS.codMec;
-      input.parentElement.appendChild(cod);
-    }
-    cod.value = e.cod_mec || '';
-
-    let nte = $(IDS.nteId);
-    if (!nte) {
-      nte = document.createElement('input');
-      nte.type = 'hidden';
-      nte.id = IDS.nteId;
-      input.parentElement.appendChild(nte);
-    }
-    nte.value = e.nte_id || '';
-
-    setValue('novo-autofill-mec', e.cod_mec);
-    setValue('novo-autofill-nte', e.nte || nteTexto(e.nte_id));
-    setValue('novo-autofill-municipio', e.municipio);
-    setValue('novo-autofill-dep', e.dependencia);
-    setValue('novo-autofill-situacao', e.situacao);
-    setValue('novo-autofill-acervo', e.acervo);
-    setValue('novo-autofill-local-acervo', e.local_acervo);
-
-    if (box) {
-      box.classList.add('hidden');
-      box.innerHTML = '';
-    }
-
-    habilitarBotaoSePossivel();
-  }
-
-  let timer = null;
-  async function renderizarResultados() {
-    const input = $(IDS.escola);
-    const box = $(IDS.lista);
-    if (!input || !box) return;
-
-    const termo = txt(input.value);
-    if (termo.length < 2) {
-      box.innerHTML = '<div class="p-3 text-gray-600 font-semibold">Digite pelo menos 2 letras da escola.</div>';
-      box.classList.remove('hidden');
-      return;
-    }
-
-    box.innerHTML = '<div class="p-3 text-gray-600 font-semibold">Pesquisando...</div>';
-    box.classList.remove('hidden');
-
-    try {
-      const lista = await buscarEscolas(termo);
-      if (!lista.length) {
-        box.innerHTML = '<div class="p-3 text-red-600 font-bold">Nenhuma escola encontrada.</div>';
-        return;
-      }
-
-      box.innerHTML = '';
-      lista.forEach(e => {
-        const item = document.createElement('button');
-        item.type = 'button';
-        item.className = 'block w-full text-left px-3 py-2 bg-white hover:bg-blue-50 border-b border-gray-100';
-        item.innerHTML = `
-          <div class="font-black text-blue-900">${e.nome}</div>
-          <div class="text-[10px] text-gray-600">${e.municipio || '-'} | MEC ${e.cod_mec || '-'} | ${e.nte || ''}</div>
-        `;
-        item.addEventListener('click', () => selecionarEscola(e));
-        box.appendChild(item);
-      });
-    } catch (err) {
-      console.error('[SIGEE] erro autocomplete nova solicitação:', err);
-      box.innerHTML = '<div class="p-3 text-red-600 font-bold">Erro ao pesquisar escolas.</div>';
-    }
-  }
-
-  function instalarCampoDigitavel() {
-    const atual = $(IDS.escola);
-    if (!atual) return false;
-
-    const parent = atual.parentElement;
-    if (!parent) return false;
-
-    // Se ainda for SELECT, troca por INPUT mantendo o mesmo id usado pelo restante do sistema.
-    if (atual.tagName === 'SELECT') {
-      const input = document.createElement('input');
-      input.type = 'text';
-      input.id = IDS.escola;
-      input.name = atual.name || IDS.escola;
-      input.required = true;
-      input.autocomplete = 'off';
-      input.placeholder = 'Digite pelo menos 2 letras da escola...';
-      input.className = atual.className || 'w-full p-2 border rounded-lg text-xs bg-white font-semibold';
-      input.dataset.sprint23 = '1';
-      atual.replaceWith(input);
-    } else {
-      atual.type = 'text';
-      atual.autocomplete = 'off';
-      atual.placeholder = 'Digite pelo menos 2 letras da escola...';
-      atual.dataset.sprint23 = '1';
-    }
-
-    const input = $(IDS.escola);
-    if (!input) return false;
-
-    let box = $(IDS.lista);
-    if (!box) {
-      box = document.createElement('div');
-      box.id = IDS.lista;
-      box.className = 'hidden absolute z-[99999] bg-white border rounded-lg shadow-xl max-h-64 overflow-y-auto w-full text-xs';
-      parent.style.position = 'relative';
-      parent.appendChild(box);
-    }
-
-    if (!input.dataset.sprint23Events) {
-      input.dataset.sprint23Events = '1';
-      input.addEventListener('input', () => {
-        input.dataset.codMec = '';
-        input.dataset.escolaSelecionada = '';
-        limparAutofill();
-        habilitarBotaoSePossivel();
-        clearTimeout(timer);
-        timer = setTimeout(renderizarResultados, 250);
-      });
-      input.addEventListener('focus', renderizarResultados);
-      document.addEventListener('click', ev => {
-        if (!parent.contains(ev.target)) box.classList.add('hidden');
-      });
-    }
-
-    return true;
-  }
-
-  function resetarFormulario() {
-    ['novo-proc-aluno','novo-proc-documento','novo-proc-modalidade','novo-proc-ensino'].forEach(id => {
-      const el = $(id);
-      if (!el) return;
-      if (el.tagName === 'SELECT') el.selectedIndex = 0;
-      else el.value = '';
-    });
-    const chk = $('f01-chk-acolhido');
-    if (chk) chk.checked = false;
-    const btn = $(IDS.btn);
-    if (btn) btn.disabled = true;
-    limparAutofill();
-  }
-
-  function abrirNovaSolicitacaoSprint23() {
-    const modal = $(IDS.modal);
-    if (modal) modal.classList.remove('hidden');
-    resetarFormulario();
-
-    // Executa várias vezes para vencer recriações tardias feitas pelo app legado.
-    [0, 80, 200, 500].forEach(ms => setTimeout(instalarCampoDigitavel, ms));
-  }
-
-  let logInicializacaoExibido = false;
-
-  function instalarOverride() {
-    window.abrirFormularioNovaSolicitacao = abrirNovaSolicitacaoSprint23;
-    try { abrirFormularioNovaSolicitacao = window.abrirFormularioNovaSolicitacao; } catch (_) {}
-
-    document.querySelectorAll('[data-sigee-legado-desativado=\"nova-solicitacao\"]').forEach(btn => {
-      btn.onclick = function (ev) {
-        ev.preventDefault();
-        abrirNovaSolicitacaoSprint23();
-        return false;
-      };
-    });
-
-    const modal = $(IDS.modal);
-    if (modal && !modal.dataset.sprint23Observer) {
-      modal.dataset.sprint23Observer = '1';
-      const obs = new MutationObserver(() => {
-        if (!modal.classList.contains('hidden')) instalarCampoDigitavel();
-      });
-      obs.observe(modal, { childList: true, subtree: true });
-    }
-
-    ['novo-proc-aluno','f01-chk-acolhido'].forEach(id => {
-      const el = $(id);
-      if (el && !el.dataset.sprint23Events) {
-        el.dataset.sprint23Events = '1';
-        el.addEventListener('input', habilitarBotaoSePossivel);
-        el.addEventListener('change', habilitarBotaoSePossivel);
-      }
-    });
-
-    if (!logInicializacaoExibido) {
-      logInicializacaoExibido = true;
-      console.info('[SIGEE] Sprint 2.3 Nova Solicitação autocomplete ativo');
-    }
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', instalarOverride);
-  } else {
-    instalarOverride();
-  }
-
-  // Reinstala após carregamentos tardios dos scripts legados.
-  // Uma única verificação tardia para elementos criados pelo app legado.
-  setTimeout(instalarOverride, 800);
-})();
-
-
-/* ---- origem consolidada: sigee_perfil_estagiario_v1.js ---- */
-/* =====================================================================
-   SIGEE - Perfil Estagiário + permissões somente leitura
-   Objetivo:
-   - Incluir perfil Estagiário no cadastro de usuários.
-   - Permitir Nova Solicitação e visualização de processos do próprio NTE.
-   - Bloquear edição/movimentação/exclusão para Estagiário.
-   - Ativar troca obrigatória de senha quando forcar_troca_senha = true.
-   Carregar por último no index.html.
-   ===================================================================== */
-(function () {
-  'use strict';
-
-  const PERFIS_SIGEE = ['Master', 'SEC', 'Gestor', 'Administrador', 'Técnico', 'Estagiário', 'Consulta'];
-  const GRUPO_SEC = 'SEC - TODOS OS NTEs';
-  const EMAIL_SEC = 'sec@enova.educacao.ba.gov.br';
-
-  function txt(v) { return v === undefined || v === null ? '' : String(v).trim(); }
-  function low(v) { return txt(v).toLowerCase(); }
-  function sem(v) { return txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
-  function up(v) { return sem(v).toUpperCase(); }
-  function user() { return window.usuarioLogado || (typeof usuarioLogado !== 'undefined' ? usuarioLogado : null); }
-
-  function perfilCanonico(valor) {
-    const p = up(valor || 'Tecnico');
-    if (p.includes('SEC')) return 'SEC';
-    if (p.includes('MASTER')) return 'Master';
-    if (p.includes('GESTOR') || p.includes('DIRIGENTE')) return 'Gestor';
-    if (p.includes('ADMIN')) return 'Administrador';
-    if (p.includes('ESTAG')) return 'Estagiário';
-    if (p.includes('CONSULT')) return 'Consulta';
-    if (p.includes('TECNIC')) return 'Técnico';
-    return txt(valor);
-  }
-
-  function isSEC(u = user()) { return perfilCanonico(u && u.perfil) === 'SEC' || low(u && u.email) === EMAIL_SEC; }
-  function isMaster(u = user()) { return perfilCanonico(u && u.perfil) === 'Master'; }
-  function isAdmin(u = user()) { return perfilCanonico(u && u.perfil) === 'Administrador'; }
-  function isTecnico(u = user()) { return perfilCanonico(u && u.perfil) === 'Técnico'; }
-  function isEstagiario(u = user()) { return perfilCanonico(u && u.perfil) === 'Estagiário'; }
-  function isConsulta(u = user()) { return perfilCanonico(u && u.perfil) === 'Consulta'; }
-  function isGlobal(u = user()) { return isSEC(u) || isMaster(u); }
-  function podeGerirUsuarios(u = user()) { return isSEC(u) || isMaster(u); }
-  function podeNovaSolicitacao(u = user()) { return isSEC(u) || isMaster(u) || isAdmin(u) || isTecnico(u) || isEstagiario(u); }
-  function podeEditarProcesso(u = user()) { return isSEC(u) || isMaster(u) || isAdmin(u) || isTecnico(u); }
-  function podeEditarEscola(u = user()) { return isSEC(u) || isMaster(u) || isAdmin(u) || isTecnico(u); }
-
-  function numeroNte(v) {
-    const m = txt(v).match(/NTE\s*[- ]?\s*(\d{1,2})/i);
-    return m ? Number(m[1]) : null;
-  }
-  function nteFormatado(v) {
-    const n = numeroNte(v);
-    return n ? 'NTE ' + String(n).padStart(2, '0') : txt(v);
-  }
-  function nteId(v) {
-    const n = numeroNte(v);
-    return n || null;
-  }
-  function client() {
-    try { return typeof obterSupabaseSIGEE === 'function' ? obterSupabaseSIGEE() : (window.supabaseClient || null); }
-    catch (e) { return window.supabaseClient || null; }
-  }
-  function tabelaUsuarios() {
-    return (window.SIGEE_SUPABASE_TABELAS && window.SIGEE_SUPABASE_TABELAS.usuarios) || 'usuarios_sigee';
-  }
-
-  function baseUsuarios() {
-    const base = Array.isArray(window.usuariosDB) ? window.usuariosDB : (typeof usuariosDB !== 'undefined' && Array.isArray(usuariosDB) ? usuariosDB : []);
-    window.usuariosDB = base;
-    try { usuariosDB = base; } catch (e) {}
-    return base;
-  }
-
-  function normalizarUsuario(u) {
-    u = u || {};
-    const perfil = perfilCanonico(u.perfil || u.tipo || u.role || 'Tecnico');
-    let nte = perfil === 'SEC' ? GRUPO_SEC : txt(u.nte || u.nte_nome || u.nte_vinculado || u.grupo || '');
-    return {
-      ...u,
-      nome: txt(u.nome || u.name).toUpperCase(),
-      email: low(u.email),
-      perfil,
-      nte,
-      nte_id: perfil === 'SEC' ? null : (u.nte_id || nteId(nte)),
-      senha: txt(u.senha || u.senha_hash || 'SEC@2026'),
-      senha_hash: txt(u.senha_hash || u.senha || 'SEC@2026'),
-      ativo: u.ativo !== false && u.Ativo !== false,
-      Ativo: u.ativo !== false && u.Ativo !== false,
-      forcar_troca_senha: !!u.forcar_troca_senha,
-      pode_editar: perfil === 'Estagiário' || perfil === 'Consulta' ? false : (u.pode_editar !== false)
-    };
-  }
-
-  function opcoesPerfisHtml(valorAtual) {
-    return PERFIS_SIGEE.map(p => `<option value="${p}" ${perfilCanonico(valorAtual) === perfilCanonico(p) ? 'selected' : ''}>${p}</option>`).join('');
-  }
-
-  function corrigirSelectPerfil(valorAtual) {
-    const sel = document.getElementById('user-form-perfil');
-    if (!sel) return;
-    if (window.SIGEE_CONFIG_UTILS?.preencherSelectPerfis) {
-      window.SIGEE_CONFIG_UTILS.preencherSelectPerfis(sel, valorAtual || sel.value || 'Técnico', false);
-      return;
-    }
-    sel.innerHTML = opcoesPerfisHtml(valorAtual || sel.value || 'Técnico');
-  }
-
-  function atualizarCabecalhoUsuario() {
-    const u = user();
-    if (!u) return;
-    u.perfil = perfilCanonico(u.perfil);
-    if (isSEC(u)) u.nte = GRUPO_SEC;
-    document.body.dataset.sigeePerfil = u.perfil;
-    document.body.classList.toggle('sigee-perfil-estagiario', isEstagiario(u));
-    window.SIGEE_RENDERIZAR_IDENTIDADE_EFETIVA?.();
-  }
-
-  function bloquearBotao(el, bloquear) {
-    if (!el) return;
-    if (bloquear) {
-      el.classList.add('hidden');
-      el.disabled = true;
-      el.setAttribute('aria-hidden', 'true');
-    } else {
-      el.classList.remove('hidden');
-      el.disabled = false;
-      el.removeAttribute('aria-hidden');
-    }
-  }
-
-  function aplicarPermissoesEstagiario() {
-    const u = user();
-    if (!u) return;
-    u.perfil = perfilCanonico(u.perfil);
-    atualizarCabecalhoUsuario();
-
-    const est = isEstagiario(u);
-
-    // Menus administrativos.
-    const menuUsuarios = document.getElementById('menu-usuarios');
-    if (menuUsuarios) menuUsuarios.classList.toggle('hidden', !podeGerirUsuarios(u));
-    const menuLogs = document.getElementById('menu-logs');
-    if (menuLogs) menuLogs.classList.toggle('hidden', !(isSEC(u) || isMaster(u) || isAdmin(u)));
-
-    // Nova solicitação liberada para Estagiário.
-    document.querySelectorAll('[data-sigee-legado-desativado="nova-solicitacao"]').forEach(el => bloquearBotao(el, !podeNovaSolicitacao(u)));
-
-    // Estagiário visualiza, mas não edita/movimenta.
-    if (est) {
-      document.querySelectorAll([
-        'button[onclick*="abrirModalFluxo"]',
-        'button[onclick*="alterarEtapa"]',
-        'button[onclick*="excluirProcesso"]',
-        'button[onclick*="salvarFluxo"]',
-        'button[onclick*="registrarRetirada"]',
-        'button[onclick*="mover"]',
-        'button[onclick*="editar"]',
-        'button[onclick*="Editar"]',
-        '.btn-editar-escola',
-        '[data-sigee-permissao="editar-escola"]',
-        'button[onclick="abrirModalNovaEscola()"]',
-        '.btn-nova-escola',
-        '[data-sigee-importar]',
-        '[data-sigee-exportar]'
-      ].join(',')).forEach(el => {
-        const rotulo = up(el.innerText || el.textContent || el.id || '');
-        if (rotulo.includes('DETALHE') || rotulo.includes('VISUALIZ')) return;
-        bloquearBotao(el, true);
-      });
-    }
-  }
-
-  async function salvarUsuarioSupabase(u) {
-    const c = client();
-    if (!c || !c.from) throw new Error('Supabase não inicializado.');
-    const payload = normalizarUsuario(u);
-    const envio = {
-      nome: payload.nome,
-      email: payload.email,
-      perfil: payload.perfil,
-      nte: payload.nte,
-      nte_id: payload.nte_id,
-      ativo: payload.ativo,
-      Ativo: payload.Ativo,
-      senha: payload.senha,
-      senha_hash: payload.senha_hash,
-      forcar_troca_senha: payload.forcar_troca_senha,
-      pode_editar: payload.pode_editar
-    };
-    const { data, error } = await c.from(tabelaUsuarios()).upsert(envio, { onConflict: 'email' }).select().single();
-    if (error) throw error;
-    return normalizarUsuario(data || payload);
-  }
-
-  // Cadastro/edição consolidado para aceitar Estagiário e atualizar por e-mail.
-  window.__SIGEE_LEGACY_salvarNovoUsuarioFormularioMaster = async function (event) {
-    if (event) event.preventDefault();
-    if (!podeGerirUsuarios(user())) return alert('Operação permitida apenas para SEC e Master.');
-
-    const id = txt(document.getElementById('user-form-id')?.value);
-    const nome = txt(document.getElementById('user-form-nome')?.value).toUpperCase();
-    const email = low(document.getElementById('user-form-email')?.value);
-    const senha = txt(document.getElementById('user-form-senha')?.value) || '123';
-    const perfil = perfilCanonico(document.getElementById('user-form-perfil')?.value);
-    const nte = perfil === 'SEC' ? GRUPO_SEC : txt(document.getElementById('user-form-nte')?.value);
-
-    if (!nome || !email) return alert('Informe nome e e-mail.');
-    if (perfil !== 'SEC' && !numeroNte(nte)) return alert('Informe o NTE do usuário.');
-
-    const base = baseUsuarios();
-    let local = null;
-    if (id) local = base.find(u => String(u.id) === String(id));
-    if (!local) local = base.find(u => low(u.email) === email);
-
-    const novo = normalizarUsuario({
-      ...(local || {}),
-      id: local?.id || id || Math.max(1, ...base.map(x => Number(x.id) || 0)) + 1,
-      nome,
-      email,
-      senha,
-      senha_hash: senha,
-      perfil,
-      nte,
-      nte_id: perfil === 'SEC' ? null : numeroNte(nte),
-      ativo: true,
-      Ativo: true,
-      // Usuário novo fica obrigado a trocar senha; edição comum preserva o valor.
-      forcar_troca_senha: local ? !!local.forcar_troca_senha : true
-    });
-
-    try {
-      const salvo = await salvarUsuarioSupabase(novo);
-      const idx = local ? base.indexOf(local) : -1;
-      if (idx >= 0) base[idx] = { ...base[idx], ...salvo };
-      else base.push(salvo);
-      window.usuariosDB = base.map(normalizarUsuario);
-      try { usuariosDB = window.usuariosDB; } catch (e) {}
-      try { localStorage.setItem('SIGEE_USUARIOS_CACHE', JSON.stringify(window.usuariosDB)); } catch (e) {}
-      document.getElementById('modal-cadastro-usuario')?.classList.add('hidden');
-      alert(local ? 'Usuário atualizado com sucesso.' : 'Usuário cadastrado com sucesso.');
-      if (typeof window.carregarListaUsuarios === 'function') window.carregarListaUsuarios();
-    } catch (e) {
-      alert('Erro ao salvar usuário: ' + (e.message || e.details || e));
-    }
-  };
-
-  const abrirCriarPrev = window.abrirModalCriarUsuarioMaster;
-  window.abrirModalCriarUsuarioMaster = function () {
-    if (typeof abrirCriarPrev === 'function') abrirCriarPrev.apply(this, arguments);
-    setTimeout(() => {
-      corrigirSelectPerfil('Tecnico');
-      const senha = document.getElementById('user-form-senha');
-      if (senha) senha.value = '123';
-    }, 30);
-  };
-
-  const abrirEditarPrev = window.abrirModalEditarUsuarioMaster;
-  window.abrirModalEditarUsuarioMaster = function (id) {
-    if (typeof abrirEditarPrev === 'function') abrirEditarPrev.apply(this, arguments);
-    setTimeout(() => {
-      const base = baseUsuarios().map(normalizarUsuario);
-      const u = base.find(x => String(x.id) === String(id));
-      corrigirSelectPerfil(u?.perfil || 'Tecnico');
-      const sel = document.getElementById('user-form-perfil');
-      if (sel && u) sel.value = perfilCanonico(u.perfil);
-    }, 30);
-  };
-
-  window.__SIGEE_LEGACY_resetarSenhaUsuarioMaster = async function (id) {
-    if (!podeGerirUsuarios(user())) return alert('Operação permitida apenas para SEC e Master.');
-    const base = baseUsuarios();
-    const u = base.find(x => String(x.id) === String(id));
-    if (!u) return alert('Usuário não localizado.');
-    const novo = normalizarUsuario({ ...u, senha: 'SEC@2026', senha_hash: 'SEC@2026', forcar_troca_senha: true });
-    try {
-      const salvo = await salvarUsuarioSupabase(novo);
-      Object.assign(u, salvo);
-      try { localStorage.setItem('SIGEE_USUARIOS_CACHE', JSON.stringify(base.map(normalizarUsuario))); } catch (e) {}
-      alert(`Senha de ${u.nome} resetada para SEC@2026. O usuário deverá cadastrar nova senha no próximo acesso.`);
-      if (typeof window.carregarListaUsuarios === 'function') window.carregarListaUsuarios();
-    } catch (e) {
-      alert('Erro ao resetar senha: ' + (e.message || e.details || e));
-    }
-  };
-
-  function criarModalTrocaSenha() {
-    if (document.getElementById('modal-troca-senha-obrigatoria-sigee')) return;
-    const div = document.createElement('div');
-    div.id = 'modal-troca-senha-obrigatoria-sigee';
-    div.className = 'hidden fixed inset-0 bg-black/60 z-[99999] flex items-center justify-center p-4';
-    div.innerHTML = `
-      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 border-t-4 border-blue-700">
-        <h2 class="text-xl font-black text-blue-900 mb-2">🔐 Cadastro de nova senha</h2>
-        <p class="text-sm text-gray-600 mb-4">Por segurança, cadastre uma nova senha para continuar usando o SIGEE.</p>
-        <label class="text-xs font-bold text-gray-700">Nova senha</label>
-        <input id="nova-senha-obrigatoria-sigee" type="password" class="w-full border rounded-lg p-3 mb-3" placeholder="Digite a nova senha">
-        <label class="text-xs font-bold text-gray-700">Confirmar senha</label>
-        <input id="confirma-senha-obrigatoria-sigee" type="password" class="w-full border rounded-lg p-3 mb-4" placeholder="Confirme a nova senha">
-        <button id="btn-salvar-senha-obrigatoria-sigee" class="w-full bg-blue-700 text-white font-black py-3 rounded-lg hover:bg-blue-800">Salvar nova senha</button>
-      </div>`;
-    document.body.appendChild(div);
-    document.getElementById('btn-salvar-senha-obrigatoria-sigee').onclick = salvarNovaSenhaObrigatoria;
-  }
-
-  async function verificarTrocaSenhaObrigatoria() {
-    // RC4.3.7: rotina legada desativada. A única autoridade para abrir o
-    // recadastramento é SIGEE_AUTH, acionada pelo evento de login concluído.
-    return false;
-  }
-
-  async function salvarNovaSenhaObrigatoria() {
-    const u = user();
-    if (!u || !u.email) return alert('Sessão não localizada. Faça login novamente.');
-    const s1 = txt(document.getElementById('nova-senha-obrigatoria-sigee')?.value);
-    const s2 = txt(document.getElementById('confirma-senha-obrigatoria-sigee')?.value);
-    if (s1.length < 4) return alert('A senha deve ter pelo menos 4 caracteres.');
-    if (s1 !== s2) return alert('As senhas não conferem.');
-    try {
-      const c = client();
-      const { error } = await c.from(tabelaUsuarios()).update({ senha: s1, senha_hash: s1, forcar_troca_senha: false }).eq('email', u.email);
-      if (error) throw error;
-      u.senha = s1;
-      u.senha_hash = s1;
-      u.forcar_troca_senha = false;
-      document.getElementById('modal-troca-senha-obrigatoria-sigee')?.classList.add('hidden');
-      alert('Senha atualizada com sucesso.');
-    } catch (e) {
-      alert('Erro ao salvar nova senha: ' + (e.message || e.details || e));
-    }
-  }
-
-  // Bloqueios de segurança: se um botão antigo aparecer, ele não executa ação de edição para Estagiário.
-  [
-    'abrirModalFluxoAnalise', 'abrirModalFluxoPendencia', 'abrirModalFluxoDigitacao', 'abrirModalFluxoConferencia',
-    'abrirModalFluxoAssinatura', 'registrarRetirada', 'alterarEtapaDiretoMaster', 'excluirProcessoSistema',
-    'excluirProcesso', 'abrirModalEditarEscola', 'abrirModalNovaEscola'
-  ].forEach(nome => {
-    const anterior = window[nome];
-    if (typeof anterior === 'function') {
-      window[nome] = function () {
-        if (isEstagiario(user())) return alert('Perfil Estagiário possui acesso somente para cadastro e consulta. Edição ou movimentação não permitida.');
-        return anterior.apply(this, arguments);
-      };
-      try { eval(nome + ' = window[nome]'); } catch (e) {}
-    }
-  });
-
-  // Compatibilidade global.
-  window.perfilCanonicoSIGEE = perfilCanonico;
-  try { perfilCanonicoSIGEE = perfilCanonico; } catch (e) {}
-  window.SIGEE_PERFIL_ESTAGIARIO_V1 = { perfilCanonico, isEstagiario, aplicarPermissoesEstagiario, verificarTrocaSenhaObrigatoria };
-
-  const loginPrev = window.handleLogin || (typeof handleLogin !== 'undefined' ? handleLogin : null);
-  if (typeof loginPrev === 'function') {
-    window.handleLogin = async function () {
-      const r = await loginPrev.apply(this, arguments);
-      setTimeout(aplicarPermissoesEstagiario, 50);
-      setTimeout(aplicarPermissoesEstagiario, 700);
-      return r;
-    };
-    try { handleLogin = window.handleLogin; } catch (e) {}
-  }
-
-  const navPrev = window.navegar || (typeof navegar !== 'undefined' ? navegar : null);
-  if (typeof navPrev === 'function') {
-    window.navegar = function (aba) {
-      const r = navPrev.apply(this, arguments);
-      setTimeout(aplicarPermissoesEstagiario, 20);
-      setTimeout(aplicarPermissoesEstagiario, 250);
-      return r;
-    };
-    try { navegar = window.navegar; } catch (e) {}
-  }
-
-  document.addEventListener('DOMContentLoaded', () => {
-    aplicarPermissoesEstagiario();
-    setTimeout(aplicarPermissoesEstagiario, 300);
-  });
-  window.addEventListener('load', () => setTimeout(aplicarPermissoesEstagiario, 150));
-  if (window.SIGEE_PERFORMANCE?.aCada) {
-    window.SIGEE_PERFORMANCE.aCada('app:permissoes-estagiario', aplicarPermissoesEstagiario, 30000, { somenteVisivel:true });
-  } else {
-    setInterval(()=>{ if(!document.hidden) aplicarPermissoesEstagiario(); },120000);
-  }
-})();
-
-
-/* ---- origem consolidada: sigee_sprint_2_5_perfil_senha_nova_solicitacao.js ---- */
-/* =====================================================================
-   SIGEE - Sprint 2.5
-   Correções:
-   1) Nova Solicitação: autocomplete respeitando NTE também para Estagiário.
-   2) Troca obrigatória de senha: salva senha/senha_hash e desativa forcar_troca_senha.
-   3) Ajuste visual de campos Perfil/NTE com opção "SELECIONE".
-   Carregar por ÚLTIMO no index.html.
-   ===================================================================== */
-(function () {
-  'use strict';
-
-  const TABELA_USUARIOS = 'usuarios_sigee';
-  const TABELA_ESCOLAS = 'escolas_sigee';
-
-  const IDS = {
-    modalNova: 'modal-nova-solicitacao',
-    escola: 'novo-proc-escola',
-    aluno: 'novo-proc-aluno',
-    btnNova: 'btn-submeter-nova-solicitacao',
-    lista: 'novo-proc-escola-resultados-sprint25',
-    codMec: 'novo-proc-escola-cod-mec',
-    nteId: 'novo-proc-escola-nte-id',
-    modalSenha: 'modal-troca-senha-obrigatoria-sigee',
-    senha1: 'nova-senha-obrigatoria-sigee',
-    senha2: 'confirma-senha-obrigatoria-sigee',
-    btnSenha: 'btn-salvar-senha-obrigatoria-sigee'
-  };
-
-  function $(id) { return document.getElementById(id); }
-  function txt(v) { return v === undefined || v === null ? '' : String(v).trim(); }
-  function low(v) { return txt(v).toLowerCase(); }
-  function up(v) { return txt(v).toUpperCase(); }
-  function norm(v) { return up(v).normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
-
-  function supabaseClient() {
-    const candidatos = [
-      window.supabaseClient,
-      window.sigeeSupabase,
-      window.SIGEE_SUPABASE,
-      window.SUPABASE_CLIENT,
-      window.db,
-      window.supabase
-    ];
-    for (const c of candidatos) if (c && typeof c.from === 'function') return c;
-    try {
-      if (typeof obterSupabaseSIGEE === 'function') return obterSupabaseSIGEE();
-    } catch (_) {}
-    return null;
-  }
-
-  function perfilCanonico(valor) {
-    const p = norm(valor || '');
-    if (p.includes('MASTER')) return 'Master';
-    if (p === 'SEC' || p.includes('TODOS OS NTES')) return 'SEC';
-    if (p.includes('ADMIN')) return 'Administrator';
-    if (p.includes('ESTAG')) return 'Estagiário';
-    if (p.includes('CONSULT')) return 'Consulta';
-    if (p.includes('TECNIC')) return 'Tecnico';
-    return txt(valor || 'Tecnico');
-  }
-
-  function isGlobalPerfil(perfil) {
-    const p = perfilCanonico(perfil);
-    return p === 'Master' || p === 'SEC';
-  }
-
-  function extrairNteId(v) {
-    if (v === undefined || v === null || v === '') return null;
-    if (typeof v === 'number') return Number.isFinite(v) ? v : null;
-    const s = txt(v);
-    if (/^\d+$/.test(s)) return Number(s);
-    const m = s.match(/(?:NTE\s*[- ]?)?(\d{1,2})/i);
-    return m ? Number(m[1]) : null;
-  }
-
-  function nteTexto(id) {
-    const n = Number(id);
-    return Number.isFinite(n) && n > 0 ? `NTE ${String(n).padStart(2, '0')}` : '';
-  }
-
-  function getStoredUser() {
-    const candidatos = [
-      window.usuarioLogado,
-      window.usuarioAtual,
-      window.currentUser,
-      window.SIGEE_USUARIO_LOGADO,
-      window.SIGEE_USER
-    ];
-    for (const u of candidatos) if (u && typeof u === 'object') return { ...u };
-
-    const keys = [
-      'usuarioLogado',
-      'SIGEE_USUARIO_LOGADO',
-      'sigee_usuario_logado',
-      'usuario_sigee',
-      'sigee_usuario',
-      'SIGEE_USER',
-      'currentUser'
-    ];
-    for (const key of keys) {
-      try {
-        const raw = localStorage.getItem(key) || sessionStorage.getItem(key);
-        if (raw) {
-          const u = JSON.parse(raw);
-          if (u && typeof u === 'object') return { ...u };
-        }
-      } catch (_) {}
-    }
-    return null;
-  }
-
-  async function getUserCompleto() {
-    const u = getStoredUser() || {};
-    const email = low(u.email);
-    const c = supabaseClient();
-    if (c && email) {
-      try {
-        const { data } = await c
-          .from(TABELA_USUARIOS)
-          .select('id,email,nome,perfil,nte_id,nte,ativo,Ativo,forcar_troca_senha,pode_editar,grupo_id,perfil_acesso_id,permissoes_override,unidade_tipo,escola_id')
-          .eq('email', email)
-          .maybeSingle();
-        if (data) {
-          const merged = { ...u, ...data };
-          window.usuarioLogado = merged;
-          try { usuarioLogado = merged; } catch (_) {}
-          return merged;
-        }
-      } catch (e) {
-        console.warn('[SIGEE 2.5] Não foi possível recarregar usuário no Supabase:', e);
-      }
-    }
-    return u;
-  }
-
-  function mapEscola(e) {
-    return {
-      id: e.id,
-      nome: txt(e.nome_escola || e.nome || e.escola || e.instituicao),
-      cod_mec: txt(e.cod_mec),
-      municipio: txt(e.municipio),
-      nte_id: e.nte_id,
-      nte: txt(e.nte) || nteTexto(e.nte_id),
-      dependencia: txt(e.dependencia_adm || e.dependencia),
-      situacao: txt(e.situacao_funcional || e.situacao),
-      acervo: txt(e.status_acervo || e.acervo),
-      local_acervo: txt(e.local_acervo)
-    };
-  }
-
-  async function buscarEscolasNovaSolicitacao(termo) {
-    const busca = txt(termo);
-    const c = supabaseClient();
-    const u = await getUserCompleto();
-    const perfil = perfilCanonico(u && u.perfil);
-    const global = isGlobalPerfil(perfil);
-    const nteId = extrairNteId(u && (u.nte_id || u.nte || u.nte_nome));
-
-    // Segurança: qualquer perfil não global sem NTE definido não pode ver base inteira.
-    if (!global && !nteId) return [];
-
-    if (c) {
-      let q = c
-        .from(TABELA_ESCOLAS)
-        .select('id,cod_mec,nome_escola,nome,municipio,nte_id,nte,dependencia_adm,dependencia,situacao_funcional,situacao,acervo,status_acervo,local_acervo')
-        .order('nome_escola', { ascending: true })
-        .limit(30);
-
-      if (!global) q = q.eq('nte_id', nteId);
-
-      if (busca.length >= 2) {
-        const safe = busca.replace(/[%_]/g, '');
-        q = q.or(`nome_escola.ilike.%${safe}%,nome.ilike.%${safe}%,municipio.ilike.%${safe}%,cod_mec.ilike.%${safe}%`);
-      }
-
-      const { data, error } = await q;
-      if (error) throw error;
-      return (data || []).map(mapEscola);
-    }
-
-    let base = Array.isArray(window.escolasDB) ? window.escolasDB.map(mapEscola) : [];
-    if (!global) base = base.filter(e => Number(e.nte_id) === Number(nteId) || norm(e.nte).includes(String(nteId).padStart(2, '0')));
-    if (busca.length >= 2) {
-      const n = norm(busca);
-      base = base.filter(e => norm(e.nome).includes(n) || norm(e.municipio).includes(n) || norm(e.cod_mec).includes(n));
-    }
-    return base.slice(0, 30);
-  }
-
-  function setValue(id, value) {
-    const el = $(id);
-    if (el) el.value = value || '';
-  }
-
-  function limparAutofillNova() {
-    ['novo-autofill-mec','novo-autofill-nte','novo-autofill-municipio','novo-autofill-dep','novo-autofill-situacao','novo-autofill-acervo','novo-autofill-local-acervo'].forEach(id => setValue(id, ''));
-    setValue(IDS.codMec, '');
-    setValue(IDS.nteId, '');
-  }
-
-  function limparIdentidadeEscolaNovaSolicitacao() {
-    const escola = $(IDS.escola);
-    if (escola) {
-      escola.value = '';
-      ['codMec','escolaId','nteId','escolaSelecionada','abertura'].forEach(chave => {
-        try { delete escola.dataset[chave]; } catch (_) { escola.dataset[chave] = ''; }
-      });
-    }
-
-    const idOculto = $('novo-proc-escola-id');
-    if (idOculto) {
-      idOculto.value = '';
-      try { delete idOculto.dataset.abertura; } catch (_) {}
-    }
-
-    const select = document.querySelector('#novo-proc-escola option:checked');
-    if (select) {
-      try { delete select.dataset.escolaId; } catch (_) {}
-    }
-
-    window.SIGEE_ESCOLA_NOVA_SOLICITACAO = null;
-    window.SIGEE_NOVA_SOLICITACAO_ESCOLA_ID = '';
-    window.SIGEE_NOVA_SOLICITACAO_ESCOLA_NOME = '';
-    window.SIGEE_NOVA_SOLICITACAO_COD_MEC = '';
-
-    try { window.SIGEE_LIMPAR_ESTADO_NOVA_SOLICITACAO?.(); } catch (_) {}
-    try { window.SIGEE_Escolas?.limparEscolaNovaSolicitacao?.(); } catch (_) {}
-  }
-
-  function habilitarBotaoNova() {
-    const btn = $(IDS.btnNova);
-    if (!btn) return;
-    const escola = $(IDS.escola);
-    const aluno = $(IDS.aluno);
-    const chk = $('f01-chk-acolhido');
-    const okEscola = !!txt(escola && escola.value) && !!txt(escola && escola.dataset && escola.dataset.codMec);
-    const okAluno = !!txt(aluno && aluno.value);
-    const okTermo = chk ? chk.checked : true;
-    btn.disabled = !(okEscola && okAluno && okTermo);
-  }
-
-  function selecionarEscolaNova(e) {
-    const input = $(IDS.escola);
-    const box = $(IDS.lista);
-    if (!input) return;
-
-    const escolaId = txt(e.id);
-    input.value = e.nome;
-    input.dataset.codMec = e.cod_mec || '';
-    input.dataset.escolaId = escolaId;
-    input.dataset.nteId = e.nte_id || '';
-    input.dataset.escolaSelecionada = '1';
-
-    const idOculto = $('novo-proc-escola-id');
-    if (idOculto) idOculto.value = escolaId;
-
-    window.SIGEE_ESCOLA_NOVA_SOLICITACAO = {
-      ...e,
-      id: escolaId,
-      escola_id: escolaId,
-      nome: e.nome,
-      nome_escola: e.nome
-    };
-    window.SIGEE_NOVA_SOLICITACAO_ESCOLA_ID = escolaId;
-    window.SIGEE_NOVA_SOLICITACAO_ESCOLA_NOME = e.nome || '';
-    window.SIGEE_NOVA_SOLICITACAO_COD_MEC = e.cod_mec || '';
-
-    let cod = $(IDS.codMec);
-    if (!cod) {
-      cod = document.createElement('input');
-      cod.type = 'hidden';
-      cod.id = IDS.codMec;
-      input.parentElement.appendChild(cod);
-    }
-    cod.value = e.cod_mec || '';
-
-    let nte = $(IDS.nteId);
-    if (!nte) {
-      nte = document.createElement('input');
-      nte.type = 'hidden';
-      nte.id = IDS.nteId;
-      input.parentElement.appendChild(nte);
-    }
-    nte.value = e.nte_id || '';
-
-    setValue('novo-autofill-mec', e.cod_mec);
-    setValue('novo-autofill-nte', e.nte || nteTexto(e.nte_id));
-    setValue('novo-autofill-municipio', e.municipio);
-    setValue('novo-autofill-dep', e.dependencia);
-    setValue('novo-autofill-situacao', e.situacao);
-    setValue('novo-autofill-acervo', e.acervo);
-    setValue('novo-autofill-local-acervo', e.local_acervo);
-
-    if (box) {
-      box.classList.add('hidden');
-      box.innerHTML = '';
-    }
-    habilitarBotaoNova();
-  }
-
-  let timerNova = null;
-  async function renderizarResultadosNova() {
-    const input = $(IDS.escola);
-    const box = $(IDS.lista);
-    if (!input || !box) return;
-
-    const termo = txt(input.value);
-    if (termo.length < 2) {
-      box.innerHTML = '<div class="p-3 text-gray-600 font-semibold">Digite pelo menos 2 letras da escola.</div>';
-      box.classList.remove('hidden');
-      return;
-    }
-
-    box.innerHTML = '<div class="p-3 text-gray-600 font-semibold">Pesquisando...</div>';
-    box.classList.remove('hidden');
-
-    try {
-      const lista = await buscarEscolasNovaSolicitacao(termo);
-      if (!lista.length) {
-        box.innerHTML = '<div class="p-3 text-red-600 font-bold">Nenhuma escola encontrada para o seu NTE.</div>';
-        return;
-      }
-
-      box.innerHTML = '';
-      lista.forEach(e => {
-        const item = document.createElement('button');
-        item.type = 'button';
-        item.className = 'block w-full text-left px-3 py-2 bg-white hover:bg-blue-50 border-b border-gray-100';
-        item.innerHTML = `
-          <div class="font-black text-blue-900">${e.nome}</div>
-          <div class="text-[10px] text-gray-600">${e.municipio || '-'} | MEC ${e.cod_mec || '-'} | ${e.nte || ''}</div>
-        `;
-        item.addEventListener('click', () => selecionarEscolaNova(e));
-        box.appendChild(item);
-      });
-    } catch (err) {
-      console.error('[SIGEE 2.5] Erro no autocomplete da Nova Solicitação:', err);
-      box.innerHTML = '<div class="p-3 text-red-600 font-bold">Erro ao pesquisar escolas.</div>';
-    }
-  }
-
-  function instalarCampoNovaSolicitacao() {
-    const atual = $(IDS.escola);
-    if (!atual) return false;
-    const parent = atual.parentElement;
-    if (!parent) return false;
-
-    let input = atual;
-    if (atual.tagName === 'SELECT') {
-      input = document.createElement('input');
-      input.type = 'text';
-      input.id = IDS.escola;
-      input.name = atual.name || IDS.escola;
-      input.required = true;
-      input.autocomplete = 'off';
-      input.className = atual.className || 'w-full p-2 border rounded-lg text-xs bg-white font-semibold';
-      atual.replaceWith(input);
-    }
-
-    input.type = 'text';
-    input.autocomplete = 'off';
-    input.placeholder = 'Digite pelo menos 2 letras da escola...';
-    input.dataset.sprint25 = '1';
-
-    // Remove listeners antigos clonando o campo e reinstalando somente o handler desta sprint.
-    if (input.dataset.sprint25Bound !== '1') {
-      const clone = input.cloneNode(true);
-      clone.dataset.sprint25 = '1';
-      clone.dataset.sprint25Bound = '1';
-      input.replaceWith(clone);
-      input = clone;
-    }
-
-    let box = $(IDS.lista);
-    if (!box) {
-      box = document.createElement('div');
-      box.id = IDS.lista;
-      box.className = 'hidden absolute z-[99999] bg-white border rounded-lg shadow-xl max-h-64 overflow-y-auto w-full text-xs';
-      parent.style.position = 'relative';
-      parent.appendChild(box);
-    }
-
-    input.addEventListener('input', () => {
-      limparIdentidadeEscolaNovaSolicitacao();
-      limparAutofillNova();
-      habilitarBotaoNova();
-      clearTimeout(timerNova);
-      timerNova = setTimeout(renderizarResultadosNova, 250);
-    });
-    input.addEventListener('focus', renderizarResultadosNova);
-
-    return true;
-  }
-
-  function resetarNovaSolicitacao() {
-    limparIdentidadeEscolaNovaSolicitacao();
-    ['novo-proc-aluno','novo-proc-documento','novo-proc-modalidade','novo-proc-ensino'].forEach(id => {
-      const el = $(id);
-      if (!el) return;
-      if (el.tagName === 'SELECT') el.selectedIndex = 0;
-      else el.value = '';
-    });
-    const chk = $('f01-chk-acolhido');
-    if (chk) chk.checked = false;
-    const btn = $(IDS.btnNova);
-    if (btn) btn.disabled = true;
-    limparAutofillNova();
-  }
-
-  function abrirNovaSolicitacaoSprint25() {
-    const modal = $(IDS.modalNova);
-
-    // RC4.5.22: a limpeza ocorre uma única vez, antes da abertura.
-    // As reinstalações tardias servem apenas para garantir que o campo exista;
-    // nunca podem apagar o texto que o usuário começou a digitar.
-    resetarNovaSolicitacao();
-    if (modal) modal.classList.remove('hidden');
-
-    [0, 80, 200, 500, 900].forEach(ms => setTimeout(() => {
-      const instalado = instalarCampoNovaSolicitacao();
-      if (!instalado) return;
-
-      const input = $(IDS.escola);
-      if (input) {
-        input.disabled = false;
-        input.readOnly = false;
-        input.removeAttribute('disabled');
-        input.removeAttribute('readonly');
-        input.style.pointerEvents = 'auto';
-      }
-    }, ms));
-  }
-
-  function instalarNovaSolicitacao() {
-    window.abrirFormularioNovaSolicitacao = abrirNovaSolicitacaoSprint25;
-    try { abrirFormularioNovaSolicitacao = window.abrirFormularioNovaSolicitacao; } catch (_) {}
-
-    document.querySelectorAll('[data-sigee-legado-desativado=\"nova-solicitacao\"]').forEach(btn => {
-      btn.onclick = function (ev) {
-        ev.preventDefault();
-        abrirNovaSolicitacaoSprint25();
-        return false;
-      };
-    });
-
-    ['novo-proc-aluno','f01-chk-acolhido'].forEach(id => {
-      const el = $(id);
-      if (el && el.dataset.sprint25Bound !== '1') {
-        el.dataset.sprint25Bound = '1';
-        el.addEventListener('input', habilitarBotaoNova);
-        el.addEventListener('change', habilitarBotaoNova);
-      }
-    });
-
-    const modal = $(IDS.modalNova);
-    if (modal && modal.dataset.sprint25Fechamento !== '1') {
-      modal.dataset.sprint25Fechamento = '1';
-      modal.addEventListener('click', (ev) => {
-        if (ev.target.closest?.('[onclick*="fecharModalNovaSolicitacao"], [data-fechar-nova-solicitacao]')) {
-          limparIdentidadeEscolaNovaSolicitacao();
-        }
-      }, true);
-    }
-    if (modal && modal.dataset.sprint25Observer !== '1') {
-      modal.dataset.sprint25Observer = '1';
-      const obs = new MutationObserver(() => {
-        if (!modal.classList.contains('hidden')) setTimeout(instalarCampoNovaSolicitacao, 20);
-      });
-      obs.observe(modal, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
-    }
-  }
-
-  async function salvarSenhaObrigatoriaSprint25(ev) {
-    if (ev) {
-      ev.preventDefault();
-      ev.stopPropagation();
-      if (typeof ev.stopImmediatePropagation === 'function') ev.stopImmediatePropagation();
-    }
-
-    const u = await getUserCompleto();
-    if (!u || !u.email) return alert('Sessão não localizada. Faça login novamente.');
-
-    const s1 = txt($(IDS.senha1)?.value);
-    const s2 = txt($(IDS.senha2)?.value);
-    if (s1.length < 4) return alert('A senha deve ter pelo menos 4 caracteres.');
-    if (s1 !== s2) return alert('As senhas não conferem.');
-
-    const c = supabaseClient();
-    if (!c || !c.from) return alert('Supabase não inicializado.');
-
-    try {
-      let erroFinal = null;
-      if (u.id) {
-        const { error } = await c
-          .from(TABELA_USUARIOS)
-          .update({ senha: s1, senha_hash: s1, forcar_troca_senha: false })
-          .eq('id', u.id);
-        if (error) erroFinal = error;
-      }
-
-      const { error: errorEmail } = await c
-        .from(TABELA_USUARIOS)
-        .update({ senha: s1, senha_hash: s1, forcar_troca_senha: false })
-        .eq('email', low(u.email));
-      if (errorEmail) erroFinal = errorEmail;
-      if (erroFinal) throw erroFinal;
-
-      const atualizado = { ...u, senha: s1, senha_hash: s1, forcar_troca_senha: false };
-      window.usuarioLogado = atualizado;
-      try { usuarioLogado = atualizado; } catch (_) {}
-
-      // Atualiza caches conhecidos para impedir que o app legado reabra o modal por dado antigo.
-      const keys = ['usuarioLogado','SIGEE_USUARIO_LOGADO','sigee_usuario_logado','usuario_sigee','sigee_usuario','SIGEE_USER','currentUser'];
-      for (const key of keys) {
-        try {
-          const raw = localStorage.getItem(key);
-          if (raw) localStorage.setItem(key, JSON.stringify({ ...JSON.parse(raw), ...atualizado }));
-        } catch (_) {}
-        try {
-          const raw = sessionStorage.getItem(key);
-          if (raw) sessionStorage.setItem(key, JSON.stringify({ ...JSON.parse(raw), ...atualizado }));
-        } catch (_) {}
-      }
-
-      try {
-        const cacheRaw = localStorage.getItem('SIGEE_USUARIOS_CACHE');
-        if (cacheRaw) {
-          const arr = JSON.parse(cacheRaw);
-          if (Array.isArray(arr)) {
-            const novoCache = arr.map(x => low(x.email) === low(u.email) ? { ...x, ...atualizado } : x);
-            localStorage.setItem('SIGEE_USUARIOS_CACHE', JSON.stringify(novoCache));
-          }
-        }
-      } catch (_) {}
-
-      $(IDS.modalSenha)?.classList.add('hidden');
-      alert('Senha cadastrada com sucesso.');
-    } catch (e) {
-      alert('Erro ao salvar nova senha: ' + (e.message || e.details || e));
-    }
-  }
-
-  function instalarSenhaObrigatoria() {
-    const btn = $(IDS.btnSenha);
-    if (btn && btn.dataset.sprint25Bound !== '1') {
-      btn.dataset.sprint25Bound = '1';
-      btn.onclick = null;
-      btn.addEventListener('click', salvarSenhaObrigatoriaSprint25, true);
-    }
-  }
-
-  function ajustarSelectsUsuario() {
-    const perfil = $('user-form-perfil');
-    if (perfil && perfil.dataset.sprint25Select !== '1') {
-      perfil.dataset.sprint25Select = '1';
-      const valorAtual = perfil.value;
-      const perfis = ['Master','SEC','Administrator','Tecnico','Estagiário','Consulta'];
-      perfil.innerHTML = '<option value="">SELECIONE O PERFIL</option>' + perfis.map(p => `<option value="${p}">${p}</option>`).join('');
-      if (valorAtual) perfil.value = perfilCanonico(valorAtual);
-    }
-
-    const nte = $('user-form-nte');
-    if (nte && nte.dataset.sprint25Select !== '1') {
-      nte.dataset.sprint25Select = '1';
-      const valorAtual = nte.value;
-      if (!nte.querySelector('option[value=""]')) {
-        const opt = document.createElement('option');
-        opt.value = '';
-        opt.textContent = 'SELECIONE O NTE';
-        nte.insertBefore(opt, nte.firstChild);
-      }
-      if (!valorAtual) nte.value = '';
-    }
-  }
-
-  function instalarTudo() {
-    instalarNovaSolicitacao();
-    instalarSenhaObrigatoria();
-    ajustarSelectsUsuario();
-  }
-
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', instalarTudo);
-  else instalarTudo();
-
-  setTimeout(instalarTudo, 500);
-  setTimeout(instalarTudo, 1500);
-  const manterControlesPerfilSenha = () => {
-    instalarSenhaObrigatoria();
-    ajustarSelectsUsuario();
-  };
-  if (window.SIGEE_PERFORMANCE?.aCada) {
-    window.SIGEE_PERFORMANCE.aCada('app:perfil-senha', manterControlesPerfilSenha, 30000, { somenteVisivel:true });
-  } else {
-    setInterval(()=>{ if(!document.hidden) manterControlesPerfilSenha(); },120000);
-  }
-  document.addEventListener('sigee:navegacao-concluida', manterControlesPerfilSenha);
-  document.addEventListener('sigee:usuario-logado', manterControlesPerfilSenha);
-
-  console.info('[SIGEE] Sprint 2.5 Perfil/Senha/Nova Solicitação ativo');
-})();
-
-/* =====================================================================
-   SIGEE RC4.5.29 — Proteções legadas da Nova Solicitação removidas.
-   A validação agora é executada exclusivamente por:
-   - js/processos/duplicidade-nova-solicitacao.js (serviço)
-   - js/processos/nova-solicitacao-controller.js (controlador único)
-   ===================================================================== */
-
-
-
-/* SIGEE RC4.1.9 — reaplicação final da matriz única após módulos legados. */
-(function (window, document) {
-  'use strict';
-  function aplicar() {
-    try { window.SIGEE_PERMISSOES?.instalarProtecoes?.(); window.SIGEE_PERMISSOES?.aplicarMenu?.(); } catch (e) { console.error('[SIGEE RC4.1.9] Falha ao aplicar matriz:', e); }
-  }
-  document.addEventListener('DOMContentLoaded', aplicar);
-  document.addEventListener('sigee:usuario-logado', aplicar);
-  document.addEventListener('sigee:navegacao-concluida', aplicar);
-  window.addEventListener('load', aplicar);
-  window.SIGEE_APLICAR_MATRIZ_RC419 = aplicar;
-})(window, document);
-
-
-/* =====================================================================
-   SIGEE RC4.5.3 — Compatibilidade do fluxo Receber Pendência
-   As implementações legadas deste arquivo permanecem apenas para carga
-   inicial. Após processos.js carregar, a autoridade é abrirPendenciaSIGEE.
-   ===================================================================== */
-(function (w) {
-  'use strict';
-  w.SIGEE_PENDENCIA_LEGADO_DESATIVADO = true;
-  w.addEventListener('load', function () {
-    if (typeof w.abrirPendenciaSIGEE === 'function') {
-      w.abrirModalFluxoPendencia = w.abrirPendenciaSIGEE;
-    }
-  }, { once: true });
-})(window);
