@@ -711,7 +711,14 @@
     window.abrirFormularioNovaSolicitacao = abrir;
     window.fecharModalNovaSolicitacao = fechar;
     window.handleSelecaoInstituicaoFluxoAutomatico = () => !!texto(campo('novo-proc-escola-id')?.value);
-    window.SIGEE_NOVA_SOLICITACAO_CONTROLLER = { abrir, fechar, limpar: resetarFormulario, selecionarEscola, validarPoliticaEscola, versao: 'RC11.2.5' };
+    window.SIGEE_NOVA_SOLICITACAO_CONTROLLER = { abrir, fechar, limpar: resetarFormulario, selecionarEscola, validarPoliticaEscola, versao: 'RC11.2.6' };
+
+    // Defesa de autoridade: builds legados reaplicavam o autocomplete em timers tardios.
+    // Reafirma o controlador canônico sem reconstruir o modal ou apagar dados digitados.
+    [600, 1700].forEach((ms) => setTimeout(() => {
+      window.abrirFormularioNovaSolicitacao = abrir;
+      try { abrirFormularioNovaSolicitacao = window.abrirFormularioNovaSolicitacao; } catch (_) {}
+    }, ms));
 
     // Garante estado visual neutro na instalação do controlador único.
     resetarFormulario();
