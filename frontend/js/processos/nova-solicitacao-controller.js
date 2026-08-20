@@ -1,4 +1,4 @@
-/* SIGEE RC4.5.31 — Controlador único da Nova Solicitação: escola, acervo, duplicidade e gravação */
+/* SIGEE RC11.2.0 — Nova Solicitação por escopo: NTE x Escola Estadual */
 (function () {
   'use strict';
 
@@ -43,6 +43,39 @@
     if (direto) return direto;
     const m = texto(u.nte || u.nte_nome || u.grupo).match(/\d{1,2}/);
     return m ? Number(m[0]) : null;
+  }
+
+  function contextoEscopo() {
+    try {
+      if (window.SIGEE_ESCOPO && typeof window.SIGEE_ESCOPO.contexto === 'function') {
+        return window.SIGEE_ESCOPO.contexto(window.usuarioLogado || window.SIGEE_SESSION?.getUser?.());
+      }
+    } catch (_) {}
+    return { tipo: 'NTE', nteId: nteAtual(), escolaId: null };
+  }
+
+  function ehRecolhido(valor) { return normalizar(valor) === 'RECOLHIDO'; }
+  function ehExtinta(valor) { return normalizar(valor) === 'EXTINTA'; }
+  function ehEstadual(valor) { return normalizar(valor) === 'ESTADUAL'; }
+  function ehAtiva(valor) { return normalizar(valor) === 'ATIVA'; }
+
+  function validarPoliticaEscola(escola, contexto = contextoEscopo()) {
+    const e = formatarEscola(escola);
+    if (contexto.tipo === 'ESCOLA') {
+      if (!contexto.escolaId || Number(e.id) !== Number(contexto.escolaId)) return { ok:false, motivo:'Esta conta só pode abrir processos para a própria unidade escolar.' };
+      if (!ehEstadual(e.dependencia) || !ehAtiva(e.situacao) || escola.ativo === false) return { ok:false, motivo:'A unidade vinculada precisa permanecer Estadual, Ativa e habilitada no catálogo.' };
+      return { ok:true };
+    }
+    if (contexto.tipo === 'NTE') {
+      if (!contexto.nteId || Number(e.nte_id) !== Number(contexto.nteId)) return { ok:false, motivo:'A escola não pertence ao NTE deste usuário.' };
+      if (!ehExtinta(e.situacao)) return { ok:false, motivo:'Para usuários de NTE, somente escolas Extintas podem receber nova solicitação.' };
+      /* acervo é o campo canônico; status_acervo não autoriza abertura. */
+      const acervoCanonico = texto(escola.acervo);
+      if (!ehRecolhido(acervoCanonico)) return { ok:false, motivo:'Para usuários de NTE, a escola extinta precisa estar com o acervo oficialmente Recolhido.' };
+      return { ok:true };
+    }
+    /* GLOBAL/SEC preservam a operação administrativa atual; duplicidade continua obrigatória. */
+    return { ok:true };
   }
 
   function limparAutofill() {
@@ -164,9 +197,13 @@
           .or(`nome_escola.ilike.%${safe}%,nome.ilike.%${safe}%,cod_mec.ilike.%${safe}%`)
           .order('nome_escola', { ascending: true, nullsFirst: false })
           .limit(30);
-        if (!['MASTER', 'SEC'].includes(perfilAtual())) {
-          const nte = nteAtual();
-          if (nte) query = query.eq('nte_id', nte);
+        const contexto = contextoEscopo();
+        if (contexto.tipo === 'ESCOLA') {
+          if (!contexto.escolaId) throw new Error('Usuário escolar sem escola vinculada.');
+          query = query.eq('id', contexto.escolaId).eq('dependencia_adm', 'Estadual').eq('situacao_funcional', 'Ativa').eq('ativo', true);
+        } else if (contexto.tipo === 'NTE') {
+          if (!contexto.nteId) throw new Error('Usuário territorial sem NTE válido.');
+          query = query.eq('nte_id', contexto.nteId).eq('situacao_funcional', 'Extinta').eq('acervo', 'Recolhido').eq('ativo', true);
         }
         const { data, error } = await query;
         if (error) throw error;
@@ -299,7 +336,9 @@
       nte: texto(e.nte || (e.nte_id ? `NTE ${String(e.nte_id).padStart(2, '0')}` : '')),
       dependencia: texto(e.dependencia_adm || e.dependencia),
       situacao: texto(e.situacao_funcional || e.situacao),
-      acervo: texto(e.status_acervo || e.acervo),
+      acervo: texto(e.acervo),
+      status_acervo: texto(e.status_acervo),
+      ativo: e.ativo !== false,
       local_acervo: texto(e.local_acervo)
     };
   }
@@ -308,7 +347,7 @@
     const lista = campo('novo-proc-escola-lista-v23');
     if (!lista) return;
     lista.innerHTML = '';
-    const escolas = (Array.isArray(resultados) ? resultados : []).map(formatarEscola).filter((e) => e.id && e.nome);
+    const escolas = (Array.isArray(resultados) ? resultados : []).map(formatarEscola).filter((e) => e.id && e.nome && validarPoliticaEscola(e).ok);
     if (!escolas.length) {
       lista.innerHTML = '<div class="p-3 text-red-600 font-bold">Nenhuma escola encontrada.</div>';
       lista.classList.remove('hidden');
@@ -332,13 +371,11 @@
     const e = formatarEscola(escola);
     if (!e.id || !e.nome) return;
 
-    if (statusAcervoBloqueiaSolicitacao(e.acervo)) {
+    const politica = validarPoliticaEscola(escola);
+    if (!politica.ok) {
       limparIdentidadeEscola();
-      if (botao) {
-        botao.disabled = true;
-        botao.textContent = 'Enviar para Desarquivamento';
-      }
-      exibirCadastroNaoPermitido(e);
+      if (botao) { botao.disabled = true; botao.textContent = 'Enviar para Desarquivamento'; }
+      alert(politica.motivo);
       return;
     }
 
@@ -416,12 +453,35 @@
     }
   }
 
-  function abrir() {
+  async function abrir() {
     const modal = campo('modal-nova-solicitacao');
     if (!modal) return false;
-    garantirCampoPesquisa();
+    const input = garantirCampoPesquisa();
     resetarFormulario();
     modal.classList.remove('hidden');
+    const contexto = contextoEscopo();
+    if (contexto.tipo === 'ESCOLA') {
+      if (input) { input.disabled = true; input.placeholder = 'Unidade vinculada ao usuário'; }
+      try {
+        const client = clienteSupabase();
+        if (!client || !contexto.escolaId) throw new Error('Vínculo escolar indisponível.');
+        const { data, error } = await client.from('escolas_sigee')
+          .select('id,cod_mec,nome_escola,nome,municipio,nte_id,nte,dependencia_adm,dependencia,situacao_funcional,situacao,status_acervo,acervo,local_acervo,ativo')
+          .eq('id', contexto.escolaId).maybeSingle();
+        if (error) throw error;
+        const politica = validarPoliticaEscola(data || {}, contexto);
+        if (!data || !politica.ok) throw new Error(politica.motivo || 'Escola vinculada não localizada.');
+        selecionarEscola(data);
+        if (input) input.disabled = true;
+      } catch (erro) {
+        alert('Não foi possível validar a unidade escolar vinculada. ' + texto(erro?.message || erro));
+        fechar();
+        return false;
+      }
+    } else if (input) {
+      input.disabled = false;
+      input.placeholder = 'Digite pelo menos 2 letras da escola...';
+    }
     requestAnimationFrame(() => campo('novo-proc-aluno')?.focus());
     return true;
   }
@@ -511,6 +571,12 @@
     }
     escolaSelecionada = escolaOficial;
 
+    const politica = validarPoliticaEscola(escolaOficial);
+    if (!politica.ok) {
+      alert(politica.motivo);
+      return false;
+    }
+
     const duplicidade = window.SIGEE_DUPLICIDADE_NOVA_SOLICITACAO;
     if (!duplicidade || typeof duplicidade.validar !== 'function') {
       alert('A validação de duplicidade não está disponível. O cadastro foi interrompido por segurança.');
@@ -592,7 +658,7 @@
     window.abrirFormularioNovaSolicitacao = abrir;
     window.fecharModalNovaSolicitacao = fechar;
     window.handleSelecaoInstituicaoFluxoAutomatico = () => !!texto(campo('novo-proc-escola-id')?.value);
-    window.SIGEE_NOVA_SOLICITACAO_CONTROLLER = { abrir, fechar, limpar: resetarFormulario, selecionarEscola };
+    window.SIGEE_NOVA_SOLICITACAO_CONTROLLER = { abrir, fechar, limpar: resetarFormulario, selecionarEscola, validarPoliticaEscola, versao: 'RC11.2.0' };
 
     // Garante estado visual neutro na instalação do controlador único.
     resetarFormulario();
