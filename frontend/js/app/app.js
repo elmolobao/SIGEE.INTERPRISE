@@ -2615,6 +2615,8 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                     codigo_sigee: proc.codigo_sigee,
                     cod_mec: processoPayload.cod_mec || null,
                     escola_id: processoPayload.escola_id || null,
+                    nte_id: processoPayload.nte_id || null,
+                    escopo_tipo: processoPayload.escopo_tipo || 'NTE',
                     tecnico_responsavel:
                         processoPayload.tecnico_responsavel ||
                         proc.tecnico_responsavel ||
@@ -2623,7 +2625,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', proc.id)
-                .select('id,codigo_sigee,cod_mec,escola_id,tecnico_responsavel')
+                .select('id,codigo_sigee,cod_mec,escola_id,nte_id,escopo_tipo,tecnico_responsavel')
                 .single();
 
             if (respostaCodigo.error) {
@@ -3296,7 +3298,30 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                     const nomeEscola = upperV25(escola.nome || escola.nome_escola || escola.instituicao || buscaNome);
                     const mec = String(escola.cod_mec || mecCampo || '').trim();
                     const municipio = upperV25(escola.municipio || obterTextoV25('novo-autofill-municipio'));
-                    const nteVinculo = escola.nte || (typeof obterNomeNtePorIdSIGEE_V19 === 'function' ? obterNomeNtePorIdSIGEE_V19(escola.nte_id) : '') || obterTextoV25('novo-autofill-nte') || usuarioLogado?.nte || '';
+
+                    // RC11.2.7 — persistência canônica de escopo.
+                    const usuarioCanonico = window.SIGEE_SESSION?.getUser?.() || window.SIGEE_ESCOPO?.usuario?.() || usuarioLogado || {};
+                    const contextoCanonico = window.SIGEE_ESCOPO?.contexto?.(usuarioCanonico) || {};
+                    const tipoEscopoNovo = String(contextoCanonico.tipo || usuarioCanonico.unidade_tipo || 'NTE').trim().toUpperCase();
+                    const nteIdEscola = Number(escola.nte_id || 0) || null;
+                    const nteIdCanonico = Number(contextoCanonico.nteId || usuarioCanonico.nte_id || nteIdEscola || 0) || null;
+
+                    if (tipoEscopoNovo === 'ESCOLA') {
+                        const escolaIdUsuario = Number(contextoCanonico.escolaId || usuarioCanonico.escola_id || 0) || null;
+                        if (!escolaIdUsuario || Number(escola.id) !== escolaIdUsuario) {
+                            throw new Error('A escola da solicitação não corresponde à unidade escolar vinculada ao usuário.');
+                        }
+                        if (!nteIdCanonico || !nteIdEscola || nteIdCanonico !== nteIdEscola) {
+                            throw new Error('O NTE da escola vinculada não corresponde ao escopo territorial do usuário.');
+                        }
+                    }
+
+                    const escopoPersistido = tipoEscopoNovo === 'ESCOLA' ? 'ESCOLA' : 'NTE';
+                    const nteVinculo =
+                        (nteIdCanonico ? `NTE-${String(nteIdCanonico).padStart(2, '0')}` : '') ||
+                        escola.nte ||
+                        (typeof obterNomeNtePorIdSIGEE_V19 === 'function' ? obterNomeNtePorIdSIGEE_V19(escola.nte_id) : '') ||
+                        obterTextoV25('novo-autofill-nte') || usuarioCanonico?.nte || '';
                     const dataHoje = obterDataAtualFormatada();
 
                     /*
@@ -3315,6 +3340,8 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                         municipio: municipio,
                         cod_mec: mec,
                         escola_id: escola.id == null || escola.id === '' ? null : (Number(escola.id) || escola.id),
+                        nte_id: nteIdCanonico || nteIdEscola || null,
+                        escopo_tipo: escopoPersistido,
 
                         /*
                          * SIGEE PATCH 2.5.8:
