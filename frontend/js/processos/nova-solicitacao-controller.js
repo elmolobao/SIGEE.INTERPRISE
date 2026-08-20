@@ -1,4 +1,4 @@
-/* SIGEE RC11.2.3 — Nova Solicitação por escopo: NTE x Escola Estadual */
+/* SIGEE RC11.2.4 — Escola vinculada obrigatória na Nova Solicitação */
 (function () {
   'use strict';
 
@@ -117,6 +117,43 @@
     window.SIGEE_NOVA_SOLICITACAO_ESCOLA_NOME = '';
     window.SIGEE_NOVA_SOLICITACAO_COD_MEC = '';
     limparAutofill();
+  }
+
+  function garantirPainelEscolaVinculada() {
+    const select = campo('novo-proc-escola');
+    if (!select || !select.parentNode) return null;
+    let painel = campo('novo-proc-escola-vinculada-rc1124');
+    if (!painel) {
+      painel = document.createElement('div');
+      painel.id = 'novo-proc-escola-vinculada-rc1124';
+      painel.setAttribute('role', 'status');
+      painel.style.cssText = 'display:none;width:100%;box-sizing:border-box;padding:11px 12px;border:1px solid #93c5fd;border-radius:8px;background:#eff6ff;color:#0f3f72;font-weight:800;font-size:12px;line-height:1.35;';
+      select.parentNode.insertBefore(painel, select);
+    }
+    return painel;
+  }
+
+  function modoVisualEscolaVinculada(ativo, escola) {
+    const input = campo('novo-proc-escola-busca-v23');
+    const lista = campo('novo-proc-escola-lista-v23');
+    const select = campo('novo-proc-escola');
+    const painel = garantirPainelEscolaVinculada();
+    if (ativo) {
+      if (input) { input.style.display = 'none'; input.disabled = true; input.required = false; }
+      if (lista) { lista.classList.add('hidden'); lista.style.display = 'none'; }
+      if (select) { select.classList.add('hidden'); select.style.display = 'none'; select.required = false; }
+      if (painel) {
+        const e = formatarEscola(escola || escolaSelecionada || {});
+        painel.textContent = e.nome || 'Carregando unidade escolar vinculada...';
+        painel.title = e.nome || '';
+        painel.style.display = 'block';
+      }
+    } else {
+      if (painel) { painel.textContent = ''; painel.style.display = 'none'; }
+      if (input) { input.style.display = ''; input.disabled = false; input.readOnly = false; input.required = true; }
+      if (lista) lista.style.display = '';
+      if (select) select.style.display = '';
+    }
   }
 
   function garantirCampoPesquisa() {
@@ -428,6 +465,7 @@
     Object.entries(valores).forEach(([id, valor]) => { const el = campo(id); if (el) el.value = valor || ''; });
     try { window.aplicarClasseStatusAcervoSIGEE?.(); } catch (_) {}
     try { window.aplicarStatusBotaoNovaSolicitacaoV25?.(); } catch (_) {}
+    if (contextoEscopo().tipo === 'ESCOLA') modoVisualEscolaVinculada(true, e);
     if (botao) {
       botao.disabled = false;
       botao.textContent = 'Enviar para Desarquivamento';
@@ -438,6 +476,7 @@
     clearTimeout(timerBusca);
     requisicaoAtual++;
     limparIdentidadeEscola();
+    modoVisualEscolaVinculada(false);
     const aluno = campo('novo-proc-aluno');
     if (aluno) aluno.value = '';
     ['novo-proc-documento', 'novo-proc-modalidade', 'novo-proc-ensino'].forEach((id) => {
@@ -463,7 +502,7 @@
     const labelEscola = document.querySelector('label[for="novo-proc-escola"], #novo-proc-escola')?.closest?.('div')?.querySelector?.('label') || campo('novo-proc-escola')?.parentElement?.querySelector?.('label');
     if (labelEscola) labelEscola.textContent = contexto.tipo === 'ESCOLA' ? 'Unidade Escolar Vinculada' : 'Selecione a Instituição de Ensino';
     if (contexto.tipo === 'ESCOLA') {
-      if (input) { input.disabled = true; input.placeholder = 'Unidade vinculada ao usuário'; }
+      modoVisualEscolaVinculada(true);
       try {
         const client = clienteSupabase();
         if (!client || !contexto.escolaId) throw new Error('Vínculo escolar indisponível.');
@@ -474,13 +513,14 @@
         const politica = validarPoliticaEscola(data || {}, contexto);
         if (!data || !politica.ok) throw new Error(politica.motivo || 'Escola vinculada não localizada.');
         selecionarEscola(data);
-        if (input) input.disabled = true;
+        modoVisualEscolaVinculada(true, data);
       } catch (erro) {
         alert('Não foi possível validar a unidade escolar vinculada. ' + texto(erro?.message || erro));
         fechar();
         return false;
       }
     } else if (input) {
+      modoVisualEscolaVinculada(false);
       input.disabled = false;
       input.placeholder = 'Digite pelo menos 2 letras da escola...';
     }
@@ -568,7 +608,7 @@
     const escolaOficial = await recuperarEscolaSelecionadaOficial();
     const id = texto(campo('novo-proc-escola-id')?.value || escolaOficial?.id);
     if (!id || !escolaOficial || texto(escolaOficial.id) !== id) {
-      alert('Selecione a instituição de ensino na lista antes de cadastrar.');
+      alert(contextoEscopo().tipo === 'ESCOLA' ? 'A unidade escolar vinculada não foi carregada. Feche e abra a Nova Solicitação novamente.' : 'Selecione a instituição de ensino na lista antes de cadastrar.');
       return false;
     }
     escolaSelecionada = escolaOficial;
@@ -660,7 +700,7 @@
     window.abrirFormularioNovaSolicitacao = abrir;
     window.fecharModalNovaSolicitacao = fechar;
     window.handleSelecaoInstituicaoFluxoAutomatico = () => !!texto(campo('novo-proc-escola-id')?.value);
-    window.SIGEE_NOVA_SOLICITACAO_CONTROLLER = { abrir, fechar, limpar: resetarFormulario, selecionarEscola, validarPoliticaEscola, versao: 'RC11.2.3' };
+    window.SIGEE_NOVA_SOLICITACAO_CONTROLLER = { abrir, fechar, limpar: resetarFormulario, selecionarEscola, validarPoliticaEscola, versao: 'RC11.2.4' };
 
     // Garante estado visual neutro na instalação do controlador único.
     resetarFormulario();
