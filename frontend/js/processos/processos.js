@@ -135,8 +135,12 @@
     function isGestor(u) { return perfil(u) === 'Gestor'; }
     function isConsulta(u) { return perfil(u) === 'Consulta'; }
     function isEstagiario(u) { return perfil(u) === 'Estagiário'; }
-    // Master e SEC possuem consulta global dos processos. As permissões de mover, editar, excluir ou regredir continuam restritas pela matriz de perfil.
-    function isGlobal(u) { return isMaster(u) || isSEC(u); }
+    // RC11.2.1 — a autoridade de escopo não pode ser inferida apenas pelo perfil.
+    // Secretaria Escolar, Gestor e demais perfis podem existir em unidades NTE ou ESCOLA.
+    function isGlobal(u) {
+        if (window.SIGEE_ESCOPO?.ehGlobal) return window.SIGEE_ESCOPO.ehGlobal(u || usuario());
+        return isMaster(u) || isSEC(u);
+    }
     function podeGerirProcessos(u) { return isMaster(u); }
 
     function numeroNte(v) {
@@ -333,7 +337,22 @@
         const select = document.getElementById('filtro-processos-nte');
         if (!select) return;
         const u = usuario();
+        const contexto = window.SIGEE_ESCOPO?.contexto?.(u) || null;
         const valorAtual = select.value || 'TODOS';
+        const label = document.querySelector('label[for="filtro-processos-nte"]');
+
+        // Escola: o território é informação administrativa; não é um filtro de acesso.
+        // O escopo real é a única escola vinculada ao usuário.
+        if (contexto?.escolar) {
+            const nte = contexto.nteId ? `NTE-${String(contexto.nteId).padStart(2,'0')}` : 'NTE vinculado';
+            select.innerHTML = `<option value="ESCOLA">Escola vinculada · ${nte}</option>`;
+            select.value = 'ESCOLA';
+            select.disabled = true;
+            select.dataset.sigeeEscopo = 'ESCOLA';
+            if (label) label.textContent = 'UNIDADE';
+            return;
+        }
+
         const valores = new Map();
         listaProcessos().forEach(p => {
             const nte = processoNte(p);
@@ -342,16 +361,20 @@
         });
         for (let i = 1; i <= 27; i++) if (!valores.has(i)) valores.set(i, `NTE-${String(i).padStart(2, '0')}`);
         const opcoes = [...valores.entries()].sort((a,b)=>a[0]-b[0]);
-        if (isGlobal(u)) {
+        if (contexto?.global || isGlobal(u)) {
             select.disabled = false;
+            select.dataset.sigeeEscopo = contexto?.tipo || 'GLOBAL';
             select.innerHTML = '<option value="TODOS">Todos os NTEs</option>' + opcoes.map(([n,label]) => `<option value="${label}">${label}</option>`).join('');
             select.value = [...select.options].some(o => o.value === valorAtual) ? valorAtual : 'TODOS';
+            if (label) label.textContent = 'NTE';
         } else {
-            const proprio = numeroNte(nteUsuario(u));
+            const proprio = contexto?.nteId || numeroNte(nteUsuario(u));
             const valor = proprio ? `NTE-${String(proprio).padStart(2, '0')}` : normalizarNte(nteUsuario(u));
             select.innerHTML = `<option value="${valor}">${valor || 'NTE do usuário'}</option>`;
             select.value = valor;
             select.disabled = true;
+            select.dataset.sigeeEscopo = 'NTE';
+            if (label) label.textContent = 'NTE';
         }
     }
 
@@ -364,9 +387,13 @@
         if (window.__SIGEE_PROCESSOS_ORIGEM__ === 'REMOTA_PAGINADA') return lista;
 
         const u = usuario();
-        if (!isGlobal(u)) lista = lista.filter(p => mesmoNte(nteUsuario(u), processoNte(p)));
+        const contexto = window.SIGEE_ESCOPO?.contexto?.(u) || null;
+        // listaProcessos() já aplica a autoridade única de escopo. O filtro NTE da tela
+        // só pode refinar uma visão GLOBAL/SEC; nunca redefine NTE ou ESCOLA.
         const filtroNte = texto(document.getElementById('filtro-processos-nte')?.value || 'TODOS');
-        if (filtroNte && filtroNte !== 'TODOS') lista = lista.filter(p => normalizarNte(processoNte(p)) === normalizarNte(filtroNte));
+        if ((contexto?.global || isGlobal(u)) && filtroNte && filtroNte !== 'TODOS') {
+            lista = lista.filter(p => normalizarNte(processoNte(p)) === normalizarNte(filtroNte));
+        }
         const etapa = filtroEtapaModulo || (typeof etapaFiltroAtual !== 'undefined' ? etapaFiltroAtual : 'TODOS');
         if (etapa && etapa !== 'TODOS') {
             if (normalizar(etapa) === 'DESARQUIVAMENTO') {
@@ -897,8 +924,7 @@
 
     function atualizarContadoresProcessos() {
         const u = usuario();
-        let lista = listaProcessos().slice();
-        if (!isGlobal(u)) lista = lista.filter(p => mesmoNte(nteUsuario(u), processoNte(p)));
+        let lista = listaProcessos().slice(); // já filtrada por SIGEE_ESCOPO
         const set = (id, valor) => { const el = document.getElementById(id); if (el && el.innerText !== String(valor)) el.innerText = valor; };
         const remotos = window.__SIGEE_CONTADORES_PROCESSOS_REMOTOS__;
         if (remotos && typeof remotos === 'object') {
@@ -1736,6 +1762,42 @@
     const numero=Number(contadores?.[campo]);
     return Number.isFinite(numero)?numero:null;
   }
+  async function carregarContadoresPorEscopo(c, u, busca, forcar=false){
+    const contexto=window.SIGEE_ESCOPO?.contexto?.(u)||null;
+    if(!contexto || contexto.global) return null;
+    const identificador=contexto.escolar?`ESCOLA:${contexto.escolaId}`:`NTE:${contexto.nteId}`;
+    const chave=`ESCOPO:${identificador}|${String(busca||'').trim().toUpperCase()}`;
+    const agora=Date.now();
+    const salvo=cacheContadoresRemotos.get(chave);
+    if(!forcar && salvo && (agora-salvo.em)<CACHE_CONTADORES_TTL_MS){
+      window.__SIGEE_CONTADORES_PROCESSOS_REMOTOS__=salvo.valor;
+      return salvo.valor;
+    }
+    if(!forcar && contadoresEmAndamento.has(chave)) return contadoresEmAndamento.get(chave);
+
+    const etapas={
+      todos:'TODOS', desarquivamento:'DESARQUIVAMENTO', analise:'ANALISE', pendencia:'PENDENCIA',
+      digitacao:'DIGITACAO', conferencia:'CONFERENCIA', assinatura:'ASSINATURA',
+      aguardando_retirada:'AGUARDANDO RETIRADA', retirado:'RETIRADO', indeferido:'INDEFERIDO'
+    };
+    const promessa=(async()=>{
+      const entradas=await Promise.all(Object.entries(etapas).map(async([chaveEtapa,etapa])=>{
+        let q=c.from(tabelaProcessos()).select('id',{count:'exact',head:true});
+        q=window.SIGEE_ESCOPO?.aplicarQueryProcessos?window.SIGEE_ESCOPO.aplicarQueryProcessos(q,u):q;
+        if(busca) q=q.or(`codigo_sigee.ilike.%${busca}%,aluno_nome.ilike.%${busca}%,escola_nome.ilike.%${busca}%`);
+        q=aplicarFiltroEtapaRemoto(q,etapa);
+        const {count,error}=await q;
+        if(error) throw error;
+        return [chaveEtapa,Number(count||0)];
+      }));
+      const obj=Object.fromEntries(entradas);
+      cacheContadoresRemotos.set(chave,{em:Date.now(),valor:obj});
+      window.__SIGEE_CONTADORES_PROCESSOS_REMOTOS__=obj;
+      return obj;
+    })().finally(()=>contadoresEmAndamento.delete(chave));
+    contadoresEmAndamento.set(chave,promessa);
+    return promessa;
+  }
   async function carregarContadoresGlobais(c, nteValor, busca, forcar=false){
     const chave=chaveContadores(nteValor,busca);
     const agora=Date.now();
@@ -1786,7 +1848,7 @@
       const inicio=(paginaAtualRemota-1)*processosPorPagina;
       const fim=inicio+processosPorPagina-1;
       let q=c.from(tabelaProcessos())
-        .select('id,codigo_sigee,aluno_nome,escola_id,escola_nome,cod_mec,documento_tipo,nivel_oferta,modalidade,etapa_atual,etapa_codigo,dias_decorridos,prioridade,nte,tecnico_responsavel,data_etapa,data_etapa_atual,prazo_etapa,prazo_inicio,prazo_fim,status,ativo,created_at,updated_at,workflow_instance_id,workflow_ciclo,ciclo,ultima_mensagem_workflow,pendencia_aberta,finalizado_em,deferido_em,retirado_em,processo_migrado', {count:'exact'})
+        .select('id,codigo_sigee,aluno_nome,escola_id,escola_nome,cod_mec,documento_tipo,nivel_oferta,modalidade,etapa_atual,etapa_codigo,dias_decorridos,prioridade,nte,nte_id,escopo_tipo,tecnico_responsavel,data_etapa,data_etapa_atual,prazo_etapa,prazo_inicio,prazo_fim,status,ativo,created_at,updated_at,workflow_instance_id,workflow_ciclo,ciclo,ultima_mensagem_workflow,pendencia_aberta,finalizado_em,deferido_em,retirado_em,processo_migrado', {count:'exact'})
         .order('created_at',{ascending:false})
         .range(inicio,fim);
       const u=window.SIGEE_SESSION?.getUser?.()||window.usuarioLogado||{};
@@ -1794,26 +1856,27 @@
       const filtroNte=String(document.getElementById('filtro-processos-nte')?.value||'').trim();
       let nteConsulta='';
 
-      /* RC9.0.1 — a tabela public.processos utiliza a coluna territorial
-       * `nte` (texto), não `nte_id`. O filtro remoto aceita as variações
-       * históricas de grafia e a validação local continua obrigatória. */
+      /* RC11.2.1 — a consulta remota obedece ao mesmo AccessScope da tabela.
+       * NTE: escopo_tipo=NTE + nte_id. ESCOLA: escopo_tipo=ESCOLA + escola_id.
+       * O seletor territorial só refina usuários GLOBAL/SEC. */
       if(contexto && !contexto.global){
-        if(!contexto.nte) throw new Error('Usuário territorial sem NTE válido.');
-        nteConsulta=`NTE-${String(contexto.nteId||window.SIGEE_ESCOPO?.numeroNte?.(contexto.nte)||'').padStart(2,'0')}`;
-        // RC9.0.6: usuários territoriais usam igualdade canônica. Isso preserva
-        // o AND territorial quando o filtro da etapa precisa de um grupo OR.
-        q=q.eq('nte',nteConsulta);
+        q=window.SIGEE_ESCOPO?.aplicarQueryProcessos?window.SIGEE_ESCOPO.aplicarQueryProcessos(q,u):q;
+        if(contexto.territorial) nteConsulta=`NTE-${String(contexto.nteId).padStart(2,'0')}`;
       } else if(filtroNte && filtroNte!=='TODOS') {
         const idFiltro=window.SIGEE_ESCOPO?.numeroNte?.(filtroNte);
         if(idFiltro==null) throw new Error('Filtro territorial inválido.');
         nteConsulta=`NTE-${String(idFiltro).padStart(2,'0')}`;
-        q=aplicarFiltroNteRemoto(q,nteConsulta);
+        // Em visão global o filtro NTE pode incluir processos NTE e ESCOLA daquele território.
+        q=q.eq('nte_id',idFiltro);
       }
       const busca=termoSeguroBusca(document.getElementById('busca-proc-nome')?.value);
       if(busca) q=q.or(`codigo_sigee.ilike.%${busca}%,aluno_nome.ilike.%${busca}%,escola_nome.ilike.%${busca}%`);
       const etapaAtual=etapaFiltroRemoto();
       q=aplicarFiltroEtapaRemoto(q,etapaAtual);
-      const [resultado,contadoresTerritoriais]=await Promise.all([q,carregarContadoresGlobais(c,nteConsulta,busca)]);
+      const contadorPromise=(contexto && !contexto.global)
+        ? carregarContadoresPorEscopo(c,u,busca)
+        : carregarContadoresGlobais(c,nteConsulta,busca);
+      const [resultado,contadoresTerritoriais]=await Promise.all([q,contadorPromise]);
       const {data,error,count}=resultado||{};
       if(error) throw error;
       const listaMapeada=(data||[]).map(mapear).filter(Boolean);
@@ -1823,7 +1886,7 @@
         ? window.SIGEE_ESCOPO.filtrar(listaMapeada,u)
         : listaMapeada;
       if(contexto && !contexto.global && lista.length!==listaMapeada.length){
-        console.error('[SIGEE RC9.0.2] Registros externos ao NTE foram descartados antes da publicação.',{recebidos:listaMapeada.length,autorizados:lista.length,nteId:contexto.nteId});
+        console.error('[SIGEE RC9.0.2] Registros externos ao escopo foram descartados antes da publicação.',{recebidos:listaMapeada.length,autorizados:lista.length,nteId:contexto.nteId});
       }
       // RC9.0.2: paginação e indicadores usam a mesma autoridade territorial.
       // O RPC já calcula o total após escopo e busca; o count bruto fica apenas
@@ -1887,9 +1950,10 @@
     const u=usuarioRealtime();
     const contexto=window.SIGEE_ESCOPO?.contexto?.(u);
     const config={event:'*',schema:'public',table:tabelaProcessos()};
-    // A tabela processos utiliza `nte`. O canal recebe a grafia canônica do
-    // vínculo e aplicarEventoRealtime mantém a validação territorial local.
-    if(contexto && !contexto.global && contexto.nte) config.filter=`nte=eq.${contexto.nte}`;
+    // RC11.2.1 — Escola recebe somente eventos da própria unidade. NTE mantém
+    // filtro territorial e a validação local também exige escopo_tipo=NTE.
+    if(contexto?.escolar && contexto.escolaId) config.filter=`escola_id=eq.${contexto.escolaId}`;
+    else if(contexto && !contexto.global && contexto.nte) config.filter=`nte=eq.${contexto.nte}`;
     canal=c.channel('sigee-processos-central-v323')
       .on('postgres_changes',config,aplicarEventoRealtime)
       .subscribe((estado)=>{
