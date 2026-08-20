@@ -2792,7 +2792,9 @@
   'use strict';
   function perfilAtual(){ return window.SIGEE_SESSION?.normalizarPerfil?.(window.SIGEE_SESSION?.getUser?.()?.perfil) || ''; }
   function podeCriar(){
-    return ['Master','Administrador','Técnico','Estagiário'].includes(perfilAtual());
+    const u=window.SIGEE_SESSION?.getUser?.()||window.usuarioLogado||null;
+    if(window.SIGEE_PERMISSOES?.pode)return window.SIGEE_PERMISSOES.pode('processos.criar',u)===true;
+    return ['Master','Administrador','Técnico','Estagiário','Secretaria'].includes(perfilAtual());
   }
   function aplicar(){
     const original=window.abrirFormularioNovaSolicitacao;

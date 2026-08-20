@@ -1,4 +1,4 @@
-/* SIGEE RC11.2.0 — Nova Solicitação por escopo: NTE x Escola Estadual */
+/* SIGEE RC11.2.3 — Nova Solicitação por escopo: NTE x Escola Estadual */
 (function () {
   'use strict';
 
@@ -460,6 +460,8 @@
     resetarFormulario();
     modal.classList.remove('hidden');
     const contexto = contextoEscopo();
+    const labelEscola = document.querySelector('label[for="novo-proc-escola"], #novo-proc-escola')?.closest?.('div')?.querySelector?.('label') || campo('novo-proc-escola')?.parentElement?.querySelector?.('label');
+    if (labelEscola) labelEscola.textContent = contexto.tipo === 'ESCOLA' ? 'Unidade Escolar Vinculada' : 'Selecione a Instituição de Ensino';
     if (contexto.tipo === 'ESCOLA') {
       if (input) { input.disabled = true; input.placeholder = 'Unidade vinculada ao usuário'; }
       try {
@@ -658,7 +660,7 @@
     window.abrirFormularioNovaSolicitacao = abrir;
     window.fecharModalNovaSolicitacao = fechar;
     window.handleSelecaoInstituicaoFluxoAutomatico = () => !!texto(campo('novo-proc-escola-id')?.value);
-    window.SIGEE_NOVA_SOLICITACAO_CONTROLLER = { abrir, fechar, limpar: resetarFormulario, selecionarEscola, validarPoliticaEscola, versao: 'RC11.2.0' };
+    window.SIGEE_NOVA_SOLICITACAO_CONTROLLER = { abrir, fechar, limpar: resetarFormulario, selecionarEscola, validarPoliticaEscola, versao: 'RC11.2.3' };
 
     // Garante estado visual neutro na instalação do controlador único.
     resetarFormulario();
