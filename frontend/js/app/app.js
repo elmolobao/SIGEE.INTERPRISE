@@ -10377,6 +10377,13 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
   }
 
   function instalarNovaSolicitacao() {
+    // RC11.2.6: o controlador canônico de Nova Solicitação tem autoridade exclusiva.
+    // Este bloco Sprint 2.5 permanece apenas como fallback para builds antigos.
+    if (window.SIGEE_NOVA_SOLICITACAO_CONTROLLER?.abrir) {
+      window.abrirFormularioNovaSolicitacao = window.SIGEE_NOVA_SOLICITACAO_CONTROLLER.abrir;
+      try { abrirFormularioNovaSolicitacao = window.abrirFormularioNovaSolicitacao; } catch (_) {}
+      return;
+    }
     window.abrirFormularioNovaSolicitacao = abrirNovaSolicitacaoSprint25;
     try { abrirFormularioNovaSolicitacao = window.abrirFormularioNovaSolicitacao; } catch (_) {}
 
@@ -10409,6 +10416,7 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     if (modal && modal.dataset.sprint25Observer !== '1') {
       modal.dataset.sprint25Observer = '1';
       const obs = new MutationObserver(() => {
+        if (window.SIGEE_NOVA_SOLICITACAO_CONTROLLER?.abrir) return;
         if (!modal.classList.contains('hidden')) setTimeout(instalarCampoNovaSolicitacao, 20);
       });
       obs.observe(modal, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
