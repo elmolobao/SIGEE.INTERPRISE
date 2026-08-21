@@ -66,7 +66,10 @@
   }
 
   function ehRecolhido(valor) { return normalizar(valor) === 'RECOLHIDO'; }
-  function ehExtinta(valor) { return normalizar(valor) === 'EXTINTA'; }
+  function ehSituacaoNteElegivel(valor) {
+    const situacao = normalizar(valor);
+    return situacao === 'EXTINTA' || situacao === 'PARALISADA';
+  }
   function ehEstadual(valor) { return normalizar(valor) === 'ESTADUAL'; }
   function ehAtiva(valor) { return normalizar(valor) === 'ATIVA'; }
 
@@ -79,10 +82,10 @@
     }
     if (contexto.tipo === 'NTE') {
       if (!contexto.nteId || Number(e.nte_id) !== Number(contexto.nteId)) return { ok:false, motivo:'A escola não pertence ao NTE deste usuário.' };
-      if (!ehExtinta(e.situacao)) return { ok:false, motivo:'Para usuários de NTE, somente escolas Extintas podem receber nova solicitação.' };
+      if (!ehSituacaoNteElegivel(e.situacao)) return { ok:false, motivo:'Para usuários de NTE, somente escolas Extintas ou Paralisadas podem receber nova solicitação.' };
       /* acervo é o campo canônico; status_acervo não autoriza abertura. */
       const acervoCanonico = texto(escola.acervo);
-      if (!ehRecolhido(acervoCanonico)) return { ok:false, motivo:'Para usuários de NTE, a escola extinta precisa estar com o acervo oficialmente Recolhido.' };
+      if (!ehRecolhido(acervoCanonico)) return { ok:false, motivo:'Para usuários de NTE, a escola Extinta ou Paralisada precisa estar com o acervo oficialmente Recolhido.' };
       return { ok:true };
     }
     /* GLOBAL/SEC preservam a operação administrativa atual; duplicidade continua obrigatória. */
@@ -256,12 +259,12 @@
       } else if (contexto.tipo === 'NTE') {
         if (!contexto.nteId) throw new Error('Usuário territorial sem NTE válido.');
         // Para Escolas Extintas a regra homologada permanece:
-        // mesmo NTE + situação Extinta + acervo canônico Recolhido.
+        // mesmo NTE + situação Extinta/Paralisada + acervo canônico Recolhido.
         // Não exigimos ativo=true aqui porque o validador considera bloqueio apenas
         // quando ativo === false; registros legados com ativo NULL continuam elegíveis.
         query = query
           .eq('nte_id', contexto.nteId)
-          .eq('situacao_funcional', 'Extinta')
+          .in('situacao_funcional', ['Extinta', 'Paralisada'])
           .eq('acervo', 'Recolhido')
           .neq('ativo', false);
       }
