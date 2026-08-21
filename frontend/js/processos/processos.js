@@ -530,7 +530,11 @@
                 delete payload.etapa; // coluna inexistente em public.processos
                 if (ehProcessoEscola(p)) {
                     payload.prazo_inicio = p.prazo_inicio || payload.prazo_inicio || p.created_at || new Date().toISOString();
-                    payload.prazo_etapa = 30;
+                    payload.prazo_etapa = null;
+                    payload.sla_inicio = p.sla_inicio || payload.sla_inicio || p.prazo_inicio || p.created_at || new Date().toISOString();
+                    payload.sla_pendencia_inicio = p.sla_pendencia_inicio || payload.sla_pendencia_inicio || null;
+                    payload.sla_pendencia_dias = Math.max(0, Number(p.sla_pendencia_dias || payload.sla_pendencia_dias || 0));
+                    payload.sla_finalizado_em = p.sla_finalizado_em || payload.sla_finalizado_em || null;
                     payload.dias_decorridos = Number(p.dias_decorridos || payload.dias_decorridos || 0);
                 }
                 if (window.SIGEE_NORMALIZACAO_NTE) window.SIGEE_NORMALIZACAO_NTE.aplicarPayload(payload);
@@ -571,6 +575,10 @@
             prazo_etapa: p.prazo_etapa == null ? null : Number(p.prazo_etapa),
             prazo_inicio: p.prazo_inicio || null,
             prazo_fim: p.prazo_fim || null,
+            sla_inicio: p.sla_inicio || null,
+            sla_pendencia_inicio: p.sla_pendencia_inicio || null,
+            sla_pendencia_dias: Math.max(0, Number(p.sla_pendencia_dias || 0)),
+            sla_finalizado_em: p.sla_finalizado_em || null,
             workflow_ciclo: Number(p.workflow_ciclo || p.ciclo || 1),
             ciclo: Number(p.ciclo || p.workflow_ciclo || 1),
             ultimo_evento_workflow: p.ultimo_evento_workflow || null,
@@ -596,7 +604,7 @@
             let anterior = null;
             if (p.id != null) {
                 const { data, error: erroAnterior } = await c.from(tabelaProcessos)
-                    .select('id,codigo_sigee,nte,nte_id,escola_id,escopo_tipo,etapa_atual,data_etapa_atual,created_at,prazo_inicio,dias_decorridos,tecnico_responsavel,workflow_instance_id,workflow_ciclo,ciclo')
+                    .select('id,codigo_sigee,nte,nte_id,escola_id,escopo_tipo,etapa_atual,data_etapa_atual,created_at,prazo_inicio,dias_decorridos,sla_inicio,sla_pendencia_inicio,sla_pendencia_dias,sla_finalizado_em,tecnico_responsavel,workflow_instance_id,workflow_ciclo,ciclo')
                     .eq('id', p.id)
                     .maybeSingle();
                 if (erroAnterior) throw erroAnterior;
@@ -609,30 +617,35 @@
             const mudouEtapa = anterior && etapaAnterior && etapaNova && normalizar(etapaAnterior) !== normalizar(etapaNova);
             const instanteTransicao = payload.data_etapa_atual || payload.updated_at || new Date().toISOString();
 
-            // RC11.3.1 — relógio global da Escola Ativa, iniciado na abertura do processo e contínuo até a conclusão da Assinatura.
+            // RC11.3.7 — SLA global imutável da Escola Ativa.
+            // A abertura é a âncora permanente; Pendência acumula suspensão em campos próprios.
             if (anterior && normalizar(anterior.escopo_tipo) === 'ESCOLA') {
                 const anteriorPend = normalizar(etapaAnterior).includes('PEND');
                 const novaPend = normalizar(etapaNova).includes('PEND');
-                payload.prazo_etapa = 30;
-                if (!payload.prazo_inicio) payload.prazo_inicio = anterior.prazo_inicio || anterior.created_at || instanteTransicao;
+                const slaInicio = anterior.sla_inicio || anterior.created_at || anterior.prazo_inicio || instanteTransicao;
+                payload.sla_inicio = anterior.sla_inicio || slaInicio;
+                payload.prazo_inicio = anterior.prazo_inicio || slaInicio; // compatibilidade: nunca reiniciar
+                payload.prazo_etapa = null;
+                payload.prazo_fim = null;
+                payload.sla_pendencia_dias = Math.max(0, Number(anterior.sla_pendencia_dias || 0));
+                payload.sla_pendencia_inicio = anterior.sla_pendencia_inicio || null;
+                payload.sla_finalizado_em = anterior.sla_finalizado_em || null;
+
+                const civilDay = v => { const d=new Date(v); return Number.isNaN(d.getTime())?null:Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()); };
+                const inclusiveDays = (a,b) => { const x=civilDay(a),y=civilDay(b); return x==null||y==null?0:Math.max(0,Math.floor((y-x)/86400000)+1); };
+
                 if (mudouEtapa && !anteriorPend && novaPend) {
-                    const ini = anterior.prazo_inicio || anterior.created_at || anterior.data_etapa_atual;
-                    payload.dias_decorridos = ini ? Math.max(1, diasDesde(ini) + 1) : Number(anterior.dias_decorridos || 0);
+                    payload.sla_pendencia_inicio = instanteTransicao;
                 } else if (mudouEtapa && anteriorPend && !novaPend) {
-                    const consumidos = Math.max(0, Number(anterior.dias_decorridos || 0));
-                    const agora = new Date(instanteTransicao);
-                    const ajustado = new Date(agora.getTime() - Math.max(0, consumidos - 1) * 86400000);
-                    payload.prazo_inicio = ajustado.toISOString();
-                    payload.dias_decorridos = consumidos;
+                    payload.sla_pendencia_dias += inclusiveDays(anterior.sla_pendencia_inicio || anterior.data_etapa_atual, instanteTransicao);
+                    payload.sla_pendencia_inicio = null;
                 }
 
-                // O SLA termina na conclusão da produção (saída da Assinatura para
-                // Deferido/Aguardando Retirada). A retirada não aumenta o tempo total.
-                const etapaFinalizaSla = ['DEFERIDO', 'AGUARDANDO RETIRADA', 'RETIRADO', 'INDEFERIDO'].includes(normalizar(etapaNova));
-                if (mudouEtapa && etapaFinalizaSla && !novaPend) {
-                    const ini = anterior.prazo_inicio || anterior.created_at || anterior.data_etapa_atual;
-                    payload.dias_decorridos = ini ? Math.max(1, Math.floor((new Date(instanteTransicao) - new Date(ini)) / 86400000) + 1) : Number(anterior.dias_decorridos || 0);
-                }
+                const etapaFinalizaSla = ['DEFERIDO','AGUARDANDO RETIRADA','RETIRADO','INDEFERIDO'].includes(normalizar(etapaNova));
+                if (mudouEtapa && etapaFinalizaSla && !payload.sla_finalizado_em) payload.sla_finalizado_em = instanteTransicao;
+
+                const pendCorrente = novaPend && payload.sla_pendencia_inicio ? inclusiveDays(payload.sla_pendencia_inicio, instanteTransicao) : 0;
+                payload.dias_decorridos = Math.max(0, inclusiveDays(payload.sla_inicio, payload.sla_finalizado_em || instanteTransicao) - payload.sla_pendencia_dias - pendCorrente);
             }
 
             if (mudouEtapa) {
@@ -2465,12 +2478,9 @@
     // O relógio nasce na abertura, continua entre Desarquivamento/Análise/
     // Digitação/Conferência/Assinatura e só é suspenso em Pendência.
     if(ehProcessoEscola(p)){
-      const suspenso=etapa.includes('PEND');
-      const concluido=etapa==='DEFERIDO'||etapa.includes('AGUARD')||etapa.includes('RETIR')||etapa.includes('INDEFER');
-      const inicio=p.prazo_inicio||p.created_at||p.data_etapa_atual;
-      let dias=(suspenso||concluido)&&Number(p.dias_decorridos||0)>0?Number(p.dias_decorridos):0;
-      if(!dias && inicio){ const d=new Date(inicio); if(!Number.isNaN(d.getTime())) dias=Math.max(1,Math.floor((Date.now()-d.getTime())/86400000)+1); }
-      return `${dias}/30 dias${suspenso?' · suspenso':''}`;
+      const sla=window.SIGEE_TEMPO_PROCESSO?.slaEscola?.(p,new Date());
+      if(sla) return `${sla.diasConsumidos}/30 dias${sla.suspenso?' · suspenso':sla.diasAtraso?` · ${sla.diasAtraso} em atraso`:''}`;
+      return `${Math.max(0,Number(p.dias_decorridos||0))}/30 dias`;
     }
     const inicio=p.data_etapa_atual||p.prazo_inicio||p.created_at;
     let dias=0; if(inicio){ const d=new Date(inicio); if(!Number.isNaN(d.getTime())) dias=Math.max(0,Math.floor((Date.now()-d.getTime())/86400000)); }
@@ -2726,7 +2736,7 @@
     const semUsuarios=el.querySelector('.sigee-selecao-semusuarios093'); if(semUsuarios) semUsuarios.remove();
     const validar=()=>{atualizarDestaqueTecnico(el,sel);btn.disabled=!(sel.value&&chk.checked);}; sel.addEventListener('change',validar); chk.addEventListener('change',validar);
     el.querySelector('[data-cancelar093]').addEventListener('click',fechar);
-    btn.addEventListener('click',async()=>{btn.disabled=true;p.etapa=p.etapa_atual='Conferência';p.data_etapa_atual=agora();if(!ehProcessoEscola(p))p.prazo_inicio=p.data_etapa_atual;p.prazo_etapa=ehProcessoEscola(p)?30:10;p.prazo_fim=null;p.tecnico_responsavel=sel.value;p.conferente=sel.value;await salvar(p);await historico(p,'Conferência','Encaminhado para Conferência',`Digitação concluída. Conferente: ${sel.value}. Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}.`,{conferente:sel.value,mensagem:msg,tarefa_confirmada:true});fechar();if(window.filtrarProcessosPorEtapa)window.filtrarProcessosPorEtapa('Conferência');toast('Processo encaminhado para Conferência.');});
+    btn.addEventListener('click',async()=>{btn.disabled=true;p.etapa=p.etapa_atual='Conferência';p.data_etapa_atual=agora();if(!ehProcessoEscola(p))p.prazo_inicio=p.data_etapa_atual;p.prazo_etapa=ehProcessoEscola(p)?null:10;p.prazo_fim=null;p.tecnico_responsavel=sel.value;p.conferente=sel.value;await salvar(p);await historico(p,'Conferência','Encaminhado para Conferência',`Digitação concluída. Conferente: ${sel.value}. Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}.`,{conferente:sel.value,mensagem:msg,tarefa_confirmada:true});fechar();if(window.filtrarProcessosPorEtapa)window.filtrarProcessosPorEtapa('Conferência');toast('Processo encaminhado para Conferência.');});
   }
 
   function abrirConferencia(id){
@@ -2735,7 +2745,7 @@
     const el=modal(`✔️ Conferência Concluída — ${esc(p.codigo_sigee||p.id)}`,`${cabecalho(p)}${responsavelOperador()}${tarefa(msg)}<div class="sigee-acoes33"><button class="btn33 btn33-vermelho" data-cancelar093>Cancelar</button><button class="btn33 btn33-verde" data-confirmar093 disabled>Enviar para Assinatura</button></div>`,'conferencia');
     const chk=el.querySelector('#wf-email093'),btn=el.querySelector('[data-confirmar093]'); chk.addEventListener('change',()=>btn.disabled=!chk.checked);
     el.querySelector('[data-cancelar093]').addEventListener('click',fechar);
-    btn.addEventListener('click',async()=>{btn.disabled=true;p.etapa=p.etapa_atual='Assinatura';p.data_etapa_atual=agora();if(!ehProcessoEscola(p))p.prazo_inicio=p.data_etapa_atual;p.prazo_etapa=ehProcessoEscola(p)?30:7;p.prazo_fim=null;p.tecnico_responsavel=nomeUsuario();p.enviado_assinatura_por=nomeUsuario();await salvar(p);await historico(p,'Assinatura','Encaminhado para Assinatura',`Conferência concluída. Enviado para assinatura por ${nomeUsuario()}. Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}.`,{enviado_por:nomeUsuario(),mensagem:msg,tarefa_confirmada:true});fechar();if(window.filtrarProcessosPorEtapa)window.filtrarProcessosPorEtapa('Assinatura');toast('Processo encaminhado para Assinatura.');});
+    btn.addEventListener('click',async()=>{btn.disabled=true;p.etapa=p.etapa_atual='Assinatura';p.data_etapa_atual=agora();if(!ehProcessoEscola(p))p.prazo_inicio=p.data_etapa_atual;p.prazo_etapa=ehProcessoEscola(p)?null:7;p.prazo_fim=null;p.tecnico_responsavel=nomeUsuario();p.enviado_assinatura_por=nomeUsuario();await salvar(p);await historico(p,'Assinatura','Encaminhado para Assinatura',`Conferência concluída. Enviado para assinatura por ${nomeUsuario()}. Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}.`,{enviado_por:nomeUsuario(),mensagem:msg,tarefa_confirmada:true});fechar();if(window.filtrarProcessosPorEtapa)window.filtrarProcessosPorEtapa('Assinatura');toast('Processo encaminhado para Assinatura.');});
   }
 
   function abrirAssinatura(id){
@@ -2744,7 +2754,7 @@
     const el=modal(`🖋️ Documento Assinado — ${esc(p.codigo_sigee||p.id)}`,`${cabecalho(p)}<p class="sigee-aviso33">Confirme somente após o retorno do documento assinado pelo Diretor do NTE.</p>${tarefa(msg)}<div class="sigee-acoes33"><button class="btn33 btn33-vermelho" data-cancelar093>Cancelar</button><button class="btn33 btn33-verde" data-confirmar093 disabled>Deferido</button></div>`,'assinatura');
     const chk=el.querySelector('#wf-email093'),btn=el.querySelector('[data-confirmar093]'); chk.addEventListener('change',()=>btn.disabled=!chk.checked);
     el.querySelector('[data-cancelar093]').addEventListener('click',fechar);
-    btn.addEventListener('click',async()=>{btn.disabled=true;p.etapa=p.etapa_atual='Aguardando Retirada';p.data_etapa_atual=agora();p.prazo_inicio=p.data_etapa_atual;p.prazo_etapa=null;p.prazo_fim=null;p.tecnico_responsavel=nomeUsuario();p.deferido_em=p.data_etapa_atual;p.finalizado_em=null;await salvar(p);await historico(p,'Aguardando Retirada','Processo deferido',`Documento retornou assinado e está disponível para retirada. Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}.`,{mensagem:msg,tarefa_confirmada:true});fechar();if(window.filtrarProcessosPorEtapa)window.filtrarProcessosPorEtapa('Aguardando Retirada');toast('Processo deferido e disponível para retirada.');});
+    btn.addEventListener('click',async()=>{btn.disabled=true;p.etapa=p.etapa_atual='Aguardando Retirada';p.data_etapa_atual=agora();if(!ehProcessoEscola(p))p.prazo_inicio=p.data_etapa_atual;else p.sla_finalizado_em=p.sla_finalizado_em||p.data_etapa_atual;p.prazo_etapa=null;p.prazo_fim=null;p.tecnico_responsavel=nomeUsuario();p.deferido_em=p.data_etapa_atual;p.finalizado_em=null;await salvar(p);await historico(p,'Aguardando Retirada','Processo deferido',`Documento retornou assinado e está disponível para retirada. Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}.`,{mensagem:msg,tarefa_confirmada:true});fechar();if(window.filtrarProcessosPorEtapa)window.filtrarProcessosPorEtapa('Aguardando Retirada');toast('Processo deferido e disponível para retirada.');});
   }
 
   function abrirRetirada(id){
