@@ -3338,7 +3338,11 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                         etapa: 'Desarquivamento',
                         data_etapa_atual: dataHoje,
                         prazo_inicio: escopoPersistido === 'ESCOLA' ? new Date().toISOString() : null,
-                        prazo_etapa: escopoPersistido === 'ESCOLA' ? 30 : null,
+                        prazo_etapa: null,
+                        sla_inicio: escopoPersistido === 'ESCOLA' ? new Date().toISOString() : null,
+                        sla_pendencia_inicio: null,
+                        sla_pendencia_dias: 0,
+                        sla_finalizado_em: null,
                         dias_decorridos: 0,
                         nte: nteVinculo,
                         municipio: municipio,
@@ -3782,10 +3786,14 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             etapa_atual: ehEscolaAtiva ? 'Análise' : 'Desarquivamento',
             etapa_codigo: ehEscolaAtiva ? 'ANA' : 'DES',
             data_etapa_atual: recebidoEmSIGEE,
-            prazo_etapa: 30,
+            prazo_etapa: ehEscolaAtiva ? null : 30,
             // RC11.3.1: no escopo ESCOLA, o relógio começa no dia de abertura
             // e NÃO reinicia quando a pasta é localizada/recebida.
             prazo_inicio: ehEscolaAtiva ? inicioSlaGlobal : recebidoEmSIGEE,
+            sla_inicio: ehEscolaAtiva ? (p.sla_inicio || p.created_at || inicioSlaGlobal) : null,
+            sla_pendencia_inicio: ehEscolaAtiva ? (p.sla_pendencia_inicio || null) : null,
+            sla_pendencia_dias: ehEscolaAtiva ? Math.max(0, Number(p.sla_pendencia_dias || 0)) : 0,
+            sla_finalizado_em: ehEscolaAtiva ? (p.sla_finalizado_em || null) : null,
             prazo_fim: prazoFim,
             prioridade: prioridade,
             tecnico_responsavel: responsavelDesarquivamento,
@@ -3805,7 +3813,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 .from(tabelaProcessos)
                 .update(atualizacaoOperacional)
                 .eq('id', p.id)
-                .select('id,escopo_tipo,etapa_atual,etapa_codigo,data_etapa_atual,prazo_etapa,prazo_inicio,prazo_fim,prioridade,tecnico_responsavel,workflow_ciclo,ciclo,ultimo_evento_workflow,contexto_analise,updated_at')
+                .select('id,escopo_tipo,etapa_atual,etapa_codigo,data_etapa_atual,prazo_etapa,prazo_inicio,prazo_fim,sla_inicio,sla_pendencia_inicio,sla_pendencia_dias,sla_finalizado_em,prioridade,tecnico_responsavel,workflow_ciclo,ciclo,ultimo_evento_workflow,contexto_analise,updated_at')
                 .maybeSingle();
 
             if (erroProcesso) throw erroProcesso;
