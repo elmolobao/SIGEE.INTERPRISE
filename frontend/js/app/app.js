@@ -3389,7 +3389,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                         documento_solicitado: docTipo,
                         oferta_nivel: ensino,
                         oferta_modalidade: modalidade,
-                        fase_atual: escopoPersistido === 'ESCOLA' ? 'Análise' : 'Desarquivamento',
+                        fase_atual: ehEscolaAtiva ? 'Análise' : 'Desarquivamento',
                         cod_mec: mec,
                         tecnico_responsavel: usuarioLogado?.nome || '',
                         prioridade: 'Normal'
@@ -3617,6 +3617,59 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         return lista;
     };
 
+    // RC11.3.2 — diretório canônico da unidade escolar.
+    // Para processos de Escola Ativa, qualquer seleção de responsável operacional
+    // deve ser restrita aos usuários ATIVOS vinculados à MESMA escola_id.
+    window.SIGEE_RESPONSAVEIS_UNIDADE_ESCOLA = window.SIGEE_RESPONSAVEIS_UNIDADE_ESCOLA || {
+        async listar(escolaId){
+            const id = Number(escolaId || 0);
+            if(!id) return {ok:false, lista:[], erro:new Error('Escola vinculada não identificada.')};
+            try{
+                const c = typeof obterSupabaseSIGEE === 'function' ? obterSupabaseSIGEE() : null;
+                if(!c) throw new Error('Cliente Supabase indisponível.');
+                const {data,error} = await c.from('usuarios_sigee').select('*').eq('escola_id', id);
+                if(error) throw error;
+                const normP = v => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toUpperCase();
+                const lista = (data || []).filter(u => {
+                    const ativo = u.ativo !== false && u.Ativo !== false;
+                    const unidade = normP(u.unidade_tipo);
+                    const perfil = normP(u.perfil);
+                    const mesma = Number(u.escola_id || 0) === id;
+                    const operacional = !['CONSULTA','MASTER','SEC'].includes(perfil);
+                    return ativo && unidade === 'ESCOLA' && mesma && operacional;
+                }).map(u => ({...u, nome:String(u.nome || u.email || '').trim()}))
+                  .filter(u => u.nome)
+                  .sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR'));
+                return {ok:true, lista};
+            }catch(erro){
+                console.error('[SIGEE RC11.3.2] Falha ao listar responsáveis da unidade escolar.', erro);
+                return {ok:false, lista:[], erro};
+            }
+        },
+        async preencherSelect(select, escolaId, placeholder='-- Selecione o Servidor --'){
+            if(!select) return {ok:false,lista:[],erro:new Error('Select não informado.')};
+            select.disabled = true;
+            select.innerHTML = '<option value="">Carregando usuários da unidade...</option>';
+            const r = await this.listar(escolaId);
+            select.innerHTML = `<option value="">${placeholder}</option>`;
+            if(!r.ok){
+                const o=document.createElement('option'); o.disabled=true; o.textContent='Falha ao carregar usuários da unidade.'; select.appendChild(o);
+                select.disabled=false; return r;
+            }
+            r.lista.forEach(u=>{
+                const o=document.createElement('option');
+                o.value=u.nome; o.textContent=`${u.nome}${u.perfil ? ' — ' + u.perfil : ''}`;
+                o.dataset.usuarioId=String(u.id || ''); o.dataset.escolaId=String(u.escola_id || ''); o.dataset.perfil=String(u.perfil || '');
+                select.appendChild(o);
+            });
+            if(!r.lista.length){
+                const o=document.createElement('option'); o.disabled=true; o.textContent='Nenhum usuário operacional ativo cadastrado nesta unidade escolar.'; select.appendChild(o);
+            }
+            select.disabled=false;
+            return r;
+        }
+    };
+
     // RC10.8.37 — Recebimento da pasta -> Desarquivamento
     // O recebimento físico/operacional da pasta não encaminha mais o processo
     // diretamente para Análise. Nesta triagem, define-se o responsável pelo
@@ -3633,11 +3686,14 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         const ehEscolaAtiva = String(p.escopo_tipo || '').trim().toUpperCase() === 'ESCOLA';
         if(selRespDesarq) selRespDesarq.dataset.sigeeTentativaResponsaveis = '0';
         if (ehEscolaAtiva && selRespDesarq) {
-            const uCanonico = window.SIGEE_SESSION?.getUser?.() || window.SIGEE_ESCOPO?.usuario?.() || (typeof usuarioLogado !== 'undefined' ? usuarioLogado : {}) || {};
-            const nomeResp = String(uCanonico.nome || uCanonico.nome_completo || uCanonico.email || 'Usuário da Escola').trim();
-            selRespDesarq.innerHTML = `<option value="${nomeResp.replace(/"/g,'&quot;')}">${nomeResp}</option>`;
-            selRespDesarq.value = nomeResp;
-            selRespDesarq.disabled = true;
+            // RC11.3.2 — ao localizar a pasta, a Análise deve ser atribuída somente
+            // a um usuário operacional cadastrado na MESMA unidade escolar.
+            selRespDesarq.disabled = false;
+            window.SIGEE_RESPONSAVEIS_UNIDADE_ESCOLA?.preencherSelect?.(
+                selRespDesarq,
+                p.escola_id,
+                '-- Selecione o responsável pela Análise --'
+            ).then(()=>{ try { window.validarDesarquivamentoV27?.(); } catch(_) {} });
         } else {
             if (selRespDesarq) selRespDesarq.disabled = false;
             window.preencherResponsaveisDesarquivamentoSIGEE?.('f00-analista', p.nte || (typeof usuarioLogado !== 'undefined' ? usuarioLogado?.nte : '') || '');
@@ -3721,7 +3777,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
 
             Object.assign(p, atualizacaoOperacional, {
                 etapa: 'Desarquivamento',
-                fase_atual: escopoPersistido === 'ESCOLA' ? 'Análise' : 'Desarquivamento',
+                fase_atual: ehEscolaAtiva ? 'Análise' : 'Desarquivamento',
                 tipo_arquivo: tipoArquivo,
                 local_arquivo: localArquivo,
                 responsavel: responsavelDesarquivamento,
