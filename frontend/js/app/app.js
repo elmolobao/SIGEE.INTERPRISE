@@ -3335,7 +3335,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                         documento: docTipo,
                         modalidade: modalidade,
                         ensino: ensino,
-                        etapa: escopoPersistido === 'ESCOLA' ? 'Análise' : 'Desarquivamento',
+                        etapa: 'Desarquivamento',
                         data_etapa_atual: dataHoje,
                         prazo_inicio: escopoPersistido === 'ESCOLA' ? new Date().toISOString() : null,
                         prazo_etapa: escopoPersistido === 'ESCOLA' ? 30 : null,
@@ -3630,9 +3630,19 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         // Não depende do cache legado usuariosDB nem das várias sobrescritas de
         // preencherSelectTecnicosPorNte existentes no app.
         const selRespDesarq = document.getElementById('f00-analista');
+        const ehEscolaAtiva = String(p.escopo_tipo || '').trim().toUpperCase() === 'ESCOLA';
         if(selRespDesarq) selRespDesarq.dataset.sigeeTentativaResponsaveis = '0';
-        window.preencherResponsaveisDesarquivamentoSIGEE?.('f00-analista', p.nte || (typeof usuarioLogado !== 'undefined' ? usuarioLogado?.nte : '') || '');
-        setDisabled('f00-submit', true); setTexto('f00-submit','Enviar para Desarquivamento');
+        if (ehEscolaAtiva && selRespDesarq) {
+            const uCanonico = window.SIGEE_SESSION?.getUser?.() || window.SIGEE_ESCOPO?.usuario?.() || (typeof usuarioLogado !== 'undefined' ? usuarioLogado : {}) || {};
+            const nomeResp = String(uCanonico.nome || uCanonico.nome_completo || uCanonico.email || 'Usuário da Escola').trim();
+            selRespDesarq.innerHTML = `<option value="${nomeResp.replace(/"/g,'&quot;')}">${nomeResp}</option>`;
+            selRespDesarq.value = nomeResp;
+            selRespDesarq.disabled = true;
+        } else {
+            if (selRespDesarq) selRespDesarq.disabled = false;
+            window.preencherResponsaveisDesarquivamentoSIGEE?.('f00-analista', p.nte || (typeof usuarioLogado !== 'undefined' ? usuarioLogado?.nte : '') || '');
+        }
+        setDisabled('f00-submit', true); setTexto('f00-submit', ehEscolaAtiva ? 'Pasta Localizada · Enviar para Análise' : 'Enviar para Desarquivamento');
         if(typeof aplicarEstadoCamposDesarquivamentoSIGEE === 'function') aplicarEstadoCamposDesarquivamentoSIGEE(false);
         const cont=document.getElementById('f00-container-alertas');
         if(cont){
@@ -3641,6 +3651,9 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         }
         document.getElementById('modal-fluxo-desarquivamento').classList.remove('hidden');
     };
+    // Autoridade direta do recebimento/localização da pasta. O workflow externo
+    // pode sobrescrever abrirModalFluxoDesarquivamento, mas esta referência permanece.
+    window.SIGEE_ABRIR_RECEBIMENTO_PASTA_CANONICO = window.abrirModalFluxoDesarquivamento;
     window.validarDesarquivamentoV27 = function(){
         const ok = valor('f00-tipo') && valor('f00-local') && valor('f00-prioridade') && valor('f00-analista') && chk('f00-chk-email');
         setDisabled('f00-submit', !ok);
@@ -3661,7 +3674,9 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         const localArquivo = valor('f00-local');
         const prioridade = valor('f00-prioridade');
         const responsavelDesarquivamento = valor('f00-analista');
-        const prazoFim = new Date(Date.now() + 30 * 86400000).toISOString();
+        const ehEscolaAtiva = String(p.escopo_tipo || '').trim().toUpperCase() === 'ESCOLA';
+        const inicioSlaGlobal = p.prazo_inicio || p.created_at || recebidoEmSIGEE;
+        const prazoFim = ehEscolaAtiva ? null : new Date(Date.now() + 30 * 86400000).toISOString();
         const cliente = obterSupabaseSIGEE();
 
         if (!cliente) {
@@ -3670,18 +3685,20 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         }
 
         const atualizacaoOperacional = {
-            etapa_atual: 'Desarquivamento',
-            etapa_codigo: 'DES',
+            etapa_atual: ehEscolaAtiva ? 'Análise' : 'Desarquivamento',
+            etapa_codigo: ehEscolaAtiva ? 'ANA' : 'DES',
             data_etapa_atual: recebidoEmSIGEE,
             prazo_etapa: 30,
-            prazo_inicio: recebidoEmSIGEE,
+            // RC11.3.1: no escopo ESCOLA, o relógio começa no dia de abertura
+            // e NÃO reinicia quando a pasta é localizada/recebida.
+            prazo_inicio: ehEscolaAtiva ? inicioSlaGlobal : recebidoEmSIGEE,
             prazo_fim: prazoFim,
             prioridade: prioridade,
             tecnico_responsavel: responsavelDesarquivamento,
             workflow_ciclo: cicloAtual,
             ciclo: cicloAtual,
             ultimo_evento_workflow: 'PASTA_RECEBIDA',
-            contexto_analise: null,
+            contexto_analise: ehEscolaAtiva ? 'ESCOLA_ATIVA_SLA30' : null,
             updated_at: recebidoEmSIGEE
         };
 
@@ -3694,7 +3711,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 .from(tabelaProcessos)
                 .update(atualizacaoOperacional)
                 .eq('id', p.id)
-                .select('id,etapa_atual,etapa_codigo,data_etapa_atual,prazo_etapa,prazo_inicio,prazo_fim,prioridade,tecnico_responsavel,workflow_ciclo,ciclo,ultimo_evento_workflow,contexto_analise,updated_at')
+                .select('id,escopo_tipo,etapa_atual,etapa_codigo,data_etapa_atual,prazo_etapa,prazo_inicio,prazo_fim,prioridade,tecnico_responsavel,workflow_ciclo,ciclo,ultimo_evento_workflow,contexto_analise,updated_at')
                 .maybeSingle();
 
             if (erroProcesso) throw erroProcesso;
@@ -3720,20 +3737,22 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 nte: p.nte || usuarioLogado?.nte || null,
                 etapa: 'Desarquivamento',
                 acao: 'PASTA_RECEBIDA',
-                observacao: `Pasta/acervo recebido (${tipoArquivo}) no local ${localArquivo}. Processo encaminhado ao Desarquivamento sob responsabilidade de ${responsavelDesarquivamento}.`,
+                observacao: ehEscolaAtiva ? `Pasta localizada/recebida (${tipoArquivo}) no local ${localArquivo}. Processo encaminhado à Análise sem reinício do SLA global de 30 dias.` : `Pasta/acervo recebido (${tipoArquivo}) no local ${localArquivo}. Processo encaminhado ao Desarquivamento sob responsabilidade de ${responsavelDesarquivamento}.`,
                 usuario_nome: usuarioLogado?.nome || usuarioLogado?.email || null,
                 usuario_email: usuarioLogado?.email || null,
                 usuario_perfil: usuarioLogado?.perfil || null,
                 dados: {
                     etapa_origem: p.etapa_atual || p.etapa || null,
-                    etapa_destino: 'Desarquivamento',
+                    etapa_destino: ehEscolaAtiva ? 'Análise' : 'Desarquivamento',
                     ciclo: cicloAtual,
                     tipo_arquivo: tipoArquivo,
                     local_arquivo: localArquivo,
                     prioridade: prioridade,
                     responsavel_desarquivamento: responsavelDesarquivamento,
                     prazo_dias: 30,
-                    pasta_recebida: true
+                    pasta_recebida: true,
+                    sla_global_30_dias: ehEscolaAtiva,
+                    prazo_reiniciado: !ehEscolaAtiva
                 },
                 created_at: recebidoEmSIGEE
             };
@@ -3747,7 +3766,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 usuario_id: usuarioLogado?.id || null,
                 nome: usuarioLogado?.nome || null,
                 email: usuarioLogado?.email || null,
-                acao: 'Pasta recebida e processo encaminhado para Desarquivamento.',
+                acao: ehEscolaAtiva ? 'Pasta localizada/recebida e processo encaminhado para Análise.' : 'Pasta recebida e processo encaminhado para Desarquivamento.',
                 created_at: recebidoEmSIGEE,
                 nte: p.nte || usuarioLogado?.nte || null,
                 perfil: usuarioLogado?.perfil || null,
@@ -3755,7 +3774,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 modulo: 'processos',
                 processo_id: p.id,
                 codigo_sigee: p.codigo_sigee || null,
-                etapa: 'Desarquivamento',
+                etapa: ehEscolaAtiva ? 'Análise' : 'Desarquivamento',
                 sessao_id: window.SIGEE_SESSAO_ID || null
             };
 
@@ -3770,10 +3789,10 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             fecharModalFluxo('desarquivamento');
             carregarEContarProcessosHorizontais();
         } catch (erroSalvarPasta) {
-            console.error('[SIGEE RC10.8.37] Falha ao encaminhar a pasta para Desarquivamento:', erroSalvarPasta);
-            alert('Não foi possível enviar a pasta para Desarquivamento. Nenhum dado cadastral do processo foi alterado.');
+            console.error('[SIGEE RC11.3.1] Falha no registro da pasta:', erroSalvarPasta);
+            alert(ehEscolaAtiva ? 'Não foi possível registrar a pasta e encaminhar para Análise. O SLA e os dados do processo foram preservados.' : 'Não foi possível enviar a pasta para Desarquivamento. Nenhum dado cadastral do processo foi alterado.');
             setDisabled('f00-submit', false);
-            setTexto('f00-submit', 'Enviar para Desarquivamento');
+            setTexto('f00-submit', ehEscolaAtiva ? 'Pasta Localizada · Enviar para Análise' : 'Enviar para Desarquivamento');
         }
     };
 
