@@ -2,7 +2,7 @@
 (function(){
 'use strict';
 const norm=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().trim();
-function perfil(v){const p=norm(v);if(p.includes('MASTER'))return'Master';if(p==='SEC'||p.includes('SECRETARIA'))return'SEC';if(p.includes('GESTOR')||p.includes('DIRIGENTE'))return'Gestor';if(p.includes('ADMIN'))return'Administrador';if(p.includes('ESTAG'))return'Estagiario';if(p.includes('CONSULT'))return'Consulta';if(p.includes('TECNIC'))return'Tecnico';return v||'';}
+function perfil(v){const p=norm(v);if(p.includes('MASTER'))return'Master';if(p==='SEC')return'SEC';if(p.includes('SECRETARIA'))return'Secretaria';if(p.includes('GESTOR')||p.includes('DIRIGENTE'))return'Gestor';if(p.includes('ADMIN'))return'Administrador';if(p.includes('ESTAG'))return'Estagiario';if(p.includes('CONSULT'))return'Consulta';if(p.includes('TECNIC'))return'Tecnico';return v||'';}
 function u(){
   if(window.usuarioLogado) return window.usuarioLogado;
   try { if(typeof usuarioLogado!=='undefined' && usuarioLogado) return usuarioLogado; } catch(e){}
