@@ -5969,7 +5969,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   function isAdmin(u){ return perfil(u).includes('ADMIN'); }
   function isTecnico(u){ return perfil(u).includes('TECNIC') || perfil(u).includes('TECNICO'); }
   function isConsulta(u){ return perfil(u).includes('CONSULT'); }
-  function isSEC(u){ return !!u && (lower(u.email)===EMAIL_SEC || perfil(u).includes('SEC') || upper(u.grupo).includes('SEC') || upper(u.nte).includes('SEC') || upper(u.nte).includes('TODOS OS NTES')); }
+  function isSEC(u){ return !!u && (lower(u.email)===EMAIL_SEC || perfil(u)==='SEC' || upper(u.grupo).includes('SEC') || upper(u.nte).includes('SEC') || upper(u.nte).includes('TODOS OS NTES')); }
   function isGlobal(u){ return isMaster(u) || isSEC(u); }
   function podeImportar(u){ return isMaster(u) || isAdmin(u) || isSEC(u); }
   function podeEditarEscola(u){ return isMaster(u) || isAdmin(u) || isTecnico(u) || isSEC(u); }
@@ -6381,7 +6381,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   function perfil(u){ return up(u&&u.perfil); }
   function isMaster(u){ return perfil(u).includes('MASTER'); }
   function isAdmin(u){ return perfil(u).includes('ADMIN'); }
-  function isSEC(u){ return !!u && (up(u.perfil).includes('SEC') || up(u.grupo).includes('SEC') || up(u.nte).includes('SEC') || up(u.nte).includes('TODOS OS NTES') || txt(u.email).toLowerCase()==='sec@enova.educacao.ba.gov.br'); }
+  function isSEC(u){ return !!u && (up(u.perfil)==='SEC' || up(u.grupo).includes('SEC') || up(u.nte).includes('SEC') || up(u.nte).includes('TODOS OS NTES') || txt(u.email).toLowerCase()==='sec@enova.educacao.ba.gov.br'); }
   function isGlobal(u){ return isMaster(u)||isSEC(u); }
   function podeImportar(u){ return isMaster(u)||isAdmin(u)||isSEC(u); }
   function numeroNte(v){ const m=txt(v).match(/NTE\s*[- ]?\s*(\d{1,2})/i); if(m) return Number(m[1]); const n=Number(v); return Number.isFinite(n)&&n>=1&&n<=27?n:null; }
@@ -8164,7 +8164,8 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
       if (central) return central;
     }
     const p = noAccent(v).toLowerCase();
-    if (p === 'sec' || p.includes('secretaria')) return 'SEC';
+    if (p === 'sec') return 'SEC';
+    if (p.includes('secretaria')) return 'Secretaria';
     if (p.includes('master')) return 'Master';
     if (p.includes('gestor') || p.includes('dirigente')) return 'Gestor';
     if (p.includes('administr')) return 'Administrador';
@@ -10142,6 +10143,8 @@ window.SIGEE_INTEGRIDADE_IDS_VERSION = '1.0.2.006B';
     const p = norm(valor || '');
     if (p.includes('MASTER')) return 'Master';
     if (p === 'SEC' || p.includes('TODOS OS NTES')) return 'SEC';
+    if (p.includes('SECRETARIA')) return 'Secretaria';
+    if (p.includes('GESTOR') || p.includes('DIRIGENTE')) return 'Gestor';
     if (p.includes('ADMIN')) return 'Administrator';
     if (p.includes('ESTAG')) return 'Estagiário';
     if (p.includes('CONSULT')) return 'Consulta';
