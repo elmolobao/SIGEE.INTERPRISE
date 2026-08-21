@@ -879,10 +879,12 @@
 
     function podeMovimentar(p) {
         const u = usuario();
+        if (window.SIGEE_ACCESS_POLICY?.podeMovimentarProcesso) return window.SIGEE_ACCESS_POLICY.podeMovimentarProcesso(p,u);
+        if (window.SIGEE_PERMISSOES?.podeMovimentarProcesso) return window.SIGEE_PERMISSOES.podeMovimentarProcesso(p,u);
         if (isMaster(u)) return true;
-        if (ehUsuarioEscola(u) && (isSecretaria(u) || isGestor(u))) return ehProcessoEscola(p) && mesmaEscolaUsuario(p,u);
+        if (ehUsuarioEscola(u) && (isSecretaria(u) || isGestor(u) || isAdmin(u) || isTecnico(u))) return ehProcessoEscola(p) && mesmaEscolaUsuario(p,u);
         if (isAdmin(u) || isTecnico(u)) return !ehProcessoEscola(p) && mesmoNte(nteUsuario(u), processoNte(p));
-        return false; // SEC, Consulta e Estagiário não movimentam
+        return false;
     }
     function acaoFluxo(p) {
         if (isSEC(usuario())) return '<span class="text-gray-400 font-bold">Supervisão SEC</span>';
@@ -2102,7 +2104,7 @@
     });
   }
   function perfil(){return norm(usuario().perfil);}
-  function somenteLeitura(){return perfil().includes('ESTAG')||perfil().includes('CONSULT');}
+  function somenteLeitura(){ const u=window.SIGEE_SESSION?.getUser?.()||window.usuarioLogado||null; return window.SIGEE_ACCESS_POLICY?.somenteLeitura?.(u) ?? (perfil().includes('ESTAG')||perfil().includes('CONSULT')); }
   function lista(){return Array.isArray(window.processosDB)?window.processosDB:[];}
   function processo(id){return lista().find(p=>String(p.id)===String(id));}
   function cliente(){try{return window.obterSupabaseSIGEE?.()||window.criarClienteSupabaseSIGEE?.()||window.SIGEE_SUPABASE?.criarCliente?.();}catch(e){return null;}}
@@ -2428,7 +2430,7 @@
   // chamava ehProcessoEscola() sem a função existir neste escopo, interrompendo
   // o carregamento dos responsáveis e impedindo inclusive o binding do Cancelar.
   function ehProcessoEscola(p){ return norm(p?.escopo_tipo) === 'ESCOLA'; }
-  function somenteLeitura(){ const p=norm(usuario().perfil); return p.includes('ESTAG') || p.includes('CONSULT'); }
+  function somenteLeitura(){ const u=usuario(); return window.SIGEE_ACCESS_POLICY?.somenteLeitura?.(u) ?? (()=>{const p=norm(u.perfil);return p.includes('ESTAG')||p.includes('CONSULT');})(); }
   function processos(){ return Array.isArray(window.processosDB) ? window.processosDB : []; }
   function processo(id){ return processos().find(p=>String(p.id)===String(id)); }
   function agora(){ return new Date().toISOString(); }
@@ -2907,7 +2909,7 @@
   function podeCriar(){
     const u=window.SIGEE_SESSION?.getUser?.()||window.usuarioLogado||null;
     if(window.SIGEE_PERMISSOES?.pode)return window.SIGEE_PERMISSOES.pode('processos.criar',u)===true;
-    return ['Master','Administrador','Técnico','Estagiário','Secretaria'].includes(perfilAtual());
+    return ['Master','Administrador','Técnico','Secretaria'].includes(perfilAtual());
   }
   function aplicar(){
     const original=window.abrirFormularioNovaSolicitacao;
@@ -2976,11 +2978,13 @@
   }
 
   function perfilAtual() {
-    return normalizarPerfil((window.usuarioLogado || {}).perfil);
+    const u=window.SIGEE_SESSION?.getUser?.()||window.usuarioLogado||{};
+    return window.SIGEE_PERFIS?.normalizar?.(u.perfil)||window.SIGEE_SESSION?.normalizarPerfil?.(u.perfil)||normalizarPerfil(u.perfil);
   }
 
   function usuarioEscolaAtual() {
-    const u = window.usuarioLogado || {};
+    const u = window.SIGEE_SESSION?.getUser?.() || window.usuarioLogado || {};
+    if(window.SIGEE_ACCESS_POLICY?.usuarioEscola)return window.SIGEE_ACCESS_POLICY.usuarioEscola(u);
     return semAcento(u.unidade_tipo) === 'ESCOLA' && Boolean(u.escola_id);
   }
 
@@ -2989,16 +2993,17 @@
   }
 
   function mesmaEscolaAtual(p) {
-    const u = window.usuarioLogado || {};
+    const u = window.SIGEE_SESSION?.getUser?.() || window.usuarioLogado || {};
     return usuarioEscolaAtual() && processoEscola(p) && String(u.escola_id) === String(p.escola_id);
   }
 
   function podeOperarWorkflow(p) {
+    const u=window.SIGEE_SESSION?.getUser?.()||window.usuarioLogado||{};
+    if(window.SIGEE_ACCESS_POLICY?.podeMovimentarProcesso)return window.SIGEE_ACCESS_POLICY.podeMovimentarProcesso(p,u);
+    if(window.SIGEE_PERMISSOES?.podeMovimentarProcesso)return window.SIGEE_PERMISSOES.podeMovimentarProcesso(p,u);
     const perfil = perfilAtual();
     if (perfil === PERFIS.MASTER) return true;
-    if (usuarioEscolaAtual() && [PERFIS.SECRETARIA, PERFIS.GESTOR, PERFIS.ADMIN, PERFIS.TECNICO].includes(perfil)) {
-      return mesmaEscolaAtual(p);
-    }
+    if (usuarioEscolaAtual() && [PERFIS.SECRETARIA, PERFIS.GESTOR, PERFIS.ADMIN, PERFIS.TECNICO].includes(perfil)) return mesmaEscolaAtual(p);
     return [PERFIS.ADMIN, PERFIS.TECNICO].includes(perfil) && !processoEscola(p);
   }
 
