@@ -1,4 +1,4 @@
-/* SIGEE RC11.2.5 — Escola vinculada obrigatória com sessão canônica */
+/* SIGEE RC11.3.8 — Autocomplete elegível por escopo antes do LIMIT */
 (function () {
   'use strict';
 
@@ -232,31 +232,44 @@
     lista.classList.remove('hidden');
 
     try {
-      let resultados = [];
-      if (window.SIGEE_CORE_V2 && typeof window.SIGEE_CORE_V2.queryEscolasBase === 'function') {
-        resultados = await window.SIGEE_CORE_V2.queryEscolasBase({ termo: busca, limit: 30, offset: 0 });
-      } else {
-        const client = clienteSupabase();
-        if (!client) throw new Error('Conexão com o catálogo de escolas indisponível.');
-        const safe = busca.replace(/[,%]/g, ' ').trim();
-        let query = client
-          .from('escolas_sigee')
-          .select('id,cod_mec,nome_escola,nome,municipio,nte_id,nte,dependencia_adm,dependencia,situacao_funcional,situacao,status_acervo,acervo,local_acervo,ativo')
-          .or(`nome_escola.ilike.%${safe}%,nome.ilike.%${safe}%,cod_mec.ilike.%${safe}%`)
-          .order('nome_escola', { ascending: true, nullsFirst: false })
-          .limit(30);
-        const contexto = contextoEscopo();
-        if (contexto.tipo === 'ESCOLA') {
-          if (!contexto.escolaId) throw new Error('Usuário escolar sem escola vinculada.');
-          query = query.eq('id', contexto.escolaId).eq('dependencia_adm', 'Estadual').eq('situacao_funcional', 'Ativa').eq('ativo', true);
-        } else if (contexto.tipo === 'NTE') {
-          if (!contexto.nteId) throw new Error('Usuário territorial sem NTE válido.');
-          query = query.eq('nte_id', contexto.nteId).eq('situacao_funcional', 'Extinta').eq('acervo', 'Recolhido').eq('ativo', true);
-        }
-        const { data, error } = await query;
-        if (error) throw error;
-        resultados = data || [];
+      // RC11.3.8: a política de escopo/eligibilidade precisa ser aplicada NO BANCO
+      // antes do LIMIT. O fluxo anterior consultava 30 escolas genéricas do NTE via
+      // SIGEE_CORE_V2 e só depois descartava as que não eram Extintas + Recolhidas.
+      // Em NTEs com catálogo grande isso produzia falso "Nenhuma escola encontrada".
+      const client = clienteSupabase();
+      if (!client) throw new Error('Conexão com o catálogo de escolas indisponível.');
+      const safe = busca.replace(/[,%_]/g, ' ').trim();
+      let query = client
+        .from('escolas_sigee')
+        .select('id,cod_mec,nome_escola,nome,municipio,nte_id,nte,dependencia_adm,dependencia,situacao_funcional,situacao,status_acervo,acervo,local_acervo,ativo')
+        .or(`nome_escola.ilike.%${safe}%,nome.ilike.%${safe}%,cod_mec.ilike.%${safe}%`)
+        .order('nome_escola', { ascending: true, nullsFirst: false });
+
+      const contexto = contextoEscopo();
+      if (contexto.tipo === 'ESCOLA') {
+        if (!contexto.escolaId) throw new Error('Usuário escolar sem escola vinculada.');
+        query = query
+          .eq('id', contexto.escolaId)
+          .eq('dependencia_adm', 'Estadual')
+          .eq('situacao_funcional', 'Ativa')
+          .eq('ativo', true);
+      } else if (contexto.tipo === 'NTE') {
+        if (!contexto.nteId) throw new Error('Usuário territorial sem NTE válido.');
+        // Para Escolas Extintas a regra homologada permanece:
+        // mesmo NTE + situação Extinta + acervo canônico Recolhido.
+        // Não exigimos ativo=true aqui porque o validador considera bloqueio apenas
+        // quando ativo === false; registros legados com ativo NULL continuam elegíveis.
+        query = query
+          .eq('nte_id', contexto.nteId)
+          .eq('situacao_funcional', 'Extinta')
+          .eq('acervo', 'Recolhido')
+          .neq('ativo', false);
       }
+
+      query = query.limit(30);
+      const { data, error } = await query;
+      if (error) throw error;
+      const resultados = data || [];
 
       if (token !== requisicaoAtual) return;
       renderizarResultados(resultados);
