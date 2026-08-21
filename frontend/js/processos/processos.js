@@ -2530,6 +2530,25 @@
   async function preencherSelectTecnicoWorkflow(select,p){
     if(!select) return;
     const valorAnterior=select.value;
+
+    // RC11.3.2 — isolamento operacional por unidade escolar.
+    // Em processos ESCOLA, Análise, Digitação e Conferência jamais podem listar
+    // técnicos do NTE inteiro. A seleção é exclusivamente entre usuários ativos
+    // cujo unidade_tipo=ESCOLA e escola_id seja igual ao do processo.
+    if(ehProcessoEscola(p)){
+      const escolaId=Number(p?.escola_id || 0);
+      const unidade=window.SIGEE_RESPONSAVEIS_UNIDADE_ESCOLA;
+      if(!escolaId || !unidade?.preencherSelect){
+        select.innerHTML='<option value="">Não foi possível identificar os usuários da unidade escolar.</option>';
+        select.disabled=true;
+        return;
+      }
+      const r=await unidade.preencherSelect(select,escolaId,'Selecione o profissional da unidade...');
+      if(valorAnterior && [...select.options].some(o=>o.value===valorAnterior)) select.value=valorAnterior;
+      if(!r?.ok) console.error('[SIGEE RC11.3.2] Diretório da unidade escolar indisponível.',r?.erro);
+      return;
+    }
+
     /* RC10.8.35 — carrega diretamente da rotina assíncrona do workflow.
        A função global preencherSelectTecnicosPorNte usa cache local e podia retornar
        somente a opção padrão antes que os usuários do NTE fossem sincronizados. */
@@ -2622,9 +2641,9 @@
         delete p.etapa;
         p.etapa_codigo=null;
         p.data_etapa_atual=instante;
-        p.prazo_inicio=instante;
+        if(!ehProcessoEscola(p)) p.prazo_inicio=instante;
         p.prazo_fim=null;
-        p.prazo_etapa=15;
+        p.prazo_etapa=ehProcessoEscola(p)?30:15;
         p.updated_at=instante;
         p.tecnico_responsavel=digitador;
         p.tecnico_responsavel_nome=digitador;
@@ -2682,7 +2701,7 @@
     const semUsuarios=el.querySelector('.sigee-selecao-semusuarios093'); if(semUsuarios) semUsuarios.remove();
     const validar=()=>{atualizarDestaqueTecnico(el,sel);btn.disabled=!(sel.value&&chk.checked);}; sel.addEventListener('change',validar); chk.addEventListener('change',validar);
     el.querySelector('[data-cancelar093]').addEventListener('click',fechar);
-    btn.addEventListener('click',async()=>{btn.disabled=true;p.etapa=p.etapa_atual='Conferência';p.data_etapa_atual=agora();p.prazo_inicio=p.data_etapa_atual;p.prazo_etapa=10;p.prazo_fim=null;p.tecnico_responsavel=sel.value;p.conferente=sel.value;await salvar(p);await historico(p,'Conferência','Encaminhado para Conferência',`Digitação concluída. Conferente: ${sel.value}. Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}.`,{conferente:sel.value,mensagem:msg,tarefa_confirmada:true});fechar();if(window.filtrarProcessosPorEtapa)window.filtrarProcessosPorEtapa('Conferência');toast('Processo encaminhado para Conferência.');});
+    btn.addEventListener('click',async()=>{btn.disabled=true;p.etapa=p.etapa_atual='Conferência';p.data_etapa_atual=agora();if(!ehProcessoEscola(p))p.prazo_inicio=p.data_etapa_atual;p.prazo_etapa=ehProcessoEscola(p)?30:10;p.prazo_fim=null;p.tecnico_responsavel=sel.value;p.conferente=sel.value;await salvar(p);await historico(p,'Conferência','Encaminhado para Conferência',`Digitação concluída. Conferente: ${sel.value}. Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}.`,{conferente:sel.value,mensagem:msg,tarefa_confirmada:true});fechar();if(window.filtrarProcessosPorEtapa)window.filtrarProcessosPorEtapa('Conferência');toast('Processo encaminhado para Conferência.');});
   }
 
   function abrirConferencia(id){
@@ -2691,7 +2710,7 @@
     const el=modal(`✔️ Conferência Concluída — ${esc(p.codigo_sigee||p.id)}`,`${cabecalho(p)}${responsavelOperador()}${tarefa(msg)}<div class="sigee-acoes33"><button class="btn33 btn33-vermelho" data-cancelar093>Cancelar</button><button class="btn33 btn33-verde" data-confirmar093 disabled>Enviar para Assinatura</button></div>`,'conferencia');
     const chk=el.querySelector('#wf-email093'),btn=el.querySelector('[data-confirmar093]'); chk.addEventListener('change',()=>btn.disabled=!chk.checked);
     el.querySelector('[data-cancelar093]').addEventListener('click',fechar);
-    btn.addEventListener('click',async()=>{btn.disabled=true;p.etapa=p.etapa_atual='Assinatura';p.data_etapa_atual=agora();p.prazo_inicio=p.data_etapa_atual;p.prazo_etapa=7;p.prazo_fim=null;p.tecnico_responsavel=nomeUsuario();p.enviado_assinatura_por=nomeUsuario();await salvar(p);await historico(p,'Assinatura','Encaminhado para Assinatura',`Conferência concluída. Enviado para assinatura por ${nomeUsuario()}. Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}.`,{enviado_por:nomeUsuario(),mensagem:msg,tarefa_confirmada:true});fechar();if(window.filtrarProcessosPorEtapa)window.filtrarProcessosPorEtapa('Assinatura');toast('Processo encaminhado para Assinatura.');});
+    btn.addEventListener('click',async()=>{btn.disabled=true;p.etapa=p.etapa_atual='Assinatura';p.data_etapa_atual=agora();if(!ehProcessoEscola(p))p.prazo_inicio=p.data_etapa_atual;p.prazo_etapa=ehProcessoEscola(p)?30:7;p.prazo_fim=null;p.tecnico_responsavel=nomeUsuario();p.enviado_assinatura_por=nomeUsuario();await salvar(p);await historico(p,'Assinatura','Encaminhado para Assinatura',`Conferência concluída. Enviado para assinatura por ${nomeUsuario()}. Tarefa confirmada: ENVIAR E-MAIL ${msg.texto}.`,{enviado_por:nomeUsuario(),mensagem:msg,tarefa_confirmada:true});fechar();if(window.filtrarProcessosPorEtapa)window.filtrarProcessosPorEtapa('Assinatura');toast('Processo encaminhado para Assinatura.');});
   }
 
   function abrirAssinatura(id){
