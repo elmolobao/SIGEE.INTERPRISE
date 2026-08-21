@@ -211,19 +211,19 @@
   }
 
   function temporalPrimaryAction(elapsed) {
-    if (!Number.isFinite(elapsed) || elapsed < 31) return ACTIONS.SEND_REITERACAO;
-    if (elapsed < 38) return ACTIONS.SEND_REITERACAO;
-    if (elapsed < 45) return ACTIONS.SEND_REITERACAO_URGENTE;
-    if (elapsed < 52) return ACTIONS.CONFIRMAR_DADOS;
+    if (!Number.isFinite(elapsed) || elapsed < 30) return ACTIONS.SEND_REITERACAO;
+    if (elapsed < 37) return ACTIONS.SEND_REITERACAO;
+    if (elapsed < 44) return ACTIONS.SEND_REITERACAO_URGENTE;
+    if (elapsed < 51) return ACTIONS.CONFIRMAR_DADOS;
     return ACTIONS.PEDIDO_ATAS_DESARQUIVAMENTO;
   }
 
   function temporalRequiredDays(action) {
     const map = {
-      SEND_REITERACAO: 31,
-      SEND_REITERACAO_URGENTE: 38,
-      CONFIRMAR_DADOS: 45,
-      PEDIDO_ATAS_DESARQUIVAMENTO: 52
+      SEND_REITERACAO: 30,
+      SEND_REITERACAO_URGENTE: 37,
+      CONFIRMAR_DADOS: 44,
+      PEDIDO_ATAS_DESARQUIVAMENTO: 51
     };
     return map[action && action.event] ?? 0;
   }
