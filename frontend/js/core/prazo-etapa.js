@@ -13,7 +13,7 @@
    ===================================================================== */
 (function (global) {
   'use strict';
-  if (global.SIGEE_PRAZO_ETAPA?.versao === 'RC10.8.34') return;
+  if (global.SIGEE_PRAZO_ETAPA?.versao === 'RC11.3.7') return;
 
   const DIA_MS = 86400000;
   const normalizar = v => String(v ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toUpperCase();
@@ -71,6 +71,14 @@
 
   function calcular(processo, referencia = new Date()) {
     const etapa = etapaNormalizada(processo);
+    if (global.SIGEE_TEMPO_PROCESSO?.ehEscola?.(processo)) {
+      const sla = global.SIGEE_TEMPO_PROCESSO.slaEscola(processo, referencia);
+      const inicioEt = dataCivil(inicioEtapa(processo));
+      const fimEt = dataCivil(referencia) || dataCivil(new Date());
+      const diasNaEtapa = etapa.includes('PEND') ? 0 : (inicioEt ? Math.max(1, Math.floor((fimEt - inicioEt) / DIA_MS) + 1) : 0);
+      let situacao = sla.suspenso ? 'PRAZO SUSPENSO' : sla.vencido ? 'VENCIDO' : sla.venceHoje ? 'VENCE HOJE' : sla.encerrado ? 'SLA ENCERRADO' : 'DENTRO DO PRAZO';
+      return { etapa, regime:'SLA_GLOBAL_30', inicio:sla.inicio, fim:sla.fim, diasNaEtapa, prazoEtapa:null, prazoFinal:null, vencido:sla.vencido, venceHoje:sla.venceHoje, situacao, diasSla:sla.diasConsumidos, diasPendencia:sla.diasPendencia, saldoSla:sla.diasRestantes, atrasoSla:sla.diasAtraso, limiteSla:30 };
+    }
     const inicio = dataCivil(inicioEtapa(processo));
     const fim = dataCivil(fimContagemEtapa(processo, referencia)) || dataCivil(new Date());
     // A etapa atual é a autoridade. prazo_etapa persistido é apenas informativo/legado.
@@ -98,6 +106,6 @@
   }
 
   global.SIGEE_PRAZO_ETAPA = Object.freeze({
-    versao: 'RC10.8.34', PRAZOS_OFICIAIS, dataCivil, etapaNormalizada, prazoPadrao, inicioEtapa, calcular
+    versao: 'RC11.3.7', PRAZOS_OFICIAIS, dataCivil, etapaNormalizada, prazoPadrao, inicioEtapa, calcular
   });
 })(window);

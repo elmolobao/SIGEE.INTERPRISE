@@ -5,10 +5,10 @@
 
   const DAY = 86400000;
   const STATES = Object.freeze([
-    Object.freeze({ min: 52, code: 'PAS', name: 'Pedido de Atas sem Pasta', action: 'PEDIDO_ATAS_DESARQUIVAMENTO', actionTitle: 'Executar Pedido de Atas sem Pasta' }),
-    Object.freeze({ min: 45, code: 'CFD', name: 'Confirmação dos Dados', action: 'CONFIRMAR_DADOS', actionTitle: 'Executar Confirmação dos Dados' }),
-    Object.freeze({ min: 38, code: 'REU', name: 'Reiteração Urgente', action: 'SEND_REITERACAO_URGENTE', actionTitle: 'Executar Reiteração Urgente' }),
-    Object.freeze({ min: 31, code: 'RET', name: 'Reiteração', action: 'SEND_REITERACAO', actionTitle: 'Executar Reiteração' }),
+    Object.freeze({ min: 51, code: 'PAS', name: 'Pedido de Atas sem Pasta', action: 'PEDIDO_ATAS_DESARQUIVAMENTO', actionTitle: 'Executar Pedido de Atas sem Pasta' }),
+    Object.freeze({ min: 44, code: 'CFD', name: 'Confirmação dos Dados', action: 'CONFIRMAR_DADOS', actionTitle: 'Executar Confirmação dos Dados' }),
+    Object.freeze({ min: 37, code: 'REU', name: 'Reiteração Urgente', action: 'SEND_REITERACAO_URGENTE', actionTitle: 'Executar Reiteração Urgente' }),
+    Object.freeze({ min: 30, code: 'RET', name: 'Reiteração', action: 'SEND_REITERACAO', actionTitle: 'Executar Reiteração' }),
     Object.freeze({ min: 0, code: 'DES', name: 'Desarquivamento', action: null, actionTitle: 'Aguardando prazo de Reiteração' })
   ]);
 
@@ -157,6 +157,21 @@
    */
   function processMetrics(process, now) {
     const currentNow = validDate(now) || nowDate();
+    if (window.SIGEE_TEMPO_PROCESSO?.ehEscola?.(process)) {
+      const sla = window.SIGEE_TEMPO_PROCESSO.slaEscola(process, currentNow);
+      const stage = normalizedStage(process);
+      const stageStart = firstValid([process && process.data_etapa_atual, process && process.etapa_iniciada_em, sla.inicio]);
+      const stageDays = stage.includes('PEND') ? 0 : Math.max(0, calendarDaysBetween(stageStart, sla.encerrado ? sla.fim : currentNow) + (stageStart ? 1 : 0));
+      return Object.freeze({
+        opening: sla.inicio, deferred: process && process.deferido_em || null, withdrawn: process && process.retirado_em || null,
+        terminal: sla.encerrado ? sla.fim : null, stageStart, normalEnd: sla.fim, overallEnd: process && process.retirado_em || currentNow,
+        totalDays: sla.diasConsumidos, normalDays: sla.diasConsumidos, postDeferredDays: process && process.deferido_em ? calendarDaysBetween(process.deferido_em, process.retirado_em || currentNow) : 0,
+        withdrawalDays: process && process.deferido_em ? calendarDaysBetween(process.deferido_em, process.retirado_em || currentNow) : 0,
+        overallDays: calendarDaysBetween(sla.inicio, process && process.retirado_em || currentNow) + (sla.inicio ? 1 : 0), stageDays,
+        suspendedDays: sla.diasPendencia, remainingDays: sla.diasRestantes, overdueDays: sla.diasAtraso, slaLimit: 30,
+        totalFrozen: sla.encerrado, postDeferredFrozen: Boolean(process && process.deferido_em && process.retirado_em), overallFrozen: Boolean(process && process.retirado_em)
+      });
+    }
     const opening = firstValid([
       process && process.data_abertura,
       process && process.data_solicitacao,
@@ -235,7 +250,7 @@
   }
 
   window.SIGEE_WORKFLOW_TEMPORAL = Object.freeze({
-    version: 'RC10.2.3',
+    version: 'RC11.3.7',
     resolve,
     elapsedDays,
     stateForDays,
