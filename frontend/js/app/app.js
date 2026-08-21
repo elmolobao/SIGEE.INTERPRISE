@@ -3393,7 +3393,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                         documento_solicitado: docTipo,
                         oferta_nivel: ensino,
                         oferta_modalidade: modalidade,
-                        fase_atual: ehEscolaAtiva ? 'Análise' : 'Desarquivamento',
+                        fase_atual: 'Desarquivamento',
                         cod_mec: mec,
                         tecnico_responsavel: usuarioLogado?.nome || '',
                         prioridade: 'Normal'
