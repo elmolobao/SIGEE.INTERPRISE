@@ -3677,13 +3677,34 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     window.abrirModalFluxoDesarquivamento = function(id){
         const p = obterProcessoSIGEE(id); if(!p) return;
         document.getElementById('f00-id').value = p.id;
-        ['f00-tipo','f00-local','f00-prioridade'].forEach(i=>{ const el=document.getElementById(i); if(el) el.value=''; });
+        ['f00-tipo','f00-local','f00-prioridade'].forEach(i=>{ const el=document.getElementById(i); if(el){ el.value=''; el.disabled=false; } });
         const chkRecebimento=document.getElementById('f00-chk-email'); if(chkRecebimento) chkRecebimento.checked=false;
         // RC10.8.39 — o Recebimento da Pasta usa fonte autoritativa própria.
         // Não depende do cache legado usuariosDB nem das várias sobrescritas de
         // preencherSelectTecnicosPorNte existentes no app.
         const selRespDesarq = document.getElementById('f00-analista');
         const ehEscolaAtiva = String(p.escopo_tipo || '').trim().toUpperCase() === 'ESCOLA';
+        const tipoEl = document.getElementById('f00-tipo');
+        const localEl = document.getElementById('f00-local');
+        const lblResponsavel = document.getElementById('f00-label-responsavel');
+        const textoConfirmacao = document.getElementById('f00-texto-confirmacao');
+
+        // RC11.3.3 — Recebimento da pasta em Escola Ativa.
+        // Tipo e local são dados institucionais fixos da UEE; somente a prioridade
+        // permanece selecionável. A confirmação passa a representar o padrão
+        // de comunicação ao aluno para entrada em Análise.
+        if (ehEscolaAtiva) {
+            if (tipoEl) { tipoEl.value = 'Pasta'; tipoEl.disabled = true; }
+            if (localEl) { localEl.value = 'UEE'; localEl.disabled = true; }
+            if (lblResponsavel) lblResponsavel.textContent = 'Responsável pela Análise — usuários da Unidade Escolar';
+            if (textoConfirmacao) textoConfirmacao.textContent = 'CONFIRMO ENVIAR E-MAIL: 02-Aluno (Análise)';
+        } else {
+            if (tipoEl) tipoEl.disabled = false;
+            if (localEl) localEl.disabled = false;
+            if (lblResponsavel) lblResponsavel.textContent = 'Selecionar Responsável pelo Desarquivamento (Filtrado por NTE)';
+            if (textoConfirmacao) textoConfirmacao.textContent = 'CONFIRMO O RECEBIMENTO DA PASTA E O ENVIO PARA DESARQUIVAMENTO';
+        }
+
         if(selRespDesarq) selRespDesarq.dataset.sigeeTentativaResponsaveis = '0';
         if (ehEscolaAtiva && selRespDesarq) {
             // RC11.3.2 — ao localizar a pasta, a Análise deve ser atribuída somente
@@ -3698,7 +3719,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             if (selRespDesarq) selRespDesarq.disabled = false;
             window.preencherResponsaveisDesarquivamentoSIGEE?.('f00-analista', p.nte || (typeof usuarioLogado !== 'undefined' ? usuarioLogado?.nte : '') || '');
         }
-        setDisabled('f00-submit', true); setTexto('f00-submit', ehEscolaAtiva ? 'Pasta Localizada · Enviar para Análise' : 'Enviar para Desarquivamento');
+        setDisabled('f00-submit', true); setTexto('f00-submit', ehEscolaAtiva ? 'Enviar para Análise' : 'Enviar para Desarquivamento');
         if(typeof aplicarEstadoCamposDesarquivamentoSIGEE === 'function') aplicarEstadoCamposDesarquivamentoSIGEE(false);
         const cont=document.getElementById('f00-container-alertas');
         if(cont){
@@ -3719,8 +3740,9 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     window.executarTransicaoDesarquivamento = async function(event){
         event.preventDefault();
         const p = obterProcessoSIGEE(valor('f00-id')); if(!p) return;
+        const ehEscolaAtiva = String(p.escopo_tipo || '').trim().toUpperCase() === 'ESCOLA';
         if(!valor('f00-tipo') || !valor('f00-local') || !valor('f00-prioridade') || !valor('f00-analista') || !chk('f00-chk-email')){
-            alert('Preencha todos os campos obrigatórios, selecione o responsável e confirme o recebimento da pasta.');
+            alert(ehEscolaAtiva ? 'Selecione a prioridade, o responsável pela Análise e confirme o envio do e-mail ao aluno.' : 'Preencha todos os campos obrigatórios, selecione o responsável e confirme o recebimento da pasta.');
             return;
         }
 
@@ -3730,7 +3752,6 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         const localArquivo = valor('f00-local');
         const prioridade = valor('f00-prioridade');
         const responsavelDesarquivamento = valor('f00-analista');
-        const ehEscolaAtiva = String(p.escopo_tipo || '').trim().toUpperCase() === 'ESCOLA';
         const inicioSlaGlobal = p.prazo_inicio || p.created_at || recebidoEmSIGEE;
         const prazoFim = ehEscolaAtiva ? null : new Date(Date.now() + 30 * 86400000).toISOString();
         const cliente = obterSupabaseSIGEE();
@@ -3808,7 +3829,8 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                     prazo_dias: 30,
                     pasta_recebida: true,
                     sla_global_30_dias: ehEscolaAtiva,
-                    prazo_reiniciado: !ehEscolaAtiva
+                    prazo_reiniciado: !ehEscolaAtiva,
+                    email_confirmacao: ehEscolaAtiva ? '02-Aluno (Análise)' : 'Recebimento da Pasta / Desarquivamento'
                 },
                 created_at: recebidoEmSIGEE
             };
@@ -3848,7 +3870,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             console.error('[SIGEE RC11.3.1] Falha no registro da pasta:', erroSalvarPasta);
             alert(ehEscolaAtiva ? 'Não foi possível registrar a pasta e encaminhar para Análise. O SLA e os dados do processo foram preservados.' : 'Não foi possível enviar a pasta para Desarquivamento. Nenhum dado cadastral do processo foi alterado.');
             setDisabled('f00-submit', false);
-            setTexto('f00-submit', ehEscolaAtiva ? 'Pasta Localizada · Enviar para Análise' : 'Enviar para Desarquivamento');
+            setTexto('f00-submit', ehEscolaAtiva ? 'Enviar para Análise' : 'Enviar para Desarquivamento');
         }
     };
 
