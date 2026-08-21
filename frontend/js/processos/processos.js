@@ -135,6 +135,10 @@
     function isGestor(u) { return perfil(u) === 'Gestor'; }
     function isConsulta(u) { return perfil(u) === 'Consulta'; }
     function isEstagiario(u) { return perfil(u) === 'Estagiário'; }
+    function isSecretaria(u) { return perfil(u) === 'Secretaria'; }
+    function ehProcessoEscola(p) { return normalizar(p?.escopo_tipo) === 'ESCOLA'; }
+    function ehUsuarioEscola(u) { try { return window.SIGEE_ESCOPO?.contexto?.(u || usuario())?.tipo === 'ESCOLA'; } catch (_) { return normalizar((u||usuario())?.unidade_tipo) === 'ESCOLA'; } }
+    function mesmaEscolaUsuario(p,u) { const usr=u||usuario()||{}; const eid=Number(usr.escola_id||0); return !!eid && Number(p?.escola_id||0)===eid; }
     // RC11.2.1 — a autoridade de escopo não pode ser inferida apenas pelo perfil.
     // Secretaria Escolar, Gestor e demais perfis podem existir em unidades NTE ou ESCOLA.
     function isGlobal(u) {
@@ -277,6 +281,17 @@
     }
     function avaliarPrazoCentral(p) {
         const etapa = normalizar(processoEtapa(p));
+        // RC11.3.0 — Escola Ativa usa SLA global contínuo de 30 dias.
+        // A única suspensão é Pendência. dias_decorridos congela o consumo ao entrar
+        // em Pendência; prazo_inicio é reajustado ao sair para preservar o saldo.
+        if (ehProcessoEscola(p)) {
+            const limite = 30;
+            const suspenso = etapa.includes('PEND');
+            const inicio = p?.prazo_inicio || p?.created_at || p?.data_etapa_atual;
+            let dias = suspenso ? Number(p?.dias_decorridos || 0) : (inicio ? Math.max(1, diasDesde(inicio) + 1) : 0);
+            if (!Number.isFinite(dias)) dias = 0;
+            return { etapa, dias, limite, vencido: dias > limite, venceHoje: dias === limite, suspenso, slaGlobal: true };
+        }
         const calculado = window.SIGEE_PRAZO_ETAPA?.calcular?.(p, agoraWorkflow()) || null;
         const limiteOficial = prazoEtapa(etapa);
         const inicio = p && (p.data_etapa_atual || p.etapa_iniciada_em || p.prazo_inicio || p.data_etapa || p.created_at);
@@ -295,6 +310,14 @@
     }
     function prazoVisual(p) {
         const etapa = normalizar(processoEtapa(p));
+        if (ehProcessoEscola(p)) {
+            const a = avaliarPrazoCentral(p);
+            if (etapa.includes('AGUARD') || etapa === 'DEFERIDO') return `<span class="font-black text-slate-500">SLA concluído · ${a.dias}/30</span>`;
+            if (etapa.includes('RETIR') || etapa.includes('INDEFER')) return '<span class="font-black text-slate-500">FINALIZADO</span>';
+            if (a.suspenso) return `<span class="font-black text-amber-300">${a.dias}/30 · SUSPENSO</span>`;
+            const classe = a.vencido ? 'text-red-300' : a.dias >= 26 ? 'text-orange-300' : a.dias >= 21 ? 'text-amber-300' : 'text-emerald-300';
+            return `<span class="font-black ${classe}">${a.dias}/30</span>`;
+        }
         const ciclo = pertenceCicloDesarquivamento(p);
         if (ciclo) {
             const temporal = estadoTemporal(p);
@@ -498,6 +521,11 @@
                 delete payload.data_desarquivamento;
                 delete payload.data_etapa_inicial;
                 delete payload.etapa; // coluna inexistente em public.processos
+                if (ehProcessoEscola(p)) {
+                    payload.prazo_inicio = p.prazo_inicio || payload.prazo_inicio || p.created_at || new Date().toISOString();
+                    payload.prazo_etapa = 30;
+                    payload.dias_decorridos = Number(p.dias_decorridos || payload.dias_decorridos || 0);
+                }
                 if (window.SIGEE_NORMALIZACAO_NTE) window.SIGEE_NORMALIZACAO_NTE.aplicarPayload(payload);
                 return protegerDatasPayloadSIGEE(payload);
             }
@@ -561,7 +589,7 @@
             let anterior = null;
             if (p.id != null) {
                 const { data, error: erroAnterior } = await c.from(tabelaProcessos)
-                    .select('id,codigo_sigee,nte,etapa_atual,data_etapa_atual,tecnico_responsavel,workflow_instance_id,workflow_ciclo,ciclo')
+                    .select('id,codigo_sigee,nte,nte_id,escola_id,escopo_tipo,etapa_atual,data_etapa_atual,created_at,prazo_inicio,dias_decorridos,tecnico_responsavel,workflow_instance_id,workflow_ciclo,ciclo')
                     .eq('id', p.id)
                     .maybeSingle();
                 if (erroAnterior) throw erroAnterior;
@@ -573,6 +601,24 @@
             const etapaNova = texto(payload.etapa_atual);
             const mudouEtapa = anterior && etapaAnterior && etapaNova && normalizar(etapaAnterior) !== normalizar(etapaNova);
             const instanteTransicao = payload.data_etapa_atual || payload.updated_at || new Date().toISOString();
+
+            // RC11.3.0 — relógio global da Escola Ativa.
+            if (anterior && normalizar(anterior.escopo_tipo) === 'ESCOLA') {
+                const anteriorPend = normalizar(etapaAnterior).includes('PEND');
+                const novaPend = normalizar(etapaNova).includes('PEND');
+                payload.prazo_etapa = 30;
+                if (!payload.prazo_inicio) payload.prazo_inicio = anterior.prazo_inicio || anterior.created_at || instanteTransicao;
+                if (mudouEtapa && !anteriorPend && novaPend) {
+                    const ini = anterior.prazo_inicio || anterior.created_at || anterior.data_etapa_atual;
+                    payload.dias_decorridos = ini ? Math.max(1, diasDesde(ini) + 1) : Number(anterior.dias_decorridos || 0);
+                } else if (mudouEtapa && anteriorPend && !novaPend) {
+                    const consumidos = Math.max(0, Number(anterior.dias_decorridos || 0));
+                    const agora = new Date(instanteTransicao);
+                    const ajustado = new Date(agora.getTime() - Math.max(0, consumidos - 1) * 86400000);
+                    payload.prazo_inicio = ajustado.toISOString();
+                    payload.dias_decorridos = consumidos;
+                }
+            }
 
             if (mudouEtapa) {
                 const u = usuario() || {};
@@ -819,16 +865,18 @@
     function podeMovimentar(p) {
         const u = usuario();
         if (isMaster(u)) return true;
-        if (isAdmin(u) || isTecnico(u)) return mesmoNte(nteUsuario(u), processoNte(p));
+        if (ehUsuarioEscola(u) && (isSecretaria(u) || isGestor(u))) return ehProcessoEscola(p) && mesmaEscolaUsuario(p,u);
+        if (isAdmin(u) || isTecnico(u)) return !ehProcessoEscola(p) && mesmoNte(nteUsuario(u), processoNte(p));
         return false; // SEC, Consulta e Estagiário não movimentam
     }
     function acaoFluxo(p) {
         if (isSEC(usuario())) return '<span class="text-gray-400 font-bold">Supervisão SEC</span>';
-        if (isGestor(usuario())) return '<span class="text-gray-400 font-bold">Consulta Gestor</span>';
+        if (isGestor(usuario()) && !ehUsuarioEscola(usuario())) return '<span class="text-gray-400 font-bold">Consulta Gestor</span>';
         if (isConsulta(usuario())) return '<span class="text-gray-400 font-bold">Consulta</span>';
         if (isEstagiario(usuario())) return '<span class="text-gray-400 font-bold">Consulta</span>';
         if (!podeMovimentar(p)) return '<span class="text-gray-400 font-bold">Sem ação</span>';
         const e = normalizar(processoEtapa(p));
+        if (ehProcessoEscola(p) && e.includes('DESARQ')) return `<button onclick="iniciarAnaliseEscolaAtivaSIGEE(${p.id})" class="sigee-btn-acao sigee-acao-analise">Iniciar Análise</button>`;
         if (e.includes('ANAL')) return `<button onclick="abrirAnaliseSIGEE(${p.id})" class="sigee-btn-acao sigee-acao-analise">Abrir Análise</button>`;
         if (e.includes('PEND')) return `<button onclick="abrirPendenciaSIGEE(${p.id})" class="sigee-btn-acao sigee-acao-pendencia sigee-btn-tratar-pendencia">Tratar Pendência</button>`;
         if (e.includes('INDEFER')) return '<span class="text-red-300 font-bold">Finalizado</span>';
@@ -859,6 +907,14 @@
 
         return `<button onclick="abrirModalFluxoDesarquivamento(${p.id}, 'DESARQUIVAMENTO')" class="sigee-btn-acao sigee-acao-documento-recebido">Documento Recebido</button>`;
     }
+
+    window.iniciarAnaliseEscolaAtivaSIGEE = async function(id) {
+        const p = processosDB.find(x => String(x.id) === String(id));
+        if (!p || !ehProcessoEscola(p) || !podeMovimentar(p)) return;
+        p.etapa = 'Análise'; p.etapa_atual = 'Análise'; p.data_etapa_atual = new Date().toISOString();
+        p.prazo_inicio = p.prazo_inicio || p.created_at || new Date().toISOString(); p.prazo_etapa = 30;
+        await salvarProcesso(p); renderizarProcessos();
+    };
 
     function renderizarProcessos() {
         const corpo = document.getElementById('tabela-processos-corpo');

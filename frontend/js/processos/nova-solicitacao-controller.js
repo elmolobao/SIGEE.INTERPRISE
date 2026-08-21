@@ -422,7 +422,7 @@
     const politica = validarPoliticaEscola(escola);
     if (!politica.ok) {
       limparIdentidadeEscola();
-      if (botao) { botao.disabled = true; botao.textContent = 'Enviar para Desarquivamento'; }
+      if (botao) { botao.disabled = true; botao.textContent = contextoEscopo().tipo === 'ESCOLA' ? 'Criar Solicitação' : 'Enviar para Desarquivamento'; }
       alert(politica.motivo);
       return;
     }
@@ -479,7 +479,7 @@
     if (contextoEscopo().tipo === 'ESCOLA') modoVisualEscolaVinculada(true, e);
     if (botao) {
       botao.disabled = false;
-      botao.textContent = 'Enviar para Desarquivamento';
+      botao.textContent = contextoEscopo().tipo === 'ESCOLA' ? 'Criar Solicitação' : 'Enviar para Desarquivamento';
     }
   }
 
@@ -499,7 +499,7 @@
     if (form) delete form.dataset.sigeeEnviando;
     if (botao) {
       botao.disabled = true;
-      botao.textContent = 'Enviar para Desarquivamento';
+      botao.textContent = contextoEscopo().tipo === 'ESCOLA' ? 'Criar Solicitação' : 'Enviar para Desarquivamento';
     }
   }
 
@@ -649,7 +649,7 @@
       alert('Não foi possível validar a duplicidade com segurança. O cadastro foi interrompido. Tente novamente.');
       if (botao) {
         botao.disabled = false;
-        botao.textContent = 'Enviar para Desarquivamento';
+        botao.textContent = contextoEscopo().tipo === 'ESCOLA' ? 'Criar Solicitação' : 'Enviar para Desarquivamento';
       }
       return false;
     }
@@ -657,7 +657,7 @@
     if (!permitido) {
       if (botao) {
         botao.disabled = false;
-        botao.textContent = 'Enviar para Desarquivamento';
+        botao.textContent = contextoEscopo().tipo === 'ESCOLA' ? 'Criar Solicitação' : 'Enviar para Desarquivamento';
       }
       return false;
     }
@@ -667,7 +667,7 @@
       alert('A rotina de gravação da Nova Solicitação não está disponível.');
       if (botao) {
         botao.disabled = false;
-        botao.textContent = 'Enviar para Desarquivamento';
+        botao.textContent = contextoEscopo().tipo === 'ESCOLA' ? 'Criar Solicitação' : 'Enviar para Desarquivamento';
       }
       return false;
     }
@@ -687,7 +687,7 @@
       delete form.dataset.sigeeEnviando;
       if (botao && !campo('modal-nova-solicitacao')?.classList.contains('hidden')) {
         botao.disabled = false;
-        botao.textContent = 'Enviar para Desarquivamento';
+        botao.textContent = contextoEscopo().tipo === 'ESCOLA' ? 'Criar Solicitação' : 'Enviar para Desarquivamento';
       }
     }
   }
@@ -711,7 +711,7 @@
     window.abrirFormularioNovaSolicitacao = abrir;
     window.fecharModalNovaSolicitacao = fechar;
     window.handleSelecaoInstituicaoFluxoAutomatico = () => !!texto(campo('novo-proc-escola-id')?.value);
-    window.SIGEE_NOVA_SOLICITACAO_CONTROLLER = { abrir, fechar, limpar: resetarFormulario, selecionarEscola, validarPoliticaEscola, versao: 'RC11.2.6' };
+    window.SIGEE_NOVA_SOLICITACAO_CONTROLLER = { abrir, fechar, limpar: resetarFormulario, selecionarEscola, validarPoliticaEscola, versao: 'RC11.3.0' };
 
     // Defesa de autoridade: builds legados reaplicavam o autocomplete em timers tardios.
     // Reafirma o controlador canônico sem reconstruir o modal ou apagar dados digitados.
