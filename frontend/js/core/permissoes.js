@@ -1,5 +1,5 @@
 /**
- * SIGEE Enterprise RC5.4.3 — Matriz oficial de capacidades.
+ * SIGEE Enterprise RC11.3.6 — Matriz oficial de capacidades e regras contextuais.
  * Capacidades definem o que o perfil faz; SIGEE_ESCOPO define onde a ação vale.
  */
 (function(window){
@@ -39,7 +39,7 @@ const C=Object.freeze({
     'processos.visualizar':1,'processos.criar':1,'indicadores.visualizar':1,'escolas.visualizar':1
   }),
   'Estagiário':Object.freeze({
-    'processos.visualizar':1,'processos.criar':1,'indicadores.visualizar':1,'escolas.visualizar':1
+    'processos.visualizar':1,'indicadores.visualizar':1,'escolas.visualizar':1
   }),
   Consulta:Object.freeze({
     'processos.visualizar':1,'indicadores.visualizar':1,'escolas.visualizar':1
@@ -65,6 +65,31 @@ function can(action,target){
  return Boolean(C[p]?.[cap]);
 }
 function requireCapability(action,target,message){if(can(action,target))return true;if(message!==false)alert(message||'Seu perfil não possui permissão para esta ação.');return false;}
+function scopeContext(target){
+ const u=user(target);
+ try{return window.SIGEE_ESCOPO?.contexto?.(u)||null;}catch(_){return null;}
+}
+function schoolUser(target){const c=scopeContext(target),u=user(target);return c?.tipo==='ESCOLA'||String(u?.unidade_tipo||'').toUpperCase()==='ESCOLA';}
+function sameSchool(process,target){const u=user(target);return Number(u?.escola_id||0)>0&&Number(process?.escola_id||0)===Number(u?.escola_id||0)&&String(process?.escopo_tipo||'').toUpperCase()==='ESCOLA';}
+function sameNte(process,target){const u=user(target),uid=Number(u?.nte_id||0),pid=Number(process?.nte_id||0);return uid>0&&pid>0&&uid===pid&&String(process?.escopo_tipo||'NTE').toUpperCase()!=='ESCOLA';}
+function canMoveProcess(process,target){
+ const u=user(target),p=profile(u);
+ if(p==='Master')return true;
+ if(['SEC','Consulta','Estagiário','Atendimento'].includes(p))return false;
+ if(schoolUser(u)){
+   return ['Secretaria','Gestor','Administrador','Técnico'].includes(p)&&sameSchool(process,u);
+ }
+ return ['Administrador','Técnico'].includes(p)&&sameNte(process,u);
+}
+function canCreateProcess(target){
+ const u=user(target),p=profile(u);
+ if(p==='Master')return true;
+ if(['SEC','Consulta','Estagiário'].includes(p))return false;
+ if(schoolUser(u))return ['Secretaria','Gestor','Administrador','Técnico'].includes(p)&&Number(u?.escola_id||0)>0;
+ return ['Administrador','Técnico','Atendimento'].includes(p)&&Number(u?.nte_id||0)>0;
+}
+function readOnly(target){const p=profile(target);return ['SEC','Consulta','Estagiário'].includes(p);}
+
 function apply(){
  const u=user();if(!u||!document.body)return false;
  const p=profile(u);document.body.dataset.sigeePerfil=p;
@@ -72,5 +97,5 @@ function apply(){
  document.body.dataset.sigeeEscopo=contexto?.tipo || (can('escopo.global',u)?'GLOBAL':'NTE');
  return true;
 }
-window.SIGEE_PERMISSOES=Object.freeze({MATRIZ:C,LEGADO,pode:can,exigir:requireCapability,aplicar:apply,perfil:profile,capacidade:capability,gestorSecGlobal,versao:'GT-01.0'});
+window.SIGEE_PERMISSOES=Object.freeze({MATRIZ:C,LEGADO,pode:can,exigir:requireCapability,aplicar:apply,perfil:profile,capacidade:capability,gestorSecGlobal,contexto:scopeContext,usuarioEscola:schoolUser,mesmaEscola:sameSchool,mesmoNte:sameNte,podeMovimentarProcesso:canMoveProcess,podeCriarProcesso:canCreateProcess,somenteLeitura:readOnly,versao:'RC11.3.6'});
 })(window);

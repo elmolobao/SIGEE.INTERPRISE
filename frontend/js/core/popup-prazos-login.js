@@ -85,7 +85,7 @@
       const contexto = window.SIGEE_ESCOPO?.contexto?.(usuario);
       if (contexto) return contexto;
     } catch (_) {}
-    const global = perfilMaster(usuario) || normalizar(usuario?.perfil).includes('SEC');
+    const global = perfilMaster(usuario) || normalizar(usuario?.perfil)==='SEC';
     return { global, nte: usuario?.nte || usuario?.nte_nome || '', nteId: Number(nteCanonico(usuario?.nte || usuario?.nte_nome) || 0) || null };
   }
   function nteConsultaOficial(usuario) {
@@ -242,7 +242,7 @@
     );
   }
   function dentroEscopo(p, usuario) {
-    if (perfilMaster(usuario) || normalizar(usuario?.perfil).includes('SEC')) return true;
+    if (perfilMaster(usuario) || normalizar(usuario?.perfil)==='SEC') return true;
     return mesmoNte(p?.nte || p?.nte_nome, usuario?.nte || usuario?.nte_nome);
   }
 

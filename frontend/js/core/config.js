@@ -71,7 +71,8 @@
       return window.SIGEE_PERFIS.chave(value) || null;
     }
     const token = normalizarToken(value);
-    if (token === 'SEC' || token.includes('SECRETARIA')) return PERFIS.SEC;
+    if (token === 'SEC') return PERFIS.SEC;
+    if (token.includes('SECRETARIA')) return PERFIS.SECRETARIA || 'SECRETARIA';
     if (token.includes('MASTER')) return PERFIS.MASTER;
     if (token.includes('GESTOR') || token.includes('DIRIGENTE')) return PERFIS.GESTOR;
     if (token.includes('ADMIN')) return PERFIS.ADMINISTRADOR;

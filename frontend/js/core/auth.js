@@ -7,7 +7,7 @@
 
   const SENHA_PADRAO = 'SEC@2026';
   const PROFILE_MAP = Object.freeze({
-    MASTER: 'Master', SEC: 'SEC', ADMINISTRADOR: 'Administrador', ADMINISTRATOR: 'Administrador',
+    MASTER: 'Master', SEC: 'SEC', SECRETARIA: 'Secretaria', ADMINISTRADOR: 'Administrador', ADMINISTRATOR: 'Administrador',
     TECNICO: 'Técnico', ESTAGIARIO: 'Estagiário', GESTOR: 'Gestor', DIRIGENTE: 'Gestor', CONSULTA: 'Consulta'
   });
 
@@ -22,7 +22,8 @@
     if (!key) return '';
     if (PROFILE_MAP[key]) return PROFILE_MAP[key];
     if (key.includes('MASTER')) return 'Master';
-    if (key === 'SEC' || key.includes('SECRETARIA')) return 'SEC';
+    if (key === 'SEC') return 'SEC';
+    if (key.includes('SECRETARIA')) return 'Secretaria';
     if (key.includes('ADMIN')) return 'Administrador';
     if (key.includes('TECNIC')) return 'Técnico';
     if (key.includes('ESTAG')) return 'Estagiário';
