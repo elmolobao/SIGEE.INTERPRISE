@@ -378,15 +378,15 @@
 <input id="f00-id" type="hidden"/>
 <div class="hidden space-y-2" id="f00-container-alertas"></div>
 <div>
-<label class="block text-xs font-bold text-gray-700 uppercase mb-1">Tipo de Arquivo</label>
+<label class="block text-xs font-bold text-gray-700 uppercase mb-1" id="f00-label-tipo">Tipo de Arquivo</label>
 <select class="w-full p-2 border rounded-lg text-xs font-medium focus:outline-none bg-gray-50" id="f00-tipo" required="">
 <option value="">-- Selecione o Tipo de Arquivo --</option> <option value="Pasta">Pasta</option> <option value="Atas">Atas</option> <option value="Cadernetas">Cadernetas</option> <option value="Folha de Ponto">Folha de Ponto</option> <option value="Boletim">Boletim</option> <option value="Parecer">Parecer</option>
 </select>
 </div>
 <div>
-<label class="block text-xs font-bold text-gray-700 uppercase mb-1">Local do Arquivo</label>
+<label class="block text-xs font-bold text-gray-700 uppercase mb-1" id="f00-label-local">Local do Arquivo</label>
 <select class="w-full p-2 border rounded-lg text-xs font-medium focus:outline-none bg-gray-50" id="f00-local" required="">
-<option value="">-- Selecione o Local do Arquivo --</option> <option value="GLPI">GLPI</option> <option value="E-mail">E-mail</option> <option value="E-DOC">E-DOC</option> <option value="SIGEDUC">SIGEDUC</option> <option value="NTE">NTE</option>
+<option value="">-- Selecione o Local do Arquivo --</option> <option value="UEE">UEE</option> <option value="GLPI">GLPI</option> <option value="E-mail">E-mail</option> <option value="E-DOC">E-DOC</option> <option value="SIGEDUC">SIGEDUC</option> <option value="NTE">NTE</option>
 </select>
 </div>
 <div>
@@ -396,13 +396,13 @@
 </select>
 </div>
 <div>
-<label class="block text-xs font-bold text-gray-700 uppercase mb-1">Selecionar Responsável pelo Desarquivamento (Filtrado por NTE)</label>
+<label class="block text-xs font-bold text-gray-700 uppercase mb-1" id="f00-label-responsavel">Selecionar Responsável pelo Desarquivamento (Filtrado por NTE)</label>
 <select class="w-full p-2 border rounded-lg text-xs font-medium focus:outline-none bg-gray-50" id="f00-analista" required=""></select>
 </div>
 <div class="bg-amber-50 p-3 rounded-lg border border-amber-200">
 <label class="flex items-start gap-2 cursor-pointer text-xs font-semibold text-amber-950">
 <input class="mt-0.5" id="f00-chk-email" onchange="toggleBotaoHabilitar('f00-chk-email', 'f00-submit')" required="" type="checkbox"/>
-<span>CONFIRMO O RECEBIMENTO DA PASTA E O ENVIO PARA DESARQUIVAMENTO</span>
+<span id="f00-texto-confirmacao">CONFIRMO O RECEBIMENTO DA PASTA E O ENVIO PARA DESARQUIVAMENTO</span>
 </label>
 </div>
 <div class="flex justify-end gap-2 border-t pt-3">
@@ -762,12 +762,12 @@
 <script src="js/components/WorkflowActionModal.js?v=RC10.8.9"></script>
 <script src="js/core/normalizacao-nte.js?v=RC5.2.0"></script>
 <script>window.__SIGEE_ARQUITETURA_DADOS_MODERNA__ = true;</script>
-<script src="js/app/app.js?v=RC11.3.2"></script>
+<script src="js/app/app.js?v=RC11.3.3"></script>
 <script src="js/usuarios/diretorio-responsaveis.js?v=RC10.8.41"></script>
 <script src="js/core/login-controller.js?v=RC10.8.17"></script>
 <script src="js/core/workflow-temporal-resolver.js?v=RC10.8.34"></script>
 <script src="js/core/popup-prazos-login.js?v=RC10.8.20"></script>
-<script src="js/processos/processos.js?v=RC11.3.2"></script>
+<script src="js/processos/processos.js?v=RC11.3.3"></script>
 <script src="js/migracao/migracao-historica.js?v=RC7.1.2"></script>
 <script src="js/migracao/motor-persistencia.js?v=M5.2.2"></script>
 <script src="js/migracao/importacao-oficial.js?v=M5.2.2"></script>
