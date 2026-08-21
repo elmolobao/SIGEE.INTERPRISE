@@ -2421,7 +2421,13 @@
   function txt(v){ return v === null || v === undefined ? '' : String(v).trim(); }
   function norm(v){ return txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase(); }
   function esc(v){ return txt(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c])); }
-  function usuario(){ return window.usuarioLogado || {}; }
+  // RC11.3.4 — o workflow operacional deve usar a sessão canônica.
+  // Evita perder unidade_tipo/escola_id ao cair no objeto legado usuarioLogado.
+  function usuario(){ return window.SIGEE_SESSION?.getUser?.() || window.usuarioLogado || {}; }
+  // RC11.3.4 — definição local obrigatória dentro deste IIFE. A versão anterior
+  // chamava ehProcessoEscola() sem a função existir neste escopo, interrompendo
+  // o carregamento dos responsáveis e impedindo inclusive o binding do Cancelar.
+  function ehProcessoEscola(p){ return norm(p?.escopo_tipo) === 'ESCOLA'; }
   function somenteLeitura(){ const p=norm(usuario().perfil); return p.includes('ESTAG') || p.includes('CONSULT'); }
   function processos(){ return Array.isArray(window.processosDB) ? window.processosDB : []; }
   function processo(id){ return processos().find(p=>String(p.id)===String(id)); }
@@ -2439,7 +2445,12 @@
     el.className='sigee-modal33-backdrop';
     el.innerHTML=`<section class="sigee-modal33 workflow093 sigee-wf-etapa-${etapa}"><header class="sigee-modal33-header"><h2>${titulo}</h2><button type="button" data-fechar093>×</button></header><div class="sigee-modal33-body">${conteudo}</div></section>`;
     document.body.appendChild(el);
-    el.addEventListener('click',e=>{ if(e.target===el || e.target.closest('[data-fechar093]')) fechar(); });
+    // RC11.3.4 — fechamento delegado já no nascimento do modal.
+    // Assim Cancelar funciona mesmo enquanto a lista de responsáveis ainda carrega
+    // ou se uma consulta assíncrona falhar antes dos listeners específicos.
+    el.addEventListener('click',e=>{
+      if(e.target===el || e.target.closest('[data-fechar093]') || e.target.closest('[data-cancelar093]')) fechar();
+    });
     return el;
   }
   function toast(msg){ if(typeof window.mostrarToast==='function') return window.mostrarToast(msg); alert(msg); }
@@ -2447,7 +2458,19 @@
     return txt(p.tecnico_responsavel_nome||p.tecnico_responsavel||p.responsavel_nome||p.responsavel||p.analista_nome||p.analista||p.digitador_nome||p.digitador||p.conferente_nome||p.conferente)||'Não atribuído';
   }
   function prazoAtual(p){
-    const etapa=norm(p.etapa_atual||p.etapa); const inicio=p.data_etapa_atual||p.prazo_inicio||p.created_at;
+    const etapa=norm(p.etapa_atual||p.etapa);
+    // RC11.3.4 — Escola Ativa sempre exibe o SLA global de 30 dias.
+    // O relógio nasce na abertura, continua entre Desarquivamento/Análise/
+    // Digitação/Conferência/Assinatura e só é suspenso em Pendência.
+    if(ehProcessoEscola(p)){
+      const suspenso=etapa.includes('PEND');
+      const concluido=etapa==='DEFERIDO'||etapa.includes('AGUARD')||etapa.includes('RETIR')||etapa.includes('INDEFER');
+      const inicio=p.prazo_inicio||p.created_at||p.data_etapa_atual;
+      let dias=(suspenso||concluido)&&Number(p.dias_decorridos||0)>0?Number(p.dias_decorridos):0;
+      if(!dias && inicio){ const d=new Date(inicio); if(!Number.isNaN(d.getTime())) dias=Math.max(1,Math.floor((Date.now()-d.getTime())/86400000)+1); }
+      return `${dias}/30 dias${suspenso?' · suspenso':''}`;
+    }
+    const inicio=p.data_etapa_atual||p.prazo_inicio||p.created_at;
     let dias=0; if(inicio){ const d=new Date(inicio); if(!Number.isNaN(d.getTime())) dias=Math.max(0,Math.floor((Date.now()-d.getTime())/86400000)); }
     const limite=etapa.includes('ANAL')?7:etapa.includes('DIGIT')?15:etapa.includes('CONFER')?10:etapa.includes('ASSIN')?7:(p.prazo_etapa||null);
     return limite?`${dias}/${limite} dias`:`${dias} dias`;
