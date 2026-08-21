@@ -2954,7 +2954,7 @@
   'use strict';
 
   const PERFIS = Object.freeze({
-    MASTER: 'Master', SEC: 'SEC', GESTOR: 'Gestor', ADMIN: 'Administrador',
+    MASTER: 'Master', SEC: 'SEC', SECRETARIA: 'Secretaria', GESTOR: 'Gestor', ADMIN: 'Administrador',
     TECNICO: 'Técnico', ESTAGIARIO: 'Estagiário', CONSULTA: 'Consulta'
   });
 
@@ -2965,7 +2965,8 @@
   function normalizarPerfil(valor) {
     const p = semAcento(valor);
     if (p === 'MASTER' || p.includes('MASTER')) return PERFIS.MASTER;
-    if (p === 'SEC' || p.includes('SECRETARIA')) return PERFIS.SEC;
+    if (p === 'SEC') return PERFIS.SEC;
+    if (p.includes('SECRETARIA')) return PERFIS.SECRETARIA;
     if (p.includes('GESTOR') || p.includes('DIRIGENTE')) return PERFIS.GESTOR;
     if (p.includes('ADMINISTRATOR') || p.includes('ADMINISTRADOR') || p === 'ADMIN') return PERFIS.ADMIN;
     if (p.includes('ESTAG')) return PERFIS.ESTAGIARIO;
@@ -2978,8 +2979,27 @@
     return normalizarPerfil((window.usuarioLogado || {}).perfil);
   }
 
-  function podeOperarWorkflow() {
-    return [PERFIS.MASTER, PERFIS.ADMIN, PERFIS.TECNICO].includes(perfilAtual());
+  function usuarioEscolaAtual() {
+    const u = window.usuarioLogado || {};
+    return semAcento(u.unidade_tipo) === 'ESCOLA' && Boolean(u.escola_id);
+  }
+
+  function processoEscola(p) {
+    return semAcento(p && p.escopo_tipo) === 'ESCOLA' && Boolean(p && p.escola_id);
+  }
+
+  function mesmaEscolaAtual(p) {
+    const u = window.usuarioLogado || {};
+    return usuarioEscolaAtual() && processoEscola(p) && String(u.escola_id) === String(p.escola_id);
+  }
+
+  function podeOperarWorkflow(p) {
+    const perfil = perfilAtual();
+    if (perfil === PERFIS.MASTER) return true;
+    if (usuarioEscolaAtual() && [PERFIS.SECRETARIA, PERFIS.GESTOR, PERFIS.ADMIN, PERFIS.TECNICO].includes(perfil)) {
+      return mesmaEscolaAtual(p);
+    }
+    return [PERFIS.ADMIN, PERFIS.TECNICO].includes(perfil) && !processoEscola(p);
   }
 
   function texto(v) { return String(v == null ? '' : v).trim(); }
@@ -3004,7 +3024,7 @@
 
   function validarDestino(p) {
     const e = semAcento(etapa(p));
-    if (!podeOperarWorkflow() && !migrado(p)) {
+    if (!podeOperarWorkflow(p) && !migrado(p)) {
       throw new Error('Seu perfil possui acesso somente para consulta e não pode movimentar processos.');
     }
     if (e === 'PENDENCIA') {
