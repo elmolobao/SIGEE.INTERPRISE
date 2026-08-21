@@ -3617,34 +3617,51 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
         return lista;
     };
 
-    // RC11.3.2 — diretório canônico da unidade escolar.
-    // Para processos de Escola Ativa, qualquer seleção de responsável operacional
-    // deve ser restrita aos usuários ATIVOS vinculados à MESMA escola_id.
-    window.SIGEE_RESPONSAVEIS_UNIDADE_ESCOLA = window.SIGEE_RESPONSAVEIS_UNIDADE_ESCOLA || {
+    // RC11.3.4 — diretório canônico e resiliente da unidade escolar.
+    // A autoridade é escola_id. A consulta oficial ao Supabase é combinada com a
+    // sessão canônica e caches locais somente como contingência; todos os candidatos
+    // passam novamente pelo filtro rígido da MESMA unidade escolar.
+    window.SIGEE_RESPONSAVEIS_UNIDADE_ESCOLA = {
         async listar(escolaId){
             const id = Number(escolaId || 0);
             if(!id) return {ok:false, lista:[], erro:new Error('Escola vinculada não identificada.')};
+            const normP = v => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toUpperCase();
+            const perfisPorId = {2:'Administrador',3:'Técnico',10:'Gestor',11:'Secretaria',12:'Estagiário'};
+            const mapa = new Map();
+            const adicionar = u => {
+                if(!u) return;
+                const escolaUsuario=Number(u.escola_id || 0);
+                const unidade=normP(u.unidade_tipo);
+                const perfilTexto=String(u.perfil || u.perfil_nome || perfisPorId[Number(u.perfil_acesso_id)] || '').trim();
+                const perfil=normP(perfilTexto);
+                const ativoAtual = u.ativo !== false && u.ativo !== 0;
+                const ativoLegado = u.Ativo !== false && u.Ativo !== 0;
+                const operacional=['ADMINISTRADOR','TECNICO','GESTOR','SECRETARIA','ESTAGIARIO'].includes(perfil);
+                if(!ativoAtual || !ativoLegado || unidade!=='ESCOLA' || escolaUsuario!==id || !operacional) return;
+                const nome=String(u.nome || u.nome_completo || u.email || '').trim();
+                if(!nome) return;
+                const chave=String(u.id || u.email || nome).toUpperCase();
+                mapa.set(chave,{...u,nome,perfil:perfilTexto});
+            };
+
+            let erroConsulta=null;
             try{
                 const c = typeof obterSupabaseSIGEE === 'function' ? obterSupabaseSIGEE() : null;
                 if(!c) throw new Error('Cliente Supabase indisponível.');
                 const {data,error} = await c.from('usuarios_sigee').select('*').eq('escola_id', id);
                 if(error) throw error;
-                const normP = v => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toUpperCase();
-                const lista = (data || []).filter(u => {
-                    const ativo = u.ativo !== false && u.Ativo !== false;
-                    const unidade = normP(u.unidade_tipo);
-                    const perfil = normP(u.perfil);
-                    const mesma = Number(u.escola_id || 0) === id;
-                    const operacional = !['CONSULTA','MASTER','SEC'].includes(perfil);
-                    return ativo && unidade === 'ESCOLA' && mesma && operacional;
-                }).map(u => ({...u, nome:String(u.nome || u.email || '').trim()}))
-                  .filter(u => u.nome)
-                  .sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR'));
-                return {ok:true, lista};
+                (data || []).forEach(adicionar);
             }catch(erro){
-                console.error('[SIGEE RC11.3.2] Falha ao listar responsáveis da unidade escolar.', erro);
-                return {ok:false, lista:[], erro};
+                erroConsulta=erro;
+                console.warn('[SIGEE RC11.3.4] Consulta oficial da unidade indisponível; usando contingência restrita à escola.', erro);
             }
+
+            try { adicionar(window.SIGEE_SESSION?.getUser?.()); } catch(_) {}
+            try { adicionar(window.usuarioLogado); } catch(_) {}
+            try { (Array.isArray(window.usuariosDB)?window.usuariosDB:[]).forEach(adicionar); } catch(_) {}
+
+            const lista=[...mapa.values()].sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR'));
+            return {ok:lista.length>0 || !erroConsulta, lista, erro:lista.length?null:erroConsulta};
         },
         async preencherSelect(select, escolaId, placeholder='-- Selecione o Servidor --'){
             if(!select) return {ok:false,lista:[],erro:new Error('Select não informado.')};
