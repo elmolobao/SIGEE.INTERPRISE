@@ -533,6 +533,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                 ultimo_evento_workflow: p.ultimo_evento_workflow || null,
                 ultima_mensagem_workflow: p.ultima_mensagem_workflow || null,
                 contexto_analise: p.contexto_analise || null,
+                dias_decorridos: Number(p.dias_decorridos || 0),
                 updated_at: p.updated_at || new Date().toISOString()
             };
         }
@@ -3334,8 +3335,11 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                         documento: docTipo,
                         modalidade: modalidade,
                         ensino: ensino,
-                        etapa: 'Desarquivamento',
+                        etapa: escopoPersistido === 'ESCOLA' ? 'Análise' : 'Desarquivamento',
                         data_etapa_atual: dataHoje,
+                        prazo_inicio: escopoPersistido === 'ESCOLA' ? new Date().toISOString() : null,
+                        prazo_etapa: escopoPersistido === 'ESCOLA' ? 30 : null,
+                        dias_decorridos: 0,
                         nte: nteVinculo,
                         municipio: municipio,
                         cod_mec: mec,
@@ -3385,7 +3389,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                         documento_solicitado: docTipo,
                         oferta_nivel: ensino,
                         oferta_modalidade: modalidade,
-                        fase_atual: 'Desarquivamento',
+                        fase_atual: escopoPersistido === 'ESCOLA' ? 'Análise' : 'Desarquivamento',
                         cod_mec: mec,
                         tecnico_responsavel: usuarioLogado?.nome || '',
                         prioridade: 'Normal'
@@ -3433,8 +3437,8 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
                     if(typeof carregarEContarProcessosHorizontais === 'function') carregarEContarProcessosHorizontais();
                     if(typeof carregarDadosDashboardReal === 'function') carregarDadosDashboardReal();
                 } catch(e) {
-                    console.error('Erro ao enviar para Desarquivamento:', e);
-                    alert('Não foi possível enviar para Desarquivamento. Detalhe: ' + (e?.message || e));
+                    console.error('Erro ao criar nova solicitação:', e);
+                    alert('Não foi possível criar a solicitação. Detalhe: ' + (e?.message || e));
                 } finally {
                     if(botao){ botao.innerText = textoOriginal; }
                     setTimeout(aplicarStatusBotaoNovaSolicitacaoV25, 50);
@@ -3700,7 +3704,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
 
             Object.assign(p, atualizacaoOperacional, {
                 etapa: 'Desarquivamento',
-                fase_atual: 'Desarquivamento',
+                fase_atual: escopoPersistido === 'ESCOLA' ? 'Análise' : 'Desarquivamento',
                 tipo_arquivo: tipoArquivo,
                 local_arquivo: localArquivo,
                 responsavel: responsavelDesarquivamento,
