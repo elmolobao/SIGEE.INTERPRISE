@@ -34,6 +34,9 @@
 
     function pertenceCicloDesarquivamento(etapaOuProcesso) {
         const p = etapaOuProcesso && typeof etapaOuProcesso === 'object' ? etapaOuProcesso : null;
+        // RC11.3.1 — Escola Ativa possui a etapa Desarquivamento, porém NÃO participa
+        // do ciclo externo de Reiteração / Urgência / Confirmação / Atas.
+        if (p && ehProcessoEscola(p)) return false;
         const codigo = normalizar(p && p.etapa_codigo);
         if (['DES', 'RET', 'REU', 'CFD'].includes(codigo)) return true;
         const etapa = p ? processoEtapa(p) : etapaOuProcesso;
@@ -281,16 +284,20 @@
     }
     function avaliarPrazoCentral(p) {
         const etapa = normalizar(processoEtapa(p));
-        // RC11.3.0 — Escola Ativa usa SLA global contínuo de 30 dias.
+        // RC11.3.1 — Escola Ativa usa SLA global contínuo de 30 dias desde a abertura,
+        // incluindo Desarquivamento, Análise, Digitação, Conferência e Assinatura.
         // A única suspensão é Pendência. dias_decorridos congela o consumo ao entrar
         // em Pendência; prazo_inicio é reajustado ao sair para preservar o saldo.
         if (ehProcessoEscola(p)) {
             const limite = 30;
             const suspenso = etapa.includes('PEND');
+            const concluido = etapa === 'DEFERIDO' || etapa.includes('AGUARD') || etapa.includes('RETIR') || etapa.includes('INDEFER');
             const inicio = p?.prazo_inicio || p?.created_at || p?.data_etapa_atual;
-            let dias = suspenso ? Number(p?.dias_decorridos || 0) : (inicio ? Math.max(1, diasDesde(inicio) + 1) : 0);
+            let dias = (suspenso || concluido) && Number(p?.dias_decorridos || 0) > 0
+                ? Number(p.dias_decorridos)
+                : (inicio ? Math.max(1, diasDesde(inicio) + 1) : 0);
             if (!Number.isFinite(dias)) dias = 0;
-            return { etapa, dias, limite, vencido: dias > limite, venceHoje: dias === limite, suspenso, slaGlobal: true };
+            return { etapa, dias, limite, vencido: dias > limite, venceHoje: dias === limite, suspenso, concluido, slaGlobal: true };
         }
         const calculado = window.SIGEE_PRAZO_ETAPA?.calcular?.(p, agoraWorkflow()) || null;
         const limiteOficial = prazoEtapa(etapa);
@@ -420,7 +427,7 @@
         const etapa = filtroEtapaModulo || (typeof etapaFiltroAtual !== 'undefined' ? etapaFiltroAtual : 'TODOS');
         if (etapa && etapa !== 'TODOS') {
             if (normalizar(etapa) === 'DESARQUIVAMENTO') {
-                lista = lista.filter(p => pertenceCicloDesarquivamento(p));
+                lista = lista.filter(p => normalizar(processoEtapa(p)) === 'DESARQUIVAMENTO' || pertenceCicloDesarquivamento(p));
             } else {
                 lista = lista.filter(p => normalizar(processoEtapa(p)) === normalizar(etapa));
             }
@@ -602,7 +609,7 @@
             const mudouEtapa = anterior && etapaAnterior && etapaNova && normalizar(etapaAnterior) !== normalizar(etapaNova);
             const instanteTransicao = payload.data_etapa_atual || payload.updated_at || new Date().toISOString();
 
-            // RC11.3.0 — relógio global da Escola Ativa.
+            // RC11.3.1 — relógio global da Escola Ativa, iniciado na abertura do processo e contínuo até a conclusão da Assinatura.
             if (anterior && normalizar(anterior.escopo_tipo) === 'ESCOLA') {
                 const anteriorPend = normalizar(etapaAnterior).includes('PEND');
                 const novaPend = normalizar(etapaNova).includes('PEND');
@@ -617,6 +624,14 @@
                     const ajustado = new Date(agora.getTime() - Math.max(0, consumidos - 1) * 86400000);
                     payload.prazo_inicio = ajustado.toISOString();
                     payload.dias_decorridos = consumidos;
+                }
+
+                // O SLA termina na conclusão da produção (saída da Assinatura para
+                // Deferido/Aguardando Retirada). A retirada não aumenta o tempo total.
+                const etapaFinalizaSla = ['DEFERIDO', 'AGUARDANDO RETIRADA', 'RETIRADO', 'INDEFERIDO'].includes(normalizar(etapaNova));
+                if (mudouEtapa && etapaFinalizaSla && !novaPend) {
+                    const ini = anterior.prazo_inicio || anterior.created_at || anterior.data_etapa_atual;
+                    payload.dias_decorridos = ini ? Math.max(1, Math.floor((new Date(instanteTransicao) - new Date(ini)) / 86400000) + 1) : Number(anterior.dias_decorridos || 0);
                 }
             }
 
@@ -804,7 +819,7 @@
         const etapa = avaliacao.etapaNormalizada;
         const temporal = avaliacao.temporal;
         const dias = avaliacao.dias;
-        if (pertenceCicloDesarquivamento(etapa)) {
+        if (avaliacao.cicloDesarquivamento) {
             if (dias >= 52) return '<span class="block bg-red-700 text-white text-[8px] font-extrabold px-1 py-0.5 rounded uppercase mt-0.5">SOLICITAR ATAS SEM PASTA</span>';
             if (dias >= 45) return '<span class="block bg-red-600 text-white text-[8px] font-extrabold px-1 py-0.5 rounded uppercase mt-0.5">CONFIRMAR DADOS DA BUSCA</span>';
             if (dias >= 38) return '<span class="block bg-orange-500 text-white text-[8px] font-extrabold px-1 py-0.5 rounded uppercase mt-0.5">REITERAÇÃO COM URGÊNCIA</span>';
@@ -876,7 +891,7 @@
         if (isEstagiario(usuario())) return '<span class="text-gray-400 font-bold">Consulta</span>';
         if (!podeMovimentar(p)) return '<span class="text-gray-400 font-bold">Sem ação</span>';
         const e = normalizar(processoEtapa(p));
-        if (ehProcessoEscola(p) && e.includes('DESARQ')) return `<button onclick="iniciarAnaliseEscolaAtivaSIGEE(${p.id})" class="sigee-btn-acao sigee-acao-analise">Iniciar Análise</button>`;
+        if (ehProcessoEscola(p) && e.includes('DESARQ')) return `<button onclick="(window.SIGEE_ABRIR_RECEBIMENTO_PASTA_CANONICO||window.abrirModalFluxoDesarquivamento)?.(${p.id})" class="sigee-btn-acao sigee-acao-documento-recebido">Pasta Localizada</button>`;
         if (e.includes('ANAL')) return `<button onclick="abrirAnaliseSIGEE(${p.id})" class="sigee-btn-acao sigee-acao-analise">Abrir Análise</button>`;
         if (e.includes('PEND')) return `<button onclick="abrirPendenciaSIGEE(${p.id})" class="sigee-btn-acao sigee-acao-pendencia sigee-btn-tratar-pendencia">Tratar Pendência</button>`;
         if (e.includes('INDEFER')) return '<span class="text-red-300 font-bold">Finalizado</span>';
@@ -1007,7 +1022,7 @@
         };
         Object.entries(mapa).forEach(([id, etapa]) => {
             const total = normalizar(etapa) === 'DESARQUIVAMENTO'
-                ? lista.filter(p => pertenceCicloDesarquivamento(p)).length
+                ? lista.filter(p => normalizar(processoEtapa(p)) === 'DESARQUIVAMENTO' || pertenceCicloDesarquivamento(p)).length
                 : lista.filter(p => normalizar(processoEtapa(p)) === normalizar(etapa)).length;
             set(id, total);
         });
