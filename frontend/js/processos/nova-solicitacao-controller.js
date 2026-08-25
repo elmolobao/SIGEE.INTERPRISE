@@ -1,4 +1,4 @@
-/* SIGEE RC11.2.5 — Escola vinculada obrigatória com sessão canônica */
+/* SIGEE RC11.3.11 — Nova Solicitação com autoridade única de elegibilidade */
 (function () {
   'use strict';
 
@@ -70,7 +70,14 @@
   function ehEstadual(valor) { return normalizar(valor) === 'ESTADUAL'; }
   function ehAtiva(valor) { return normalizar(valor) === 'ATIVA'; }
 
+  function autoridadeElegibilidade() { return window.SIGEE_ELEGIBILIDADE_ESCOLA || null; }
+
   function validarPoliticaEscola(escola, contexto = contextoEscopo()) {
+    const autoridade = autoridadeElegibilidade();
+    if (autoridade && typeof autoridade.validar === 'function') {
+      return autoridade.validar(escola, contexto);
+    }
+    // Fallback conservador caso o módulo canônico não tenha carregado.
     const e = formatarEscola(escola);
     if (contexto.tipo === 'ESCOLA') {
       if (!contexto.escolaId || Number(e.id) !== Number(contexto.escolaId)) return { ok:false, motivo:'Esta conta só pode abrir processos para a própria unidade escolar.' };
@@ -79,13 +86,13 @@
     }
     if (contexto.tipo === 'NTE') {
       if (!contexto.nteId || Number(e.nte_id) !== Number(contexto.nteId)) return { ok:false, motivo:'A escola não pertence ao NTE deste usuário.' };
-      if (!ehExtinta(e.situacao)) return { ok:false, motivo:'Para usuários de NTE, somente escolas Extintas podem receber nova solicitação.' };
-      /* acervo é o campo canônico; status_acervo não autoriza abertura. */
-      const acervoCanonico = texto(escola.acervo);
-      if (!ehRecolhido(acervoCanonico)) return { ok:false, motivo:'Para usuários de NTE, a escola extinta precisa estar com o acervo oficialmente Recolhido.' };
+      const sit = normalizar(e.situacao);
+      if (sit !== 'EXTINTA' && sit !== 'PARALISADA') return { ok:false, motivo:'Para usuários de NTE, a escola deve estar Extinta ou Paralisada.' };
+      const acervoCanonico = texto(escola.acervo) && normalizar(escola.acervo) !== 'SELECIONE' ? escola.acervo : escola.status_acervo;
+      if (!ehRecolhido(acervoCanonico)) return { ok:false, motivo:'A escola precisa estar com o acervo oficialmente Recolhido.' };
+      if (escola.ativo === false) return { ok:false, motivo:'A escola está desabilitada no catálogo.' };
       return { ok:true };
     }
-    /* GLOBAL/SEC preservam a operação administrativa atual; duplicidade continua obrigatória. */
     return { ok:true };
   }
 
@@ -234,7 +241,7 @@
     try {
       let resultados = [];
       if (window.SIGEE_CORE_V2 && typeof window.SIGEE_CORE_V2.queryEscolasBase === 'function') {
-        resultados = await window.SIGEE_CORE_V2.queryEscolasBase({ termo: busca, limit: 30, offset: 0 });
+        resultados = await window.SIGEE_CORE_V2.queryEscolasBase({ termo: busca, limit: 250, offset: 0 });
       } else {
         const client = clienteSupabase();
         if (!client) throw new Error('Conexão com o catálogo de escolas indisponível.');
@@ -248,11 +255,14 @@
         const contexto = contextoEscopo();
         if (contexto.tipo === 'ESCOLA') {
           if (!contexto.escolaId) throw new Error('Usuário escolar sem escola vinculada.');
-          query = query.eq('id', contexto.escolaId).eq('dependencia_adm', 'Estadual').eq('situacao_funcional', 'Ativa').eq('ativo', true);
+          query = query.eq('id', contexto.escolaId);
         } else if (contexto.tipo === 'NTE') {
           if (!contexto.nteId) throw new Error('Usuário territorial sem NTE válido.');
-          query = query.eq('nte_id', contexto.nteId).eq('situacao_funcional', 'Extinta').eq('acervo', 'Recolhido').eq('ativo', true);
+          // RC11.3.11: NTE é filtrado no banco; situação/acervo são decididos pela autoridade única
+          // depois da leitura, evitando divergência por legado, placeholder e limitação prematura.
+          query = query.eq('nte_id', contexto.nteId);
         }
+        query = query.limit(250);
         const { data, error } = await query;
         if (error) throw error;
         resultados = data || [];
@@ -711,7 +721,7 @@
     window.abrirFormularioNovaSolicitacao = abrir;
     window.fecharModalNovaSolicitacao = fechar;
     window.handleSelecaoInstituicaoFluxoAutomatico = () => !!texto(campo('novo-proc-escola-id')?.value);
-    window.SIGEE_NOVA_SOLICITACAO_CONTROLLER = { abrir, fechar, limpar: resetarFormulario, selecionarEscola, validarPoliticaEscola, versao: 'RC11.3.1' };
+    window.SIGEE_NOVA_SOLICITACAO_CONTROLLER = { abrir, fechar, limpar: resetarFormulario, selecionarEscola, validarPoliticaEscola, versao: 'RC11.3.11' };
 
     // Defesa de autoridade: builds legados reaplicavam o autocomplete em timers tardios.
     // Reafirma o controlador canônico sem reconstruir o modal ou apagar dados digitados.
