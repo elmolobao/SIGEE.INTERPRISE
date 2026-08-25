@@ -8526,8 +8526,17 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     termo = txt(termo);
     if(termo.length < 2){ box.innerHTML='<div class="p-3 text-gray-500">Digite pelo menos 2 letras.</div>'; box.classList.remove('hidden'); return; }
     box.innerHTML='<div class="p-3 text-gray-500">Pesquisando...</div>'; box.classList.remove('hidden');
-    const lista = await queryEscolasBase({termo, limit: 30});
-    if(!lista.length){ box.innerHTML='<div class="p-3 text-red-600 font-bold">Nenhuma escola encontrada para este NTE.</div>'; return; }
+    let lista = await queryEscolasBase({termo, limit: 250});
+    // RC11.3.11: qualquer rota legada que ainda alcance este autocomplete obedece à mesma
+    // autoridade canônica usada pelo controller da Nova Solicitação.
+    try {
+      const aut = window.SIGEE_ELEGIBILIDADE_ESCOLA;
+      if (aut && typeof aut.validar === 'function') {
+        const ctx = window.SIGEE_ESCOPO?.contexto?.(window.SIGEE_SESSION?.getUser?.() || usuario()) || { tipo:'NTE', nteId: nteIdUsuario(usuario()) };
+        lista = lista.filter(e => aut.validar(e, ctx).ok);
+      }
+    } catch (e) { console.warn('[SIGEE RC11.3.11] Filtro canônico legado indisponível:', e); }
+    if(!lista.length){ box.innerHTML='<div class="p-3 text-red-600 font-bold">Nenhuma escola elegível encontrada para este NTE.</div>'; return; }
     box.innerHTML='';
     lista.forEach(e=>{
       const item=document.createElement('button');
