@@ -1,4 +1,4 @@
-/* SIGEE RC11.3.11 — Nova Solicitação com autoridade única de elegibilidade */
+/* SIGEE RC11.3.13 — Pesquisa ampla + bloqueio motivado + Ativa/Recolhida permitida */
 (function () {
   'use strict';
 
@@ -87,9 +87,9 @@
     if (contexto.tipo === 'NTE') {
       if (!contexto.nteId || Number(e.nte_id) !== Number(contexto.nteId)) return { ok:false, motivo:'A escola não pertence ao NTE deste usuário.' };
       const sit = normalizar(e.situacao);
-      if (sit !== 'EXTINTA' && sit !== 'PARALISADA') return { ok:false, motivo:'Para usuários de NTE, a escola deve estar Extinta ou Paralisada.' };
+      if (!['EXTINTA','PARALISADA','ATIVA'].includes(sit)) return { ok:false, motivo:'A situação funcional desta escola não está habilitada para abertura pelo NTE.' };
       const acervoCanonico = texto(escola.acervo) && normalizar(escola.acervo) !== 'SELECIONE' ? escola.acervo : escola.status_acervo;
-      if (!ehRecolhido(acervoCanonico)) return { ok:false, motivo:'A escola precisa estar com o acervo oficialmente Recolhido.' };
+      if (!ehRecolhido(acervoCanonico)) return { ok:false, motivo:`A escola está ${e.situacao || 'cadastrada'}, mas o acervo não está oficialmente Recolhido. A unidade permanece visível para consulta, porém a abertura do processo está bloqueada até a regularização do acervo.` };
       if (escola.ativo === false) return { ok:false, motivo:'A escola está desabilitada no catálogo.' };
       return { ok:true };
     }
@@ -339,9 +339,9 @@
       <section class="sigee-cnp-card">
         <header class="sigee-cnp-header" id="sigee-cnp-titulo">Cadastro não permitido</header>
         <div class="sigee-cnp-body">
-          <p>O acervo desta unidade de ensino está registrado como <span class="sigee-cnp-status">NÃO RECOLHIDO</span>.</p>
-          <p>A solicitação não pode ser cadastrada no fluxo de Escolas Extintas enquanto o acervo não estiver oficialmente recolhido ou enquanto a situação cadastral não for regularizada.</p>
-          <p>A escola deverá ter a situação corrigida no Catálogo de Escolas antes de permitir uma nova solicitação.</p>
+          <p id="sigee-cnp-motivo">Esta unidade não está autorizada para abertura de nova solicitação.</p>
+          <p>O registro permanece disponível na pesquisa para consulta e conferência cadastral.</p>
+          <p>Regularize a condição indicada no Catálogo de Escolas antes de tentar uma nova abertura.</p>
           <div class="sigee-cnp-unidade"><strong>Unidade:</strong> <span id="sigee-cnp-unidade-nome"></span></div>
         </div>
         <footer class="sigee-cnp-footer">
@@ -362,7 +362,7 @@
     return modal;
   }
 
-  function exibirCadastroNaoPermitido(escola) {
+  function exibirCadastroNaoPermitido(escola, politica = {}) {
     const lista = campo('novo-proc-escola-lista-v23');
     if (lista) {
       lista.innerHTML = '';
@@ -370,7 +370,9 @@
     }
     const modal = garantirModalCadastroNaoPermitido();
     const unidade = campo('sigee-cnp-unidade-nome');
+    const motivo = campo('sigee-cnp-motivo');
     if (unidade) unidade.textContent = texto(escola?.nome || 'UNIDADE NÃO IDENTIFICADA').toUpperCase();
+    if (motivo) motivo.textContent = texto(politica?.motivo || 'Esta unidade não está autorizada para abertura de nova solicitação.');
     modal.classList.remove('sigee-hidden');
     modal.removeAttribute('aria-hidden');
     setTimeout(() => campo('sigee-cnp-entendi')?.focus(), 0);
@@ -405,7 +407,13 @@
     const lista = campo('novo-proc-escola-lista-v23');
     if (!lista) return;
     lista.innerHTML = '';
-    const escolas = (Array.isArray(resultados) ? resultados : []).map(formatarEscola).filter((e) => e.id && e.nome && validarPoliticaEscola(e).ok);
+    const contexto = contextoEscopo();
+    const escolas = (Array.isArray(resultados) ? resultados : []).map(formatarEscola).filter((e) => {
+      if (!e.id || !e.nome) return false;
+      // Pesquisa do NTE exibe todas as escolas do próprio território, inclusive bloqueadas.
+      if (contexto.tipo === 'NTE') return !contexto.nteId || Number(e.nte_id) === Number(contexto.nteId);
+      return validarPoliticaEscola(e, contexto).ok;
+    });
     if (!escolas.length) {
       lista.innerHTML = '<div class="p-3 text-red-600 font-bold">Nenhuma escola encontrada.</div>';
       lista.classList.remove('hidden');
@@ -413,13 +421,19 @@
     }
 
     escolas.forEach((escola) => {
+      const politica = validarPoliticaEscola(escola, contexto);
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'block w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-gray-100 bg-white';
-      btn.innerHTML = `<div class="font-black text-blue-900"></div><div class="text-[10px] text-gray-600"></div>`;
+      btn.className = `block w-full text-left px-3 py-2 border-b border-gray-100 ${politica.ok ? 'hover:bg-blue-50 bg-white' : 'hover:bg-red-50 bg-red-50/40'}`;
+      btn.innerHTML = `<div class="font-black text-blue-900"></div><div class="text-[10px] text-gray-600"></div><div class="text-[10px] font-black mt-1"></div>`;
       btn.children[0].textContent = escola.nome;
-      btn.children[1].textContent = `MEC: ${escola.cod_mec || '-'} | ${escola.municipio || '-'} | ${escola.nte || ''}`;
-      btn.addEventListener('click', () => selecionarEscola(escola));
+      btn.children[1].textContent = `MEC: ${escola.cod_mec || '-'} | ${escola.municipio || '-'} | ${escola.nte || ''} | ${escola.situacao || '-'} | Acervo: ${escola.acervo || escola.status_acervo || '-'}`;
+      btn.children[2].textContent = politica.ok ? '✓ Abertura permitida' : `🔒 Abertura bloqueada — ${politica.motivo}`;
+      btn.children[2].className = `text-[10px] font-black mt-1 ${politica.ok ? 'text-emerald-700' : 'text-red-700'}`;
+      btn.addEventListener('click', () => {
+        if (!politica.ok) return exibirCadastroNaoPermitido(escola, politica);
+        selecionarEscola(escola);
+      });
       lista.appendChild(btn);
     });
     lista.classList.remove('hidden');
@@ -433,7 +447,7 @@
     if (!politica.ok) {
       limparIdentidadeEscola();
       if (botao) { botao.disabled = true; botao.textContent = contextoEscopo().tipo === 'ESCOLA' ? 'Criar Solicitação' : 'Enviar para Desarquivamento'; }
-      alert(politica.motivo);
+      exibirCadastroNaoPermitido(e, politica);
       return;
     }
 
@@ -636,7 +650,7 @@
 
     const politica = validarPoliticaEscola(escolaOficial);
     if (!politica.ok) {
-      alert(politica.motivo);
+      exibirCadastroNaoPermitido(e, politica);
       return false;
     }
 
@@ -721,7 +735,7 @@
     window.abrirFormularioNovaSolicitacao = abrir;
     window.fecharModalNovaSolicitacao = fechar;
     window.handleSelecaoInstituicaoFluxoAutomatico = () => !!texto(campo('novo-proc-escola-id')?.value);
-    window.SIGEE_NOVA_SOLICITACAO_CONTROLLER = { abrir, fechar, limpar: resetarFormulario, selecionarEscola, validarPoliticaEscola, versao: 'RC11.3.11' };
+    window.SIGEE_NOVA_SOLICITACAO_CONTROLLER = { abrir, fechar, limpar: resetarFormulario, selecionarEscola, validarPoliticaEscola, versao: 'RC11.3.13' };
 
     // Defesa de autoridade: builds legados reaplicavam o autocomplete em timers tardios.
     // Reafirma o controlador canônico sem reconstruir o modal ou apagar dados digitados.
