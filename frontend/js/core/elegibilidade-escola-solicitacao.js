@@ -1,4 +1,4 @@
-/* SIGEE RC11.3.11 — Autoridade única de elegibilidade da escola para Nova Solicitação */
+/* SIGEE RC11.3.13 — Pesquisa ampla + autorização por acervo recolhido */
 (function () {
   'use strict';
 
@@ -35,7 +35,7 @@
 
   function situacaoNtePermitida(valor) {
     const s = norm(valor);
-    return s === 'EXTINTA' || s === 'PARALISADA';
+    return s === 'EXTINTA' || s === 'PARALISADA' || s === 'ATIVA';
   }
 
   function ehRecolhido(valor) {
@@ -72,10 +72,12 @@
 
     if (tipo === 'NTE') {
       if (!nteId || Number(e.nte_id) !== nteId) return { ok: false, codigo: 'OUTRO_NTE', motivo: 'A escola não pertence ao NTE deste usuário.' };
-      if (!situacaoNtePermitida(e.situacao)) return { ok: false, codigo: 'SITUACAO_NAO_PERMITIDA', motivo: 'Para usuários de NTE, a escola deve estar Extinta ou Paralisada.' };
+      const situacao = norm(e.situacao);
+      if (!situacaoNtePermitida(situacao)) return { ok: false, codigo: 'SITUACAO_NAO_PERMITIDA', motivo: 'A situação funcional desta escola não está habilitada para abertura pelo NTE.' };
       const acervo = acervoCanonico(e);
-      if (!ehRecolhido(acervo)) return { ok: false, codigo: 'ACERVO_NAO_RECOLHIDO', motivo: 'A escola precisa estar com o acervo oficialmente Recolhido.' };
-      return { ok: true, codigo: norm(e.situacao) === 'PARALISADA' ? 'PARALISADA_RECOLHIDA' : 'EXTINTA_RECOLHIDA', acervoCanonico: acervo };
+      if (!ehRecolhido(acervo)) return { ok: false, codigo: 'ACERVO_NAO_RECOLHIDO', motivo: `A escola está ${e.situacao || 'com situação cadastrada'}, porém o acervo não está oficialmente Recolhido. A unidade permanece visível para consulta, mas a abertura do processo está bloqueada até a regularização do acervo.` };
+      const codigo = situacao === 'ATIVA' ? 'ATIVA_RECOLHIDA' : (situacao === 'PARALISADA' ? 'PARALISADA_RECOLHIDA' : 'EXTINTA_RECOLHIDA');
+      return { ok: true, codigo, acervoCanonico: acervo };
     }
 
     // GLOBAL/SEC preservam a operação administrativa; as demais proteções continuam ativas.
@@ -87,7 +89,7 @@
   }
 
   window.SIGEE_ELEGIBILIDADE_ESCOLA = Object.freeze({
-    versao: 'RC11.3.11',
+    versao: 'RC11.3.13',
     formatar,
     normalizar: norm,
     acervoCanonico,
