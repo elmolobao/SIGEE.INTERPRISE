@@ -8527,22 +8527,23 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
     if(termo.length < 2){ box.innerHTML='<div class="p-3 text-gray-500">Digite pelo menos 2 letras.</div>'; box.classList.remove('hidden'); return; }
     box.innerHTML='<div class="p-3 text-gray-500">Pesquisando...</div>'; box.classList.remove('hidden');
     let lista = await queryEscolasBase({termo, limit: 250});
-    // RC11.3.11: qualquer rota legada que ainda alcance este autocomplete obedece à mesma
-    // autoridade canônica usada pelo controller da Nova Solicitação.
+    // RC11.3.13: a pesquisa territorial não esconde unidades bloqueadas.
+    // A autoridade canônica decide a abertura e fornece o motivo do bloqueio.
+    let aut = null, ctx = null;
     try {
-      const aut = window.SIGEE_ELEGIBILIDADE_ESCOLA;
-      if (aut && typeof aut.validar === 'function') {
-        const ctx = window.SIGEE_ESCOPO?.contexto?.(window.SIGEE_SESSION?.getUser?.() || usuario()) || { tipo:'NTE', nteId: nteIdUsuario(usuario()) };
-        lista = lista.filter(e => aut.validar(e, ctx).ok);
-      }
-    } catch (e) { console.warn('[SIGEE RC11.3.11] Filtro canônico legado indisponível:', e); }
-    if(!lista.length){ box.innerHTML='<div class="p-3 text-red-600 font-bold">Nenhuma escola elegível encontrada para este NTE.</div>'; return; }
+      aut = window.SIGEE_ELEGIBILIDADE_ESCOLA;
+      ctx = window.SIGEE_ESCOPO?.contexto?.(window.SIGEE_SESSION?.getUser?.() || usuario()) || { tipo:'NTE', nteId: nteIdUsuario(usuario()) };
+      if (ctx?.tipo === 'NTE' && ctx?.nteId) lista = lista.filter(e => Number(e.nte_id) === Number(ctx.nteId));
+    } catch (e) { console.warn('[SIGEE RC11.3.13] Autoridade canônica legada indisponível:', e); }
+    if(!lista.length){ box.innerHTML='<div class="p-3 text-red-600 font-bold">Nenhuma escola encontrada para este NTE.</div>'; return; }
     box.innerHTML='';
     lista.forEach(e=>{
       const item=document.createElement('button');
-      item.type='button'; item.className='block w-full text-left p-2 hover:bg-blue-50 border-b';
-      item.innerHTML=`<div class="font-black text-blue-900">${e.nome}</div><div class="text-[10px] text-gray-600">${e.municipio} | MEC ${e.cod_mec} | ${e.nte}</div>`;
+      const pol = aut && typeof aut.validar === 'function' ? aut.validar(e, ctx || {}) : {ok:true};
+      item.type='button'; item.className=`block w-full text-left p-2 border-b ${pol.ok ? 'hover:bg-blue-50' : 'bg-red-50/40 hover:bg-red-50'}`;
+      item.innerHTML=`<div class="font-black text-blue-900">${e.nome}</div><div class="text-[10px] text-gray-600">${e.municipio} | MEC ${e.cod_mec} | ${e.nte} | ${e.situacao || e.situacao_funcional || '-'} | Acervo: ${e.acervo || e.status_acervo || '-'}</div><div class="text-[10px] font-black mt-1 ${pol.ok ? 'text-emerald-700' : 'text-red-700'}">${pol.ok ? '✓ Abertura permitida' : '🔒 Abertura bloqueada — ' + (pol.motivo || '')}</div>`;
       item.onclick=()=>{
+        if(!pol.ok){ alert(pol.motivo || 'Abertura não permitida para esta unidade.'); return; }
         input.value=e.nome; hidden.value=e.cod_mec; box.classList.add('hidden'); preencherAutofillEscolaCore(e);
       };
       box.appendChild(item);
