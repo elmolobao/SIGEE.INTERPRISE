@@ -20,10 +20,12 @@ const ROTAS = Object.freeze({
   'nova-solicitacao': 'processos.criar',
   relatorios: 'relatorios.visualizar',
   'migracao-historica': 'migracao.executar',
-  'gestao-territorial': 'gestao_territorial.gerenciar'
+  'gestao-territorial': 'gestao_territorial.gerenciar',
+  'plano-acao-territorial': 'processos.visualizar'
 });
 
 const MENU_PRINCIPAL = Object.freeze([
+  { id:'menu-plano-acao-territorial', rota:'plano-acao-territorial', icone:'✅', rotulo:'Plano de Ação Territorial', capacidade:'processos.visualizar', perfis:['Gestor','Administrador','Técnico','Atendimento','Estagiário','Consulta'], escopo:'NTE' },
   { id:'menu-painel', rota:'painel', icone:'📊', rotulo:'Painel Gerencial', capacidade:'indicadores.visualizar', perfis:['Gestor'] },
   { id:'menu-central-processos', rota:'processos', icone:'📋', rotulo:'Central de Processos', capacidade:'processos.visualizar', perfis:['Master','SEC','Secretaria','Gestor','Administrador','Técnico','Atendimento','Estagiário','Consulta'] },
   { id:'menu-catalogo-escolas', rota:'escolas', icone:'🏫', rotulo:'Catálogo de Escolas', capacidade:'escolas.visualizar', perfis:['Master','SEC','Administrador','Técnico','Atendimento','Estagiário','Consulta'] },
@@ -85,6 +87,7 @@ function autorizarRota(rota, silencioso=false){
 }
 function itemPermitido(item, u){
   const p = perfil(u);
+  if(item.escopo==='NTE' && window.SIGEE_ESCOPO?.ehTerritorial?.(u)!==true) return false;
   return (!item.perfis || item.perfis.includes(p)) && pode(item.capacidade, u);
 }
 function classeMenu(){
@@ -311,7 +314,7 @@ function garantirRotaVisivel(rota){
     usuarios:'aba-usuarios', logs:'aba-logs', diagnostico:'aba-diagnostico',
     'controle-acesso-ntes':'aba-controle-acesso-ntes', relatorios:'aba-painel',
     'sala-situacao':'aba-sala-situacao', 'centro-inteligencia':'aba-painel',
-    'migracao-historica':'aba-migracao-historica', 'gestao-territorial':'aba-gestao-territorial'
+    'migracao-historica':'aba-migracao-historica', 'gestao-territorial':'aba-gestao-territorial', 'plano-acao-territorial':'aba-plano-acao-territorial'
   };
   const id=mapa[rota];
   if(!id)return;
@@ -401,6 +404,12 @@ function navegarPara(rota, opcoes={}){
     if(window.SIGEE_MIGRACAO_HISTORICA?.abrir) window.SIGEE_MIGRACAO_HISTORICA.abrir();
     else garantirRotaVisivel('migracao-historica');
     return true;
+  }
+
+  if (rota === 'plano-acao-territorial') {
+    if(window.SIGEE_TERRITORIAL_PLANO_ACAO?.abrir) return window.SIGEE_TERRITORIAL_PLANO_ACAO.abrir();
+    alert('O Plano de Ação Territorial ainda não concluiu o carregamento.');
+    return false;
   }
 
   if (rota === 'gestao-territorial') {
