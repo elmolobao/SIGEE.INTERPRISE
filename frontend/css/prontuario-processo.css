@@ -120,3 +120,40 @@ body.sigee-prontuario-aberto { overflow: hidden !important; }
 
 /* RC10.8.21 — prazo calculado pelo motor único */
 .sigee-pep-prazo-vencido { color:#b91c1c; font-size:.72rem; margin-left:.4rem; text-transform:uppercase; }
+
+/* RC11.3.14 — Prontuário unificado: pendência detalhada, cronologia coerente e impressão compacta */
+.sigee-pep-pendencia-detalhe{margin:10px 0 2px;border:1px solid #f2c46d;border-left:4px solid #f59e0b;border-radius:11px;background:#fffaf0;padding:11px}
+.sigee-pep-pendencia-detalhe.aberta{background:#fff8e8}
+.sigee-pep-pendencia-detalhe.historica{background:#fffdf7}
+.sigee-pep-pendencia-titulo{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px}
+.sigee-pep-pendencia-titulo>div span{display:block;font-size:9px;letter-spacing:.08em;font-weight:900;color:#a16207}
+.sigee-pep-pendencia-titulo>div strong{display:block;margin-top:2px;font-size:13px;color:#78350f}
+.sigee-pep-pendencia-titulo>b{font-size:9px;padding:4px 8px;border-radius:999px;background:#fef3c7;color:#92400e;white-space:nowrap}
+.sigee-pep-pendencia-grade{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.sigee-pep-pendencia-grade>div{min-width:0;padding:8px;border:1px solid #fde7b1;border-radius:8px;background:#fff}
+.sigee-pep-pendencia-grade>div>span{display:block;font-size:8px;font-weight:900;text-transform:uppercase;letter-spacing:.04em;color:#92400e;margin-bottom:5px}
+.sigee-pep-pendencia-grade ul{margin:0;padding-left:17px}.sigee-pep-pendencia-grade li,.sigee-pep-pendencia-grade p{font-size:10px;line-height:1.4;color:#49331b;margin:0 0 2px}
+.sigee-pep-pendencia-alerta{margin:0 0 8px;padding:7px 9px;border-radius:7px;background:#fff3cd;color:#7c5200;font-size:10px;line-height:1.4}
+.sigee-pep-nao-informado{font-size:10px;color:#8b7355}
+.sigee-pep-pendencia-resumo>.sigee-pep-pendencia-detalhe{margin:0;padding:8px;border-left-width:3px}
+.sigee-pep-pendencia-resumo .sigee-pep-pendencia-grade{grid-template-columns:1fr}
+.sigee-pep-pendencia-resumo .sigee-pep-pendencia-titulo>b{display:none}
+.sigee-pep-marco-pasta.fluxo-sem-pasta{border-left-color:#7c3aed!important;background:#faf5ff!important}.sigee-pep-marco-pasta.fluxo-sem-pasta strong{color:#6d28d9!important}
+.sigee-pep-marco-pasta.superado-sem-evidencia{border-left-color:#0ea5e9!important;background:#f0f9ff!important}.sigee-pep-marco-pasta.superado-sem-evidencia strong{color:#0369a1!important}
+
+@media(max-width:720px){.sigee-pep-pendencia-grade{grid-template-columns:1fr}}
+
+@media print{
+  /* Permite que uma etapa longa continue na mesma página, evitando folhas quase vazias. */
+  .sigee-pep-evento-card{break-inside:auto!important;page-break-inside:auto!important}
+  .sigee-pep-evento-card>header,.sigee-pep-metadados-etapa,.sigee-pep-pendencia-detalhe{break-inside:avoid-page!important;page-break-inside:avoid!important}
+  .sigee-pep-acao-interna{break-inside:avoid-page!important;page-break-inside:avoid!important;margin-bottom:4px!important;padding:6px!important}
+  .sigee-pep-secao-titulo{break-after:avoid-page!important;page-break-after:avoid!important}
+  .sigee-pep-metadados-etapa{gap:4px!important;margin:7px 0!important;padding:6px!important}
+  .sigee-pep-evento-card>p{margin:5px 0!important}
+  .sigee-pep-acao-metadados{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+  .sigee-pep-pendencia-detalhe{margin:6px 0!important;padding:7px!important}
+  .sigee-pep-pendencia-titulo{margin-bottom:5px!important}.sigee-pep-pendencia-titulo>div span{font-size:6px!important}.sigee-pep-pendencia-titulo>div strong{font-size:8px!important}.sigee-pep-pendencia-titulo>b{font-size:6px!important;padding:2px 5px!important}
+  .sigee-pep-pendencia-grade{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:4px!important}.sigee-pep-pendencia-grade>div{padding:5px!important}.sigee-pep-pendencia-grade>div>span{font-size:6px!important}.sigee-pep-pendencia-grade li,.sigee-pep-pendencia-grade p,.sigee-pep-pendencia-alerta,.sigee-pep-nao-informado{font-size:7px!important}
+  .sigee-pep-lateral{break-before:auto!important;page-break-before:auto!important}
+}
