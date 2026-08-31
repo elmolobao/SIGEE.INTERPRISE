@@ -1,12 +1,12 @@
 /* =====================================================================
-   SIGEE Enterprise — RC10.8.44
+   SIGEE Enterprise — RC11.3.14
    Prontuário Eletrônico do Processo
    Camada aditiva: não altera regras, transições ou persistência do workflow.
    ===================================================================== */
 (function () {
   'use strict';
-  if (window.__SIGEE_PRONTUARIO_RC10844__) return;
-  window.__SIGEE_PRONTUARIO_RC10844__ = true;
+  if (window.__SIGEE_PRONTUARIO_RC11314__) return;
+  window.__SIGEE_PRONTUARIO_RC11314__ = true;
 
   const ETAPAS = Object.freeze([
     { tipo:'SOLICITACAO', label:'Solicitação' },
@@ -268,7 +268,7 @@
     const acaoTexto = normalizar(ev?.acao || ev?.evento || ev?.titulo || '');
     const base = normalizar(`${ev?.etapa || ''} ${ev?.acao || ''} ${ev?.evento || ''} ${ev?.tipo || ''} ${ev?.observacao || ''}`);
 
-    // RC10.8.44 — separação semântica definitiva:
+    // RC11.3.14 — separação semântica definitiva:
     // "Aguardando Retirada" é uma etapa em andamento após deferimento;
     // "Retirado" só existe após evidência efetiva de retirada/entrega.
     // A etapa persistida prevalece sobre palavras soltas do texto do evento.
@@ -610,6 +610,105 @@
     }).join('');
   }
 
+  function listaFlexivel(v) {
+    if (Array.isArray(v)) return v.map(texto).filter(Boolean);
+    if (v == null) return [];
+    if (typeof v === 'string') {
+      const t = texto(v);
+      if (!t) return [];
+      try {
+        const j = JSON.parse(t);
+        if (Array.isArray(j)) return j.map(texto).filter(Boolean);
+      } catch (_) {}
+      return t.split(/\s*[;|]\s*/).map(texto).filter(Boolean);
+    }
+    return [texto(v)].filter(Boolean);
+  }
+
+  function dadosPendenciaDoEvento(ev) {
+    const d = dadosEvento(ev) || {};
+    const aluno = listaFlexivel(d.aluno || d.pendencia_aluno_itens || d.itens_aluno);
+    const instituicao = listaFlexivel(d.instituicao || d.pendencia_instituicao_itens || d.itens_instituicao);
+    const compAluno = texto(d.pendencia_aluno_complemento || d.complemento_aluno || '');
+    const compInst = texto(d.pendencia_instituicao_complemento || d.complemento_instituicao || '');
+    const recebidos = listaFlexivel(d.itens_recebidos || d.recebidos);
+    const resolvida = d.pendencia_resolvida === true || normalizar(ev?.acao || '').includes('PENDENCIA RESOLVIDA');
+    return { aluno, instituicao, compAluno, compInst, recebidos, resolvida };
+  }
+
+  function consolidarPendencia(p, eventos = []) {
+    const pendEventos = (Array.isArray(eventos) ? eventos : []).filter(ev => etapaOperacionalEvento(ev) === 'PENDENCIA');
+    const aluno = new Set(listaFlexivel(p?.pendencia_aluno_itens));
+    const instituicao = new Set(listaFlexivel(p?.pendencia_instituicao_itens));
+    const recebidos = new Set();
+    let compAluno = texto(p?.pendencia_aluno_complemento || '');
+    let compInst = texto(p?.pendencia_instituicao_complemento || '');
+    let houveDetalheHistorico = false;
+    let resolvidaHistorico = false;
+
+    pendEventos.forEach(ev => {
+      const d = dadosPendenciaDoEvento(ev);
+      d.aluno.forEach(x => aluno.add(x));
+      d.instituicao.forEach(x => instituicao.add(x));
+      d.recebidos.forEach(x => recebidos.add(x));
+      if (!compAluno && d.compAluno) compAluno = d.compAluno;
+      if (!compInst && d.compInst) compInst = d.compInst;
+      if (d.aluno.length || d.instituicao.length || d.compAluno || d.compInst || d.recebidos.length) houveDetalheHistorico = true;
+      if (d.resolvida) resolvidaHistorico = true;
+    });
+
+    const emPendencia = tipoEtapaAtual(p) === 'PENDENCIA' || p?.pendencia_aberta === true;
+    const possui = aluno.size || instituicao.size || compAluno || compInst || recebidos.size || pendEventos.length;
+    return {
+      possui: Boolean(possui), emPendencia,
+      status: emPendencia ? 'Em aberto' : (resolvidaHistorico ? 'Resolvida' : 'Histórico registrado'),
+      aluno:[...aluno], instituicao:[...instituicao], recebidos:[...recebidos],
+      compAluno, compInst, houveDetalheHistorico, pendEventos
+    };
+  }
+
+  function pendenciaDetalheHTML(p, eventos = []) {
+    const d = consolidarPendencia(p, eventos);
+    if (!d.possui) return '';
+    const itens = arr => arr.length ? `<ul>${arr.map(x => `<li>${escapar(x)}</li>`).join('')}</ul>` : '<span class="sigee-pep-nao-informado">Nenhum item informado.</span>';
+    const semDetalhe = !d.aluno.length && !d.instituicao.length && !d.compAluno && !d.compInst;
+    return `<section class="sigee-pep-pendencia-detalhe ${d.emPendencia ? 'aberta' : 'historica'}">
+      <div class="sigee-pep-pendencia-titulo"><div><span>DETALHAMENTO DA PENDÊNCIA</span><strong>${escapar(d.status)}</strong></div>${d.emPendencia ? '<b>Prazo suspenso</b>' : ''}</div>
+      ${semDetalhe ? '<p class="sigee-pep-pendencia-alerta">Pendência registrada sem detalhamento estruturado. Consulte os registros auditáveis abaixo para a descrição histórica disponível.</p>' : ''}
+      <div class="sigee-pep-pendencia-grade">
+        <div><span>Pendências do aluno/requerente</span>${itens(d.aluno)}</div>
+        <div><span>Pendências da instituição</span>${itens(d.instituicao)}</div>
+        ${d.compAluno ? `<div><span>Complemento — aluno</span><p>${escapar(d.compAluno)}</p></div>` : ''}
+        ${d.compInst ? `<div><span>Complemento — instituição</span><p>${escapar(d.compInst)}</p></div>` : ''}
+        ${d.recebidos.length ? `<div><span>Itens já recebidos</span>${itens(d.recebidos)}</div>` : ''}
+      </div>
+    </section>`;
+  }
+
+  function estadoRecebimentoPasta(p, eventos = [], marcos = {}) {
+    if (marcos?.pastaRecebida) return {
+      classe:'registrado', titulo:'✓ Pasta recebida',
+      descricao:'Há evidência auditável de recebimento da pasta na cronologia oficial.'
+    };
+    const textoEventos = normalizar((eventos || []).map(ev => `${ev?.acao || ''} ${ev?.evento || ''} ${ev?.etapa || ''} ${ev?.observacao || ''} ${ev?.detalhes || ''}`).join(' | '));
+    const semPastaPorAtas = /PEDIDO DE ATAS|PEDIDO_ATAS_DESARQUIVAMENTO|ATAS SEM PASTA/.test(textoEventos);
+    const atual = tipoEtapaAtual(p);
+    const ordem = ['SOLICITACAO','DOCUMENTO_SOLICITADO','PASTA_LOCALIZADA','PASTA_RECEBIDA','DESARQUIVAMENTO','ANALISE','PENDENCIA','DIGITACAO','CONFERENCIA','ASSINATURA','DEFERIDO','RETIRADO'];
+    const avancou = ordem.indexOf(atual) > ordem.indexOf('DESARQUIVAMENTO');
+    if (semPastaPorAtas && avancou) return {
+      classe:'fluxo-sem-pasta', titulo:'Fluxo avançou sem pasta',
+      descricao:'O processo avançou por rota auditável de solicitação de atas/regularização sem recebimento da pasta física.'
+    };
+    if (avancou) return {
+      classe:'superado-sem-evidencia', titulo:'Desarquivamento superado',
+      descricao:'O processo já avançou além do Desarquivamento, porém o evento específico de recebimento da pasta não foi localizado. O relatório não presume recebimento sem evidência explícita.'
+    };
+    return {
+      classe:'nao-registrado', titulo:'Aguardando registro',
+      descricao:'Nenhum recebimento da pasta foi localizado nas fontes consultadas.'
+    };
+  }
+
   function timelineHTML(eventos, p) {
     const grupos = agruparEventosPorEtapa(eventos, p);
     return grupos.map((grupo, gi) => {
@@ -635,6 +734,7 @@
             <div><span>Situação</span><strong>${escapar(grupo.situacao)}</strong></div>
           </div>
           <p>${grupo.eventos.length} registro(s) nesta etapa${executadas ? ` • ${executadas} ação(ões) executada(s)` : ''}${ciencias ? ` • ${ciencias} ciência(s)` : ''}.</p>
+          ${grupo.etapaTipo === 'PENDENCIA' ? pendenciaDetalheHTML(p, grupo.eventos) : ''}
           <div class="sigee-pep-detalhes sigee-pep-acoes-etapa" data-pep-detalhes="grupo-${gi}">
             ${grupo.eventos.length ? grupo.eventos.map(ev => `
               <section class="sigee-pep-acao-interna ${naturezaEvento(ev).toLowerCase()}">
@@ -681,31 +781,38 @@
     const temporal = estadoTemporal(p);
     const metricas = (() => {
       try { return window.SIGEE_WORKFLOW_TEMPORAL?.processMetrics?.(p || {}, agoraWorkflow()) || null; }
-      catch (e) { console.warn('[SIGEE RC10.8.10] Métricas temporais indisponíveis:', e); return null; }
+      catch (e) { console.warn('[SIGEE RC11.3.14] Métricas temporais indisponíveis:', e); return null; }
     })();
     const inicio = metricas?.opening || valor(p, 'data_abertura', 'data_solicitacao', 'created_at', 'criado_em', 'data_inicio_desarquivamento');
     const tempoNormal = metricas?.normalDays ?? metricas?.totalDays ?? diasEntre(inicio, valor(p,'deferido_em','data_deferimento','finalizado_em') || agoraWorkflow());
     const tempoRetirada = metricas?.withdrawalDays ?? metricas?.postDeferredDays ?? 0;
-    // RC10.8.42: processos deferidos usavam esta variável no template sem declará-la.
-    // O ReferenceError ocorria depois da Timeline carregar e deixava o overlay preso em "Preparando...".
     const tempoPosDeferimento = metricas?.postDeferredDays ?? metricas?.withdrawalDays ?? 0;
     const tempoTotal = metricas?.overallDays ?? diasEntre(inicio, valor(p,'retirado_em','finalizado_em') || agoraWorkflow());
     const etapa = etapaAtual(p);
+    const grupos = agruparEventosPorEtapa(eventos, p);
+    const grupoAtual = grupos.find(g => g.atual) || grupos.find(g => g.etapaTipo === tipoEtapaAtual(p)) || null;
     const comunicacoes = resumoComunicacoes(eventos);
     const documentos = resumoDocumentos(eventos);
     const ultima = ultimaMovimentacao(eventos);
     const ultimaExecutada = ultimaAcaoExecutada(eventos);
     const ultimaData = ultima?.created_at || ultima?.data || ultima?.data_hora || inicio;
-    const tempoParado = diasEntre(ultimaData, agoraWorkflow());
-    const etapaNormalizada = normalizar(valor(p,'etapa_atual','etapa','fase_atual'));
-    const cicloExterno = ['DESARQUIVAMENTO','REITERACAO','REITERACAO URGENTE','CONFIRMACAO DOS DADOS','PEDIDO DE ATAS SEM PASTA'].some(item => etapaNormalizada.includes(item));
+    const semMovimentacao = diasEntre(ultimaData, agoraWorkflow());
+    const etapaTipoAtual = tipoEtapaAtual(p);
+    const emPendencia = etapaTipoAtual === 'PENDENCIA';
+    const cicloExterno = etapaTipoAtual === 'DESARQUIVAMENTO';
     const prazoEtapaCalculado = window.SIGEE_PRAZO_ETAPA?.calcular?.(p, agoraWorkflow()) || null;
-    const tempoEtapa = cicloExterno
-      ? (temporal?.days ?? metricas?.stageDays ?? 0)
-      : (prazoEtapaCalculado?.diasNaEtapa ?? metricas?.stageDays ?? diasEntre(valor(p,'data_etapa_atual','data_etapa','prazo_inicio'), agoraWorkflow()) + 1);
+    const tempoEtapa = Number.isFinite(Number(grupoAtual?.diasNaEtapa))
+      ? Number(grupoAtual.diasNaEtapa)
+      : (cicloExterno ? (temporal?.days ?? metricas?.stageDays ?? 0) : (prazoEtapaCalculado?.diasNaEtapa ?? metricas?.stageDays ?? 0));
+    const tempoParado = emPendencia ? tempoEtapa : semMovimentacao;
+    const rotuloTempoParado = emPendencia ? 'tempo suspenso (dias)' : 'sem movimentação (dias)';
     const prazoFinalCalculado = prazoEtapaCalculado?.prazoFinal || dataValida(valor(p,'prazo_fim'));
     const responsavelAtual = valor(p,'tecnico_responsavel','responsavel','usuario_responsavel') || 'Não atribuído';
     const risco = prazoEtapaCalculado?.vencido ? 'Crítico' : riscoProcesso(p, tempoParado);
+    const pasta = estadoRecebimentoPasta(p, eventos, marcos);
+    const pendencia = consolidarPendencia(p, eventos);
+    const ehEscolaAtiva = Boolean(window.SIGEE_TEMPO_PROCESSO?.ehEscola?.(p));
+    const slaEscola = ehEscolaAtiva ? window.SIGEE_TEMPO_PROCESSO?.slaEscola?.(p, agoraWorkflow()) : null;
 
     return `
     <div id="sigee-prontuario-overlay" class="sigee-pep-overlay" role="dialog" aria-modal="true" aria-label="Prontuário Eletrônico do Processo">
@@ -740,7 +847,7 @@
 
         <div class="sigee-pep-conteudo">
           <main class="sigee-pep-timeline">
-            <div class="sigee-pep-secao-titulo"><div><span>LINHA DO TEMPO</span><h2>Trajetória completa do processo</h2></div><b>${agruparEventosPorEtapa(eventos, p).length} etapas • ${eventos.length} registros</b></div>
+            <div class="sigee-pep-secao-titulo"><div><span>LINHA DO TEMPO</span><h2>Trajetória completa do processo</h2></div><b>${grupos.length} etapas • ${eventos.length} registros</b></div>
             ${timelineHTML(eventos, p) || '<div class="sigee-pep-vazio">Nenhum evento auditável foi localizado para este processo.</div>'}
           </main>
 
@@ -748,7 +855,7 @@
             <section><h3>Visão executiva</h3>
               <div class="sigee-pep-kpis sigee-pep-kpis-executivos">
                 <div><strong>${tempoTotal}</strong><span>tempo total (dias)</span></div>
-                <div><strong>${tempoParado}</strong><span>tempo parado (dias)</span></div>
+                <div><strong>${tempoParado}</strong><span>${rotuloTempoParado}</span></div>
                 ${metricas?.deferred ? `<div><strong>${tempoPosDeferimento}</strong><span>deferido até retirada (dias)</span></div>` : ''}
               </div>
               <dl class="sigee-pep-resumo-executivo">
@@ -758,23 +865,32 @@
                 <div><dt>Risco</dt><dd class="risco-${normalizar(risco).toLowerCase()}">${escapar(risco)}</dd></div>
               </dl>
             </section>
-            <section class="sigee-pep-marco-pasta ${marcos.pastaRecebida ? 'registrado' : 'nao-registrado'}">
+            <section class="sigee-pep-marco-pasta ${pasta.classe}">
               <h3>Recebimento da pasta</h3>
               <div class="sigee-pep-marco-status">
-                <strong>${marcos.pastaRecebida ? '✓ Pasta recebida' : 'Aguardando registro'}</strong>
-                <span>${marcos.pastaRecebida ? 'Há evidência auditável na fonte oficial da cronologia.' : 'Nenhum recebimento da pasta foi localizado nas fontes consultadas.'}</span>
+                <strong>${escapar(pasta.titulo)}</strong>
+                <span>${escapar(pasta.descricao)}</span>
                 <small class="sigee-pep-fontes">Fontes verificadas: ${(Array.isArray(marcos?.fontesConsultadas) && marcos.fontesConsultadas.length ? marcos.fontesConsultadas : ['processos','historico_processos','logs_sigee']).map(escapar).join(' • ')}</small>
               </div>
             </section>
             <section><h3>Prazos</h3>
               <dl>
                 <div><dt>Etapa atual</dt><dd>${escapar(etapa)}</dd></div>
-                <div><dt>Início</dt><dd>${formatarData(inicio, false)}</dd></div>
+                <div><dt>Início do processo</dt><dd>${formatarData(inicio, false)}</dd></div>
                 <div><dt>Tempo na etapa</dt><dd>${tempoEtapa} dias</dd></div>
+                ${ehEscolaAtiva && slaEscola ? `
+                  <div><dt>SLA global</dt><dd>${slaEscola.diasConsumidos}/30 dias</dd></div>
+                  <div><dt>Tempo suspenso</dt><dd>${slaEscola.diasPendencia} dias</dd></div>
+                  <div><dt>Saldo do SLA</dt><dd>${slaEscola.diasRestantes} dias${slaEscola.diasAtraso ? ` • ${slaEscola.diasAtraso} em atraso` : ''}</dd></div>
+                ` : `
+                  <div><dt>Prazo da etapa</dt><dd>${prazoEtapaCalculado?.prazoEtapa ? `${prazoEtapaCalculado.prazoEtapa} dias` : 'Sem prazo próprio'}</dd></div>
+                  <div><dt>Prazo final</dt><dd>${formatarData(prazoFinalCalculado, false)}${prazoEtapaCalculado?.vencido ? ' <strong class="sigee-pep-prazo-vencido">VENCIDO</strong>' : ''}</dd></div>
+                `}
+                ${emPendencia ? '<div><dt>Contagem</dt><dd>Suspensa durante a Pendência</dd></div>' : ''}
                 ${metricas?.deferred ? `<div><dt>Deferido até retirada</dt><dd>${tempoPosDeferimento} dias${metricas?.postDeferredFrozen ? ' (encerrado)' : ''}</dd></div>` : ''}
-                <div><dt>Prazo final</dt><dd>${formatarData(prazoFinalCalculado, false)}${prazoEtapaCalculado?.vencido ? ' <strong class="sigee-pep-prazo-vencido">VENCIDO</strong>' : ''}</dd></div>
               </dl>
             </section>
+            ${pendencia.emPendencia ? `<section class="sigee-pep-pendencia-resumo"><h3>Pendência atual</h3>${pendenciaDetalheHTML(p, eventos)}</section>` : ''}
             <section><h3>Responsáveis</h3>
               <dl>
                 <div><dt>Analista</dt><dd>${escapar(valor(p,'analista','analista_nome') || 'Não atribuído')}</dd></div>
@@ -782,7 +898,7 @@
                 <div><dt>Conferente</dt><dd>${escapar(valor(p,'conferente','conferente_nome') || 'Não atribuído')}</dd></div>
               </dl>
             </section>
-            <section class="sigee-pep-selo"><b>Registro Institucional</b><span>Eventos auditáveis do SIGEE Enterprise</span><small>RC10.8.44</small></section>
+            <section class="sigee-pep-selo"><b>Registro Institucional</b><span>Eventos auditáveis do SIGEE Enterprise</span><small>RC11.3.14</small></section>
           </aside>
         </div>
         <footer class="sigee-pep-rodape-impressao">
@@ -802,7 +918,7 @@
 
   function mostrarErroCarregamento(id, erro, token) {
     if (token !== sequenciaAbertura) return;
-    console.error('[SIGEE RC10.8.44] Falha ao abrir prontuário:', erro);
+    console.error('[SIGEE RC11.3.14] Falha ao abrir prontuário:', erro);
     const atual = document.getElementById('sigee-prontuario-overlay');
     if (!atual) return;
     atual.classList.remove('sigee-pep-carregando');
