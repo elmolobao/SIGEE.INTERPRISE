@@ -608,3 +608,15 @@
 .gt-pa-tabs button.ativo{background:#0b4f8a!important;color:#fff!important;border-color:#0b4f8a!important;box-shadow:0 3px 8px rgba(11,79,138,.18)!important}
 .gt-pa-tabs button strong{display:inline-flex!important;align-items:center!important;justify-content:center!important;min-width:20px!important;height:20px!important;margin-left:7px!important;padding:0 6px!important;border-radius:999px!important;background:#e7eef6!important;color:#17324d!important;font-size:10px!important}
 .gt-pa-tabs button.ativo strong{background:rgba(255,255,255,.18)!important;color:#fff!important}
+
+
+/* RC11.3.19B — correção definitiva de contraste das abas do Plano de Ação.
+   A barra deixou de ser <nav> para não herdar o tema global do menu lateral. */
+#sistema-dashboard .gt-pa .gt-pa-tabs{display:flex!important;align-items:center!important;gap:8px!important;flex-wrap:wrap!important;border-bottom:1px solid #d6e1ec!important;padding:2px 0 10px!important;margin:0!important;opacity:1!important}
+#sistema-dashboard .gt-pa .gt-pa-tabs>button{appearance:none!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:7px!important;min-height:36px!important;border:1px solid #b6c9dc!important;background:#ffffff!important;color:#163b63!important;border-radius:10px!important;padding:8px 13px!important;font:800 12px/1 system-ui,-apple-system,"Segoe UI",sans-serif!important;letter-spacing:0!important;text-transform:none!important;cursor:pointer!important;opacity:1!important;filter:none!important;box-shadow:0 1px 3px rgba(15,23,42,.06)!important;transform:none!important;overflow:visible!important}
+#sistema-dashboard .gt-pa .gt-pa-tabs>button::before,#sistema-dashboard .gt-pa .gt-pa-tabs>button::after{content:none!important;display:none!important}
+#sistema-dashboard .gt-pa .gt-pa-tabs>button:hover{background:#f3f8fc!important;color:#0b4f8a!important;border-color:#7fa5c9!important;box-shadow:0 2px 6px rgba(11,79,138,.10)!important;transform:none!important}
+#sistema-dashboard .gt-pa .gt-pa-tabs>button.ativo,#sistema-dashboard .gt-pa .gt-pa-tabs>button[aria-selected="true"]{background:#0b4f8a!important;color:#ffffff!important;border-color:#0b4f8a!important;box-shadow:0 3px 9px rgba(11,79,138,.20)!important}
+#sistema-dashboard .gt-pa .gt-pa-tabs>button>strong{display:inline-flex!important;align-items:center!important;justify-content:center!important;min-width:20px!important;height:20px!important;padding:0 6px!important;margin:0!important;border-radius:999px!important;background:#e8f0f7!important;color:#173b61!important;font-size:10px!important;font-weight:900!important;line-height:1!important;opacity:1!important}
+#sistema-dashboard .gt-pa .gt-pa-tabs>button.ativo>strong,#sistema-dashboard .gt-pa .gt-pa-tabs>button[aria-selected="true"]>strong{background:rgba(255,255,255,.20)!important;color:#ffffff!important}
+#sistema-dashboard .gt-pa .gt-pa-tabs>button:focus-visible{outline:3px solid rgba(14,165,233,.32)!important;outline-offset:2px!important}
