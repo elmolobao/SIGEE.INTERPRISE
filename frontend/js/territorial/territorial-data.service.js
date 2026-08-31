@@ -52,6 +52,32 @@
     return porSede?.numero || null;
   }
 
+
+  function cliente(){
+    try{return window.SIGEE_SUPABASE?.criarCliente?.()||window.SIGEE_SUPABASE_CLIENT||window.supabaseClient||null;}catch(_){return null;}
+  }
+
+  async function producaoPorNteRemota(){
+    const c=cliente();
+    if(!c) return producaoPorNte();
+    const mapa=new Map(NTES.map(n=>[n.numero,0]));
+    const pagina=1000;
+    let inicio=0;
+    while(true){
+      const {data,error}=await c.from('processos').select('nte_id,nte').range(inicio,inicio+pagina-1);
+      if(error) throw error;
+      const rows=data||[];
+      rows.forEach(p=>{
+        const n=numeroNte(p?.nte_id??p?.nte);
+        if(n&&mapa.has(n)) mapa.set(n,(mapa.get(n)||0)+1);
+      });
+      if(rows.length<pagina) break;
+      inicio+=pagina;
+      if(inicio>100000) break;
+    }
+    return NTES.map(n=>({...n,processos:mapa.get(n.numero)||0}));
+  }
+
   function processos(){
     return Array.isArray(window.processosDB) ? window.processosDB : [];
   }
@@ -76,5 +102,5 @@
     };
   }
 
-  window.SIGEE_TERRITORIAL_DATA=Object.freeze({NTES,numeroNte,producaoPorNte,resumo,versao:'GT-02.0'});
+  window.SIGEE_TERRITORIAL_DATA=Object.freeze({NTES,numeroNte,producaoPorNte,producaoPorNteRemota,resumo,versao:'GT-09.0'});
 })(window);

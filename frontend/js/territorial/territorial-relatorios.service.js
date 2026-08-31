@@ -9,13 +9,14 @@ function master(){return perfil()==='Master';}
 function exigir(){if(!master())throw new Error('Acesso restrito ao perfil Master.');const c=cliente();if(!c)throw new Error('Cliente Supabase indisponível.');return c;}
 async function carregarNte(nte){
   const c=exigir(), n=Number(nte); if(!n) throw new Error('Selecione um NTE.');
-  const [agenda,monitor,notifs,pesquisa]=await Promise.all([
+  const [agenda,monitor,notifs,pesquisa,producao]=await Promise.all([
     c.from('gt_agenda').select('*').contains('ntes',[n]).order('inicio',{ascending:true}),
     c.from('gt_monitoramento').select('*').eq('nte_numero',n).order('data_registro',{ascending:true}),
     c.from('gt_monitoramento_notificacoes').select('*').eq('nte_numero',n).order('data_notificacao',{ascending:true}),
-    c.from('gt_pesquisa_satisfacao').select('*').eq('nte_numero',n).order('data_resposta',{ascending:true})
+    c.from('gt_pesquisa_satisfacao').select('*').eq('nte_numero',n).order('data_resposta',{ascending:true}),
+    c.from('processos').select('id',{count:'exact',head:true}).eq('nte_id',n)
   ]);
-  if(agenda.error)throw agenda.error;if(monitor.error)throw monitor.error;if(notifs.error)throw notifs.error;if(pesquisa.error)throw pesquisa.error;
+  if(agenda.error)throw agenda.error;if(monitor.error)throw monitor.error;if(notifs.error)throw notifs.error;if(pesquisa.error)throw pesquisa.error;if(producao.error)console.warn('[GT-09] Produção territorial indisponível no relatório:',producao.error);
   const ocorrencias=monitor.data||[], ids=ocorrencias.map(x=>x.id), acoes=[];
   if(ids.length){
     const ra=await c.from('gt_monitoramento_acoes').select('*').in('monitoramento_id',ids).order('data_acao',{ascending:true});
@@ -28,12 +29,12 @@ async function carregarNte(nte){
       rows.forEach(x=>acoes.push({...x,tecnicos:mapa.get(x.id)||[]}));
     }
   }
-  return {agenda:agenda.data||[],ocorrencias,acoes,notificacoes:notifs.data||[],pesquisa:pesquisa.data||[]};
+  return {agenda:agenda.data||[],ocorrencias,acoes,notificacoes:notifs.data||[],pesquisa:pesquisa.data||[],producao:Number(producao.count)||0};
 }
 async function salvarNotificacao(payload){
   const svc=window.SIGEE_TERRITORIAL_MONITORAMENTO_SERVICE;
   if(!svc?.salvarNotificacao) throw new Error('Serviço de notificações indisponível.');
   return svc.salvarNotificacao(payload);
 }
-window.SIGEE_TERRITORIAL_RELATORIOS_SERVICE=Object.freeze({carregarNte,salvarNotificacao,master,versao:'GT-05.2'});
+window.SIGEE_TERRITORIAL_RELATORIOS_SERVICE=Object.freeze({carregarNte,salvarNotificacao,master,versao:'GT-09.0'});
 })(window);

@@ -99,14 +99,14 @@
     const load=box.querySelector('.gt-exec-loading');
     try{
       const d=await svc.carregar(); if(!document.body.contains(box))return;
-      const top=d.indices.filter(x=>x.indiceConsolidado!=null).sort((a,b)=>b.indiceConsolidado-a.indiceConsolidado).slice(0,6);
+      const top=d.indices.filter(x=>x.indiceConsolidado!=null&&x.confiabilidadeTecnica==='ADEQUADA').sort((a,b)=>b.indiceConsolidado-a.indiceConsolidado).slice(0,6);
       const radar=d.indices.filter(x=>['CRITICO','ALERTA','ATENCAO'].includes(x.classeDesempenho)).sort((a,b)=>(a.indiceConsolidado??999)-(b.indiceConsolidado??999)).slice(0,6);
-      load.outerHTML=`<section class="gt-exec-section"><header class="gt-exec-title"><div><span>PAINEL EXECUTIVO</span><h2>Situação da Gestão Territorial</h2></div><small>Consolidação dos módulos em tempo real</small></header>
+      load.outerHTML=`<section class="gt-exec-section">${d.falhas?.length?`<div class="gt-agenda-alert"><strong>Consolidação parcial</strong><span>${d.falhas.map(f=>`${f.fonte}: ${f.mensagem}`).join(' • ')}</span></div>`:''}<header class="gt-exec-title"><div><span>PAINEL EXECUTIVO</span><h2>Situação da Gestão Territorial</h2></div><small>Consolidação dos módulos em tempo real</small></header>
         <div class="gt-exec-kpis">
           <article><span>Ocorrências ativas</span><strong>${d.ocorrAtivas}</strong><small>${d.ocorrConcluidas} concluída(s)</small></article>
           <article><span>NTEs com formação realizada</span><strong>${d.ntesFormados}/27</strong><small>${d.formacoesRealizadas} formação(ões)</small></article>
           <article class="${d.seiVencidos?'gt-kpi-alert':''}"><span>SEI ativos</span><strong>${d.seiAtivos}</strong><small>${d.seiVencidos} vencido(s) • ${d.seiConcluidos} concluído(s)</small></article>
-          <article class="${d.pesquisa.triagem?'gt-kpi-alert':''}"><span>Pesquisa de satisfação</span><strong>${d.pesquisa.media==null?'—':d.pesquisa.media+'%'}</strong><small>${d.pesquisa.triagem||0} aguardando triagem • ${d.pesquisa.naoLidas||0} não lida(s)</small></article>
+          <article class="${d.pesquisa.triagem?'gt-kpi-alert':''}"><span>Pesquisa de satisfação</span><strong>${d.pesquisa.media==null?'—':`${d.pesquisa.media5!=null?d.pesquisa.media5+'/5 • ':''}${d.pesquisa.media}%`}</strong><small>${d.pesquisa.triagem||0} aguardando triagem • ${d.pesquisa.naoLidas||0} não lida(s)</small></article>
         </div>
         <div class="gt-exec-kpis gt-exec-kpis-secondary">
           <article><span>Constatações positivas</span><strong>${d.positivas}</strong><small>monitoramento territorial</small></article>
@@ -119,7 +119,7 @@
           <article class="gt-panel"><header><div><span>ATENÇÃO GERENCIAL</span><h2>Territórios que exigem acompanhamento</h2></div></header>${radar.length?`<div class="gt-exec-nte-list">${radar.map(x=>`<div><span><b>${x.codigo}</b> ${x.sede}</span><em class="gt-classe ${classeNte(x.classeDesempenho)}">${String(x.classeDesempenho).replace('_',' ')}</em></div>`).join('')}</div>`:'<p class="gt-empty">Nenhum território classificado em atenção, alerta ou crítico.</p>'}</article>
         </div>
       </section>`;
-    }catch(e){console.error('[GT-08]',e);load.innerHTML=`Não foi possível consolidar o painel executivo: ${String(e?.message||e)}`;}
+    }catch(e){console.error('[GT-09]',e);load.innerHTML=`Não foi possível consolidar o painel executivo: ${String(e?.message||e)}`;}
   }
 
   function estruturaArea(titulo,descricao,itens){
@@ -162,5 +162,5 @@
   document.addEventListener('sigee:processos-atualizados',atualizar);
   window.addEventListener('sigee:session-ready',()=>{if(autorizado())criarTela();});
 
-  window.SIGEE_GESTAO_TERRITORIAL=Object.freeze({abrir,abrirAba,atualizar,autorizado,versao:'GT-08.0'});
+  window.SIGEE_GESTAO_TERRITORIAL=Object.freeze({abrir,abrirAba,atualizar,autorizado,versao:'GT-09.0'});
 })(window,document);
