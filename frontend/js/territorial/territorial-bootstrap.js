@@ -15,6 +15,7 @@
     pesquisa:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v12H8l-4 4V4Z"></path><path d="M8 8h8M8 12h5"></path></svg>',
     formacoes:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9 12 4l9 5-9 5-9-5Z"></path><path d="M6 11.5V16c3.5 2.5 8.5 2.5 12 0v-4.5M21 9v6"></path></svg>',
     sei:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6.5h7l2 2h9v10.5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6.5Z"></path><path d="M3 9h18"></path></svg>',
+    'plano-acao':'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11l2 2 4-5"></path><rect x="4" y="3" width="16" height="18" rx="2"></rect><path d="M8 7h8M8 17h8"></path></svg>',
     relatorios:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6V3Z"></path><path d="M14 3v5h5M9 12h6M9 16h6"></path></svg>'
   });
   const ABAS = Object.freeze([
@@ -22,6 +23,7 @@
     ['mapa','Mapa'],
     ['agenda','Agenda'],
     ['monitoramento','Monitoramento'],
+    ['plano-acao','Planos de Ação'],
     ['pesquisa','Pesquisa de Satisfação'],
     ['formacoes','Formações'],
     ['sei','Controle SEI'],
@@ -99,14 +101,14 @@
     const load=box.querySelector('.gt-exec-loading');
     try{
       const d=await svc.carregar(); if(!document.body.contains(box))return;
-      const top=d.indices.filter(x=>x.indiceConsolidado!=null&&x.confiabilidadeTecnica==='ADEQUADA').sort((a,b)=>b.indiceConsolidado-a.indiceConsolidado).slice(0,6);
+      const top=d.indices.filter(x=>x.indiceConsolidado!=null).sort((a,b)=>b.indiceConsolidado-a.indiceConsolidado).slice(0,6);
       const radar=d.indices.filter(x=>['CRITICO','ALERTA','ATENCAO'].includes(x.classeDesempenho)).sort((a,b)=>(a.indiceConsolidado??999)-(b.indiceConsolidado??999)).slice(0,6);
-      load.outerHTML=`<section class="gt-exec-section">${d.falhas?.length?`<div class="gt-agenda-alert"><strong>Consolidação parcial</strong><span>${d.falhas.map(f=>`${f.fonte}: ${f.mensagem}`).join(' • ')}</span></div>`:''}<header class="gt-exec-title"><div><span>PAINEL EXECUTIVO</span><h2>Situação da Gestão Territorial</h2></div><small>Consolidação dos módulos em tempo real</small></header>
+      load.outerHTML=`<section class="gt-exec-section"><header class="gt-exec-title"><div><span>PAINEL EXECUTIVO</span><h2>Situação da Gestão Territorial</h2></div><small>Consolidação dos módulos em tempo real</small></header>
         <div class="gt-exec-kpis">
           <article><span>Ocorrências ativas</span><strong>${d.ocorrAtivas}</strong><small>${d.ocorrConcluidas} concluída(s)</small></article>
           <article><span>NTEs com formação realizada</span><strong>${d.ntesFormados}/27</strong><small>${d.formacoesRealizadas} formação(ões)</small></article>
           <article class="${d.seiVencidos?'gt-kpi-alert':''}"><span>SEI ativos</span><strong>${d.seiAtivos}</strong><small>${d.seiVencidos} vencido(s) • ${d.seiConcluidos} concluído(s)</small></article>
-          <article class="${d.pesquisa.triagem?'gt-kpi-alert':''}"><span>Pesquisa de satisfação</span><strong>${d.pesquisa.media==null?'—':`${d.pesquisa.media5!=null?d.pesquisa.media5+'/5 • ':''}${d.pesquisa.media}%`}</strong><small>${d.pesquisa.triagem||0} aguardando triagem • ${d.pesquisa.naoLidas||0} não lida(s)</small></article>
+          <article class="${d.pesquisa.triagem?'gt-kpi-alert':''}"><span>Pesquisa de satisfação</span><strong>${d.pesquisa.media==null?'—':d.pesquisa.media+'%'}</strong><small>${d.pesquisa.triagem||0} aguardando triagem • ${d.pesquisa.naoLidas||0} não lida(s)</small></article>
         </div>
         <div class="gt-exec-kpis gt-exec-kpis-secondary">
           <article><span>Constatações positivas</span><strong>${d.positivas}</strong><small>monitoramento territorial</small></article>
@@ -119,7 +121,7 @@
           <article class="gt-panel"><header><div><span>ATENÇÃO GERENCIAL</span><h2>Territórios que exigem acompanhamento</h2></div></header>${radar.length?`<div class="gt-exec-nte-list">${radar.map(x=>`<div><span><b>${x.codigo}</b> ${x.sede}</span><em class="gt-classe ${classeNte(x.classeDesempenho)}">${String(x.classeDesempenho).replace('_',' ')}</em></div>`).join('')}</div>`:'<p class="gt-empty">Nenhum território classificado em atenção, alerta ou crítico.</p>'}</article>
         </div>
       </section>`;
-    }catch(e){console.error('[GT-09]',e);load.innerHTML=`Não foi possível consolidar o painel executivo: ${String(e?.message||e)}`;}
+    }catch(e){console.error('[GT-08]',e);load.innerHTML=`Não foi possível consolidar o painel executivo: ${String(e?.message||e)}`;}
   }
 
   function estruturaArea(titulo,descricao,itens){
@@ -133,6 +135,7 @@
     if(id==='mapa') return mapa();
     if(id==='agenda') return '<div id="gt-agenda-corpo"><div class="gt-empty">Carregando Agenda Institucional...</div></div>';
     if(id==='monitoramento') return '<div id="gt-monitoramento-corpo"><div class="gt-empty">Carregando Monitoramento Territorial...</div></div>';
+    if(id==='plano-acao') return '<div id="gt-plano-acao-corpo"><div class="gt-empty">Carregando Planos de Ação...</div></div>';
     if(id==='pesquisa') return '<div id="gt-pesquisa-corpo"><div class="gt-empty">Carregando Pesquisa de Satisfação...</div></div>';
     if(id==='formacoes') return '<div id="gt-formacoes-corpo"><div class="gt-empty">Carregando cobertura das formações...</div></div>';
     if(id==='sei') return '<div id="gt-sei-corpo"><div class="gt-empty">Carregando Controle SEI...</div></div>';
@@ -143,7 +146,7 @@
     abaAtual=ABAS.some(x=>x[0]===id)?id:'visao-geral';
     const sec=criarTela(); if(!sec) return false;
     sec.querySelectorAll('[data-gt-aba]').forEach(b=>{const ativo=b.dataset.gtAba===abaAtual;b.classList.toggle('ativo',ativo);b.setAttribute('aria-current',ativo?'page':'false');});
-    const box=sec.querySelector('#gt-conteudo'); if(box){ box.innerHTML=conteudo(abaAtual); if(abaAtual==='visao-geral') setTimeout(()=>carregarVisaoExecutiva(),0); if(abaAtual==='mapa') setTimeout(()=>window.SIGEE_TERRITORIAL_MAPA?.carregar?.(box),0); if(abaAtual==='agenda') setTimeout(()=>window.SIGEE_TERRITORIAL_AGENDA?.carregar?.(box),0); if(abaAtual==='monitoramento') setTimeout(()=>window.SIGEE_TERRITORIAL_MONITORAMENTO?.carregar?.(box),0); if(abaAtual==='pesquisa') setTimeout(()=>window.SIGEE_TERRITORIAL_PESQUISA?.painel?.(box),0); if(abaAtual==='formacoes') setTimeout(()=>window.SIGEE_TERRITORIAL_FORMACOES?.carregar?.(box),0); if(abaAtual==='sei') setTimeout(()=>window.SIGEE_TERRITORIAL_SEI?.carregar?.(box),0); if(abaAtual==='relatorios') setTimeout(()=>window.SIGEE_TERRITORIAL_RELATORIOS?.carregar?.(box),0); }
+    const box=sec.querySelector('#gt-conteudo'); if(box){ box.innerHTML=conteudo(abaAtual); if(abaAtual==='visao-geral') setTimeout(()=>carregarVisaoExecutiva(),0); if(abaAtual==='mapa') setTimeout(()=>window.SIGEE_TERRITORIAL_MAPA?.carregar?.(box),0); if(abaAtual==='agenda') setTimeout(()=>window.SIGEE_TERRITORIAL_AGENDA?.carregar?.(box),0); if(abaAtual==='monitoramento') setTimeout(()=>window.SIGEE_TERRITORIAL_MONITORAMENTO?.carregar?.(box),0); if(abaAtual==='plano-acao') setTimeout(()=>window.SIGEE_TERRITORIAL_PLANO_ACAO?.carregar?.(box),0); if(abaAtual==='pesquisa') setTimeout(()=>window.SIGEE_TERRITORIAL_PESQUISA?.painel?.(box),0); if(abaAtual==='formacoes') setTimeout(()=>window.SIGEE_TERRITORIAL_FORMACOES?.carregar?.(box),0); if(abaAtual==='sei') setTimeout(()=>window.SIGEE_TERRITORIAL_SEI?.carregar?.(box),0); if(abaAtual==='relatorios') setTimeout(()=>window.SIGEE_TERRITORIAL_RELATORIOS?.carregar?.(box),0); }
     return true;
   }
 
@@ -162,5 +165,5 @@
   document.addEventListener('sigee:processos-atualizados',atualizar);
   window.addEventListener('sigee:session-ready',()=>{if(autorizado())criarTela();});
 
-  window.SIGEE_GESTAO_TERRITORIAL=Object.freeze({abrir,abrirAba,atualizar,autorizado,versao:'GT-09.0'});
+  window.SIGEE_GESTAO_TERRITORIAL=Object.freeze({abrir,abrirAba,atualizar,autorizado,versao:'GT-08.0'});
 })(window,document);
