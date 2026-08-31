@@ -1,7 +1,7 @@
 /** SIGEE Enterprise — GT-05.2.4 Monitoramento Territorial — critérios técnicos + Pesquisa de Satisfação. */
 (function(window){
 'use strict';
-if(window.SIGEE_TERRITORIAL_MONITORAMENTO_SERVICE?.versao==='GT-05.2.4') return;
+if(window.SIGEE_TERRITORIAL_MONITORAMENTO_SERVICE?.versao==='GT-05.2.6') return;
 const TABELA='gt_monitoramento', ACOES='gt_monitoramento_acoes', TECNICOS='gt_monitoramento_acao_tecnicos', NOTIFS='gt_monitoramento_notificacoes';
 function cliente(){try{return window.SIGEE_SUPABASE?.criarCliente?.()||window.SIGEE_SUPABASE_CLIENT||window.supabaseClient||null;}catch(_){return null;}}
 function usuario(){return window.SIGEE_SESSION?.getUser?.()||window.usuarioLogado||null;}
@@ -29,11 +29,17 @@ async function salvarOcorrencia(payload){
   if(!['POSITIVA','NEGATIVA'].includes(avaliacao))throw new Error('Selecione se a constatação é positiva ou negativa.');
   const relevancia=String(payload.relevancia||'').toUpperCase();
   if(!['INFORMATIVA','BAIXA','MODERADA','ALTA','CRITICA'].includes(relevancia))throw new Error('Selecione a relevância da constatação.');
-  const registro={nte_numero:nte,fase,natureza:'OCORRENCIA',item_monitoria:item,avaliacao,data_registro:payload.data_registro||new Date().toISOString(),titulo:txt(payload.titulo),descricao:txt(payload.descricao),categoria:categoriasPorItem[item]||'OUTRA',relevancia,processo_id:payload.processo_id?Number(payload.processo_id):null,codigo_sigee:txt(payload.codigo_sigee)||null,aluno_nome:txt(payload.aluno_nome)||null,conteudo_formacao:fase==='POS_FORMACAO'?String(payload.conteudo_formacao||'NAO').toUpperCase():'NAO_SE_APLICA',resultado:String(payload.resultado||'EM_ACOMPANHAMENTO').toUpperCase(),prazo:payload.prazo||null,concluido_at:payload.concluido_at||null,evidencia_referencia:txt(payload.evidencia_referencia)||null,observacoes:txt(payload.observacoes)||null,updated_at:new Date().toISOString()};
+  const tratamento=avaliacao==='NEGATIVA' ? String(payload.tratamento_tipo||'').toUpperCase() : 'MONITORAMENTO';
+  if(avaliacao==='NEGATIVA'&&!['MONITORAMENTO','ACAO_CORRETIVA'].includes(tratamento))throw new Error('Selecione o tipo de tratamento: Monitoramento ou Ação Corretiva.');
+  const requerAcao=avaliacao==='NEGATIVA'&&tratamento==='ACAO_CORRETIVA';
+  if(payload.id&&window.SIGEE_TERRITORIAL_PLANO_ACAO_SERVICE?.validarAlteracaoTratamento){await window.SIGEE_TERRITORIAL_PLANO_ACAO_SERVICE.validarAlteracaoTratamento(payload.id,tratamento);}
+  const registro={nte_numero:nte,fase,natureza:'OCORRENCIA',item_monitoria:item,avaliacao,tratamento_tipo:tratamento,requer_acao_corretiva:requerAcao,data_registro:payload.data_registro||new Date().toISOString(),titulo:txt(payload.titulo),descricao:txt(payload.descricao),categoria:categoriasPorItem[item]||'OUTRA',relevancia,processo_id:payload.processo_id?Number(payload.processo_id):null,codigo_sigee:txt(payload.codigo_sigee)||null,aluno_nome:txt(payload.aluno_nome)||null,conteudo_formacao:fase==='POS_FORMACAO'?String(payload.conteudo_formacao||'NAO').toUpperCase():'NAO_SE_APLICA',resultado:String(payload.resultado||'EM_ACOMPANHAMENTO').toUpperCase(),prazo:payload.prazo||null,concluido_at:payload.concluido_at||null,evidencia_referencia:txt(payload.evidencia_referencia)||null,observacoes:txt(payload.observacoes)||null,updated_at:new Date().toISOString()};
   if(!registro.titulo)throw new Error('Informe o título da ocorrência.');if(!registro.descricao)throw new Error('Descreva a ocorrência identificada.');
   let r;if(payload.id)r=await c.from(TABELA).update(registro).eq('id',payload.id).select('*').single();else{Object.assign(registro,autor());r=await c.from(TABELA).insert(registro).select('*').single();}
   if(r.error)erroBanco(r.error);
-  if(avaliacao==='NEGATIVA' && window.SIGEE_TERRITORIAL_PLANO_ACAO_SERVICE?.criarDaOcorrencia){
+  if(window.SIGEE_TERRITORIAL_PLANO_ACAO_SERVICE?.sincronizarDaOcorrencia){
+    try{await window.SIGEE_TERRITORIAL_PLANO_ACAO_SERVICE.sincronizarDaOcorrencia(r.data);}catch(e){console.error('[Plano de Ação] ocorrência salva, mas o tratamento não foi sincronizado:',e);throw e;}
+  }else if(avaliacao==='NEGATIVA' && requerAcao && window.SIGEE_TERRITORIAL_PLANO_ACAO_SERVICE?.criarDaOcorrencia){
     try{await window.SIGEE_TERRITORIAL_PLANO_ACAO_SERVICE.criarDaOcorrencia(r.data);}catch(e){console.error('[Plano de Ação] ocorrência salva, mas a tarefa corretiva não foi criada:',e);}
   }
   document.dispatchEvent(new CustomEvent('sigee:gt-monitoramento-atualizado'));return r.data;
@@ -66,5 +72,5 @@ async function listarAgendaAtuacoes(){
 
 async function listarNotificacoes(nte){const c=exigir();let q=c.from(NOTIFS).select('*').order('data_notificacao',{ascending:false});if(nte)q=q.eq('nte_numero',Number(nte));const {data,error}=await q;if(error)erroBanco(error);return data||[];}
 async function salvarNotificacao(payload){const c=exigir();const n=numeroNte(payload.nte_numero);if(!n)throw new Error('NTE inválido.');const reg={nte_numero:n,monitoramento_id:payload.monitoramento_id?Number(payload.monitoramento_id):null,data_notificacao:new Date().toISOString(),tipo:'INSTITUCIONAL',numero_documento:txt(payload.numero_documento)||null,referencia_sei:txt(payload.referencia_sei)||null,destinatario:txt(payload.destinatario)||null,assunto:txt(payload.assunto),resumo:txt(payload.resumo)||null,observacoes:txt(payload.observacoes)||null,updated_at:new Date().toISOString(),...autor()};if(!reg.assunto)throw new Error('Informe o assunto da notificação.');const {data,error}=await c.from(NOTIFS).insert(reg).select('*').single();if(error)erroBanco(error);document.dispatchEvent(new CustomEvent('sigee:gt-monitoramento-atualizado'));return data;}
-window.SIGEE_TERRITORIAL_MONITORAMENTO_SERVICE=Object.freeze({listar,salvarOcorrencia,excluir,faseDoNte,listarAcoes,salvarAcao,listarTecnicos,buscarProcessos,listarAgendaAtuacoes,listarNotificacoes,salvarNotificacao,master,versao:'GT-05.2.4'});
+window.SIGEE_TERRITORIAL_MONITORAMENTO_SERVICE=Object.freeze({listar,salvarOcorrencia,excluir,faseDoNte,listarAcoes,salvarAcao,listarTecnicos,buscarProcessos,listarAgendaAtuacoes,listarNotificacoes,salvarNotificacao,master,versao:'GT-05.2.6'});
 })(window);
