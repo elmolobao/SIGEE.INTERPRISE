@@ -1,4 +1,4 @@
-/** SIGEE Enterprise RC12.0.7B — central de pendências regulatórias e base consolidada de atos. */
+/** SIGEE Enterprise RC12.0.7B.1 — correção de compatibilidade da Central de Pendências com legalizacao_catalogo_v. */
 (function(window){
 'use strict';
 if(window.__SIGEE_LEGALIZACAO_SERVICE_RC1207B__)return;
@@ -66,7 +66,7 @@ async function listarBasePendenciasRegulatorias(){
   assertAccess();const c=client();if(!c)throw new Error('Cliente Supabase indisponível.');
   const instituicoes=[];const lote=1000;let inicio=0;
   while(true){
-    let q=c.from('legalizacao_catalogo_v').select('prontuario_id,escola_id,nte_id,nome_instituicao,cod_inep,cod_sec,municipio,tipo_cadastro,rede,natureza,situacao_regulatoria,dados_importados_status').order('nome_instituicao',{ascending:true});q=scoped(q);
+    let q=c.from('legalizacao_catalogo_v').select('prontuario_id,escola_id,nte_id,nome_instituicao,cod_inep,cod_sec,municipio,tipo_cadastro,rede,situacao_regulatoria,dados_importados_status').order('nome_instituicao',{ascending:true});q=scoped(q);
     const {data,error}=await q.range(inicio,inicio+lote-1);if(error)throw error;const rows=data||[];instituicoes.push(...rows);if(rows.length<lote)break;inicio+=lote;
   }
   const prontuarios=[...new Set(instituicoes.map(x=>Number(x.prontuario_id)).filter(Boolean))];const atos=[];
