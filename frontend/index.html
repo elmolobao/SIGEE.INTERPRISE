@@ -36,7 +36,7 @@
 <link rel="stylesheet" href="css/reports.css?v=RC6.6.2"/>
 <link rel="stylesheet" href="css/popup-prazos-login.css?v=RC10.8.20">
 <link rel="stylesheet" href="css/gestao-territorial.css?v=RC11.3.19B">
-<link rel="stylesheet" href="css/legalizacao.css?v=RC12.0.3">
+<link rel="stylesheet" href="css/legalizacao.css?v=RC12.0.3A">
 </head>
 <body class="bg-gray-100 font-sans text-gray-800 font-normal">
 <div class="min-h-screen flex items-center justify-center bg-blue-900 px-4" id="tela-login">
@@ -153,21 +153,19 @@
 </section>
 </section>
 
-<!-- RC12.0.0 — Módulo independente de Legalização Escolar -->
+<!-- RC12.0.3A — Legalização Escolar: navegação exclusivamente pelo menu modular -->
 <section class="hidden space-y-5" id="aba-legalizacao" data-sigee-tab="legalizacao">
   <header class="leg-top"><div><span class="leg-eyebrow">SIGEE · DOMÍNIO REGULATÓRIO</span><h1>⚖️ Legalização Escolar</h1><p>Cadastro, regulação e fiscalização organizados em áreas independentes.</p></div><div class="leg-actions"><button type="button" class="leg-btn" id="btn-legalizacao-atualizar">↻ Atualizar</button><button type="button" class="leg-btn primary" id="btn-legalizacao-nova">＋ Nova instituição</button></div></header>
-  <div class="leg-area-nav" role="tablist" aria-label="Áreas da Legalização"><button type="button" class="active" data-leg-area="visao">Visão Geral</button><button type="button" data-leg-area="instituicoes">Instituições</button><button type="button" data-leg-area="regulatorio">Controle Regulatório</button><button type="button" data-leg-area="fiscalizacao">Fiscalização</button><button type="button" data-leg-area="averiguacao">Em Averiguação</button></div>
   <div class="leg-area" data-area="visao">
     <div class="leg-kpis"><article class="leg-kpi"><span>Instituições</span><strong id="leg-kpi-instituicoes">0</strong></article><article class="leg-kpi"><span>Em credenciamento</span><strong id="leg-kpi-credenciamento">0</strong></article><article class="leg-kpi"><span>Ofertas em atenção</span><strong id="leg-kpi-ofertas">0</strong></article><article class="leg-kpi"><span>Carimbos em atenção</span><strong id="leg-kpi-carimbos">0</strong></article><article class="leg-kpi"><span>Fiscalizações abertas</span><strong id="leg-kpi-fiscalizacoes">0</strong></article><article class="leg-kpi"><span>Em averiguação</span><strong id="leg-kpi-averiguacoes">0</strong></article></div>
     <div class="leg-panel"><header class="leg-panel-head"><div><h2>Instituições sob gestão</h2><p id="legalizacao-status">Cadastro regulatório por NTE</p></div><div class="leg-filter-row"><select id="legalizacao-tipo"><option value="">Públicas e privadas</option><option value="PUBLICA">Escolas públicas</option><option value="PRIVADA">Escolas privadas</option></select><input class="leg-search" id="legalizacao-busca" type="search" placeholder="Nome, COD SEC, INEP, CNPJ ou município"></div></header><div class="leg-list" id="legalizacao-lista"><div class="leg-empty"><strong>Aguardando carregamento...</strong></div></div></div>
   </div>
-  <div class="leg-area hidden" data-area="instituicoes"><div class="leg-shell"><h2>Instituições</h2><p>Cadastro permanente da escola, separado em pública e privada, com NTE fixo, COD SEC para públicas, endereço, contatos, porte, matrículas, responsáveis e mantenedora quando privada.</p><div class="leg-shell-grid"><article><b>Cadastro público</b><span>Estadual ou municipal · diretor como referência.</span></article><article><b>Cadastro privado</b><span>Mantenedora como núcleo jurídico-administrativo.</span></article><article><b>Histórico</b><span>Alterações oficiais serão registradas por procedimento SEI.</span></article></div></div></div>
-  <div class="leg-area hidden" data-area="regulatorio"><div class="leg-shell"><h2>Controle Regulatório</h2><p>Área gerencial independente para acompanhar o que está em formação e o que exige renovação.</p><div class="leg-shell-grid"><article><b>Credenciamento</b><span>Em cadastro · análise · diligência · inspeção · publicação.</span></article><article><b>Ofertas / Cursos</b><span>Em autorização · regulares · a vencer · vencidas · em renovação.</span></article><article><b>Carimbos</b><span>Diretor e secretário · autorização com controle de vigência de 6 anos.</span></article></div></div></div>
-  <div class="leg-area hidden" data-area="fiscalizacao"><div class="leg-shell"><h2>Fiscalização</h2><p>Fluxo interno sem Processo SEI obrigatório. Irregularidades poderão gerar aviso, visita técnica, Notificação 1, Notificação 2 e, quando cabível, encaminhamento formal ao Ministério Público.</p><div class="leg-rule"><strong>Regra:</strong> a irregularidade não abre SEI. O número SEI só é registrado quando houver ato oficial formal.</div></div></div>
+  <div class="leg-area hidden" data-area="instituicoes"><div class="leg-shell"><h2>Instituições</h2><p>Cadastro permanente da instituição por NTE, com modelos próprios para escola pública e escola privada.</p><div class="leg-shell-grid"><article><b>Escolas públicas</b><span>Estadual ou municipal · COD SEC · diretor e secretaria.</span></article><article><b>Escolas privadas</b><span>Mantenedora, CNPJ, representante legal, diretor e secretaria.</span></article><article><b>Prontuário</b><span>Cadastro, responsáveis, ofertas, regulação, fiscalização, inspeções, histórico e acervo.</span></article></div></div></div>
+  <div class="leg-area hidden" data-area="regulatorio"><div class="leg-shell"><h2>Controle Regulatório</h2><p>Acompanhamento de credenciamento, autorizações de oferta/curso e autorizações de carimbo.</p><div class="leg-shell-grid"><article><b>Credenciamento</b><span>Cadastro · análise · diligência · inspeção · análise final · publicação.</span></article><article><b>Ofertas / Cursos</b><span>Em autorização · regulares · a vencer · vencidas · em renovação.</span></article><article><b>Carimbos</b><span>Diretor e secretário · vigência de 6 anos.</span></article></div></div></div>
+  <div class="leg-area hidden" data-area="fiscalizacao"><div class="leg-shell"><h2>Fiscalização</h2><p>Controle interno de irregularidades sem abertura automática de Processo SEI.</p><div class="leg-shell-grid"><article><b>Visita técnica</b><span>Constatação, orientação, providências e acompanhamento.</span></article><article><b>Notificações</b><span>Aviso · Notificação 1 · Notificação 2.</span></article><article><b>Providência formal</b><span>Encaminhamento ao Ministério Público quando cabível.</span></article></div><div class="leg-rule"><strong>Regra:</strong> irregularidade não abre SEI. O número SEI é registrado somente quando houver ato oficial formal.</div></div></div>
   <div class="leg-area hidden" data-area="averiguacao"><div class="leg-shell"><h2>Estabelecimentos em Averiguação</h2><p>Cadastro paralelo para suspeitas de funcionamento sem autorização. O registro não transforma o estabelecimento em instituição regular do SIGEE.</p></div></div>
-  <div class="leg-foundation-note"><strong>RC12.0.1:</strong> modelo institucional e ciclo regulatório preparados para credenciamento, manutenção, autorizações, fiscalização e futura ponte de descredenciamento com Escolas Extintas.</div>
-</section>
-  <div class="leg-foundation-note"><strong>RC12.0.0 · Fundação regulatória:</strong> os próximos fluxos utilizarão este mesmo cadastro para credenciamento, autorização, renovação, inspeção, publicação, suspensão e descredenciamento.</div>
+  <div class="leg-area hidden" data-area="inspecoes"><div class="leg-panel"><header class="leg-panel-head"><div><h2>Inspeções</h2><p>Agenda e acompanhamento das verificações in loco da Legalização.</p></div></header><div class="leg-list" id="legalizacao-inspecoes-lista"><div class="leg-empty"><strong>Aguardando carregamento...</strong></div></div></div></div>
+  <div class="leg-area hidden" data-area="historico"><div class="leg-panel"><header class="leg-panel-head"><div><h2>Histórico Regulatório</h2><p>Linha cronológica dos procedimentos oficiais registrados no módulo.</p></div></header><div class="leg-list" id="legalizacao-historico-lista"><div class="leg-empty"><strong>Aguardando carregamento...</strong></div></div></div></div>
 </section>
 
 <!-- RC6.5.0.1 — Abas oficiais e independentes da Central de Relatórios -->
@@ -849,9 +847,9 @@ window.filtrarTabelaUsuariosSIGEE = function (termo) {
 <script src="js/territorial/territorial-pesquisa.js?v=GT-05.2.4"></script>
 <script src="js/territorial/territorial-bootstrap.js?v=RC11.3.16"></script>
 
-<script src="js/legalizacao/legalizacao.service.js?v=RC12.0.3"></script>
-<script src="js/legalizacao/legalizacao.js?v=RC12.0.3"></script>
-<script src="js/core/autorizacao.js?v=RC12.0.1D"></script>
+<script src="js/legalizacao/legalizacao.service.js?v=RC12.0.3A"></script>
+<script src="js/legalizacao/legalizacao.js?v=RC12.0.3A"></script>
+<script src="js/core/autorizacao.js?v=RC12.0.3A"></script>
 <script src="js/analytics/dashboard.js?v=RC7.4.4-PERFORMANCE"></script>
 <script src="js/cio/cio-bootstrap.js?v=RC7.4.1"></script>
 <script src="js/cio/cio-widget.js?v=RC6.3.1.2"></script>
