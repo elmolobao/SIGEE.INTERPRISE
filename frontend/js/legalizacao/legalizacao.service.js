@@ -1,8 +1,8 @@
-/** SIGEE Enterprise RC12.0.9B — Controle Regulatório consolidado com atos históricos e carga sob demanda. */
+/** SIGEE Enterprise RC12.0.10A — Catálogo regulatório de ofertas, modalidades e requisitos. */
 (function(window){
 'use strict';
-if(window.__SIGEE_LEGALIZACAO_SERVICE_RC1209B__)return;
-window.__SIGEE_LEGALIZACAO_SERVICE_RC1209B__=true;
+if(window.__SIGEE_LEGALIZACAO_SERVICE_RC1210A__)return;
+window.__SIGEE_LEGALIZACAO_SERVICE_RC1210A__=true;
 const MOD='LEGALIZACAO';
 function client(){try{return window.SIGEE_SUPABASE?.criarCliente?.()||window.SIGEE_SUPABASE_CLIENT||null;}catch(_){return null;}}
 function user(){return window.SIGEE_SESSION?.getUser?.()||window.usuarioLogado||null;}
@@ -53,7 +53,31 @@ async function resumo(force=false){
   resumoCache={instituicoes,emCredenciamento,ofertasCriticas,carimbosCriticos,fiscalizacoes,averiguacoes};resumoCacheEm=Date.now();return resumoCache;
 }
 async function listarProcessosRegulatorios(){
-  assertAccess();const c=client();let q=c.from('legalizacao_processos').select('*').order('updated_at',{ascending:false}).limit(1000);q=scoped(q);const {data,error}=await q;if(error)throw error;const lista=data||[];const ids=[...new Set(lista.map(x=>x.instituicao_id).filter(Boolean))];let inst=[];if(ids.length){const r=await c.from('legalizacao_instituicoes').select('id,nome_instituicao,tipo_cadastro,rede').in('id',ids);if(!r.error)inst=r.data||[];}const im=new Map(inst.map(x=>[String(x.id),x]));const uids=[...new Set(lista.map(x=>x.responsavel_id||x.criado_por_id).filter(Boolean))];let usuarios=[];if(uids.length){const r=await c.from('usuarios_sigee').select('id,nome,email').in('id',uids);if(!r.error)usuarios=r.data||[];}const um=new Map(usuarios.map(x=>[String(x.id),x]));return lista.map(x=>({...x,instituicao:im.get(String(x.instituicao_id))||null,responsavel:um.get(String(x.responsavel_id||x.criado_por_id))||null}));
+  assertAccess();const c=client();let q=c.from('legalizacao_processos').select('*').eq('tipo','CREDENCIAMENTO').order('updated_at',{ascending:false}).limit(1000);q=scoped(q);const {data,error}=await q;if(error)throw error;const lista=data||[];const ids=[...new Set(lista.map(x=>x.instituicao_id).filter(Boolean))];let inst=[];if(ids.length){const r=await c.from('legalizacao_instituicoes').select('id,nome_instituicao,tipo_cadastro,rede').in('id',ids);if(!r.error)inst=r.data||[];}const im=new Map(inst.map(x=>[String(x.id),x]));const uids=[...new Set(lista.map(x=>x.responsavel_id||x.criado_por_id).filter(Boolean))];let usuarios=[];if(uids.length){const r=await c.from('usuarios_sigee').select('id,nome,email').in('id',uids);if(!r.error)usuarios=r.data||[];}const um=new Map(usuarios.map(x=>[String(x.id),x]));return lista.map(x=>({...x,instituicao:im.get(String(x.instituicao_id))||null,responsavel:um.get(String(x.responsavel_id||x.criado_por_id))||null}));
+}
+
+async function listarCatalogoOfertas(){
+  assertAccess();const c=client();const {data,error}=await c.from('legalizacao_oferta_catalogo').select('*').eq('ativo',true).order('ordem',{ascending:true});if(error)throw error;return data||[];
+}
+async function listarProcessosOfertaRegulatorios(){
+  assertAccess();const c=client();let q=c.from('legalizacao_processos').select('*').eq('tipo','OFERTA').order('updated_at',{ascending:false}).limit(500);q=scoped(q);const {data,error}=await q;if(error)throw error;const lista=data||[],pids=lista.map(x=>x.id),iids=[...new Set(lista.map(x=>x.instituicao_id).filter(Boolean))];let vinc=[],inst=[],cat=[],req=[];
+  if(pids.length){let r=await c.from('legalizacao_processos_ofertas').select('*').in('processo_id',pids);if(r.error)throw r.error;vinc=r.data||[];r=await c.from('legalizacao_oferta_requisitos_processo').select('id,processo_id,requisito_catalogo_id,status').in('processo_id',pids);if(!r.error)req=r.data||[];}
+  if(iids.length){const r=await c.from('legalizacao_instituicoes').select('id,nome_instituicao,tipo_cadastro,rede').in('id',iids);if(!r.error)inst=r.data||[];}
+  const cids=[...new Set(vinc.map(x=>x.oferta_catalogo_id).filter(Boolean))];if(cids.length){const r=await c.from('legalizacao_oferta_catalogo').select('*').in('id',cids);if(!r.error)cat=r.data||[];}
+  const im=new Map(inst.map(x=>[String(x.id),x])),cm=new Map(cat.map(x=>[String(x.id),x]));
+  return lista.map(x=>{const ofertas=vinc.filter(v=>String(v.processo_id)===String(x.id)).map(v=>({...v,catalogo:cm.get(String(v.oferta_catalogo_id))||null}));const requisitos=req.filter(r=>String(r.processo_id)===String(x.id));return {...x,instituicao:im.get(String(x.instituicao_id))||null,ofertas,requisitos};});
+}
+async function iniciarProcedimentoOferta(instituicaoId,payload={}){
+  assertAccess();const c=client(),inst=await oneScoped('legalizacao_instituicoes',instituicaoId),sei=clean(payload.numero_sei);if(!sei)throw new Error('Processo SEI é obrigatório para autorização de oferta.');
+  const subtipo=upper(payload.subtipo||'AUTORIZACAO'),validos=['AUTORIZACAO','RENOVACAO','RECONHECIMENTO','RENOVACAO_RECONHECIMENTO'];if(!validos.includes(subtipo))throw new Error('Tipo de procedimento de oferta inválido.');
+  const ids=[...new Set((Array.isArray(payload.oferta_catalogo_ids)?payload.oferta_catalogo_ids:[payload.oferta_catalogo_ids]).map(Number).filter(Boolean))];if(!ids.length)throw new Error('Selecione ao menos uma etapa/modalidade para o procedimento.');
+  const {data:catalogo,error:ec}=await c.from('legalizacao_oferta_catalogo').select('*').in('id',ids).eq('ativo',true);if(ec)throw ec;if((catalogo||[]).length!==ids.length)throw new Error('Uma ou mais ofertas selecionadas não estão disponíveis no catálogo regulatório.');const exigeCurso=(catalogo||[]).some(o=>o.exige_curso_especifico===true),cursoNome=clean(payload.curso_nome),eixo=clean(payload.eixo_tecnologico);if(exigeCurso&&!cursoNome)throw new Error('Informe o nome do curso técnico para a oferta de Educação Profissional.');
+  const base={instituicao_id:inst.id,nte_id:inst.nte_id,tipo:'OFERTA',subtipo,numero_sei:sei,status:'EM_ANDAMENTO',etapa_atual:'CONFIGURACAO_OFERTA',data_protocolo:payload.data_protocolo||today(),prazo_etapa:clean(payload.prazo_etapa),observacao:clean(payload.observacao),responsavel_id:currentUserId(),criado_por_id:currentUserId(),atualizado_por_id:currentUserId()};
+  const {data:p,error:ep}=await c.from('legalizacao_processos').insert(base).select('*').single();if(ep)throw ep;
+  const vinculos=ids.map(id=>{const oc=(catalogo||[]).find(o=>Number(o.id)===Number(id));return {processo_id:p.id,instituicao_id:inst.id,oferta_catalogo_id:id,curso_nome:oc?.exige_curso_especifico?cursoNome:null,eixo_tecnologico:oc?.exige_curso_especifico?eixo:null,status:'EM_ANALISE'};});const {error:ev}=await c.from('legalizacao_processos_ofertas').insert(vinculos);if(ev)throw ev;
+  const {data:reqCat,error:er}=await c.from('legalizacao_oferta_requisitos_catalogo').select('*').eq('ativo',true).or(`oferta_catalogo_id.is.null,oferta_catalogo_id.in.(${ids.join(',')})`).order('ordem',{ascending:true});if(er)throw er;
+  const unicos=new Map();for(const r of reqCat||[]){const chave=String(r.codigo||r.id);if(!unicos.has(chave)||r.oferta_catalogo_id)unicos.set(chave,r);}const reqRows=[...unicos.values()].map(r=>({processo_id:p.id,instituicao_id:inst.id,requisito_catalogo_id:r.id,status:'NAO_APRESENTADO'}));if(reqRows.length){const {error:erp}=await c.from('legalizacao_oferta_requisitos_processo').insert(reqRows);if(erp)throw erp;}
+  await historicoProcesso(p.id,'ABERTURA_OFERTA','Procedimento de oferta criado com etapas/modalidades e requisitos parametrizados.',{numero_sei:sei,subtipo,ofertas:(catalogo||[]).map(o=>o.codigo),requisitos:reqRows.length});resumoCache=null;return {...p,ofertas:catalogo||[],requisitos_gerados:reqRows.length};
 }
 
 async function listarOfertasRegulatorias(){
@@ -184,7 +208,7 @@ async function retomarAnalise(processoId){assertAccess();const c=client();const 
 async function prepararInspecao(processoId){
   assertAccess();const c=client();const {data:p,error:ep}=await c.from('legalizacao_processos').select('*').eq('id',processoId).single();if(ep)throw ep;if(!master()&&Number(p.nte_id)!==Number(nteId()))throw new Error('Processo fora da sua abrangência.');
   const {data:it,error:ei}=await c.from('legalizacao_checklist_processo').select('status,catalogo_id').eq('processo_id',processoId);if(ei)throw ei;const catIds=[...new Set((it||[]).map(x=>x.catalogo_id).filter(Boolean))];let obrigatorios=new Set();if(catIds.length){const {data:cats,error:ec}=await c.from('legalizacao_checklist_catalogo').select('id,obrigatorio').in('id',catIds);if(ec)throw ec;obrigatorios=new Set((cats||[]).filter(x=>x.obrigatorio).map(x=>String(x.id)));}
-  const pend=(it||[]).filter(x=>obrigatorios.has(String(x.catalogo_id))&&!['CONFORME','NAO_SE_APLICA'].includes(upper(x.status)));if(pend.length)throw new Error(`Ainda existem ${pend.length} item(ns) obrigatório(s) pendente(s) no checklist.`);
+  const pend=(it||[]).filter(x=>obrigatorios.has(String(x.catalogo_id))&&!['APRESENTADO','CONFORME','NAO_SE_APLICA'].includes(upper(x.status)));if(pend.length)throw new Error(`Ainda existem ${pend.length} item(ns) obrigatório(s) pendente(s) no checklist.`);
   const {data:ins,error:eins}=await c.from('legalizacao_inspecoes').select('*').eq('processo_id',processoId).limit(1);if(eins)throw eins;let insp=(ins||[])[0]||null;
   if(!insp){const {data:ni,error}=await c.from('legalizacao_inspecoes').insert({processo_id:processoId,instituicao_id:p.instituicao_id,nte_id:p.nte_id,status:'AGENDAMENTO',responsavel_id:currentUserId()}).select('*').single();if(error)throw error;insp=ni;}
   const {data:existItens,error:eex}=await c.from('legalizacao_inspecao_itens').select('id').eq('inspecao_id',insp.id).limit(1);if(eex)throw eex;
@@ -235,5 +259,5 @@ async function integrarAtosIdentificados(importacaoIds=[]){
   return{integrados,falhas:erros.length,erros};
 }
 async function listarAtosInstituicao(instituicaoId){assertAccess();const inst=await oneScoped('legalizacao_instituicoes',instituicaoId),c=client();const {data,error}=await c.from('legalizacao_atos_legais').select('id,ato,tipo_ato,numero_ato,data_publicacao,numero_processo,vigencia_inicio,vigencia_fim,vigencia_origem,detalhe,fonte,situacao_registro,created_at').eq('instituicao_id',inst.id).order('data_publicacao',{ascending:false}).limit(300);if(error)throw error;return data||[];}
-window.SIGEE_LEGALIZACAO_SERVICE=Object.freeze({listarInstituicoes,consultarInstituicoes,contarInstituicoes,resumo,listarBasePendenciasRegulatorias,listarNtes,listarInspecoesGerais,listarHistoricoRegulatorio,listarProcessosRegulatorios,listarOfertasRegulatorias,listarCarimbosRegulatorios,listarAtosHistoricosControle,criarInstituicao,confirmarCadastroMigrado,habilitarProntuario,obterProntuario,obterProntuarioPorEscola,iniciarCredenciamento,atualizarChecklist,emitirDiligencia,retomarAnalise,prepararInspecao,agendarInspecao,atualizarItemInspecao,registrarRealizacaoInspecao,concluirInspecao,concluirAnaliseFinal,registrarPublicacao,concluirCredenciamento,importarAtosLote,listarAtosImportados,resumoImportacaoAtos,confirmarAtoImportado,integrarAtosIdentificados,listarAtosInstituicao,ehMaster:master,nteId});
+window.SIGEE_LEGALIZACAO_SERVICE=Object.freeze({listarInstituicoes,consultarInstituicoes,contarInstituicoes,resumo,listarBasePendenciasRegulatorias,listarNtes,listarInspecoesGerais,listarHistoricoRegulatorio,listarProcessosRegulatorios,listarOfertasRegulatorias,listarProcessosOfertaRegulatorios,listarCatalogoOfertas,iniciarProcedimentoOferta,listarCarimbosRegulatorios,listarAtosHistoricosControle,criarInstituicao,confirmarCadastroMigrado,habilitarProntuario,obterProntuario,obterProntuarioPorEscola,iniciarCredenciamento,atualizarChecklist,emitirDiligencia,retomarAnalise,prepararInspecao,agendarInspecao,atualizarItemInspecao,registrarRealizacaoInspecao,concluirInspecao,concluirAnaliseFinal,registrarPublicacao,concluirCredenciamento,importarAtosLote,listarAtosImportados,resumoImportacaoAtos,confirmarAtoImportado,integrarAtosIdentificados,listarAtosInstituicao,ehMaster:master,nteId});
 })(window);
