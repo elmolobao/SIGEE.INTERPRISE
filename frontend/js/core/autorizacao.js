@@ -1,11 +1,11 @@
 /**
- * SIGEE Enterprise RC12.0.1B — Navegação modular hierárquica + controles autoritativos por sessão.
+ * SIGEE Enterprise RC12.0.1C — Navegação modular hierárquica + controles autoritativos por sessão.
  * Autoridade exclusiva para menus, rotas e destino pós-login.
  */
 (function(window, document){
 'use strict';
-if (window.__SIGEE_AUTORIZACAO_RC840__) return;
-window.__SIGEE_AUTORIZACAO_RC840__ = true;
+if (window.__SIGEE_AUTORIZACAO_RC1201C__) return;
+window.__SIGEE_AUTORIZACAO_RC1201C__ = true;
 
 const ROTAS = Object.freeze({
   painel: 'relatorios.visualizar',
@@ -146,9 +146,9 @@ function criarBotao(item, classeExtra=''){
 }
 
 function garantirEstiloNavegacaoModular(){
-  if(document.getElementById('sigee-navegacao-modular-rc1201b')) return;
+  if(document.getElementById('sigee-navegacao-modular-rc1201c')) return;
   const style=document.createElement('style');
-  style.id='sigee-navegacao-modular-rc1201b';
+  style.id='sigee-navegacao-modular-rc1201c';
   style.textContent=`
     .sigee-modulo-menu{margin:.2rem 0 .35rem;border-bottom:1px solid rgba(255,255,255,.08);padding-bottom:.25rem}
     .sigee-modulo-menu-title{width:100%;display:flex;align-items:center;gap:.55rem;padding:.72rem .9rem;border:0;background:transparent;color:#f8fafc;font-weight:800;text-align:left;cursor:pointer;border-radius:.65rem}
@@ -238,7 +238,7 @@ function criarGrupoRelatorios(){
   titulo.id='menu-relatorios';
   titulo.className='sig-rel-menu-title';
   titulo.setAttribute('aria-expanded','false');
-  titulo.innerHTML='📑 Relatórios <span>▾</span>';
+  titulo.innerHTML='📑 Relatórios de Extintas <span>▾</span>';
   const sub=document.createElement('div');
   RELATORIOS.forEach(([tipo,icone,rotulo])=>{
     const b=document.createElement('button');
@@ -383,16 +383,26 @@ function aplicarControlesDaInterface(){
   garantirNovaSolicitacaoNaCentral();
   aplicarControlesExportacao();
 }
+function removerMenusLegadosSoltos(nav){
+  if(!nav) return;
+  // RC12.0.1C: relatório não pode existir como domínio de primeiro nível.
+  // Remove somente ocorrências soltas; relatórios aninhados no módulo permanecem.
+  nav.querySelectorAll(':scope > #menu-relatorios-rc6501, :scope > #menu-relatorios, :scope > .sig-rel-menu').forEach(el=>el.remove());
+  // Remove grupos territoriais legados de primeiro nível. A Gestão Territorial pertence a Escolas Extintas.
+  nav.querySelectorAll(':scope > #menu-modulo-territorial, :scope > #menu-gestao-territorial-grupo').forEach(el=>el.remove());
+}
+
 function renderizarMenu(){
   const u = usuario();
   const nav = containerMenu();
   if (!u || !nav) return false;
   garantirEstiloNavegacaoModular();
+  removerMenusLegadosSoltos(nav);
   const legalizacao = MENU_LEGALIZACAO.filter(item => itemPermitido(item, u));
   const extintas = MENU_EXTINTAS.filter(item => itemPermitido(item, u));
   const territorial = MENU_GESTAO_TERRITORIAL.filter(item => itemPermitido(item, u));
   const administrativos = MENU_ADMIN.filter(item => itemPermitido(item, u));
-  const assinatura = `${perfil(u)}|LEG:${legalizacao.map(i=>i.id).join(',')}|EXT:${extintas.map(i=>i.id).join(',')}|GT:${territorial.map(i=>i.id).join(',')}|ADMIN:${administrativos.map(i=>i.id).join(',')}`;
+  const assinatura = `RC12.0.1C|${perfil(u)}|LEG:${legalizacao.map(i=>i.id).join(',')}|EXT:${extintas.map(i=>i.id).join(',')}|GT:${territorial.map(i=>i.id).join(',')}|ADMIN:${administrativos.map(i=>i.id).join(',')}`;
   const precisaRelatorios = extintas.some(i=>i.tipo==='relatorios');
   const estruturaIntegra = nav.dataset.sigeeMenuAssinatura === assinatura &&
     (!legalizacao.length || document.getElementById('menu-modulo-legalizacao')) &&
