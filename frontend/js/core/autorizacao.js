@@ -35,11 +35,16 @@ const MODULO_ROTA = Object.freeze({
 const MENU_EXTINTAS = Object.freeze([
   { id:'menu-central-processos', rota:'processos', modulo:'ESCOLAS_EXTINTAS', icone:'📋', rotulo:'Central de Processos', capacidade:'processos.visualizar', perfis:['Master','SEC','Secretaria','Gestor','Administrador','Técnico','Atendimento','Estagiário','Consulta'] },
   { id:'menu-catalogo-escolas', rota:'escolas', modulo:'ESCOLAS_EXTINTAS', icone:'🏫', rotulo:'Catálogo de Escolas', capacidade:'escolas.visualizar', perfis:['Master','SEC','Administrador','Técnico','Atendimento','Estagiário','Consulta'] },
-  { id:'menu-plano-acao-tecnico', rota:'plano-acao-territorial', modulo:'ESCOLAS_EXTINTAS', icone:'✅', rotulo:'Plano de Ação', capacidade:'processos.visualizar', perfis:['Técnico'], escopo:'NTE', destaque:true },
   { id:'menu-painel', rota:'painel', modulo:'ESCOLAS_EXTINTAS', icone:'📊', rotulo:'Painel Gerencial', capacidade:'indicadores.visualizar', perfis:['Gestor'] },
   { id:'menu-centro-inteligencia', rota:'centro-inteligencia', modulo:'ESCOLAS_EXTINTAS', icone:'🧠', rotulo:'Centro de Inteligência', capacidade:'indicadores.visualizar', perfis:['Master','Administrador'] },
   { id:'menu-sala-situacao', rota:'sala-situacao', modulo:'ESCOLAS_EXTINTAS', icone:'📡', rotulo:'Sala de Situação', capacidade:'indicadores.visualizar', perfis:['Master','SEC','Gestor'] },
   { id:'menu-relatorios-extintas', tipo:'relatorios', rota:'relatorios', modulo:'ESCOLAS_EXTINTAS', icone:'📑', rotulo:'Relatórios', capacidade:'relatorios.visualizar', perfis:['Master','SEC','Gestor','Administrador'] }
+]);
+
+// Acesso operacional independente para o Técnico. Não pertence ao submenu de
+// Escolas Extintas nem ao agrupamento Gestão Territorial.
+const MENU_DESTAQUES = Object.freeze([
+  { id:'menu-plano-acao-tecnico', rota:'plano-acao-territorial', modulo:'ESCOLAS_EXTINTAS', icone:'✅', rotulo:'Plano de Ação', capacidade:'processos.visualizar', perfis:['Técnico'], escopo:'NTE', destaque:true }
 ]);
 
 const MENU_LEGALIZACAO = Object.freeze([
@@ -176,6 +181,7 @@ function garantirEstiloNavegacaoModular(){
       display:flex!important;visibility:visible!important;opacity:1!important;align-items:center!important;
       color:#fff!important;background:rgba(16,185,129,.2)!important;
       border-left:4px solid #34d399!important;font-weight:850!important;
+      margin:.55rem 0!important;box-shadow:0 0 0 1px rgba(52,211,153,.28),0 8px 18px rgba(2,6,23,.12)!important;
     }
     body[data-sigee-perfil="Técnico"] #menu-plano-acao-tecnico.sigee-menu-item-destaque:hover{
       background:rgba(16,185,129,.3)!important;
@@ -428,13 +434,15 @@ function renderizarMenu(){
   removerMenusLegadosSoltos(nav);
   const legalizacao = MENU_LEGALIZACAO.filter(item => itemPermitido(item, u));
   const extintas = MENU_EXTINTAS.filter(item => itemPermitido(item, u));
+  const destaques = MENU_DESTAQUES.filter(item => itemPermitido(item, u));
   const territorial = MENU_GESTAO_TERRITORIAL.filter(item => itemPermitido(item, u));
   const administrativos = MENU_ADMIN.filter(item => itemPermitido(item, u));
-  const assinatura = `RC12.0.3C.2|${perfil(u)}|LEG:${legalizacao.map(i=>i.id).join(',')}|EXT:${extintas.map(i=>i.id).join(',')}|GT:${territorial.map(i=>i.id).join(',')}|ADMIN:${administrativos.map(i=>i.id).join(',')}`;
+  const assinatura = `RC12.0.3C.3|${perfil(u)}|LEG:${legalizacao.map(i=>i.id).join(',')}|EXT:${extintas.map(i=>i.id).join(',')}|DESTAQUES:${destaques.map(i=>i.id).join(',')}|GT:${territorial.map(i=>i.id).join(',')}|ADMIN:${administrativos.map(i=>i.id).join(',')}`;
   const precisaRelatorios = extintas.some(i=>i.tipo==='relatorios');
   const estruturaIntegra = nav.dataset.sigeeMenuAssinatura === assinatura &&
     (!legalizacao.length || document.getElementById('menu-modulo-legalizacao')) &&
     (!extintas.length || document.getElementById('menu-modulo-extintas')) &&
+    (!destaques.length || document.getElementById('menu-plano-acao-tecnico')?.parentElement===nav) &&
     (!territorial.length || document.getElementById('menu-submodulo-territorial')) &&
     (!precisaRelatorios || document.getElementById('menu-relatorios-rc6501')) &&
     (!administrativos.length || (document.getElementById('menu-administrativo-grupo') && document.getElementById('submenu-administracao')));
@@ -448,6 +456,7 @@ function renderizarMenu(){
   const fragment=document.createDocumentFragment();
   if(legalizacao.length) fragment.appendChild(criarGrupoModulo({id:'menu-modulo-legalizacao',icone:'⚖️',rotulo:'Legalização Escolar',itens:legalizacao,modulo:'LEGALIZACAO',aberto:false}));
   if(extintas.length) fragment.appendChild(criarGrupoExtintas(extintas,territorial));
+  destaques.forEach(item=>fragment.appendChild(criarBotao(item,'sigee-menu-item-principal')));
   if(administrativos.length) fragment.appendChild(criarGrupoAdministrativo(administrativos));
   nav.replaceChildren(fragment);
   nav.dataset.sigeeMenuAssinatura = assinatura;
