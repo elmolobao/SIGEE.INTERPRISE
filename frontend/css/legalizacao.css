@@ -41,3 +41,8 @@
 
 /* RC12.0.4A — importação controlada e consolidação progressiva */
 .leg-import-resumo{display:flex;gap:8px;flex-wrap:wrap;padding:12px 18px 4px}.leg-import-resumo span{border:1px solid #dbe5ef;background:#f8fafc;border-radius:9px;padding:7px 10px;color:#64748b;font-size:10px}.leg-import-resumo b{color:#173a63;font-size:12px}.leg-atos-list{margin-bottom:18px}.leg-atos-list article>div small{color:#64748b;font-size:9px}.leg-procedimentos-list{border-top:1px solid #dbe5ef;padding-top:12px;margin-top:12px}
+/* RC12.0.7B — Central de Pendências Regulatórias */
+.leg-pendencias-filtros{padding:0 1rem 1rem;display:flex;flex-wrap:wrap;gap:.55rem}
+.leg-pendencias-filtros select,.leg-pendencias-filtros input{min-width:170px;flex:1 1 170px}
+.leg-pend-chips{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.55rem}
+.leg-pend-chips .leg-badge{font-size:.66rem;max-width:320px;white-space:normal;text-align:left}
