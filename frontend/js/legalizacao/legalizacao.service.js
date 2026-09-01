@@ -1,4 +1,4 @@
-/** SIGEE Enterprise RC12.0.3B — Camada de dados resiliente e telas operacionais. */
+/** SIGEE Enterprise RC12.0.3B.1 — Contagem real, paginação e confirmação da migração. */
 (function(window){
 'use strict';
 if(window.__SIGEE_LEGALIZACAO_SERVICE_RC1203B__)return;
@@ -15,34 +15,39 @@ function intOrNull(v){const n=parseInt(v,10);return Number.isFinite(n)?n:null;}
 function upper(v){return String(v||'').trim().toUpperCase();}
 function today(){return new Date().toISOString().slice(0,10);}
 function currentUserId(){return user()?.id??null;}
+let resumoCache=null,resumoCacheEm=0;const RESUMO_TTL=120000;
 async function oneScoped(table,id){assertAccess();const c=client();let q=c.from(table).select('*').eq('id',id);q=scoped(q);const {data,error}=await q.maybeSingle();if(error)throw error;if(!data)throw new Error('Registro não encontrado na sua abrangência.');return data;}
-async function listarInstituicoes(filtros={}){
-  assertAccess();const c=client();if(!c)throw new Error('Cliente Supabase indisponível.');
-  let q=c.from('legalizacao_instituicoes').select('*').order('nome_instituicao',{ascending:true});q=scoped(q);
+function aplicarFiltrosInstituicoes(q,filtros={}){
   if(filtros.situacao)q=q.eq('situacao_regulatoria',filtros.situacao);
-  if(filtros.tipoCadastro)q=q.eq('tipo_cadastro',filtros.tipoCadastro);
+  const tipo=upper(filtros.tipoCadastro);
+  if(tipo==='PRIVADA')q=q.or('tipo_cadastro.eq.PRIVADA,rede.eq.PRIVADA,natureza.eq.PRIVADA');
+  if(tipo==='PUBLICA')q=q.or('tipo_cadastro.eq.PUBLICA,tipo_cadastro.eq.PUBLIC,rede.eq.ESTADUAL,rede.eq.MUNICIPAL,natureza.eq.PUBLICA_ESTADUAL,natureza.eq.PUBLICA_MUNICIPAL');
   if(filtros.busca){const b=String(filtros.busca).trim().replace(/[,()]/g,' ');if(b)q=q.or(`nome_instituicao.ilike.%${b}%,razao_social.ilike.%${b}%,cnpj.ilike.%${b}%,municipio.ilike.%${b}%,cod_sec.ilike.%${b}%,cod_inep.ilike.%${b}%`);}
-  const {data,error}=await q.limit(700);if(error)throw error;return data||[];
+  return q;
 }
+async function consultarInstituicoes(filtros={}){
+  assertAccess();const c=client();if(!c)throw new Error('Cliente Supabase indisponível.');
+  const page=Math.max(1,intOrNull(filtros.page)||1),pageSize=Math.min(100,Math.max(10,intOrNull(filtros.pageSize)||50)),from=(page-1)*pageSize,to=from+pageSize-1;
+  let q=c.from('legalizacao_instituicoes').select('*',{count:'exact'}).order('nome_instituicao',{ascending:true});q=aplicarFiltrosInstituicoes(scoped(q),filtros);
+  const {data,error,count}=await q.range(from,to);if(error)throw error;return {items:data||[],total:Number(count||0),page,pageSize,pages:Math.max(1,Math.ceil(Number(count||0)/pageSize))};
+}
+async function listarInstituicoes(filtros={}){return (await consultarInstituicoes(filtros)).items;}
+async function contarInstituicoes(filtros={}){assertAccess();const c=client();let q=c.from('legalizacao_instituicoes').select('id',{count:'exact',head:true});q=aplicarFiltrosInstituicoes(scoped(q),filtros);const {count,error}=await q;if(error)throw error;return Number(count||0);}
+async function contarTabela(table,configurar){const c=client();let q=c.from(table).select('id',{count:'exact',head:true});if(configurar)q=configurar(q);const {count,error}=await q;if(error)throw error;return Number(count||0);}
 async function listScoped(table,select='*',limit=1000){const c=client();if(!c)throw new Error('Cliente Supabase indisponível.');let q=c.from(table).select(select);q=scoped(q);const {data,error}=await q.limit(limit);if(error)throw error;return data||[];}
 async function safeListScoped(table,select='*',limit=1000){try{return await listScoped(table,select,limit);}catch(err){console.warn('[Legalização] fonte opcional indisponível:',table,err?.message||err);return[];}}
 async function safeChildren(table,select,inst){try{const c=client();const {data,error}=await c.from(table).select(select).limit(2500);if(error)throw error;const ids=new Set((inst||[]).map(i=>String(i.id)));return(data||[]).filter(o=>ids.has(String(o.instituicao_id)));}catch(err){console.warn('[Legalização] fonte complementar indisponível:',table,err?.message||err);return[];}}
-async function resumo(){
-  assertAccess();const inst=await listarInstituicoes();
-  const [proc,fisc,avg,ofertas,carimbos]=await Promise.all([
-    safeListScoped('legalizacao_processos','id,status,tipo,etapa_atual,nte_id'),
-    safeListScoped('legalizacao_fiscalizacoes','id,status,nte_id'),safeListScoped('legalizacao_averiguacoes','id,status,nte_id'),
-    safeChildren('legalizacao_ofertas','id,situacao,ano_fim_vigencia,instituicao_id',inst),
-    safeChildren('legalizacao_autorizacoes_carimbo','id,situacao,ano_fim,instituicao_id',inst)
+async function resumo(force=false){
+  assertAccess();if(!force&&resumoCache&&Date.now()-resumoCacheEm<RESUMO_TTL)return resumoCache;const ano=new Date().getFullYear();
+  const safe=async p=>{try{return await p;}catch(err){console.warn('[Legalização] contador opcional indisponível:',err?.message||err);return 0;}};
+  const [instituicoes,emCredenciamento,ofertasCriticas,carimbosCriticos,fiscalizacoes,averiguacoes]=await Promise.all([
+    contarInstituicoes(),contarInstituicoes({situacao:'EM_CREDENCIAMENTO'}),
+    safe(contarTabela('legalizacao_ofertas',q=>q.or(`situacao.in.(EM_ANALISE,EM_RENOVACAO,A_VENCER,VENCIDA),ano_fim_vigencia.lte.${ano+1}`))),
+    safe(contarTabela('legalizacao_autorizacoes_carimbo',q=>q.in('situacao',['A_VENCER','VENCIDA','EM_RENOVACAO','EM_AUTORIZACAO']))),
+    safe(contarTabela('legalizacao_fiscalizacoes',q=>scoped(q).not('status','in','(REGULARIZADA,ARQUIVADA)'))),
+    safe(contarTabela('legalizacao_averiguacoes',q=>scoped(q).not('status','in','(ARQUIVADA,NAO_CONFIRMADA,VINCULADA_INSTITUICAO)')))
   ]);
-  const ativos=proc.filter(p=>!['CONCLUIDO','ARQUIVADO','CANCELADO'].includes(upper(p.status)));
-  return {instituicoes:inst.length,credenciadas:inst.filter(i=>['CREDENCIADA','REGULAR'].includes(upper(i.situacao_regulatoria))).length,
-    emCredenciamento:inst.filter(i=>upper(i.situacao_regulatoria)==='EM_CREDENCIAMENTO').length,processosAtivos:ativos.length,
-    aguardandoPublicacao:ativos.filter(p=>upper(p.etapa_atual).includes('PUBLIC')).length,ofertas:ofertas.length,
-    ofertasCriticas:ofertas.filter(o=>['EM_ANALISE','EM_RENOVACAO'].includes(upper(o.situacao))||((o.ano_fim_vigencia||9999)<=new Date().getFullYear())).length,
-    carimbos:carimbos.length,carimbosCriticos:carimbos.filter(o=>['A_VENCER','VENCIDA','EM_RENOVACAO','EM_AUTORIZACAO'].includes(upper(o.situacao))).length,
-    fiscalizacoes:fisc.filter(f=>!['REGULARIZADA','ARQUIVADA'].includes(upper(f.status))).length,
-    averiguacoes:avg.filter(a=>!['ARQUIVADA','NAO_CONFIRMADA','VINCULADA_INSTITUICAO'].includes(upper(a.status))).length};
+  resumoCache={instituicoes,emCredenciamento,ofertasCriticas,carimbosCriticos,fiscalizacoes,averiguacoes};resumoCacheEm=Date.now();return resumoCache;
 }
 async function listarProcessosRegulatorios(){
   assertAccess();const c=client();let q=c.from('legalizacao_processos').select('id,instituicao_id,nte_id,tipo,numero_sei,status,etapa_atual,data_protocolo,data_publicacao,updated_at').order('updated_at',{ascending:false}).limit(1000);q=scoped(q);const {data,error}=await q;if(error)throw error;const lista=data||[];const ids=[...new Set(lista.map(x=>x.instituicao_id).filter(Boolean))];let inst=[];if(ids.length){const r=await c.from('legalizacao_instituicoes').select('id,nome_instituicao,tipo_cadastro,rede').in('id',ids);if(!r.error)inst=r.data||[];}const im=new Map(inst.map(x=>[String(x.id),x]));return lista.map(x=>({...x,instituicao:im.get(String(x.instituicao_id))||null}));
@@ -78,6 +83,11 @@ async function criarInstituicao(payload){
   if(tipo==='PRIVADA'&&clean(payload.mantenedora_razao_social)){const {error:em}=await c.from('legalizacao_mantenedoras').insert({instituicao_id:data.id,razao_social:clean(payload.mantenedora_razao_social),cnpj:clean(payload.mantenedora_cnpj),representante_legal:clean(payload.mantenedora_representante),telefone:clean(payload.mantenedora_telefone),whatsapp:clean(payload.mantenedora_whatsapp),email:clean(payload.mantenedora_email),municipio:clean(payload.mantenedora_municipio),uf:'BA'});if(em)throw em;}
   for(const tipoResp of ['DIRETOR','SECRETARIO']){const pfx=tipoResp==='DIRETOR'?'diretor':'secretario';if(clean(payload[pfx+'_nome'])){const {error:er}=await c.from('legalizacao_responsaveis').insert({instituicao_id:data.id,tipo:tipoResp,nome:clean(payload[pfx+'_nome']),cpf:clean(payload[pfx+'_cpf']),telefone:clean(payload[pfx+'_telefone']),whatsapp:clean(payload[pfx+'_whatsapp']),email:clean(payload[pfx+'_email'])});if(er)throw er;}}
   return data;
+}
+async function confirmarCadastroMigrado(instituicaoId){
+  assertAccess();const c=client(),inst=await oneScoped('legalizacao_instituicoes',instituicaoId);if(upper(inst.situacao_regulatoria)!=='A_CONFIRMAR')throw new Error('Este cadastro não está aguardando confirmação.');
+  const registro={situacao_regulatoria:'EM_CADASTRO',atualizado_por_id:currentUserId(),updated_at:new Date().toISOString()};
+  const {data,error}=await c.from('legalizacao_instituicoes').update(registro).eq('id',inst.id).select('*').single();if(error)throw error;resumoCache=null;return data;
 }
 async function obterProntuario(instituicaoId){
   const c=client(),instituicao=await oneScoped('legalizacao_instituicoes',instituicaoId);
@@ -143,5 +153,5 @@ async function agendarInspecao(inspecaoId,dataAgendada){assertAccess();const c=c
 async function atualizarItemInspecao(itemId,payload={}){assertAccess();const c=client(),resultado=upper(payload.resultado);if(!['PENDENTE','CONFORME','NAO_CONFORME','NAO_SE_APLICA'].includes(resultado))throw new Error('Resultado de inspeção inválido.');const {data:ant,error:ea}=await c.from('legalizacao_inspecao_itens').select('*').eq('id',itemId).single();if(ea)throw ea;const {data:i,error:ei}=await c.from('legalizacao_inspecoes').select('*').eq('id',ant.inspecao_id).single();if(ei)throw ei;if(!master()&&Number(i.nte_id)!==Number(nteId()))throw new Error('Item fora da sua abrangência.');const {data,error}=await c.from('legalizacao_inspecao_itens').update({resultado,observacao:clean(payload.observacao),orientacao:clean(payload.orientacao),analisado_por_id:currentUserId(),analisado_em:new Date().toISOString()}).eq('id',itemId).select('*').single();if(error)throw error;return data;}
 async function registrarRealizacaoInspecao(inspecaoId,dataRealizada){assertAccess();const c=client();const {data:i,error:ei}=await c.from('legalizacao_inspecoes').select('*').eq('id',inspecaoId).single();if(ei)throw ei;if(!master()&&Number(i.nte_id)!==Number(nteId()))throw new Error('Inspeção fora da sua abrangência.');const d=dataRealizada||today(),now=new Date().toISOString();const {data,error}=await c.from('legalizacao_inspecoes').update({data_realizada:d,status:'REALIZADA',responsavel_id:i.responsavel_id||currentUserId(),updated_at:now}).eq('id',inspecaoId).select('*').single();if(error)throw error;await historicoProcesso(i.processo_id,'INSPECAO_REALIZADA','Verificação in loco registrada.',{data_realizada:d});return data;}
 async function concluirInspecao(inspecaoId,payload={}){assertAccess();const c=client();const {data:i,error:ei}=await c.from('legalizacao_inspecoes').select('*').eq('id',inspecaoId).single();if(ei)throw ei;if(!master()&&Number(i.nte_id)!==Number(nteId()))throw new Error('Inspeção fora da sua abrangência.');const {data:it,error:eii}=await c.from('legalizacao_inspecao_itens').select('id,resultado').eq('inspecao_id',inspecaoId);if(eii)throw eii;const pend=(it||[]).filter(x=>upper(x.resultado)==='PENDENTE');if(pend.length)throw new Error(`Ainda existem ${pend.length} item(ns) sem conclusão na inspeção.`);const rg=upper(payload.resultado_global);if(!['FAVORAVEL','FAVORAVEL_COM_RESSALVAS','DESFAVORAVEL'].includes(rg))throw new Error('Informe a conclusão técnica da inspeção.');const texto=clean(payload.relatorio_tecnico);if(!texto)throw new Error('Registre a conclusão/relatório técnico.');const now=new Date().toISOString();const {data,error}=await c.from('legalizacao_inspecoes').update({data_realizada:i.data_realizada||today(),status:'CONCLUIDA',resultado_global:rg,relatorio_tecnico:texto,conclusao:texto,relatorio_concluido_em:now,relatorio_concluido_por_id:currentUserId(),updated_at:now}).eq('id',inspecaoId).select('*').single();if(error)throw error;const {error:ep}=await c.from('legalizacao_processos').update({status:'EM_ANDAMENTO',etapa_atual:'ANALISE_FINAL',atualizado_por_id:currentUserId(),updated_at:now}).eq('id',i.processo_id);if(ep)throw ep;await historicoProcesso(i.processo_id,'RELATORIO_TECNICO_CONCLUIDO','Relatório técnico da inspeção concluído.',{resultado_global:rg});return data;}
-window.SIGEE_LEGALIZACAO_SERVICE=Object.freeze({listarInstituicoes,resumo,listarNtes,listarInspecoesGerais,listarHistoricoRegulatorio,listarProcessosRegulatorios,listarOfertasRegulatorias,listarCarimbosRegulatorios,criarInstituicao,obterProntuario,iniciarCredenciamento,atualizarChecklist,emitirDiligencia,retomarAnalise,prepararInspecao,agendarInspecao,atualizarItemInspecao,registrarRealizacaoInspecao,concluirInspecao,ehMaster:master,nteId});
+window.SIGEE_LEGALIZACAO_SERVICE=Object.freeze({listarInstituicoes,consultarInstituicoes,contarInstituicoes,resumo,listarNtes,listarInspecoesGerais,listarHistoricoRegulatorio,listarProcessosRegulatorios,listarOfertasRegulatorias,listarCarimbosRegulatorios,criarInstituicao,confirmarCadastroMigrado,obterProntuario,iniciarCredenciamento,atualizarChecklist,emitirDiligencia,retomarAnalise,prepararInspecao,agendarInspecao,atualizarItemInspecao,registrarRealizacaoInspecao,concluirInspecao,ehMaster:master,nteId});
 })(window);
