@@ -28,3 +28,9 @@
 .leg-empty.danger{border-color:#fecaca;background:#fff7f7;color:#991b1b}
 .leg-loading{padding:28px;text-align:center;font-weight:800;color:#475569}
 @media (max-width:900px){.leg-panel-head{align-items:flex-start;flex-direction:column}.leg-filter-row{width:100%}.leg-filter-row select,.leg-filter-row input{min-width:0;flex:1 1 180px}}
+
+/* RC12.0.3B.1 — paginação e confirmação de cadastros migrados */
+.leg-pagination{display:flex;justify-content:center;align-items:center;gap:12px;padding:14px 18px;border-top:1px solid #e7edf5;color:#52667d;font-size:11px;background:#fbfdff}
+.leg-pagination button{border:1px solid #cbd5e1;background:#fff;color:#1554c0;border-radius:8px;padding:7px 11px;font-weight:800;cursor:pointer}.leg-pagination button:disabled{cursor:not-allowed;opacity:.45;color:#64748b}
+.leg-link.confirm{background:#1554c0;color:#fff;border-color:#1554c0}.leg-confirm-head{width:auto!important;height:auto!important;padding:8px 11px!important;border-radius:8px!important;font-size:10px!important}
+@media(max-width:720px){.leg-pagination{flex-wrap:wrap}.leg-inst-meta{flex-wrap:wrap}.leg-pront-head-actions{flex-wrap:wrap;justify-content:flex-end}}
