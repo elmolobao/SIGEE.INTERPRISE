@@ -36,7 +36,7 @@
 <link rel="stylesheet" href="css/reports.css?v=RC6.6.2"/>
 <link rel="stylesheet" href="css/popup-prazos-login.css?v=RC10.8.20">
 <link rel="stylesheet" href="css/gestao-territorial.css?v=RC11.3.19B">
-<link rel="stylesheet" href="css/legalizacao.css?v=RC12.0.3B">
+<link rel="stylesheet" href="css/legalizacao.css?v=RC12.0.3B.1">
 </head>
 <body class="bg-gray-100 font-sans text-gray-800 font-normal">
 <div class="min-h-screen flex items-center justify-center bg-blue-900 px-4" id="tela-login">
@@ -158,10 +158,10 @@
   <header class="leg-top"><div><span class="leg-eyebrow">SIGEE · DOMÍNIO REGULATÓRIO</span><h1>⚖️ Legalização Escolar</h1><p>Cadastro, regulação e fiscalização organizados em áreas independentes.</p></div><div class="leg-actions"><button type="button" class="leg-btn" id="btn-legalizacao-atualizar">↻ Atualizar</button><button type="button" class="leg-btn primary" id="btn-legalizacao-nova">＋ Nova instituição</button></div></header>
   <div class="leg-area" data-area="visao">
     <div class="leg-kpis"><article class="leg-kpi"><span>Instituições</span><strong id="leg-kpi-instituicoes">0</strong></article><article class="leg-kpi"><span>Em credenciamento</span><strong id="leg-kpi-credenciamento">0</strong></article><article class="leg-kpi"><span>Ofertas em atenção</span><strong id="leg-kpi-ofertas">0</strong></article><article class="leg-kpi"><span>Carimbos em atenção</span><strong id="leg-kpi-carimbos">0</strong></article><article class="leg-kpi"><span>Fiscalizações abertas</span><strong id="leg-kpi-fiscalizacoes">0</strong></article><article class="leg-kpi"><span>Em averiguação</span><strong id="leg-kpi-averiguacoes">0</strong></article></div>
-    <div class="leg-panel"><header class="leg-panel-head"><div><h2>Instituições sob gestão</h2><p id="legalizacao-status">Cadastro regulatório por NTE</p></div><div class="leg-filter-row"><select id="legalizacao-tipo"><option value="">Públicas e privadas</option><option value="PUBLICA">Escolas públicas</option><option value="PRIVADA">Escolas privadas</option></select><input class="leg-search" id="legalizacao-busca" type="search" placeholder="Nome, COD SEC, INEP, CNPJ ou município"></div></header><div class="leg-list" id="legalizacao-lista"><div class="leg-empty"><strong>Aguardando carregamento...</strong></div></div></div>
+    <div class="leg-panel"><header class="leg-panel-head"><div><h2>Instituições sob gestão</h2><p id="legalizacao-status">Cadastro regulatório por NTE</p></div><div class="leg-filter-row"><select id="legalizacao-tipo"><option value="">Públicas e privadas</option><option value="PUBLICA">Escolas públicas</option><option value="PRIVADA">Escolas privadas</option></select><input class="leg-search" id="legalizacao-busca" type="search" placeholder="Nome, COD SEC, INEP, CNPJ ou município"></div></header><div class="leg-list" id="legalizacao-lista"><div class="leg-empty"><strong>Aguardando carregamento...</strong></div></div><div class="leg-pagination" id="legalizacao-paginacao"></div></div>
   </div>
   <div class="leg-area hidden" data-area="instituicoes">
-    <div class="leg-panel"><header class="leg-panel-head"><div><h2>Instituições</h2><p>Cadastro permanente por NTE, com modelos próprios para escola pública e privada.</p></div><div class="leg-filter-row"><select id="legalizacao-inst-tipo"><option value="">Públicas e privadas</option><option value="PUBLICA">Públicas</option><option value="PRIVADA">Privadas</option></select><select id="legalizacao-inst-situacao"><option value="">Todas as situações</option><option value="A_CONFIRMAR">Cadastro migrado</option><option value="EM_CADASTRO">Em cadastro</option><option value="EM_CREDENCIAMENTO">Em credenciamento</option><option value="CREDENCIADA">Credenciada</option><option value="REGULAR">Regular</option><option value="EM_MANUTENCAO">Em manutenção</option><option value="SUSPENSA">Suspensa</option><option value="EM_DESCREDENCIAMENTO">Em descredenciamento</option><option value="EXTINTA">Extinta</option></select><input class="leg-search" id="legalizacao-inst-busca" type="search" placeholder="Nome, COD SEC, INEP, CNPJ ou município"></div></header><div class="leg-list" id="legalizacao-instituicoes-lista"><div class="leg-empty"><strong>Aguardando carregamento...</strong></div></div></div>
+    <div class="leg-panel"><header class="leg-panel-head"><div><h2>Instituições</h2><p>Cadastro permanente por NTE, com modelos próprios para escola pública e privada.</p></div><div class="leg-filter-row"><select id="legalizacao-inst-tipo"><option value="">Públicas e privadas</option><option value="PUBLICA">Públicas</option><option value="PRIVADA">Privadas</option></select><select id="legalizacao-inst-situacao"><option value="">Todas as situações</option><option value="A_CONFIRMAR">Cadastro migrado</option><option value="EM_CADASTRO">Em cadastro</option><option value="EM_CREDENCIAMENTO">Em credenciamento</option><option value="CREDENCIADA">Credenciada</option><option value="REGULAR">Regular</option><option value="EM_MANUTENCAO">Em manutenção</option><option value="SUSPENSA">Suspensa</option><option value="EM_DESCREDENCIAMENTO">Em descredenciamento</option><option value="EXTINTA">Extinta</option></select><input class="leg-search" id="legalizacao-inst-busca" type="search" placeholder="Nome, COD SEC, INEP, CNPJ ou município"></div></header><div class="leg-list" id="legalizacao-instituicoes-lista"><div class="leg-empty"><strong>Aguardando carregamento...</strong></div></div><div class="leg-pagination" id="legalizacao-instituicoes-paginacao"></div></div>
   </div>
   <div class="leg-area hidden" data-area="regulatorio">
     <div class="leg-reg-tabs" role="tablist"><button type="button" class="active" data-reg-tab="credenciamento">Credenciamento</button><button type="button" data-reg-tab="ofertas">Ofertas / Cursos</button><button type="button" data-reg-tab="carimbos">Carimbos</button></div>
@@ -854,9 +854,9 @@ window.filtrarTabelaUsuariosSIGEE = function (termo) {
 <script src="js/territorial/territorial-pesquisa.js?v=GT-05.2.4"></script>
 <script src="js/territorial/territorial-bootstrap.js?v=RC11.3.16"></script>
 
-<script src="js/legalizacao/legalizacao.service.js?v=RC12.0.3B"></script>
-<script src="js/legalizacao/legalizacao.js?v=RC12.0.3B"></script>
-<script src="js/core/autorizacao.js?v=RC12.0.3B"></script>
+<script src="js/legalizacao/legalizacao.service.js?v=RC12.0.3B.1"></script>
+<script src="js/legalizacao/legalizacao.js?v=RC12.0.3B.1"></script>
+<script src="js/core/autorizacao.js?v=RC12.0.3B.1"></script>
 <script src="js/analytics/dashboard.js?v=RC7.4.4-PERFORMANCE"></script>
 <script src="js/cio/cio-bootstrap.js?v=RC7.4.1"></script>
 <script src="js/cio/cio-widget.js?v=RC6.3.1.2"></script>
