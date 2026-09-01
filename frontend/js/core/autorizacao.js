@@ -131,7 +131,8 @@ function criarBotao(item, classeExtra=''){
   const botao = document.createElement('button');
   botao.type = 'button';
   botao.id = item.id;
-  botao.className = `${classeMenu()} ${classeExtra}`.trim();
+  const destaqueTecnico=item.rota==='plano-acao-territorial'&&perfil(usuario())==='Técnico'?'sigee-menu-item-destaque':'';
+  botao.className = `${classeMenu()} ${classeExtra} ${destaqueTecnico}`.trim();
   botao.dataset.sigeeRota = item.rota;
   if(item.area) botao.dataset.sigeeArea = item.area;
   botao.dataset.sigeeCapacidade = Array.isArray(item.capacidade) ? item.capacidade.join('|') : item.capacidade;
@@ -166,6 +167,14 @@ function garantirEstiloNavegacaoModular(){
     .sigee-submodulo-title .sigee-submodulo-seta{margin-left:auto;font-size:.68rem;opacity:.8}
     .sigee-submodulo-submenu{display:none;margin:.12rem 0 .2rem .62rem;padding-left:.48rem;border-left:1px solid rgba(148,163,184,.3)}
     .sigee-submodulo-menu.open>.sigee-submodulo-submenu{display:block}
+    body[data-sigee-perfil="Técnico"] #menu-plano-acao-territorial.sigee-menu-item-destaque{
+      display:block!important;visibility:visible!important;opacity:1!important;
+      color:#fff!important;background:rgba(16,185,129,.18)!important;
+      border-left:3px solid #34d399!important;font-weight:850!important;
+    }
+    body[data-sigee-perfil="Técnico"] #menu-plano-acao-territorial.sigee-menu-item-destaque:hover{
+      background:rgba(16,185,129,.3)!important;
+    }
   `;
   document.head.appendChild(style);
 }
@@ -224,7 +233,11 @@ function criarGrupoExtintas(itens,territorial){
   if(territorial.length){
     const submenu=grupo.querySelector(':scope > .sigee-modulo-submenu');
     const relatorios=submenu?.querySelector('#menu-relatorios-rc6501');
-    const subterritorial=criarSubgrupoModulo({id:'menu-submodulo-territorial',icone:'🗺️',rotulo:'Gestão Territorial',itens:territorial,aberto:false});
+    // RC12.0.3C.1: o módulo principal continua recolhido no login, mas o
+    // subgrupo territorial já fica preparado para exibir o Plano de Ação
+    // assim que o Técnico/usuário NTE abrir Escolas Extintas.
+    const abrirTerritorial=window.SIGEE_ESCOPO?.ehTerritorial?.(usuario())===true;
+    const subterritorial=criarSubgrupoModulo({id:'menu-submodulo-territorial',icone:'🗺️',rotulo:'Gestão Territorial',itens:territorial,aberto:abrirTerritorial});
     if(relatorios) submenu.insertBefore(subterritorial, relatorios);
     else submenu?.appendChild(subterritorial);
   }
@@ -404,7 +417,7 @@ function renderizarMenu(){
   const extintas = MENU_EXTINTAS.filter(item => itemPermitido(item, u));
   const territorial = MENU_GESTAO_TERRITORIAL.filter(item => itemPermitido(item, u));
   const administrativos = MENU_ADMIN.filter(item => itemPermitido(item, u));
-  const assinatura = `RC12.0.3A|${perfil(u)}|LEG:${legalizacao.map(i=>i.id).join(',')}|EXT:${extintas.map(i=>i.id).join(',')}|GT:${territorial.map(i=>i.id).join(',')}|ADMIN:${administrativos.map(i=>i.id).join(',')}`;
+  const assinatura = `RC12.0.3C.1|${perfil(u)}|LEG:${legalizacao.map(i=>i.id).join(',')}|EXT:${extintas.map(i=>i.id).join(',')}|GT:${territorial.map(i=>i.id).join(',')}|ADMIN:${administrativos.map(i=>i.id).join(',')}`;
   const precisaRelatorios = extintas.some(i=>i.tipo==='relatorios');
   const estruturaIntegra = nav.dataset.sigeeMenuAssinatura === assinatura &&
     (!legalizacao.length || document.getElementById('menu-modulo-legalizacao')) &&
