@@ -1,8 +1,8 @@
-/** SIGEE Enterprise RC12.0.3A — Refinamento de navegação e filas da Legalização. */
+/** SIGEE Enterprise RC12.0.3B — Camada de dados resiliente e telas operacionais. */
 (function(window){
 'use strict';
-if(window.__SIGEE_LEGALIZACAO_SERVICE_RC1203__)return;
-window.__SIGEE_LEGALIZACAO_SERVICE_RC1203__=true;
+if(window.__SIGEE_LEGALIZACAO_SERVICE_RC1203B__)return;
+window.__SIGEE_LEGALIZACAO_SERVICE_RC1203B__=true;
 const MOD='LEGALIZACAO';
 function client(){try{return window.SIGEE_SUPABASE?.criarCliente?.()||window.SIGEE_SUPABASE_CLIENT||null;}catch(_){return null;}}
 function user(){return window.SIGEE_SESSION?.getUser?.()||window.usuarioLogado||null;}
@@ -24,13 +24,16 @@ async function listarInstituicoes(filtros={}){
   if(filtros.busca){const b=String(filtros.busca).trim().replace(/[,()]/g,' ');if(b)q=q.or(`nome_instituicao.ilike.%${b}%,razao_social.ilike.%${b}%,cnpj.ilike.%${b}%,municipio.ilike.%${b}%,cod_sec.ilike.%${b}%,cod_inep.ilike.%${b}%`);}
   const {data,error}=await q.limit(700);if(error)throw error;return data||[];
 }
-async function listScoped(table,select='*',limit=1000){const c=client();let q=c.from(table).select(select);q=scoped(q);const {data,error}=await q.limit(limit);if(error)throw error;return data||[];}
+async function listScoped(table,select='*',limit=1000){const c=client();if(!c)throw new Error('Cliente Supabase indisponível.');let q=c.from(table).select(select);q=scoped(q);const {data,error}=await q.limit(limit);if(error)throw error;return data||[];}
+async function safeListScoped(table,select='*',limit=1000){try{return await listScoped(table,select,limit);}catch(err){console.warn('[Legalização] fonte opcional indisponível:',table,err?.message||err);return[];}}
+async function safeChildren(table,select,inst){try{const c=client();const {data,error}=await c.from(table).select(select).limit(2500);if(error)throw error;const ids=new Set((inst||[]).map(i=>String(i.id)));return(data||[]).filter(o=>ids.has(String(o.instituicao_id)));}catch(err){console.warn('[Legalização] fonte complementar indisponível:',table,err?.message||err);return[];}}
 async function resumo(){
-  assertAccess();const [inst,proc,fisc,avg,ofertas,carimbos]=await Promise.all([
-    listarInstituicoes(),listScoped('legalizacao_processos','id,status,tipo,etapa_atual,nte_id'),
-    listScoped('legalizacao_fiscalizacoes','id,status,nte_id'),listScoped('legalizacao_averiguacoes','id,status,nte_id'),
-    (async()=>{const c=client();const {data,error}=await c.from('legalizacao_ofertas').select('id,situacao,ano_fim_vigencia,instituicao_id').limit(2000);if(error)throw error;const ids=new Set(inst.map(i=>String(i.id)));return(data||[]).filter(o=>ids.has(String(o.instituicao_id)));})(),
-    (async()=>{const c=client();const {data,error}=await c.from('legalizacao_autorizacoes_carimbo').select('id,situacao,ano_fim,instituicao_id').limit(2000);if(error)return[];const ids=new Set(inst.map(i=>String(i.id)));return(data||[]).filter(o=>ids.has(String(o.instituicao_id)));})()
+  assertAccess();const inst=await listarInstituicoes();
+  const [proc,fisc,avg,ofertas,carimbos]=await Promise.all([
+    safeListScoped('legalizacao_processos','id,status,tipo,etapa_atual,nte_id'),
+    safeListScoped('legalizacao_fiscalizacoes','id,status,nte_id'),safeListScoped('legalizacao_averiguacoes','id,status,nte_id'),
+    safeChildren('legalizacao_ofertas','id,situacao,ano_fim_vigencia,instituicao_id',inst),
+    safeChildren('legalizacao_autorizacoes_carimbo','id,situacao,ano_fim,instituicao_id',inst)
   ]);
   const ativos=proc.filter(p=>!['CONCLUIDO','ARQUIVADO','CANCELADO'].includes(upper(p.status)));
   return {instituicoes:inst.length,credenciadas:inst.filter(i=>['CREDENCIADA','REGULAR'].includes(upper(i.situacao_regulatoria))).length,
@@ -40,6 +43,15 @@ async function resumo(){
     carimbos:carimbos.length,carimbosCriticos:carimbos.filter(o=>['A_VENCER','VENCIDA','EM_RENOVACAO','EM_AUTORIZACAO'].includes(upper(o.situacao))).length,
     fiscalizacoes:fisc.filter(f=>!['REGULARIZADA','ARQUIVADA'].includes(upper(f.status))).length,
     averiguacoes:avg.filter(a=>!['ARQUIVADA','NAO_CONFIRMADA','VINCULADA_INSTITUICAO'].includes(upper(a.status))).length};
+}
+async function listarProcessosRegulatorios(){
+  assertAccess();const c=client();let q=c.from('legalizacao_processos').select('id,instituicao_id,nte_id,tipo,numero_sei,status,etapa_atual,data_protocolo,data_publicacao,updated_at').order('updated_at',{ascending:false}).limit(1000);q=scoped(q);const {data,error}=await q;if(error)throw error;const lista=data||[];const ids=[...new Set(lista.map(x=>x.instituicao_id).filter(Boolean))];let inst=[];if(ids.length){const r=await c.from('legalizacao_instituicoes').select('id,nome_instituicao,tipo_cadastro,rede').in('id',ids);if(!r.error)inst=r.data||[];}const im=new Map(inst.map(x=>[String(x.id),x]));return lista.map(x=>({...x,instituicao:im.get(String(x.instituicao_id))||null}));
+}
+async function listarOfertasRegulatorias(){
+  assertAccess();const inst=await listarInstituicoes();const lista=await safeChildren('legalizacao_ofertas','id,instituicao_id,processo_id,etapa_modalidade,curso_tecnico,eixo_tecnologico,ano_inicio_vigencia,ano_fim_vigencia,situacao,updated_at',inst);const im=new Map(inst.map(x=>[String(x.id),x]));return lista.map(x=>({...x,instituicao:im.get(String(x.instituicao_id))||null}));
+}
+async function listarCarimbosRegulatorios(){
+  assertAccess();const inst=await listarInstituicoes();const lista=await safeChildren('legalizacao_autorizacoes_carimbo','id,instituicao_id,responsavel_id,tipo,ano_inicio,ano_fim,situacao,numero_sei,updated_at',inst);const im=new Map(inst.map(x=>[String(x.id),x]));const rids=[...new Set(lista.map(x=>x.responsavel_id).filter(Boolean))];let resp=[];if(rids.length){const c=client(),r=await c.from('legalizacao_responsaveis').select('id,nome,tipo').in('id',rids);if(!r.error)resp=r.data||[];}const rm=new Map(resp.map(x=>[String(x.id),x]));return lista.map(x=>({...x,instituicao:im.get(String(x.instituicao_id))||null,responsavel:rm.get(String(x.responsavel_id))||null}));
 }
 async function listarNtes(){const c=client();if(!c)return[];const {data,error}=await c.from('ntes_sigee').select('*').order('id',{ascending:true});if(error)return[];return data||[];}
 
@@ -131,5 +143,5 @@ async function agendarInspecao(inspecaoId,dataAgendada){assertAccess();const c=c
 async function atualizarItemInspecao(itemId,payload={}){assertAccess();const c=client(),resultado=upper(payload.resultado);if(!['PENDENTE','CONFORME','NAO_CONFORME','NAO_SE_APLICA'].includes(resultado))throw new Error('Resultado de inspeção inválido.');const {data:ant,error:ea}=await c.from('legalizacao_inspecao_itens').select('*').eq('id',itemId).single();if(ea)throw ea;const {data:i,error:ei}=await c.from('legalizacao_inspecoes').select('*').eq('id',ant.inspecao_id).single();if(ei)throw ei;if(!master()&&Number(i.nte_id)!==Number(nteId()))throw new Error('Item fora da sua abrangência.');const {data,error}=await c.from('legalizacao_inspecao_itens').update({resultado,observacao:clean(payload.observacao),orientacao:clean(payload.orientacao),analisado_por_id:currentUserId(),analisado_em:new Date().toISOString()}).eq('id',itemId).select('*').single();if(error)throw error;return data;}
 async function registrarRealizacaoInspecao(inspecaoId,dataRealizada){assertAccess();const c=client();const {data:i,error:ei}=await c.from('legalizacao_inspecoes').select('*').eq('id',inspecaoId).single();if(ei)throw ei;if(!master()&&Number(i.nte_id)!==Number(nteId()))throw new Error('Inspeção fora da sua abrangência.');const d=dataRealizada||today(),now=new Date().toISOString();const {data,error}=await c.from('legalizacao_inspecoes').update({data_realizada:d,status:'REALIZADA',responsavel_id:i.responsavel_id||currentUserId(),updated_at:now}).eq('id',inspecaoId).select('*').single();if(error)throw error;await historicoProcesso(i.processo_id,'INSPECAO_REALIZADA','Verificação in loco registrada.',{data_realizada:d});return data;}
 async function concluirInspecao(inspecaoId,payload={}){assertAccess();const c=client();const {data:i,error:ei}=await c.from('legalizacao_inspecoes').select('*').eq('id',inspecaoId).single();if(ei)throw ei;if(!master()&&Number(i.nte_id)!==Number(nteId()))throw new Error('Inspeção fora da sua abrangência.');const {data:it,error:eii}=await c.from('legalizacao_inspecao_itens').select('id,resultado').eq('inspecao_id',inspecaoId);if(eii)throw eii;const pend=(it||[]).filter(x=>upper(x.resultado)==='PENDENTE');if(pend.length)throw new Error(`Ainda existem ${pend.length} item(ns) sem conclusão na inspeção.`);const rg=upper(payload.resultado_global);if(!['FAVORAVEL','FAVORAVEL_COM_RESSALVAS','DESFAVORAVEL'].includes(rg))throw new Error('Informe a conclusão técnica da inspeção.');const texto=clean(payload.relatorio_tecnico);if(!texto)throw new Error('Registre a conclusão/relatório técnico.');const now=new Date().toISOString();const {data,error}=await c.from('legalizacao_inspecoes').update({data_realizada:i.data_realizada||today(),status:'CONCLUIDA',resultado_global:rg,relatorio_tecnico:texto,conclusao:texto,relatorio_concluido_em:now,relatorio_concluido_por_id:currentUserId(),updated_at:now}).eq('id',inspecaoId).select('*').single();if(error)throw error;const {error:ep}=await c.from('legalizacao_processos').update({status:'EM_ANDAMENTO',etapa_atual:'ANALISE_FINAL',atualizado_por_id:currentUserId(),updated_at:now}).eq('id',i.processo_id);if(ep)throw ep;await historicoProcesso(i.processo_id,'RELATORIO_TECNICO_CONCLUIDO','Relatório técnico da inspeção concluído.',{resultado_global:rg});return data;}
-window.SIGEE_LEGALIZACAO_SERVICE=Object.freeze({listarInstituicoes,resumo,listarNtes,listarInspecoesGerais,listarHistoricoRegulatorio,criarInstituicao,obterProntuario,iniciarCredenciamento,atualizarChecklist,emitirDiligencia,retomarAnalise,prepararInspecao,agendarInspecao,atualizarItemInspecao,registrarRealizacaoInspecao,concluirInspecao,ehMaster:master,nteId});
+window.SIGEE_LEGALIZACAO_SERVICE=Object.freeze({listarInstituicoes,resumo,listarNtes,listarInspecoesGerais,listarHistoricoRegulatorio,listarProcessosRegulatorios,listarOfertasRegulatorias,listarCarimbosRegulatorios,criarInstituicao,obterProntuario,iniciarCredenciamento,atualizarChecklist,emitirDiligencia,retomarAnalise,prepararInspecao,agendarInspecao,atualizarItemInspecao,registrarRealizacaoInspecao,concluirInspecao,ehMaster:master,nteId});
 })(window);
