@@ -1,5 +1,5 @@
 /**
- * SIGEE Enterprise RC12.0.1A — Navegação modular + controles autoritativos por sessão.
+ * SIGEE Enterprise RC12.0.1B — Navegação modular hierárquica + controles autoritativos por sessão.
  * Autoridade exclusiva para menus, rotas e destino pós-login.
  */
 (function(window, document){
@@ -27,7 +27,7 @@ const ROTAS = Object.freeze({
 
 const MODULO_ROTA = Object.freeze({
   painel:'ESCOLAS_EXTINTAS', processos:'ESCOLAS_EXTINTAS', escolas:'ESCOLAS_EXTINTAS',
-  usuarios:'ESCOLAS_EXTINTAS', 'nova-solicitacao':'ESCOLAS_EXTINTAS', relatorios:'ESCOLAS_EXTINTAS',
+  'nova-solicitacao':'ESCOLAS_EXTINTAS', relatorios:'ESCOLAS_EXTINTAS',
   'sala-situacao':'ESCOLAS_EXTINTAS', 'centro-inteligencia':'ESCOLAS_EXTINTAS',
   'plano-acao-territorial':'ESCOLAS_EXTINTAS', legalizacao:'LEGALIZACAO'
 });
@@ -37,7 +37,8 @@ const MENU_EXTINTAS = Object.freeze([
   { id:'menu-catalogo-escolas', rota:'escolas', modulo:'ESCOLAS_EXTINTAS', icone:'🏫', rotulo:'Catálogo de Escolas', capacidade:'escolas.visualizar', perfis:['Master','SEC','Administrador','Técnico','Atendimento','Estagiário','Consulta'] },
   { id:'menu-painel', rota:'painel', modulo:'ESCOLAS_EXTINTAS', icone:'📊', rotulo:'Painel Gerencial', capacidade:'indicadores.visualizar', perfis:['Gestor'] },
   { id:'menu-centro-inteligencia', rota:'centro-inteligencia', modulo:'ESCOLAS_EXTINTAS', icone:'🧠', rotulo:'Centro de Inteligência', capacidade:'indicadores.visualizar', perfis:['Master','Administrador'] },
-  { id:'menu-sala-situacao', rota:'sala-situacao', modulo:'ESCOLAS_EXTINTAS', icone:'📡', rotulo:'Sala de Situação', capacidade:'indicadores.visualizar', perfis:['Master','SEC','Gestor'] }
+  { id:'menu-sala-situacao', rota:'sala-situacao', modulo:'ESCOLAS_EXTINTAS', icone:'📡', rotulo:'Sala de Situação', capacidade:'indicadores.visualizar', perfis:['Master','SEC','Gestor'] },
+  { id:'menu-relatorios-extintas', tipo:'relatorios', rota:'relatorios', modulo:'ESCOLAS_EXTINTAS', icone:'📑', rotulo:'Relatórios', capacidade:'relatorios.visualizar', perfis:['Master','SEC','Gestor','Administrador'] }
 ]);
 
 const MENU_LEGALIZACAO = Object.freeze([
@@ -53,12 +54,10 @@ const MENU_GESTAO_TERRITORIAL = Object.freeze([
   { id:'menu-plano-acao-territorial', rota:'plano-acao-territorial', icone:'✅', rotulo:'Plano de Ação', capacidade:'processos.visualizar', perfis:['Gestor','Administrador','Técnico','Atendimento','Estagiário','Consulta'], escopo:'NTE', modulo:'ESCOLAS_EXTINTAS' }
 ]);
 
-const MENU_PRINCIPAL = Object.freeze([
-  { id:'menu-relatorios', tipo:'relatorios', icone:'📑', rotulo:'Relatórios', capacidade:'relatorios.visualizar', perfis:['Master','SEC','Gestor','Administrador'], modulo:'ESCOLAS_EXTINTAS' }
-]);
+
 
 const MENU_ADMIN = Object.freeze([
-  { id:'menu-usuarios', rota:'usuarios', modulo:'ESCOLAS_EXTINTAS', icone:'👥', rotulo:'Usuários', capacidade:['usuarios.gerenciar_global','usuarios.gerenciar_nte','usuarios.visualizar_nte'], perfis:['Master','Gestor','Administrador'] },
+  { id:'menu-usuarios', rota:'usuarios', icone:'👥', rotulo:'Usuários', capacidade:['usuarios.gerenciar_global','usuarios.gerenciar_nte','usuarios.visualizar_nte'], perfis:['Master','Gestor','Administrador'] },
   { id:'menu-logs', rota:'logs', icone:'📜', rotulo:'Histórico de Atividades', capacidade:'logs.visualizar', perfis:['Master'] },
   { id:'menu-diagnostico', rota:'diagnostico', icone:'🩺', rotulo:'Centro de Diagnóstico', capacidade:'logs.visualizar', perfis:['Master'] },
   { id:'menu-controle-acesso-ntes', rota:'controle-acesso-ntes', icone:'⛔', rotulo:'Controle de Acesso dos NTEs', capacidade:'sistema.suspender_nte', perfis:['Master'] },
@@ -68,7 +67,6 @@ const MENU_ADMIN = Object.freeze([
 const RELATORIOS = Object.freeze([
   ['operacional','📊','Operacional'],
   ['sla','⏱️','SLA'],
-  ['territorial','🗺️','Territorial'],
   ['pendencias','⏸️','Pendências'],
   ['produtividade','👥','Produtividade'],
   ['executivo','📈','Executivo']
@@ -148,9 +146,9 @@ function criarBotao(item, classeExtra=''){
 }
 
 function garantirEstiloNavegacaoModular(){
-  if(document.getElementById('sigee-navegacao-modular-rc1201a')) return;
+  if(document.getElementById('sigee-navegacao-modular-rc1201b')) return;
   const style=document.createElement('style');
-  style.id='sigee-navegacao-modular-rc1201a';
+  style.id='sigee-navegacao-modular-rc1201b';
   style.textContent=`
     .sigee-modulo-menu{margin:.2rem 0 .35rem;border-bottom:1px solid rgba(255,255,255,.08);padding-bottom:.25rem}
     .sigee-modulo-menu-title{width:100%;display:flex;align-items:center;gap:.55rem;padding:.72rem .9rem;border:0;background:transparent;color:#f8fafc;font-weight:800;text-align:left;cursor:pointer;border-radius:.65rem}
@@ -160,8 +158,12 @@ function garantirEstiloNavegacaoModular(){
     .sigee-modulo-menu.open>.sigee-modulo-submenu{display:block}
     .sigee-modulo-submenu .sigee-menu-item{font-size:.82rem!important;font-weight:650!important;padding:.55rem .72rem!important;margin:.08rem 0!important;opacity:.96}
     .sigee-modulo-menu[data-modulo="LEGALIZACAO"]>.sigee-modulo-menu-title{color:#f8fafc}
-    .sigee-modulo-menu[data-modulo="GESTAO_TERRITORIAL"]>.sigee-modulo-menu-title{color:#f8fafc}
-    .sigee-modulo-menu[data-modulo="ADMINISTRATIVO"]>.sigee-modulo-menu-title{color:#f8fafc}
+    .sigee-submodulo-menu{margin:.18rem 0 .12rem}
+    .sigee-submodulo-title{width:100%;display:flex;align-items:center;gap:.45rem;padding:.56rem .68rem;border:0;background:rgba(255,255,255,.035);color:#eef6ff;font-size:.82rem;font-weight:750;text-align:left;cursor:pointer;border-radius:.5rem}
+    .sigee-submodulo-title:hover{background:rgba(255,255,255,.075)}
+    .sigee-submodulo-title .sigee-submodulo-seta{margin-left:auto;font-size:.68rem;opacity:.8}
+    .sigee-submodulo-submenu{display:none;margin:.12rem 0 .2rem .62rem;padding-left:.48rem;border-left:1px solid rgba(148,163,184,.3)}
+    .sigee-submodulo-menu.open>.sigee-submodulo-submenu{display:block}
   `;
   document.head.appendChild(style);
 }
@@ -179,7 +181,7 @@ function criarGrupoModulo({id,icone,rotulo,itens,modulo,aberto=false}){
   titulo.innerHTML=`<span>${icone}</span><span>${rotulo}</span><span class="sigee-modulo-seta">${aberto?'▲':'▼'}</span>`;
   const submenu=document.createElement('div');
   submenu.className='sigee-modulo-submenu';
-  itens.forEach(item=>submenu.appendChild(criarBotao(item)));
+  itens.forEach(item=>submenu.appendChild(item.tipo==='relatorios'?criarGrupoRelatorios():criarBotao(item)));
   titulo.addEventListener('click',e=>{
     e.preventDefault();e.stopPropagation();
     const abrir=!grupo.classList.contains('open');
@@ -188,6 +190,42 @@ function criarGrupoModulo({id,icone,rotulo,itens,modulo,aberto=false}){
     titulo.querySelector('.sigee-modulo-seta').textContent=abrir?'▲':'▼';
   });
   grupo.append(titulo,submenu);
+  return grupo;
+}
+
+function criarSubgrupoModulo({id,icone,rotulo,itens,aberto=false}){
+  const grupo=document.createElement('div');
+  grupo.id=id;
+  grupo.className='sigee-submodulo-menu';
+  if(aberto) grupo.classList.add('open');
+  const titulo=document.createElement('button');
+  titulo.type='button';
+  titulo.className='sigee-submodulo-title';
+  titulo.setAttribute('aria-expanded',aberto?'true':'false');
+  titulo.innerHTML=`<span>${icone}</span><span>${rotulo}</span><span class="sigee-submodulo-seta">${aberto?'▲':'▼'}</span>`;
+  const submenu=document.createElement('div');
+  submenu.className='sigee-submodulo-submenu';
+  itens.forEach(item=>submenu.appendChild(criarBotao(item)));
+  titulo.addEventListener('click',e=>{
+    e.preventDefault();e.stopPropagation();
+    const abrir=!grupo.classList.contains('open');
+    grupo.classList.toggle('open',abrir);
+    titulo.setAttribute('aria-expanded',String(abrir));
+    titulo.querySelector('.sigee-submodulo-seta').textContent=abrir?'▲':'▼';
+  });
+  grupo.append(titulo,submenu);
+  return grupo;
+}
+
+function criarGrupoExtintas(itens,territorial){
+  const grupo=criarGrupoModulo({id:'menu-modulo-extintas',icone:'🏫',rotulo:'Escolas Extintas',itens,modulo:'ESCOLAS_EXTINTAS',aberto:false});
+  if(territorial.length){
+    const submenu=grupo.querySelector(':scope > .sigee-modulo-submenu');
+    const relatorios=submenu?.querySelector('#menu-relatorios-rc6501');
+    const subterritorial=criarSubgrupoModulo({id:'menu-submodulo-territorial',icone:'🗺️',rotulo:'Gestão Territorial',itens:territorial,aberto:false});
+    if(relatorios) submenu.insertBefore(subterritorial, relatorios);
+    else submenu?.appendChild(subterritorial);
+  }
   return grupo;
 }
 
@@ -227,6 +265,33 @@ function criarGrupoAdministrativo(itens){
   titulo.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();const abrir=submenu.classList.contains('hidden');submenu.classList.toggle('hidden',!abrir);titulo.setAttribute('aria-expanded',String(abrir));titulo.lastElementChild.textContent=abrir?'▲':'▼';});
   grupo.append(titulo,submenu);
   return grupo;
+}
+
+function definirGrupoAberto(id, aberto){
+  const grupo=document.getElementById(id);
+  if(!grupo) return;
+  grupo.classList.toggle('open', aberto===true);
+  const titulo=grupo.querySelector(':scope > .sigee-modulo-menu-title, :scope > .sigee-submodulo-title');
+  if(titulo){
+    titulo.setAttribute('aria-expanded', String(aberto===true));
+    const seta=titulo.querySelector('.sigee-modulo-seta, .sigee-submodulo-seta');
+    if(seta) seta.textContent=aberto===true?'▲':'▼';
+  }
+}
+function sincronizarContextoMenu(rota){
+  const chave=String(rota||'').trim();
+  const legalizacao = chave==='legalizacao';
+  const territorial = chave==='gestao-territorial' || chave==='plano-acao-territorial';
+  const extintas = territorial || ['processos','escolas','painel','relatorios','sala-situacao','centro-inteligencia','nova-solicitacao'].includes(chave);
+  if(legalizacao){
+    definirGrupoAberto('menu-modulo-legalizacao',true);
+    definirGrupoAberto('menu-modulo-extintas',false);
+    definirGrupoAberto('menu-submodulo-territorial',false);
+  } else if(extintas){
+    definirGrupoAberto('menu-modulo-legalizacao',false);
+    definirGrupoAberto('menu-modulo-extintas',true);
+    definirGrupoAberto('menu-submodulo-territorial',territorial);
+  }
 }
 
 function garantirTelaDiagnostico(){
@@ -326,14 +391,13 @@ function renderizarMenu(){
   const legalizacao = MENU_LEGALIZACAO.filter(item => itemPermitido(item, u));
   const extintas = MENU_EXTINTAS.filter(item => itemPermitido(item, u));
   const territorial = MENU_GESTAO_TERRITORIAL.filter(item => itemPermitido(item, u));
-  const principais = MENU_PRINCIPAL.filter(item => itemPermitido(item, u));
   const administrativos = MENU_ADMIN.filter(item => itemPermitido(item, u));
-  const assinatura = `${perfil(u)}|LEG:${legalizacao.map(i=>i.id).join(',')}|EXT:${extintas.map(i=>i.id).join(',')}|GT:${territorial.map(i=>i.id).join(',')}|MAIN:${principais.map(i=>i.id).join(',')}|ADMIN:${administrativos.map(i=>i.id).join(',')}`;
-  const precisaRelatorios = principais.some(i=>i.tipo==='relatorios');
+  const assinatura = `${perfil(u)}|LEG:${legalizacao.map(i=>i.id).join(',')}|EXT:${extintas.map(i=>i.id).join(',')}|GT:${territorial.map(i=>i.id).join(',')}|ADMIN:${administrativos.map(i=>i.id).join(',')}`;
+  const precisaRelatorios = extintas.some(i=>i.tipo==='relatorios');
   const estruturaIntegra = nav.dataset.sigeeMenuAssinatura === assinatura &&
     (!legalizacao.length || document.getElementById('menu-modulo-legalizacao')) &&
     (!extintas.length || document.getElementById('menu-modulo-extintas')) &&
-    (!territorial.length || document.getElementById('menu-modulo-territorial')) &&
+    (!territorial.length || document.getElementById('menu-submodulo-territorial')) &&
     (!precisaRelatorios || document.getElementById('menu-relatorios-rc6501')) &&
     (!administrativos.length || (document.getElementById('menu-administrativo-grupo') && document.getElementById('submenu-administracao')));
   if (estruturaIntegra) {
@@ -344,14 +408,14 @@ function renderizarMenu(){
   instalando = true;
   const fragment=document.createDocumentFragment();
   if(legalizacao.length) fragment.appendChild(criarGrupoModulo({id:'menu-modulo-legalizacao',icone:'⚖️',rotulo:'Legalização Escolar',itens:legalizacao,modulo:'LEGALIZACAO',aberto:false}));
-  if(extintas.length) fragment.appendChild(criarGrupoModulo({id:'menu-modulo-extintas',icone:'🏫',rotulo:'Escolas Extintas',itens:extintas,modulo:'ESCOLAS_EXTINTAS',aberto:false}));
-  if(territorial.length) fragment.appendChild(criarGrupoModulo({id:'menu-modulo-territorial',icone:'🗺️',rotulo:'Gestão Territorial',itens:territorial,modulo:'GESTAO_TERRITORIAL',aberto:false}));
-  principais.forEach(item=>fragment.appendChild(item.tipo==='relatorios'?criarGrupoRelatorios():criarBotao(item)));
+  if(extintas.length) fragment.appendChild(criarGrupoExtintas(extintas,territorial));
   if(administrativos.length) fragment.appendChild(criarGrupoAdministrativo(administrativos));
   nav.replaceChildren(fragment);
   nav.dataset.sigeeMenuAssinatura = assinatura;
   instalando = false;
   atualizarIdentidade();
+  const visivel=[...document.querySelectorAll('#sistema-dashboard main > section[id^="aba-"]')].find(sec=>!sec.classList.contains('hidden') && sec.hidden!==true);
+  if(visivel) sincronizarContextoMenu(visivel.id.replace(/^aba-/,''));
   aplicarControlesDaInterface();
   return true;
 }
@@ -452,6 +516,7 @@ function navegarOriginal(){
 function navegarPara(rota, opcoes={}){
   const silencioso = opcoes.silencioso === true || navegacaoAutomatica === true || opcoes.manual !== true;
   if (!autorizarRota(rota, silencioso)) return false;
+  sincronizarContextoMenu(rota);
   const original = navegarOriginal();
 
   if (rota === 'nova-solicitacao') {
@@ -536,6 +601,7 @@ function instalarNavegacao(){
   const protegida = function(rota){
     const silencioso = navegacaoAutomatica === true;
     if (!autorizarRota(rota, silencioso)) return false;
+    sincronizarContextoMenu(rota);
 
     if (String(rota||'').trim() === 'relatorios') {
       garantirRotaVisivel('relatorios');
