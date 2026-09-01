@@ -146,10 +146,18 @@
         throw new Error('Módulo de sessão não foi carregado.');
       }
 
-      const canonico = window.SIGEE_SESSION.normalizarUsuario(oficial);
+      let canonico = window.SIGEE_SESSION.normalizarUsuario(oficial);
       if (!canonico?.perfil) {
         alert('Perfil de usuário inválido. Procure o administrador.');
         return false;
+      }
+
+      // RC12.0.0: hidrata o usuário com vínculos funcionais por módulo.
+      // Se a migração ainda não tiver sido aplicada, SIGEE_MODULOS preserva
+      // compatibilidade automática com o domínio Escolas Extintas.
+      if (window.SIGEE_MODULOS?.hidratarUsuario) {
+        canonico = await window.SIGEE_MODULOS.hidratarUsuario(canonico);
+        canonico = window.SIGEE_SESSION.normalizarUsuario(canonico);
       }
 
       sincronizarCacheDepoisDoLogin(oficial);
