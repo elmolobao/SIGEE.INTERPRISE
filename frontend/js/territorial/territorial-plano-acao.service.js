@@ -1,7 +1,7 @@
-/** SIGEE RC11.3.18 — Plano de Ação Territorial — tratamento selecionável e trilha auditável. */
+/** SIGEE RC11.3.19C — Plano de Ação Territorial com contador leve para o menu. */
 (function(window){
 'use strict';
-if(window.SIGEE_TERRITORIAL_PLANO_ACAO_SERVICE?.versao==='RC11.3.19A') return;
+if(window.SIGEE_TERRITORIAL_PLANO_ACAO_SERVICE?.versao==='RC11.3.19C') return;
 const T='gt_tarefas_corretivas', TP='gt_tarefa_processos', H='gt_tarefas_corretivas_historico';
 function cliente(){try{return window.SIGEE_SUPABASE?.criarCliente?.()||window.SIGEE_SUPABASE_CLIENT||window.supabaseClient||null;}catch(_){return null;}}
 function usuario(){return window.SIGEE_SESSION?.getUser?.()||window.usuarioLogado||null;}
@@ -32,5 +32,6 @@ async function validar(id,observacao=''){if(!master())throw new Error('Somente a
 async function devolver(id,motivo){if(!master())throw new Error('Somente a Gestão Master pode devolver a correção.');if(!txt(motivo))throw new Error('Informe o motivo da devolução.');const c=exigir(),agora=new Date().toISOString();const {data,error}=await c.from(T).update({status:'DEVOLVIDA',observacao_validacao:txt(motivo),updated_at:agora}).eq('id',Number(id)).select('*').single();if(error)throw error;await historico(id,'DEVOLVIDA',motivo);document.dispatchEvent(new CustomEvent('sigee:gt-plano-acao-atualizado'));return data;}
 async function registrarHistoricoProcessos(id,acao,observacao){const c=exigir();const t=await obter(id);const links=t.gt_tarefa_processos||[];for(const p of links){const reg={processo_id:p.processo_id,codigo_sigee:p.codigo_sigee||'',etapa:'Monitoramento Territorial',acao,observacao:`Plano de Ação Territorial #${id}. ${observacao||''}`.trim(),usuario_nome:autor().usuario_nome,usuario_email:autor().usuario_email,usuario_perfil:autor().usuario_perfil,nte:`NTE-${String(t.nte_numero).padStart(2,'0')}`,dados:{tarefa_id:id,monitoramento_id:t.monitoramento_id},created_at:new Date().toISOString()};const {error}=await c.from('historico_processos').insert(reg);if(error)console.warn('[Plano Ação] histórico do processo:',error);}}
 async function resumo(nte){const rows=await listar({nte_numero:nte});const total=rows.length,concluidas=rows.filter(x=>statusFechado(x.status)).length,naoFechadas=rows.filter(x=>!statusFechado(x.status)),aguardando=naoFechadas.filter(x=>String(x.status).toUpperCase()==='AGUARDANDO_VALIDACAO').length,ativas=naoFechadas.filter(x=>String(x.status).toUpperCase()!=='AGUARDANDO_VALIDACAO'),criticas=naoFechadas.filter(x=>String(x.relevancia).toUpperCase()==='CRITICA').length;return{total,concluidas,pendentes:ativas.length,aguardando,criticas,taxaRegularizacao:total?Math.round(concluidas/total*100):null};}
-window.SIGEE_TERRITORIAL_PLANO_ACAO_SERVICE=Object.freeze({listar,obter,criarDaOcorrencia,sincronizarDaOcorrencia,validarAlteracaoTratamento,iniciar,informarCorrecao,validar,devolver,resumo,master,territorial,statusFechado,versao:'RC11.3.19A'});
+async function contarAbertas(){const c=exigir();let q=c.from(T).select('id',{count:'exact',head:true}).not('status','in','(CANCELADA,VALIDADA,CONCLUIDA,CONCLUIDO,REGULARIZADA,REGULARIZADO)');const n=master()?null:numeroNte(nteUsuario());if(n)q=q.eq('nte_numero',n);const {count,error}=await q;if(error)throw error;return Number(count||0);}
+window.SIGEE_TERRITORIAL_PLANO_ACAO_SERVICE=Object.freeze({listar,obter,criarDaOcorrencia,sincronizarDaOcorrencia,validarAlteracaoTratamento,iniciar,informarCorrecao,validar,devolver,resumo,contarAbertas,master,territorial,statusFechado,versao:'RC11.3.19C'});
 })(window);
