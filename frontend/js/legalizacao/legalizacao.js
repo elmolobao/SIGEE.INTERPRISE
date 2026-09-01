@@ -1,7 +1,7 @@
-/** SIGEE Enterprise RC12.0.8B — Controle Regulatório consolidado com procedimentos atuais e referências históricas. */
+/** SIGEE Enterprise RC12.0.8B.1 — Classificador regulatório exclusivo por domínio. */
 (function(window,document){
 'use strict';
-if(window.__SIGEE_LEGALIZACAO_RC1208B__)return;window.__SIGEE_LEGALIZACAO_RC1208B__=true;
+if(window.__SIGEE_LEGALIZACAO_RC1208B1__)return;window.__SIGEE_LEGALIZACAO_RC1208B1__=true;
 const MOD='LEGALIZACAO',$=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const CENTRAL_PENDENCIAS_ATIVA=false; // Mantida em código para retomada futura, sem consultas massivas enquanto desativada.
 let prontuarioAtual=null,paginaVisao=1,paginaInstituicoes=1,paginaPendencias=1,kpisCarregados=false,pendenciasCache=null,atosControleCache=null;
@@ -17,7 +17,26 @@ function fmtDate(v){if(!v)return'—';const d=String(v).slice(0,10).split('-');r
 function semAcento(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();}
 function origemVigenciaLabel(v){return ({PLANILHA:'Informada no ato',INFERIDA_DETALHE:'Calculada a partir do texto do ato',NAO_IDENTIFICADA:'Vigência não identificada'})[upper(v)]||String(v||'Vigência não identificada').replaceAll('_',' ');}
 function textoAto(a){return semAcento([a?.ato,a?.tipo_ato,a?.detalhe].filter(Boolean).join(' '));}
-function categoriasAto(a){const t=textoAto(a),out=[];const tem=(...xs)=>xs.some(x=>t.includes(x));if(tem('CURSO','ENSINO FUNDAMENTAL','ENSINO MEDIO','EDUCACAO INFANTIL','EJA','EDUCACAO DE JOVENS','TECNIC','PROFISSIONAL'))out.push('OFERTA');if(tem('CREDENCI','RECREDENCI','DESCREDENCI','AUTORIZACAO DE FUNCIONAMENTO','AUTORIZ. FUNCIONAMENTO','RECONHECIMENTO','RENOVACAO DE RECONHECIMENTO','SUSPENSAO','CASSACAO','CONVENIO','REGIMENTO'))out.push('REGULACAO');if(tem('DIRETOR','DIRETORA','SECRETARIO','SECRETARIA','CARIMBO'))out.push('RESPONSAVEIS');if(tem('DENOMINACAO','MUDANCA DE NOME','ENDERECO','MANTENEDORA','TRANSFERENCIA DE MANTENCA'))out.push('CADASTRO');return [...new Set(out)];}
+function dominioAto(a){
+  const t=textoAto(a),tem=(...xs)=>xs.some(x=>t.includes(x));
+  // Responsáveis/carimbos: exige objeto funcional explícito para não confundir, por exemplo, "Secretaria de Educação".
+  const resp=tem('CARIMBO','AUTORIZACAO DE DIRETOR','AUTORIZ. DE DIRETOR','AUTORIZACAO DIRETOR','AUTORIZ. DIRETOR','AUTORIZACAO DE SECRETARIO','AUTORIZ. DE SECRETARIO','AUTORIZACAO SECRETARIO','AUTORIZ. SECRETARIO','NOMEACAO DE DIRETOR','NOMEACAO DIRETOR','DESIGNACAO DE DIRETOR','DESIGNACAO DIRETOR','NOMEACAO DE SECRETARIO','NOMEACAO SECRETARIO','DESIGNACAO DE SECRETARIO','DESIGNACAO SECRETARIO','DIRETOR ESCOLAR','SECRETARIO ESCOLAR','SECRETARIA ESCOLAR');
+  if(resp)return'RESPONSAVEIS';
+
+  // Oferta educacional tem precedência sobre termos genéricos como autorização, renovação e reconhecimento.
+  const oferta=tem('CURSO','ENSINO FUNDAMENTAL','ENSINO MEDIO','EDUCACAO INFANTIL','EJA','EDUCACAO DE JOVENS','EDUCACAO PROFISSIONAL','ENSINO PROFISSIONAL','CURSO TECNIC','TECNICO EM','TECNICA EM','MODALIDADE DE ENSINO','ETAPA DE ENSINO','OFERTA EDUCACIONAL');
+  if(oferta)return'OFERTA';
+
+  // Alterações cadastrais institucionais ficam no Cadastro/Prontuário, não nos três controles operacionais.
+  const cadastro=tem('DENOMINACAO','MUDANCA DE NOME','ALTERACAO DE NOME','MUDANCA DE ENDERECO','ALTERACAO DE ENDERECO','TRANSFERENCIA DE MANTENCA','ALTERACAO DE MANTENEDORA','MUDANCA DE MANTENEDORA');
+  if(cadastro)return'CADASTRO';
+
+  // Atos institucionais/regulatórios. Convênio e regimento nunca são distribuídos para Oferta ou Carimbos.
+  const regulacao=tem('CREDENCI','RECREDENCI','DESCREDENCI','AUTORIZACAO DE FUNCIONAMENTO','AUTORIZ. FUNCIONAMENTO','FUNCIONAMENTO DA INSTITUICAO','RECONHECIMENTO','RENOVACAO DE RECONHECIMENTO','SUSPENSAO','CASSACAO','CONVENIO','REGIMENTO');
+  if(regulacao)return'REGULACAO';
+  return'REFERENCIA';
+}
+function categoriasAto(a){const d=dominioAto(a);return d==='REFERENCIA'?[]:[d];}
 function atosCategoria(cat){return (prontuarioAtual?.atosLegais||[]).filter(a=>categoriasAto(a).includes(cat));}
 function dataValidaIso(v){const t=String(v||'').slice(0,10);return /^\d{4}-\d{2}-\d{2}$/.test(t)?t:null;}
 function estadoTemporalAto(a,hoje=new Date().toISOString().slice(0,10)){const ini=dataValidaIso(a?.vigencia_inicio),fim=dataValidaIso(a?.vigencia_fim);if(ini&&ini>hoje)return{codigo:'FUTURO',label:'Vigência futura',classe:'info'};if(fim&&fim<hoje)return{codigo:'VENCIDO',label:'Ato vencido',classe:'warn'};if(ini&&fim&&ini<=hoje&&fim>=hoje)return{codigo:'VIGENTE',label:'Vigente',classe:'ok'};if(!fim)return{codigo:'A_CONFERIR',label:'Vigência a conferir',classe:'info'};return{codigo:'A_CONFERIR',label:'Vigência a conferir',classe:'info'};}
