@@ -187,7 +187,8 @@ function garantirEstiloNavegacaoModular(){
       background:rgba(16,185,129,.3)!important;
     }
     .sigee-menu-alerta{margin-left:auto;min-width:1.35rem;height:1.35rem;padding:0 .35rem;border-radius:999px;background:#ef4444;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:.68rem;font-weight:900;box-shadow:0 0 0 3px rgba(239,68,68,.18)}
-    .sigee-menu-alerta.hidden{display:none!important}
+    .sigee-menu-alerta.sem-pendencia{background:#64748b;box-shadow:none;color:#fff}
+    .sigee-menu-alerta.indisponivel{background:#d97706;box-shadow:none;color:#fff}
   `;
   document.head.appendChild(style);
 }
@@ -281,8 +282,8 @@ async function atualizarAlertaPlanoAcao(force=false){
   try{
     const agora=Date.now();let total=alertaPlanoCache.valor;
     if(force||total==null||agora-alertaPlanoCache.em>60000){total=await window.SIGEE_TERRITORIAL_PLANO_ACAO_SERVICE?.contarAbertas?.();alertaPlanoCache={valor:Number(total||0),em:agora};}
-    total=Number(total||0);badge.textContent=total>99?'99+':String(total);badge.classList.toggle('hidden',total===0);badge.setAttribute('aria-hidden',total===0?'true':'false');botao.title=total?`${total} ação(ões) pendente(s) para o seu NTE`:'Nenhuma ação pendente para o seu NTE';botao.setAttribute('aria-label',total?`Plano de Ação, ${total} pendente(s)`:'Plano de Ação');
-  }catch(err){console.warn('[Menu] alerta do Plano de Ação indisponível:',err?.message||err);badge.classList.add('hidden');}
+    total=Number(total||0);badge.textContent=total>99?'99+':String(total);badge.classList.remove('hidden','indisponivel');badge.classList.toggle('sem-pendencia',total===0);badge.setAttribute('aria-hidden','false');botao.title=total?`${total} ação(ões) pendente(s) para o seu NTE`:'Nenhuma ação pendente para o seu NTE';botao.setAttribute('aria-label',total?`Plano de Ação, ${total} pendente(s)`:'Plano de Ação, nenhuma pendência');
+  }catch(err){console.warn('[Menu] alerta do Plano de Ação indisponível:',err?.message||err);badge.textContent='!';badge.classList.remove('hidden','sem-pendencia');badge.classList.add('indisponivel');badge.setAttribute('aria-hidden','false');botao.title='Não foi possível consultar as ações pendentes';}
 }
 
 function criarGrupoAdministrativo(itens){
@@ -437,7 +438,7 @@ function renderizarMenu(){
   const destaques = MENU_DESTAQUES.filter(item => itemPermitido(item, u));
   const territorial = MENU_GESTAO_TERRITORIAL.filter(item => itemPermitido(item, u));
   const administrativos = MENU_ADMIN.filter(item => itemPermitido(item, u));
-  const assinatura = `RC12.0.3C.3|${perfil(u)}|LEG:${legalizacao.map(i=>i.id).join(',')}|EXT:${extintas.map(i=>i.id).join(',')}|DESTAQUES:${destaques.map(i=>i.id).join(',')}|GT:${territorial.map(i=>i.id).join(',')}|ADMIN:${administrativos.map(i=>i.id).join(',')}`;
+  const assinatura = `RC12.0.3C.4|${perfil(u)}|LEG:${legalizacao.map(i=>i.id).join(',')}|EXT:${extintas.map(i=>i.id).join(',')}|DESTAQUES:${destaques.map(i=>i.id).join(',')}|GT:${territorial.map(i=>i.id).join(',')}|ADMIN:${administrativos.map(i=>i.id).join(',')}`;
   const precisaRelatorios = extintas.some(i=>i.tipo==='relatorios');
   const estruturaIntegra = nav.dataset.sigeeMenuAssinatura === assinatura &&
     (!legalizacao.length || document.getElementById('menu-modulo-legalizacao')) &&
