@@ -16,7 +16,15 @@
 /* RC12.0.3 — Inspeção e relatório técnico */
 .leg-inspecao-card{margin-bottom:18px}.leg-inspecao-toolbar{display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin:12px 0}.leg-inspecao-toolbar label{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:700}.leg-inspecao-toolbar input{min-height:36px;border:1px solid #cbd7e5;border-radius:8px;padding:6px 9px}.leg-inspecao-itens>section{margin-top:14px}.leg-inspecao-itens h4{margin:0 0 8px;color:#173a63}.leg-inspecao-edit{grid-template-columns:minmax(145px,180px) 1fr 1fr auto!important}.leg-relatorio-box{margin-top:18px;border-top:1px solid #d9e2ec;padding-top:16px}.leg-relatorio-box h4{margin:0 0 12px}.leg-relatorio-box textarea{width:100%;resize:vertical}@media(max-width:900px){.leg-inspecao-edit{grid-template-columns:1fr!important}}
 
-/* RC12.0.3A — navegação lateral como fonte única e filas operacionais */
+/* RC12.0.3B — navegação lateral como fonte única e filas operacionais */
 #aba-legalizacao .leg-area.hidden{display:none!important}
 #aba-legalizacao .leg-list .leg-loading{padding:2rem;text-align:center;color:#52647b;font-weight:700}
 #aba-legalizacao .leg-panel{margin-top:0}
+/* RC12.0.3B — Controle Regulatório operacional */
+.leg-reg-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.leg-reg-tabs button{border:1px solid #cbd5e1;background:#fff;color:#17345f;border-radius:10px;padding:9px 14px;font-weight:800;font-size:12px;cursor:pointer}
+.leg-reg-tabs button.active{background:#0f4c8a;color:#fff;border-color:#0f4c8a}
+.leg-reg-panel.hidden{display:none!important}
+.leg-empty.danger{border-color:#fecaca;background:#fff7f7;color:#991b1b}
+.leg-loading{padding:28px;text-align:center;font-weight:800;color:#475569}
+@media (max-width:900px){.leg-panel-head{align-items:flex-start;flex-direction:column}.leg-filter-row{width:100%}.leg-filter-row select,.leg-filter-row input{min-width:0;flex:1 1 180px}}
