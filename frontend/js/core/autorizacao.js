@@ -1,11 +1,11 @@
 /**
- * SIGEE Enterprise RC12.0.1C — Navegação modular hierárquica + controles autoritativos por sessão.
+ * SIGEE Enterprise RC12.0.1D — Navegação modular hierárquica + controles autoritativos por sessão.
  * Autoridade exclusiva para menus, rotas e destino pós-login.
  */
 (function(window, document){
 'use strict';
-if (window.__SIGEE_AUTORIZACAO_RC1201C__) return;
-window.__SIGEE_AUTORIZACAO_RC1201C__ = true;
+if (window.__SIGEE_AUTORIZACAO_RC1201D__) return;
+window.__SIGEE_AUTORIZACAO_RC1201D__ = true;
 
 const ROTAS = Object.freeze({
   painel: 'relatorios.visualizar',
@@ -402,7 +402,7 @@ function renderizarMenu(){
   const extintas = MENU_EXTINTAS.filter(item => itemPermitido(item, u));
   const territorial = MENU_GESTAO_TERRITORIAL.filter(item => itemPermitido(item, u));
   const administrativos = MENU_ADMIN.filter(item => itemPermitido(item, u));
-  const assinatura = `RC12.0.1C|${perfil(u)}|LEG:${legalizacao.map(i=>i.id).join(',')}|EXT:${extintas.map(i=>i.id).join(',')}|GT:${territorial.map(i=>i.id).join(',')}|ADMIN:${administrativos.map(i=>i.id).join(',')}`;
+  const assinatura = `RC12.0.1D|${perfil(u)}|LEG:${legalizacao.map(i=>i.id).join(',')}|EXT:${extintas.map(i=>i.id).join(',')}|GT:${territorial.map(i=>i.id).join(',')}|ADMIN:${administrativos.map(i=>i.id).join(',')}`;
   const precisaRelatorios = extintas.some(i=>i.tipo==='relatorios');
   const estruturaIntegra = nav.dataset.sigeeMenuAssinatura === assinatura &&
     (!legalizacao.length || document.getElementById('menu-modulo-legalizacao')) &&
@@ -424,8 +424,7 @@ function renderizarMenu(){
   nav.dataset.sigeeMenuAssinatura = assinatura;
   instalando = false;
   atualizarIdentidade();
-  const visivel=[...document.querySelectorAll('#sistema-dashboard main > section[id^="aba-"]')].find(sec=>!sec.classList.contains('hidden') && sec.hidden!==true);
-  if(visivel) sincronizarContextoMenu(visivel.id.replace(/^aba-/,''));
+  // RC12.0.1D: módulos iniciam recolhidos; somente navegação do usuário expande o contexto.
   aplicarControlesDaInterface();
   return true;
 }
@@ -514,7 +513,7 @@ function aplicarRotaInicialForcada(){
   if(!u)return false;
   const destino = primeiraRota(u);
   if(!destino)return false;
-  navegarPara(destino,{silencioso:true});
+  navegarPara(destino,{silencioso:true,inicial:true});
   setTimeout(()=>garantirRotaVisivel(destino),40);
   return true;
 }
@@ -526,7 +525,7 @@ function navegarOriginal(){
 function navegarPara(rota, opcoes={}){
   const silencioso = opcoes.silencioso === true || navegacaoAutomatica === true || opcoes.manual !== true;
   if (!autorizarRota(rota, silencioso)) return false;
-  sincronizarContextoMenu(rota);
+  if(opcoes.inicial !== true) sincronizarContextoMenu(rota);
   const original = navegarOriginal();
 
   if (rota === 'nova-solicitacao') {
