@@ -1,7 +1,7 @@
-/** SIGEE Enterprise RC12.0.8B.1 — Classificador regulatório exclusivo por domínio. */
+/** SIGEE Enterprise RC12.0.8B.2 — Classificador regulatório determinístico por domínio. */
 (function(window,document){
 'use strict';
-if(window.__SIGEE_LEGALIZACAO_RC1208B1__)return;window.__SIGEE_LEGALIZACAO_RC1208B1__=true;
+if(window.__SIGEE_LEGALIZACAO_RC1208B2__)return;window.__SIGEE_LEGALIZACAO_RC1208B2__=true;
 const MOD='LEGALIZACAO',$=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const CENTRAL_PENDENCIAS_ATIVA=false; // Mantida em código para retomada futura, sem consultas massivas enquanto desativada.
 let prontuarioAtual=null,paginaVisao=1,paginaInstituicoes=1,paginaPendencias=1,kpisCarregados=false,pendenciasCache=null,atosControleCache=null;
@@ -18,21 +18,30 @@ function semAcento(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u0
 function origemVigenciaLabel(v){return ({PLANILHA:'Informada no ato',INFERIDA_DETALHE:'Calculada a partir do texto do ato',NAO_IDENTIFICADA:'Vigência não identificada'})[upper(v)]||String(v||'Vigência não identificada').replaceAll('_',' ');}
 function textoAto(a){return semAcento([a?.ato,a?.tipo_ato,a?.detalhe].filter(Boolean).join(' '));}
 function dominioAto(a){
-  const t=textoAto(a),tem=(...xs)=>xs.some(x=>t.includes(x));
-  // Responsáveis/carimbos: exige objeto funcional explícito para não confundir, por exemplo, "Secretaria de Educação".
-  const resp=tem('CARIMBO','AUTORIZACAO DE DIRETOR','AUTORIZ. DE DIRETOR','AUTORIZACAO DIRETOR','AUTORIZ. DIRETOR','AUTORIZACAO DE SECRETARIO','AUTORIZ. DE SECRETARIO','AUTORIZACAO SECRETARIO','AUTORIZ. SECRETARIO','NOMEACAO DE DIRETOR','NOMEACAO DIRETOR','DESIGNACAO DE DIRETOR','DESIGNACAO DIRETOR','NOMEACAO DE SECRETARIO','NOMEACAO SECRETARIO','DESIGNACAO DE SECRETARIO','DESIGNACAO SECRETARIO','DIRETOR ESCOLAR','SECRETARIO ESCOLAR','SECRETARIA ESCOLAR');
-  if(resp)return'RESPONSAVEIS';
+  const t=textoAto(a),obj=semAcento(a?.ato||a?.tipo_ato||''),tem=(base,...xs)=>xs.some(x=>base.includes(x));
 
-  // Oferta educacional tem precedência sobre termos genéricos como autorização, renovação e reconhecimento.
-  const oferta=tem('CURSO','ENSINO FUNDAMENTAL','ENSINO MEDIO','EDUCACAO INFANTIL','EJA','EDUCACAO DE JOVENS','EDUCACAO PROFISSIONAL','ENSINO PROFISSIONAL','CURSO TECNIC','TECNICO EM','TECNICA EM','MODALIDADE DE ENSINO','ETAPA DE ENSINO','OFERTA EDUCACIONAL');
-  if(oferta)return'OFERTA';
+  // 1) Tipos institucionais inequívocos funcionam como bloqueio de domínio.
+  // O conteúdo/detalhe do ato pode citar cursos, etapas ou modalidades sem transformar o ato institucional em oferta.
+  const institucionalExplicito=tem(obj,'CONVENIO','REGIMENTO','CREDENCI','RECREDENCI','DESCREDENCI','AUTORIZACAO DE FUNCIONAMENTO','AUTORIZ. FUNCIONAMENTO','FUNCIONAMENTO DA INSTITUICAO','SUSPENSAO','CASSACAO');
+  if(institucionalExplicito)return'REGULACAO';
 
-  // Alterações cadastrais institucionais ficam no Cadastro/Prontuário, não nos três controles operacionais.
-  const cadastro=tem('DENOMINACAO','MUDANCA DE NOME','ALTERACAO DE NOME','MUDANCA DE ENDERECO','ALTERACAO DE ENDERECO','TRANSFERENCIA DE MANTENCA','ALTERACAO DE MANTENEDORA','MUDANCA DE MANTENEDORA');
+  // 2) Responsáveis/carimbos somente quando o próprio objeto do ato é funcionalmente explícito.
+  const respExplicito=tem(obj,'CARIMBO','AUTORIZACAO DE DIRETOR','AUTORIZ. DE DIRETOR','AUTORIZACAO DIRETOR','AUTORIZ. DIRETOR','AUTORIZACAO DE SECRETARIO','AUTORIZ. DE SECRETARIO','AUTORIZACAO SECRETARIO','AUTORIZ. SECRETARIO','NOMEACAO DE DIRETOR','NOMEACAO DIRETOR','DESIGNACAO DE DIRETOR','DESIGNACAO DIRETOR','NOMEACAO DE SECRETARIO','NOMEACAO SECRETARIO','DESIGNACAO DE SECRETARIO','DESIGNACAO SECRETARIO','DIRETOR ESCOLAR','SECRETARIO ESCOLAR','SECRETARIA ESCOLAR');
+  if(respExplicito)return'RESPONSAVEIS';
+
+  // 3) Oferta deve estar expressa no objeto do ato (autorização/renovação/reconhecimento de curso, etapa ou modalidade).
+  const ofertaExplicita=tem(obj,'CURSO','ENSINO FUNDAMENTAL','ENSINO MEDIO','EDUCACAO INFANTIL','EJA','EDUCACAO DE JOVENS','EDUCACAO PROFISSIONAL','ENSINO PROFISSIONAL','CURSO TECNIC','TECNICO EM','TECNICA EM','MODALIDADE DE ENSINO','ETAPA DE ENSINO','OFERTA EDUCACIONAL');
+  if(ofertaExplicita)return'OFERTA';
+
+  // 4) Alterações cadastrais institucionais permanecem no Cadastro/Prontuário.
+  const cadastro=tem(obj,'DENOMINACAO','MUDANCA DE NOME','ALTERACAO DE NOME','MUDANCA DE ENDERECO','ALTERACAO DE ENDERECO','TRANSFERENCIA DE MANTENCA','ALTERACAO DE MANTENEDORA','MUDANCA DE MANTENEDORA');
   if(cadastro)return'CADASTRO';
 
-  // Atos institucionais/regulatórios. Convênio e regimento nunca são distribuídos para Oferta ou Carimbos.
-  const regulacao=tem('CREDENCI','RECREDENCI','DESCREDENCI','AUTORIZACAO DE FUNCIONAMENTO','AUTORIZ. FUNCIONAMENTO','FUNCIONAMENTO DA INSTITUICAO','RECONHECIMENTO','RENOVACAO DE RECONHECIMENTO','SUSPENSAO','CASSACAO','CONVENIO','REGIMENTO');
+  // 5) Fallback conservador: só usa o texto completo para sinais muito específicos.
+  // Nunca promove para OFERTA apenas porque a descrição secundária menciona educação/curso.
+  const resp=tem(t,'AUTORIZACAO DE CARIMBO','AUTORIZ. DE CARIMBO','DIRETOR ESCOLAR','SECRETARIO ESCOLAR','SECRETARIA ESCOLAR');
+  if(resp)return'RESPONSAVEIS';
+  const regulacao=tem(t,'CONVENIO','REGIMENTO','CREDENCI','RECREDENCI','DESCREDENCI','AUTORIZACAO DE FUNCIONAMENTO','AUTORIZ. FUNCIONAMENTO','FUNCIONAMENTO DA INSTITUICAO','SUSPENSAO','CASSACAO');
   if(regulacao)return'REGULACAO';
   return'REFERENCIA';
 }
