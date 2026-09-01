@@ -51,6 +51,7 @@ const MENU_LEGALIZACAO = Object.freeze([
   { id:'menu-legalizacao-visao', rota:'legalizacao', area:'visao', icone:'◫', rotulo:'Visão Geral', capacidade:null, perfis:['Master','Administrador','Técnico','Consulta'], modulo:'LEGALIZACAO' },
   { id:'menu-legalizacao-instituicoes', rota:'legalizacao', area:'instituicoes', icone:'🏫', rotulo:'Instituições', capacidade:null, perfis:['Master','Administrador','Técnico','Consulta'], modulo:'LEGALIZACAO' },
   { id:'menu-legalizacao-regulatorio', rota:'legalizacao', area:'regulatorio', icone:'🧭', rotulo:'Controle Regulatório', capacidade:null, perfis:['Master','Administrador','Técnico','Consulta'], modulo:'LEGALIZACAO' },
+  { id:'menu-legalizacao-pendencias', rota:'legalizacao', area:'pendencias', icone:'🧾', rotulo:'Pendências Regulatórias', capacidade:null, perfis:['Master','Administrador','Técnico','Consulta'], modulo:'LEGALIZACAO' },
   { id:'menu-legalizacao-fiscalizacao', rota:'legalizacao', area:'fiscalizacao', icone:'🔎', rotulo:'Fiscalização', capacidade:null, perfis:['Master','Administrador','Técnico','Consulta'], modulo:'LEGALIZACAO' },
   { id:'menu-legalizacao-averiguacao', rota:'legalizacao', area:'averiguacao', icone:'⚠️', rotulo:'Em Averiguação', capacidade:null, perfis:['Master','Administrador','Técnico','Consulta'], modulo:'LEGALIZACAO' },
   { id:'menu-legalizacao-inspecoes', rota:'legalizacao', area:'inspecoes', icone:'📋', rotulo:'Inspeções', capacidade:null, perfis:['Master','Administrador','Técnico','Consulta'], modulo:'LEGALIZACAO' },
@@ -438,7 +439,7 @@ function renderizarMenu(){
   const destaques = MENU_DESTAQUES.filter(item => itemPermitido(item, u));
   const territorial = MENU_GESTAO_TERRITORIAL.filter(item => itemPermitido(item, u));
   const administrativos = MENU_ADMIN.filter(item => itemPermitido(item, u));
-  const assinatura = `RC12.0.3C.4|${perfil(u)}|LEG:${legalizacao.map(i=>i.id).join(',')}|EXT:${extintas.map(i=>i.id).join(',')}|DESTAQUES:${destaques.map(i=>i.id).join(',')}|GT:${territorial.map(i=>i.id).join(',')}|ADMIN:${administrativos.map(i=>i.id).join(',')}`;
+  const assinatura = `RC12.0.7B|${perfil(u)}|LEG:${legalizacao.map(i=>i.id).join(',')}|EXT:${extintas.map(i=>i.id).join(',')}|DESTAQUES:${destaques.map(i=>i.id).join(',')}|GT:${territorial.map(i=>i.id).join(',')}|ADMIN:${administrativos.map(i=>i.id).join(',')}`;
   const precisaRelatorios = extintas.some(i=>i.tipo==='relatorios');
   const estruturaIntegra = nav.dataset.sigeeMenuAssinatura === assinatura &&
     (!legalizacao.length || document.getElementById('menu-modulo-legalizacao')) &&
