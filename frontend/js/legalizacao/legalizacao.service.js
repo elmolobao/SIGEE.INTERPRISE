@@ -1,8 +1,8 @@
-/** SIGEE Enterprise RC12.0.4A — base consolidada e importação controlada de atos. */
+/** SIGEE Enterprise RC12.0.4B — base consolidada e importação controlada de atos. */
 (function(window){
 'use strict';
-if(window.__SIGEE_LEGALIZACAO_SERVICE_RC1204A__)return;
-window.__SIGEE_LEGALIZACAO_SERVICE_RC1204A__=true;
+if(window.__SIGEE_LEGALIZACAO_SERVICE_RC1204B__)return;
+window.__SIGEE_LEGALIZACAO_SERVICE_RC1204B__=true;
 const MOD='LEGALIZACAO';
 function client(){try{return window.SIGEE_SUPABASE?.criarCliente?.()||window.SIGEE_SUPABASE_CLIENT||null;}catch(_){return null;}}
 function user(){return window.SIGEE_SESSION?.getUser?.()||window.usuarioLogado||null;}
@@ -111,10 +111,11 @@ async function obterProntuario(instituicaoId){
     c.from('legalizacao_processos').select('*').eq('instituicao_id',iid).order('created_at',{ascending:false}),
     c.from('legalizacao_fiscalizacoes').select('*').eq('instituicao_id',iid).order('created_at',{ascending:false}),
     c.from('legalizacao_inspecoes').select('*').eq('instituicao_id',iid).order('created_at',{ascending:false}),
-    c.from('legalizacao_handoff_acervo').select('*').eq('instituicao_id',iid).order('created_at',{ascending:false})
+    c.from('legalizacao_handoff_acervo').select('*').eq('instituicao_id',iid).order('created_at',{ascending:false}),
+    c.from('legalizacao_atos_legais').select('id,ato,tipo_ato,numero_ato,data_publicacao,numero_processo,vigencia_inicio,vigencia_fim,vigencia_origem,detalhe,fonte,situacao_registro,created_at').eq('instituicao_id',iid).order('data_publicacao',{ascending:false})
   ]);
   for(const r of queries){if(r.error)throw r.error;}
-  let [mantenedoras,responsaveis,carimbos,ofertas,processos,fiscalizacoes,inspecoes,handoffs]=queries.map(r=>r.data||[]);
+  let [mantenedoras,responsaveis,carimbos,ofertas,processos,fiscalizacoes,inspecoes,handoffs,atosLegais]=queries.map(r=>r.data||[]);
   if(inspecoes.length){
     const ids=inspecoes.map(x=>x.id);
     const {data:ii,error:eii}=await c.from('legalizacao_inspecao_itens').select('*').in('inspecao_id',ids).order('ordem',{ascending:true});if(eii)throw eii;
@@ -127,7 +128,7 @@ async function obterProntuario(instituicaoId){
     const ids=[...new Set((it||[]).map(x=>x.catalogo_id).filter(Boolean))];let cat=[];if(ids.length){const {data,error}=await c.from('legalizacao_checklist_catalogo').select('*').in('id',ids).order('ordem',{ascending:true});if(error)throw error;cat=data||[];}
     const by=new Map(cat.map(x=>[String(x.id),x]));checklist=(it||[]).map(x=>({...x,catalogo:by.get(String(x.catalogo_id))||null})).sort((a,b)=>(a.catalogo?.ordem||0)-(b.catalogo?.ordem||0));
   }
-  return {instituicao,mantenedoras,responsaveis,carimbos,ofertas,processos,fiscalizacoes,inspecoes,handoffs,credenciamento:cred,checklist};
+  return {instituicao,mantenedoras,responsaveis,carimbos,ofertas,processos,fiscalizacoes,inspecoes,handoffs,atosLegais,credenciamento:cred,checklist};
 }
 async function historicoProcesso(processoId,tipo,descricao,meta=null){const c=client();const {error}=await c.from('legalizacao_processos_historico').insert({processo_id:processoId,tipo,descricao,meta,usuario_id:currentUserId()});if(error)throw error;}
 async function iniciarCredenciamento(instituicaoId,payload={}){
@@ -203,6 +204,6 @@ async function integrarAtosIdentificados(importacaoIds=[]){
   await Promise.all(Array.from({length:Math.min(8,registros.length)},worker));
   return{integrados,falhas:erros.length,erros};
 }
-async function listarAtosInstituicao(instituicaoId){assertAccess();const inst=await oneScoped('legalizacao_instituicoes',instituicaoId),c=client();const {data,error}=await c.from('legalizacao_atos_legais').select('id,ato,tipo_ato,numero_ato,data_publicacao,numero_processo,vigencia_inicio,vigencia_fim,vigencia_origem,fonte,situacao_registro,created_at').eq('instituicao_id',inst.id).order('data_publicacao',{ascending:false}).limit(300);if(error)throw error;return data||[];}
+async function listarAtosInstituicao(instituicaoId){assertAccess();const inst=await oneScoped('legalizacao_instituicoes',instituicaoId),c=client();const {data,error}=await c.from('legalizacao_atos_legais').select('id,ato,tipo_ato,numero_ato,data_publicacao,numero_processo,vigencia_inicio,vigencia_fim,vigencia_origem,detalhe,fonte,situacao_registro,created_at').eq('instituicao_id',inst.id).order('data_publicacao',{ascending:false}).limit(300);if(error)throw error;return data||[];}
 window.SIGEE_LEGALIZACAO_SERVICE=Object.freeze({listarInstituicoes,consultarInstituicoes,contarInstituicoes,resumo,listarNtes,listarInspecoesGerais,listarHistoricoRegulatorio,listarProcessosRegulatorios,listarOfertasRegulatorias,listarCarimbosRegulatorios,criarInstituicao,confirmarCadastroMigrado,habilitarProntuario,obterProntuario,obterProntuarioPorEscola,iniciarCredenciamento,atualizarChecklist,emitirDiligencia,retomarAnalise,prepararInspecao,agendarInspecao,atualizarItemInspecao,registrarRealizacaoInspecao,concluirInspecao,concluirAnaliseFinal,registrarPublicacao,concluirCredenciamento,importarAtosLote,listarAtosImportados,resumoImportacaoAtos,confirmarAtoImportado,integrarAtosIdentificados,listarAtosInstituicao,ehMaster:master,nteId});
 })(window);
