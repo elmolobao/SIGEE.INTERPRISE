@@ -256,20 +256,59 @@
   function escolaSituacao(e) { return texto(e?.situacao_funcional || e?.situacao || ''); }
   function escolaAcervo(e) { return texto(e?.status_acervo || e?.acervo || ''); }
   function escolaLocal(e) { return texto(e?.local_acervo || ''); }
+
+  // RC12.0.3C — padronização visual do acervo no cadastro de instituições.
+  // A situação funcional é a autoridade para escolas ativas; valores legados
+  // "ACOLHIDO"/"NÃO ACOLHIDO" são apenas normalizados na apresentação,
+  // sem qualquer escrita ou migração no banco.
+  function acervoVisual(e) {
+    const situacao = normalizar(escolaSituacao(e));
+    const acervo = normalizar(escolaAcervo(e));
+
+    if (situacao.includes('ATIVA')) {
+      return { rotulo: 'ESCOLA ATIVA', tipo: 'ativa', local: 'ESCOLA ATIVA' };
+    }
+
+    const negativo = acervo.includes('NAO') || acervo.includes('NÃO');
+    const recolhido = acervo.includes('RECOLHIDO') || acervo.includes('ACOLHIDO');
+
+    if (recolhido && !negativo) {
+      return { rotulo: 'RECOLHIDO', tipo: 'recolhido', local: escolaLocal(e) || 'ACERVO DO NTE' };
+    }
+
+    if ((recolhido && negativo) || acervo.includes('A RECOLHER')) {
+      return { rotulo: 'NÃO RECOLHIDO', tipo: 'nao-recolhido', local: escolaLocal(e) };
+    }
+
+    return { rotulo: escolaAcervo(e) || '-', tipo: 'neutro', local: escolaLocal(e) };
+  }
+
   function badge(valor, tipo) {
     const v = texto(valor) || '-';
     const n = normalizar(v);
     let cls = 'bg-gray-700 text-white';
+    let style = '';
     if (tipo === 'situacao') {
       if (n.includes('ATIVA')) cls = 'bg-emerald-700 text-white';
       if (n.includes('EXTINTA')) cls = 'bg-red-700 text-white';
     }
-    if (tipo === 'ativo') cls = 'bg-slate-600 text-white';
-    if (tipo === 'acervo') {
-      if (n.includes('RECOLHIDO')) cls = 'bg-blue-600 text-white shadow-sm';
-      if (n.includes('NAO') || n.includes('NÃO')) cls = 'bg-red-700 text-white';
+    if (tipo === 'acervo-ativa') {
+      cls = 'text-white';
+      style = 'background:#475569;color:#fff;';
     }
-    return `<span class="px-2 py-1 rounded-full text-[10px] font-black ${cls}">${escapeHtml(v.toUpperCase())}</span>`;
+    if (tipo === 'acervo-recolhido') {
+      // Azul mais luminoso + texto branco para garantir contraste.
+      cls = 'text-white';
+      style = 'background:#2563eb;color:#fff;box-shadow:0 2px 8px rgba(37,99,235,.22);';
+    }
+    if (tipo === 'acervo-nao-recolhido') {
+      cls = 'bg-red-600 text-white';
+    }
+    if (tipo === 'acervo') {
+      if (n.includes('RECOLHIDO') || n.includes('ACOLHIDO')) cls = 'bg-blue-600 text-white';
+      if (n.includes('NAO') || n.includes('NÃO')) cls = 'bg-red-600 text-white';
+    }
+    return `<span class="px-2 py-1 rounded-full text-[10px] font-black ${cls}"${style ? ` style="${style}"` : ''}>${escapeHtml(v.toUpperCase())}</span>`;
   }
   function upsertCacheLocal(escola) {
     if (!escola) return;
@@ -374,9 +413,7 @@
         <td class="p-3 uppercase font-medium">${escapeHtml(texto(e.municipio).toUpperCase())}</td>
         <td class="p-3 font-semibold text-blue-100">${escapeHtml(escolaNte(e))}<br><span class="text-[9px] bg-white/10 font-bold px-1 rounded">${escapeHtml(escolaDep(e))}</span></td>
         <td class="p-3">${badge(escolaSituacao(e), 'situacao')}</td>
-        <td class="p-3">${normalizar(escolaSituacao(e)).includes('ATIVA')
-          ? `${badge('ESCOLA ATIVA', 'ativo')}<br><small class="text-blue-100">ESCOLA ATIVA</small>`
-          : `${badge(escolaAcervo(e), 'acervo')}<br><small class="text-blue-100">${escapeHtml(escolaLocal(e))}</small>`}</td>
+        <td class="p-3">${(() => { const av = acervoVisual(e); return `${badge(av.rotulo, `acervo-${av.tipo}`)}<br><small class="text-slate-600">${escapeHtml(av.local)}</small>`; })()}</td>
         <td class="p-3 text-center">${botao}</td>
       </tr>`;
     }).join('') || `<tr><td colspan="7" class="p-6 text-center text-gray-400 font-bold">Nenhuma escola encontrada.</td></tr>`;
