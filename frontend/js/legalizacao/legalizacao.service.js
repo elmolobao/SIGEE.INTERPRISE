@@ -1,8 +1,8 @@
-/** SIGEE Enterprise RC12.0.10A.3 — Cadastro institucional obrigatório, territorial e CEP. */
+/** SIGEE Enterprise RC12.0.10A.4 — Situação do imóvel obrigatória no cadastro institucional. */
 (function(window){
 'use strict';
-if(window.__SIGEE_LEGALIZACAO_SERVICE_RC1210A3__)return;
-window.__SIGEE_LEGALIZACAO_SERVICE_RC1210A3__=true;
+if(window.__SIGEE_LEGALIZACAO_SERVICE_RC1210A4__)return;
+window.__SIGEE_LEGALIZACAO_SERVICE_RC1210A4__=true;
 const MOD='LEGALIZACAO';
 function client(){try{return window.SIGEE_SUPABASE?.criarCliente?.()||window.SIGEE_SUPABASE_CLIENT||null;}catch(_){return null;}}
 function user(){return window.SIGEE_SESSION?.getUser?.()||window.usuarioLogado||null;}
@@ -145,7 +145,7 @@ async function criarInstituicao(payload){
   const tipo=upper(payload.tipo_cadastro||'PUBLICA'),rede=tipo==='PRIVADA'?'PRIVADA':upper(payload.rede||'ESTADUAL');
   const registro={nte_id:Number(n),nome_instituicao:String(payload.nome_instituicao||'').trim(),tipo_cadastro:tipo,rede,
     natureza:tipo==='PRIVADA'?'PRIVADA':(rede==='MUNICIPAL'?'PUBLICA_MUNICIPAL':'PUBLICA_ESTADUAL'),cod_sec:tipo==='PUBLICA'?clean(payload.cod_sec):null,cod_inep:clean(payload.cod_inep),cnpj:tipo==='PRIVADA'?clean(payload.mantenedora_cnpj):clean(payload.cnpj),municipio:clean(payload.municipio),
-    telefone:clean(payload.telefone),whatsapp:clean(payload.whatsapp),email:clean(payload.email),logradouro:clean(payload.logradouro),numero:clean(payload.numero),complemento:clean(payload.complemento),bairro:clean(payload.bairro),cep:clean(payload.cep),uf:'BA',
+    telefone:clean(payload.telefone),whatsapp:clean(payload.whatsapp),email:clean(payload.email),logradouro:clean(payload.logradouro),numero:clean(payload.numero),complemento:clean(payload.complemento),bairro:clean(payload.bairro),cep:clean(payload.cep),situacao_imovel:upper(payload.situacao_imovel),uf:'BA',
     porte:clean(payload.porte),matriculas_referencia:intOrNull(payload.matriculas_referencia),ano_base_matriculas:intOrNull(payload.ano_base_matriculas),sistema_municipal_ensino:rede==='MUNICIPAL'?clean(payload.sistema_municipal_ensino):null,
     situacao_regulatoria:'EM_CADASTRO',origem:'CADASTRO_LEGALIZACAO',legado_sigee:false,criado_por_id:currentUserId(),atualizado_por_id:currentUserId()};
   if(!registro.nome_instituicao)throw new Error('Nome da instituição é obrigatório.');
@@ -154,6 +154,7 @@ async function criarInstituicao(payload){
   if(!registro.logradouro)throw new Error('Logradouro é obrigatório.');
   if(!registro.cep)throw new Error('CEP é obrigatório.');
   if(!registro.municipio)throw new Error('Município é obrigatório.');
+  if(!['PROPRIO','ALUGADO'].includes(registro.situacao_imovel))throw new Error('Informe obrigatoriamente se o imóvel é próprio ou alugado.');
   const municipiosNte=window.obterMunicipiosNTE?.(registro.nte_id)||[];
   if(municipiosNte.length&&!municipiosNte.some(x=>String(x.municipio||'').localeCompare(String(registro.municipio||''),'pt-BR',{sensitivity:'base'})===0))throw new Error('O município informado não pertence ao território do NTE do usuário.');
   const obrigatorios={
