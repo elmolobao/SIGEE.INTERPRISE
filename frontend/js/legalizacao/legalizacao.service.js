@@ -58,14 +58,15 @@ async function safeChildren(table,select,inst){try{const c=client();const {data,
 async function resumo(force=false){
   assertAccess();if(!force&&resumoCache&&Date.now()-resumoCacheEm<RESUMO_TTL)return resumoCache;const ano=new Date().getFullYear();
   const safe=async p=>{try{return await p;}catch(err){console.warn('[Legalização] contador opcional indisponível:',err?.message||err);return 0;}};
-  const [instituicoes,emCredenciamento,ofertasCriticas,carimbosCriticos,fiscalizacoes,averiguacoes]=await Promise.all([
+  const [instituicoes,emCredenciamento,ofertasCriticas,carimbosCriticos,emDescredenciamento,fiscalizacoes,averiguacoes]=await Promise.all([
     contarInstituicoes(),contarInstituicoes({situacao:'EM_CREDENCIAMENTO'}),
     safe(contarTabela('legalizacao_ofertas',q=>q.or(`situacao.in.(EM_ANALISE,EM_RENOVACAO,A_VENCER,VENCIDA),ano_fim_vigencia.lte.${ano+1}`))),
     safe(contarTabela('legalizacao_autorizacoes_carimbo',q=>q.in('situacao',['A_VENCER','VENCIDA','EM_RENOVACAO','EM_AUTORIZACAO']))),
+    safe(contarTabela('legalizacao_processos',q=>scoped(q).eq('tipo','DESCREDENCIAMENTO').eq('status','EM_ANDAMENTO'))),
     safe(contarTabela('legalizacao_fiscalizacoes',q=>scoped(q).not('status','in','(REGULARIZADA,ARQUIVADA)'))),
     safe(contarTabela('legalizacao_averiguacoes',q=>scoped(q).not('status','in','(ARQUIVADA,NAO_CONFIRMADA,VINCULADA_INSTITUICAO)')))
   ]);
-  resumoCache={instituicoes,emCredenciamento,ofertasCriticas,carimbosCriticos,fiscalizacoes,averiguacoes};resumoCacheEm=Date.now();return resumoCache;
+  resumoCache={instituicoes,emCredenciamento,ofertasCriticas,carimbosCriticos,emDescredenciamento,fiscalizacoes,averiguacoes};resumoCacheEm=Date.now();return resumoCache;
 }
 async function idsInstituicoesNoEscopo(){
   assertAccess();if(master())return null;const c=client(),n=nteId();if(n==null)return[];const ids=[];let inicio=0;const lote=1000;while(true){const {data,error}=await c.from('legalizacao_instituicoes').select('id').eq('nte_id',n).range(inicio,inicio+lote-1);if(error)throw error;const rows=data||[];ids.push(...rows.map(x=>x.id));if(rows.length<lote)break;inicio+=lote;}return ids;
