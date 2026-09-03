@@ -192,7 +192,10 @@
       };
       await window.SIGEE_AUTH?.verificarPrimeiroAcesso?.(contextoPrimeiroAcesso);
       document.dispatchEvent(new CustomEvent('sigee:login-concluido', contextoPrimeiroAcesso));
-      window.dispatchEvent(new CustomEvent('sigee:session-ready', { detail:{ usuario:canonico, rotaInicial:'processos' } }));
+      const rotaInicial = window.SIGEE_MODULOS?.podeAcessar?.('ESCOLAS_EXTINTAS',canonico) === true
+        ? 'processos'
+        : (window.SIGEE_MODULOS?.podeAcessar?.('LEGALIZACAO',canonico) === true ? 'legalizacao' : '');
+      window.dispatchEvent(new CustomEvent('sigee:session-ready', { detail:{ usuario:canonico, rotaInicial } }));
       return true;
     } catch (erro) {
       console.error('[SIGEE RC4.3.0] Falha na autenticação oficial.', erro);

@@ -7,8 +7,8 @@
  */
 (function(window){
 'use strict';
-if (window.__SIGEE_MODULOS_RC1200__) return;
-window.__SIGEE_MODULOS_RC1200__ = true;
+if (window.__SIGEE_MODULOS_RC1210A9__) return;
+window.__SIGEE_MODULOS_RC1210A9__ = true;
 
 const CODIGOS = Object.freeze({
   EXTINTAS: 'ESCOLAS_EXTINTAS',
@@ -62,7 +62,20 @@ function vinculos(u=usuario()){
   if(ehMaster(u)) return legadoVinculos(u);
   const raw = Array.isArray(u?.vinculos_modulo) ? u.vinculos_modulo : [];
   const ativos=raw.map(normalizarVinculo).filter(v=>v&&v.ativo);
-  return ativos.length ? ativos : legadoVinculos(u);
+  if(ativos.length) return ativos;
+  // RC12.0.10A.9: se a sessão já possui módulos explícitos, eles são autoridade.
+  // Nunca transformar um usuário exclusivo de Legalização em Extintas por fallback legado.
+  const explicitos = Array.isArray(u?.modulos_acesso)
+    ? u.modulos_acesso.map(normalizarModulo).filter(Boolean)
+    : [];
+  if(explicitos.length){
+    const p=perfilBase(u)||'Consulta';
+    return [...new Set(explicitos)].map(modulo_codigo=>({
+      modulo_codigo, perfil_codigo:p, nte_id:u?.nte_id??null, ativo:true,
+      pode_configurar:['Administrador','Gestor'].includes(p), sessao_explicita:true
+    }));
+  }
+  return legadoVinculos(u);
 }
 function vinculo(modulo,u=usuario()){
   const cod=normalizarModulo(modulo);
@@ -106,8 +119,28 @@ async function hidratarUsuario(u){
   if(!u||typeof u!=='object') return u;
   if(ehMaster(u)) return {...u,vinculos_modulo:legadoVinculos(u),modulos_acesso:TODOS.slice()};
   const encontrados=await buscarVinculos(u.id);
-  const lista=encontrados.length?encontrados:legadoVinculos(u);
+  // Se a tabela respondeu, inclusive com um único módulo, ela prevalece integralmente.
+  // O fallback legado só existe para instalações onde a estrutura modular ainda não foi aplicada.
+  const lista=encontrados.length ? encontrados : vinculos(u);
   return {...u,vinculos_modulo:lista,modulos_acesso:lista.map(v=>v.modulo_codigo)};
+}
+
+async function reconciliarSessaoPersistida(){
+  const atual=usuario();
+  if(!atual||ehMaster(atual)||atual.id==null) return atual;
+  try{
+    const hidratado=await hidratarUsuario(atual);
+    const antes=JSON.stringify(vinculos(atual).map(v=>[v.modulo_codigo,v.perfil_codigo,v.nte_id,v.ativo!==false]));
+    const depois=JSON.stringify(vinculos(hidratado).map(v=>[v.modulo_codigo,v.perfil_codigo,v.nte_id,v.ativo!==false]));
+    if(antes!==depois || !Array.isArray(atual.vinculos_modulo) || !atual.vinculos_modulo.length){
+      window.SIGEE_SESSION?.setUser?.(hidratado,{source:'modulos-reconcile-rc12.0.10A.9',persist:true,emit:true,forceProfile:true});
+    }
+    aplicarDataset(hidratado);
+    return hidratado;
+  }catch(erro){
+    console.warn('[SIGEE RC12.0.10A.9] Falha ao reconciliar módulos da sessão.',erro);
+    return atual;
+  }
 }
 function aplicarDataset(u=usuario()){
   if(!document?.body||!u) return;
@@ -115,8 +148,9 @@ function aplicarDataset(u=usuario()){
 }
 
 document?.addEventListener?.('sigee:usuario-logado',()=>aplicarDataset());
+window?.addEventListener?.('sigee:session-ready',()=>setTimeout(reconciliarSessaoPersistida,0));
 window.SIGEE_MODULOS=Object.freeze({
   CODIGOS,TODOS,normalizarModulo,usuario,ehMaster,vinculos,vinculo,podeAcessar,
-  perfilNoModulo,nteNoModulo,podeConfigurar,buscarVinculos,hidratarUsuario,aplicarDataset
+  perfilNoModulo,nteNoModulo,podeConfigurar,buscarVinculos,hidratarUsuario,reconciliarSessaoPersistida,aplicarDataset
 });
 })(window);

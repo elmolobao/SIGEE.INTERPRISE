@@ -45,7 +45,19 @@
     return out;
   }
   function sameIdentity(a,b){return emailOf(a) && emailOf(a)===emailOf(b);}
-  function sameUser(a,b){return sameIdentity(a,b)&&canonicalProfile(a?.perfil)===canonicalProfile(b?.perfil)&&nteOf(a)===nteOf(b)&&String(a?.nome||'')===String(b?.nome||'');}
+  function moduleSignature(u){
+    if(!u||typeof u!=='object') return '';
+    const vinculos=Array.isArray(u.vinculos_modulo)?u.vinculos_modulo:[];
+    if(vinculos.length){
+      return vinculos
+        .filter(v=>v&&v.ativo!==false)
+        .map(v=>[String(v.modulo_codigo||v.modulo||'').trim().toUpperCase(),String(v.perfil_codigo||v.perfil||'').trim(),String(v.nte_id??''),v.pode_configurar===true?'1':'0'].join(':'))
+        .sort().join('|');
+    }
+    const modulos=Array.isArray(u.modulos_acesso)?u.modulos_acesso:[];
+    return modulos.map(v=>String(v||'').trim().toUpperCase()).filter(Boolean).sort().join('|');
+  }
+  function sameUser(a,b){return sameIdentity(a,b)&&canonicalProfile(a?.perfil)===canonicalProfile(b?.perfil)&&nteOf(a)===nteOf(b)&&String(a?.nome||'')===String(b?.nome||'')&&moduleSignature(a)===moduleSignature(b);}
   function read(){
     for(const key of KEYS){
       try{const raw=localStorage.getItem(key);if(raw){const u=normalizeUser(JSON.parse(raw));if(u)return u;}}catch(_){ }
