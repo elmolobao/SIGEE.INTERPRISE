@@ -390,7 +390,7 @@
 <section class="hidden sigee-modulo-fixo sigee-modulo-usuarios" id="aba-usuarios">
 <div class="flex justify-between items-center border-b pb-4 sigee-modulo-cabecalho">
 <h1 class="text-3xl font-bold text-blue-900">Controle de Usuários</h1>
-<button class="bg-amber-500 hover:bg-amber-600 text-white font-bold px-4 py-2 rounded-lg text-xs shadow cursor-pointer transition" onclick="abrirModalCriarUsuarioMaster()">➕ Cadastrar Técnico</button>
+<button class="bg-amber-500 hover:bg-amber-600 text-white font-bold px-4 py-2 rounded-lg text-xs shadow cursor-pointer transition" onclick="abrirModalNovoUsuarioMaster()">➕ Cadastrar Usuário</button>
 </div>
 <div class="bg-white p-3 rounded-xl border shadow-xs sigee-modulo-pesquisa">
 <input class="w-full p-3 border border-gray-300 rounded-lg text-xs bg-gray-50 font-medium focus:outline-none" id="busca-usuario" oninput="filtrarTabelaUsuariosSIGEE(this.value)" placeholder="🔎 Pesquisar por nome, e-mail, perfil ou NTE..." type="text"/>
@@ -403,6 +403,7 @@
 <th class="p-3">Nome / E-mail</th>
 <th class="p-3">Perfil</th>
 <th class="p-3">NTE Associado</th>
+<th class="p-3">Módulos</th>
 <th class="p-3 text-center">Status</th>
 <th class="p-3 text-center">Ações Administrativas Master</th>
 </tr>
@@ -742,6 +743,20 @@
 <option value="Master">Master</option> <option value="SEC">SEC</option> <option value="Gestor">Gestor</option> <option value="Administrador">Administrador</option> <option value="Técnico">Técnico</option> <option value="Estagiário">Estagiário</option> <option value="Consulta">Consulta</option>
 </select>
 </div>
+<div class="border rounded-lg p-3 bg-blue-50/60">
+<label class="block text-xs font-bold text-blue-900 uppercase mb-2">Módulos de acesso <span class="text-red-600">*</span></label>
+<p class="text-[10px] text-gray-500 mb-2">Selecione pelo menos um domínio. O NTE é único e será aplicado aos módulos selecionados.</p>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+<label class="flex items-center gap-2 bg-white border rounded-lg px-3 py-2 text-xs font-bold cursor-pointer">
+<input id="user-form-modulo-extintas" type="checkbox" value="ESCOLAS_EXTINTAS" class="accent-blue-700"/>
+<span>Escolas Extintas</span>
+</label>
+<label class="flex items-center gap-2 bg-white border rounded-lg px-3 py-2 text-xs font-bold cursor-pointer">
+<input id="user-form-modulo-legalizacao" type="checkbox" value="LEGALIZACAO" class="accent-blue-700"/>
+<span>Legalização Escolar</span>
+</label>
+</div>
+</div>
 <div class="flex justify-end gap-2 border-t pt-3">
 <button class="px-4 py-2 border rounded-lg text-xs font-semibold bg-gray-100 cursor-pointer" onclick="fecharModalUsuario()" type="button">Cancelar</button>
 <button class="bg-amber-500 hover:bg-amber-600 text-white font-bold px-5 py-2 rounded-lg text-xs shadow cursor-pointer" type="submit">Salvar Configurações</button>
@@ -838,7 +853,7 @@
 <script src="js/processos/workflow-externo.js?v=RC11.3.7"></script>
 <script src="js/ui/sigee_footer_institucional.js?v=RC4.2.0"></script>
 <script src="js/usuarios/logs.js?v=RC8.6.3"></script>
-<script src="js/usuarios/usuarios.js?v=RC11.0.0"></script>
+<script src="js/usuarios/usuarios.js?v=RC12.0.10A.8"></script>
 <script src="js/usuarios/gestao-master-unidades.js?v=RC11.1.0"></script>
 <script>
 /* SIGEE v0.9.2 - filtro visual da tabela de usuários */
