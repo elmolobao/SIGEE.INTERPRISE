@@ -1,8 +1,8 @@
-/** SIGEE Enterprise RC12.0.10A.1 — Ofertas integradas ao ato de credenciamento. */
+/** SIGEE Enterprise RC12.0.10A.3 — Cadastro institucional obrigatório, territorial e CEP. */
 (function(window){
 'use strict';
-if(window.__SIGEE_LEGALIZACAO_SERVICE_RC1210A__)return;
-window.__SIGEE_LEGALIZACAO_SERVICE_RC1210A__=true;
+if(window.__SIGEE_LEGALIZACAO_SERVICE_RC1210A3__)return;
+window.__SIGEE_LEGALIZACAO_SERVICE_RC1210A3__=true;
 const MOD='LEGALIZACAO';
 function client(){try{return window.SIGEE_SUPABASE?.criarCliente?.()||window.SIGEE_SUPABASE_CLIENT||null;}catch(_){return null;}}
 function user(){return window.SIGEE_SESSION?.getUser?.()||window.usuarioLogado||null;}
@@ -149,13 +149,27 @@ async function criarInstituicao(payload){
     porte:clean(payload.porte),matriculas_referencia:intOrNull(payload.matriculas_referencia),ano_base_matriculas:intOrNull(payload.ano_base_matriculas),sistema_municipal_ensino:rede==='MUNICIPAL'?clean(payload.sistema_municipal_ensino):null,
     situacao_regulatoria:'EM_CADASTRO',origem:'CADASTRO_LEGALIZACAO',legado_sigee:false,criado_por_id:currentUserId(),atualizado_por_id:currentUserId()};
   if(!registro.nome_instituicao)throw new Error('Nome da instituição é obrigatório.');
+  if(!['PUBLICA','PRIVADA'].includes(tipo))throw new Error('Tipo da instituição é obrigatório.');
+  if(!registro.ano_base_matriculas)throw new Error('Ano-base é obrigatório.');
+  if(!registro.logradouro)throw new Error('Logradouro é obrigatório.');
+  if(!registro.cep)throw new Error('CEP é obrigatório.');
+  if(!registro.municipio)throw new Error('Município é obrigatório.');
+  const municipiosNte=window.obterMunicipiosNTE?.(registro.nte_id)||[];
+  if(municipiosNte.length&&!municipiosNte.some(x=>String(x.municipio||'').localeCompare(String(registro.municipio||''),'pt-BR',{sensitivity:'base'})===0))throw new Error('O município informado não pertence ao território do NTE do usuário.');
+  const obrigatorios={
+    'Razão social da mantenedora':payload.mantenedora_razao_social,'CNPJ da mantenedora':payload.mantenedora_cnpj,'Representante legal da mantenedora':payload.mantenedora_representante,
+    'Telefone da mantenedora':payload.mantenedora_telefone,'WhatsApp da mantenedora':payload.mantenedora_whatsapp,'E-mail da mantenedora':payload.mantenedora_email,'Município da mantenedora':payload.mantenedora_municipio,
+    'Nome do diretor':payload.diretor_nome,'CPF do diretor':payload.diretor_cpf,'Telefone do diretor':payload.diretor_telefone,'WhatsApp do diretor':payload.diretor_whatsapp,'E-mail do diretor':payload.diretor_email,
+    'Nome do secretário':payload.secretario_nome,'CPF do secretário':payload.secretario_cpf,'Telefone do secretário':payload.secretario_telefone,'WhatsApp do secretário':payload.secretario_whatsapp,'E-mail do secretário':payload.secretario_email
+  };
+  const faltantes=Object.entries(obrigatorios).filter(([,v])=>!clean(v)).map(([k])=>k);if(faltantes.length)throw new Error('Campos obrigatórios pendentes: '+faltantes.join(', ')+'.');
   // RC12.0.10A.2 — proteção contra duplicidade antes de criar uma nova ficha institucional.
   const normalizar=v=>String(v||'').trim().replace(/[,()]/g,' ');
   const chaves=[];if(registro.cod_inep)chaves.push(`cod_inep.eq.${normalizar(registro.cod_inep)}`);if(registro.cnpj)chaves.push(`cnpj.eq.${normalizar(registro.cnpj)}`);
   if(chaves.length){let q=c.from('legalizacao_catalogo_v').select('prontuario_id,escola_id,nome_instituicao,cod_inep,cnpj,municipio').or(chaves.join(',')).limit(5);q=scoped(q);const {data:dup,error:ed}=await q;if(ed)throw ed;if((dup||[]).length)throw new Error(`Já existe instituição com o mesmo INEP/MEC ou CNPJ: ${(dup[0].nome_instituicao||'cadastro existente')}. Use “Localizar escola” e abra o prontuário existente.`);}
   const nomeBusca=normalizar(registro.nome_instituicao);if(nomeBusca&&registro.municipio){let q=c.from('legalizacao_catalogo_v').select('prontuario_id,escola_id,nome_instituicao,cod_inep,municipio').ilike('nome_instituicao',nomeBusca).ilike('municipio',normalizar(registro.municipio)).limit(5);q=scoped(q);const {data:dupNome,error:en}=await q;if(en)throw en;if((dupNome||[]).length)throw new Error(`Já existe uma instituição com esta denominação no município informado: ${dupNome[0].nome_instituicao}. Confirme o cadastro existente antes de criar uma nova ficha.`);}
   const {data,error}=await c.from('legalizacao_instituicoes').insert(registro).select('*').single();if(error)throw error;
-  if(tipo==='PRIVADA'&&clean(payload.mantenedora_razao_social)){const {error:em}=await c.from('legalizacao_mantenedoras').insert({instituicao_id:data.id,razao_social:clean(payload.mantenedora_razao_social),cnpj:clean(payload.mantenedora_cnpj),representante_legal:clean(payload.mantenedora_representante),telefone:clean(payload.mantenedora_telefone),whatsapp:clean(payload.mantenedora_whatsapp),email:clean(payload.mantenedora_email),municipio:clean(payload.mantenedora_municipio),uf:'BA'});if(em)throw em;}
+  if(clean(payload.mantenedora_razao_social)){const {error:em}=await c.from('legalizacao_mantenedoras').insert({instituicao_id:data.id,razao_social:clean(payload.mantenedora_razao_social),cnpj:clean(payload.mantenedora_cnpj),representante_legal:clean(payload.mantenedora_representante),telefone:clean(payload.mantenedora_telefone),whatsapp:clean(payload.mantenedora_whatsapp),email:clean(payload.mantenedora_email),municipio:clean(payload.mantenedora_municipio),uf:'BA'});if(em)throw em;}
   for(const tipoResp of ['DIRETOR','SECRETARIO']){const pfx=tipoResp==='DIRETOR'?'diretor':'secretario';if(clean(payload[pfx+'_nome'])){const {error:er}=await c.from('legalizacao_responsaveis').insert({instituicao_id:data.id,tipo:tipoResp,nome:clean(payload[pfx+'_nome']),cpf:clean(payload[pfx+'_cpf']),telefone:clean(payload[pfx+'_telefone']),whatsapp:clean(payload[pfx+'_whatsapp']),email:clean(payload[pfx+'_email'])});if(er)throw er;}}
   return data;
 }
