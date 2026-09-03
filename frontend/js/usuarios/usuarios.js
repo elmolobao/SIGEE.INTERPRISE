@@ -589,6 +589,8 @@
   'use strict';
 
   const TABELA = 'usuarios_sigee';
+  const TABELA_MODULOS = 'usuarios_modulos_sigee';
+  const MODULOS_DISPONIVEIS = Object.freeze(['ESCOLAS_EXTINTAS','LEGALIZACAO']);
   const SENHA_PADRAO = 'SEC@2026';
   const PERFIS = (window.SIGEE_CONFIG_UTILS?.listarPerfis?.() || [
     { value:'Master', label:'Master' }, { value:'SEC', label:'SEC' },
@@ -680,7 +682,9 @@
       perfil_acesso_id: (u||{}).perfil_acesso_id ?? null,
       unidade_tipo: txt((u||{}).unidade_tipo || (idNte ? 'NTE' : '')).toUpperCase() || null,
       escola_id: (u||{}).escola_id == null || (u||{}).escola_id === '' ? null : (Number((u||{}).escola_id) || null),
-      permissoes_override: (u||{}).permissoes_override ?? null
+      permissoes_override: (u||{}).permissoes_override ?? null,
+      vinculos_modulo: Array.isArray((u||{}).vinculos_modulo) ? (u||{}).vinculos_modulo : [],
+      modulos_acesso: Array.isArray((u||{}).modulos_acesso) ? (u||{}).modulos_acesso : []
     };
   }
   function baseUsuarios(){
@@ -697,6 +701,66 @@
   let consultaUsuariosEmAndamento = null;
   let ultimaConsultaUsuarios = 0;
   const TTL_USUARIOS_MS = 30000;
+
+  function rotuloModulo(codigo){
+    return codigo === 'LEGALIZACAO' ? 'Legalização Escolar' : 'Escolas Extintas';
+  }
+  function modulosLegado(u){
+    const n=normalizarUsuario(u||{});
+    if(n.perfil==='Master') return MODULOS_DISPONIVEIS.slice();
+    return ['ESCOLAS_EXTINTAS'];
+  }
+  async function carregarVinculosModulos(lista){
+    const usuarios=(lista||[]).filter(u=>u&&u.id!=null);
+    if(!usuarios.length) return lista||[];
+    const c=client(); if(!c) return lista||[];
+    try{
+      const ids=usuarios.map(u=>u.id);
+      const {data,error}=await c.from(TABELA_MODULOS)
+        .select('id,usuario_id,modulo_codigo,perfil_codigo,nte_id,ativo,pode_configurar')
+        .in('usuario_id',ids);
+      if(error) throw error;
+      const porUsuario=new Map();
+      (data||[]).filter(v=>v&&v.ativo!==false).forEach(v=>{
+        const chave=String(v.usuario_id);
+        if(!porUsuario.has(chave)) porUsuario.set(chave,[]);
+        porUsuario.get(chave).push(v);
+      });
+      (lista||[]).forEach(u=>{
+        const vinculos=porUsuario.get(String(u.id))||[];
+        const mods=vinculos.length ? vinculos.map(v=>v.modulo_codigo).filter(m=>MODULOS_DISPONIVEIS.includes(m)) : modulosLegado(u);
+        u.vinculos_modulo=vinculos;
+        u.modulos_acesso=[...new Set(mods)];
+      });
+    }catch(e){
+      console.warn('[SIGEE Usuários] Vínculos modulares indisponíveis; mantendo compatibilidade com Escolas Extintas.',e?.message||e);
+      (lista||[]).forEach(u=>{ u.modulos_acesso=modulosLegado(u); u.vinculos_modulo=[]; });
+    }
+    return lista||[];
+  }
+  async function salvarVinculosModulos(usuarioSalvo, modulos){
+    const c=client(); if(!c) throw new Error('Cliente Supabase indisponível.');
+    const id=usuarioSalvo?.id;
+    if(id==null) throw new Error('Usuário salvo sem identificador para configurar os módulos.');
+    let selecionados=[...new Set((modulos||[]).filter(m=>MODULOS_DISPONIVEIS.includes(m)))];
+    if(perfilCanonico(usuarioSalvo.perfil)==='Master') selecionados=MODULOS_DISPONIVEIS.slice();
+    if(!selecionados.length) throw new Error('Selecione pelo menos um módulo de acesso.');
+    const perfil=perfilCanonico(usuarioSalvo.perfil)||'Consulta';
+    const nte=usuarioSalvo.nte_id ?? null;
+    const rows=selecionados.map(modulo_codigo=>({
+      usuario_id:id, modulo_codigo, perfil_codigo:perfil, nte_id:nte, ativo:true,
+      pode_configurar:['Master','Administrador','Gestor'].includes(perfil)
+    }));
+    const {error:upsertError}=await c.from(TABELA_MODULOS).upsert(rows,{onConflict:'usuario_id,modulo_codigo'});
+    if(upsertError) throw new Error('Não foi possível configurar os módulos do usuário: '+(upsertError.message||upsertError));
+    for(const modulo of MODULOS_DISPONIVEIS.filter(m=>!selecionados.includes(m))){
+      const {error}=await c.from(TABELA_MODULOS).update({ativo:false}).eq('usuario_id',id).eq('modulo_codigo',modulo);
+      if(error) throw new Error('Não foi possível desativar o módulo '+rotuloModulo(modulo)+': '+(error.message||error));
+    }
+    usuarioSalvo.modulos_acesso=selecionados;
+    usuarioSalvo.vinculos_modulo=rows;
+    return rows;
+  }
   async function carregarUsuariosSupabase(opcoes={}){
     if (!podeVisualizarUsuarios()) throw new Error('Seu perfil não possui permissão para visualizar usuários.');
     const agora=Date.now();
@@ -716,8 +780,10 @@
       const { data, error } = await q;
       if (error) throw error;
       const lista = (data || []).filter(u => podeGerirGlobal() || isGlobal(usuarioAtual()) || mesmoEscopo(u));
+      const sincronizados=sincronizarBase(lista);
+      await carregarVinculosModulos(sincronizados);
       ultimaConsultaUsuarios=Date.now();
-      return sincronizarBase(lista);
+      return sincronizados;
     })();
     try{return await consultaUsuariosEmAndamento;}finally{consultaUsuariosEmAndamento=null;}
   }
@@ -795,12 +861,14 @@
       if (errConsulta) throw errConsulta;
       if (existente) throw new Error('E-mail já cadastrado. Use outro e-mail ou edite o usuário existente.');
       const salvo = await executarMutacaoCompativel(c, 'criar', {}, p);
+      await salvarVinculosModulos(salvo, u.modulos_acesso);
       ultimaConsultaUsuarios = 0;
       return salvo;
     }
     const filtro = { id: u.id || original?.id, email: p.email, emailOriginal: low(original?.email || p.email) };
     if (!filtro.id && !filtro.emailOriginal) throw new Error('Identificador do usuário não localizado.');
     const salvo = await executarMutacaoCompativel(c, 'editar', filtro, p);
+    await salvarVinculosModulos(salvo, u.modulos_acesso);
     ultimaConsultaUsuarios = 0;
     return salvo;
   }
@@ -854,8 +922,26 @@
       pf.dataset.sigee26Change = '1';
       pf.addEventListener('change', () => {
         if (podeGerirGlobal() && ['SEC','Gestor'].includes(perfilCanonico(pf.value)) && nt && !nt.value) nt.value = 'SEC - TODOS OS NTEs';
+        const atuais=lerModulosFormulario(pf.value);
+        aplicarModulosFormulario(atuais.length?atuais:['ESCOLAS_EXTINTAS'],pf.value);
       });
     }
+  }
+  function aplicarModulosFormulario(modulos, perfil){
+    const ext=document.getElementById('user-form-modulo-extintas');
+    const leg=document.getElementById('user-form-modulo-legalizacao');
+    let selecionados=Array.isArray(modulos)&&modulos.length ? modulos : ['ESCOLAS_EXTINTAS'];
+    const master=perfilCanonico(perfil)==='Master';
+    if(master) selecionados=MODULOS_DISPONIVEIS.slice();
+    if(ext){ ext.checked=selecionados.includes('ESCOLAS_EXTINTAS'); ext.disabled=master; }
+    if(leg){ leg.checked=selecionados.includes('LEGALIZACAO'); leg.disabled=master; }
+  }
+  function lerModulosFormulario(perfil){
+    if(perfilCanonico(perfil)==='Master') return MODULOS_DISPONIVEIS.slice();
+    const mods=[];
+    if(document.getElementById('user-form-modulo-extintas')?.checked) mods.push('ESCOLAS_EXTINTAS');
+    if(document.getElementById('user-form-modulo-legalizacao')?.checked) mods.push('LEGALIZACAO');
+    return mods;
   }
   function formUsuario(){
     const id = txt(document.getElementById('user-form-id')?.value);
@@ -866,7 +952,7 @@
     const modo = id ? 'editar' : 'criar';
     const existente = id ? normalizarUsuario(baseUsuarios().find(x => String(x.id) === String(id)) || {}) : null;
     const estaAtivo = modo === 'criar' ? true : (existente ? existente.ativo !== false : true);
-    return { id, nome, email, perfil, nte: formatarNte(nteRaw, perfil), nte_id: nteId(nteRaw, perfil), senha:SENHA_PADRAO, senha_hash:SENHA_PADRAO, ativo:estaAtivo, forcar_troca_senha: modo === 'criar', pode_editar: perfil !== 'Estagiário' && perfil !== 'Consulta' };
+    return { id, nome, email, perfil, nte: formatarNte(nteRaw, perfil), nte_id: nteId(nteRaw, perfil), senha:SENHA_PADRAO, senha_hash:SENHA_PADRAO, ativo:estaAtivo, forcar_troca_senha: modo === 'criar', pode_editar: perfil !== 'Estagiário' && perfil !== 'Consulta', modulos_acesso: lerModulosFormulario(perfil) };
   }
   function renderTabelaUsuarios(){
     const corpo = document.getElementById('tabela-usuarios-corpo');
@@ -887,6 +973,7 @@
         <td class="p-3 font-bold">${u.nome}<br><span class="text-xs text-gray-400 font-normal font-mono">${u.email}</span></td>
         <td class="p-3 font-medium">${u.perfil === 'Estagiário' ? 'Estagiário' : u.perfil}</td>
         <td class="p-3 font-semibold text-gray-600">${u.nte || ''}</td>
+        <td class="p-3"><div class="flex flex-wrap gap-1">${(u.modulos_acesso?.length?u.modulos_acesso:modulosLegado(u)).map(m=>`<span class="px-1.5 py-0.5 rounded bg-blue-50 text-blue-800 text-[9px] font-bold">${m==='LEGALIZACAO'?'LEGALIZAÇÃO':'EXTINTAS'}</span>`).join('')}</div></td>
         <td class="p-3 text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${u.ativo?'bg-green-100 text-green-800':'bg-red-100 text-red-800'}">${u.ativo?'ATIVO':'INATIVO'}</span></td>
         <td class="p-3 text-center">${botoes}</td>
       </tr>`);
@@ -902,6 +989,8 @@
     prepararSelectsUsuario('', '');
     const set = (id,val)=>{ const el=document.getElementById(id); if(el) el.value=val; };
     set('user-form-id',''); set('user-form-nome',''); set('user-form-email',''); set('user-form-senha','');
+    const titulo=document.getElementById('titulo-modal-usuario'); if(titulo) titulo.innerText='👥 Cadastrar Usuário';
+    aplicarModulosFormulario(['ESCOLAS_EXTINTAS'], document.getElementById('user-form-perfil')?.value||'');
     const modal = document.getElementById('modal-cadastro-usuario'); if (modal) modal.classList.remove('hidden');
   };
   window.abrirModalEditarUsuarioMaster = function(id){
@@ -912,6 +1001,8 @@
     prepararSelectsUsuario(u.perfil, u.nte);
     const set = (id,val)=>{ const el=document.getElementById(id); if(el) el.value=val; };
     set('user-form-id', u.id); set('user-form-nome', u.nome); set('user-form-email', u.email); set('user-form-senha','');
+    const titulo=document.getElementById('titulo-modal-usuario'); if(titulo) titulo.innerText='📝 Editar Usuário';
+    aplicarModulosFormulario(u.modulos_acesso?.length?u.modulos_acesso:modulosLegado(u),u.perfil);
     const modal = document.getElementById('modal-cadastro-usuario'); if (modal) modal.classList.remove('hidden');
   };
   let salvamentoEmAndamento = false;
@@ -925,6 +1016,7 @@
     if (!u.nome) return alert('Informe o nome do usuário.');
     if (!u.email) return alert('Informe o e-mail do usuário.');
     if (!u.perfil) return alert('Selecione o Perfil.');
+    if (!Array.isArray(u.modulos_acesso) || !u.modulos_acesso.length) return alert('Selecione pelo menos um módulo de acesso.');
     const gestorGlobal = u.perfil === 'Gestor' && ehVinculoGlobal(u.nte);
     if (!['SEC','Master'].includes(u.perfil) && !gestorGlobal && !u.nte_id) return alert('Selecione um NTE específico ou, para Gestor SEC, use SEC - TODOS OS NTEs.');
     const botao = document.querySelector('#form-cadastro-usuario button[type="submit"]');
@@ -1017,7 +1109,7 @@
   window.carregarListaUsuarios = atualizarListaUsuarios;
   try { carregarListaUsuarios = window.carregarListaUsuarios; } catch(e) {}
 
-  window.SIGEE_USUARIOS_26 = { SENHA_PADRAO, PERFIS, perfilCanonico, normalizarUsuario, carregarUsuariosSupabase, salvarUsuario, atualizarListaUsuarios, isEstagiario, isGlobal, podeGerirGlobal, podeGerirNte, podeEditarAlvo, versao:'RC10.8.40' };
+  window.SIGEE_USUARIOS_26 = { SENHA_PADRAO, PERFIS, perfilCanonico, normalizarUsuario, carregarUsuariosSupabase, salvarUsuario, atualizarListaUsuarios, isEstagiario, isGlobal, podeGerirGlobal, podeGerirNte, podeEditarAlvo, versao:'RC12.0.10A.8' };
 })();
 
 
