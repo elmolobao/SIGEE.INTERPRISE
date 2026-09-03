@@ -170,14 +170,13 @@
         <div class="leg-operacional-grid">
           <label class="span-2">Instituição<input id="leg-cred-inst-busca" type="search" autocomplete="off" placeholder="Digite nome, INEP, município ou COD SEC"><input id="leg-cred-instituicao-id" name="instituicao_id" type="hidden"><div id="leg-cred-inst-resultados" class="leg-search-results hidden"></div></label>
           <label>Procedimento<select name="subtipo"><option value="CREDENCIAMENTO">Credenciamento</option><option value="RECREDENCIAMENTO">Recredenciamento</option></select></label>
-          <label>Processo SEI<input name="numero_sei" required placeholder="00000.000000/0000-00"></label>
-          <label>Data de protocolo<input name="data_protocolo" type="date" required></label>
-          <label>Prazo da etapa<input name="prazo_etapa" type="date"></label>
+          <div class="span-2 leg-callout compact"><div><strong>Processo SEI ainda não é informado nesta etapa.</strong><p>O número do Processo SEI será registrado somente após o recebimento e encaminhamento da documentação necessária.</p></div></div>
+          <label>Prazo da etapa documental<input name="prazo_etapa" type="date"></label>
           <div class="span-2 leg-oferta-config"><div class="leg-oferta-config-head"><div><strong>Ofertas incluídas no ato de credenciamento</strong><span>Selecione as etapas/modalidades autorizadas neste mesmo Processo SEI. Outras ofertas poderão ser adicionadas depois no prontuário da instituição.</span></div></div><div id="leg-cred-oferta-catalogo" class="leg-oferta-catalogo"><div class="leg-empty compact"><strong>Abra o formulário para carregar o catálogo.</strong></div></div></div>
           <div class="span-2 leg-oferta-config hidden" id="leg-cred-curso-detalhe"><div class="leg-operacional-grid"><label>Curso técnico<input name="curso_nome" placeholder="Nome do curso"></label><label>Eixo tecnológico<input name="eixo_tecnologico" placeholder="Eixo tecnológico, quando aplicável"></label></div></div>
           <label class="span-2">Observação<textarea name="observacao" rows="2" placeholder="Informação inicial do procedimento, se necessária"></textarea></label>
         </div>
-        <div class="leg-operacional-actions"><span id="leg-cred-form-status">Selecione a instituição e informe o Processo SEI.</span><div><button type="button" class="leg-btn" id="leg-cancelar-credenciamento">Cancelar</button><button type="submit" class="leg-btn primary">Abrir procedimento</button></div></div>
+        <div class="leg-operacional-actions"><span id="leg-cred-form-status">Selecione a instituição para iniciar a etapa documental. O Processo SEI será informado posteriormente.</span><div><button type="button" class="leg-btn" id="leg-cancelar-credenciamento">Cancelar</button><button type="submit" class="leg-btn primary">Abrir procedimento</button></div></div>
       </form>
       <div class="leg-list" id="legalizacao-reg-processos"><div class="leg-empty"><strong>Aguardando carregamento...</strong></div></div></div></div>
     <div class="leg-reg-panel hidden" data-reg-panel="ofertas"><div class="leg-panel"><header class="leg-panel-head"><div><h2>Ofertas / Cursos</h2><p>As ofertas são vinculadas ao ato de credenciamento da instituição e permanecem consolidadas no respectivo prontuário.</p></div></header><div class="leg-list" id="legalizacao-reg-ofertas"><div class="leg-empty"><strong>Aguardando carregamento...</strong></div></div></div></div>
@@ -892,8 +891,8 @@ window.filtrarTabelaUsuariosSIGEE = function (termo) {
 <script src="js/territorial/territorial-pesquisa.js?v=GT-05.2.4"></script>
 <script src="js/territorial/territorial-bootstrap.js?v=RC11.3.16"></script>
 
-<script src="js/legalizacao/legalizacao.service.js?v=RC12.0.10A.4"></script>
-<script src="js/legalizacao/legalizacao.js?v=RC12.0.10A.4"></script>
+<script src="js/legalizacao/legalizacao.service.js?v=RC12.0.10A.7"></script>
+<script src="js/legalizacao/legalizacao.js?v=RC12.0.10A.7"></script>
     <script src="js/core/autorizacao.js?v=RC12.0.7B"></script>
 <script src="js/analytics/dashboard.js?v=RC7.4.4-PERFORMANCE"></script>
 <script src="js/cio/cio-bootstrap.js?v=RC7.4.1"></script>
