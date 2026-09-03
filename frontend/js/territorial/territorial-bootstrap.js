@@ -16,6 +16,7 @@
     formacoes:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9 12 4l9 5-9 5-9-5Z"></path><path d="M6 11.5V16c3.5 2.5 8.5 2.5 12 0v-4.5M21 9v6"></path></svg>',
     sei:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6.5h7l2 2h9v10.5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6.5Z"></path><path d="M3 9h18"></path></svg>',
     'plano-acao':'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11l2 2 4-5"></path><rect x="4" y="3" width="16" height="18" rx="2"></rect><path d="M8 7h8M8 17h8"></path></svg>',
+    'solicitacoes-apoio':'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4V5Z"></path><path d="M8 9h8M8 12h5"></path></svg>',
     relatorios:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6V3Z"></path><path d="M14 3v5h5M9 12h6M9 16h6"></path></svg>'
   });
   const ABAS = Object.freeze([
@@ -24,6 +25,7 @@
     ['agenda','Agenda'],
     ['monitoramento','Monitoramento'],
     ['plano-acao','Planos de Ação'],
+    ['solicitacoes-apoio','Solicitações de Apoio'],
     ['pesquisa','Pesquisa de Satisfação'],
     ['formacoes','Formações'],
     ['sei','Controle SEI'],
@@ -136,6 +138,7 @@
     if(id==='agenda') return '<div id="gt-agenda-corpo"><div class="gt-empty">Carregando Agenda Institucional...</div></div>';
     if(id==='monitoramento') return '<div id="gt-monitoramento-corpo"><div class="gt-empty">Carregando Monitoramento Territorial...</div></div>';
     if(id==='plano-acao') return '<div id="gt-plano-acao-corpo"><div class="gt-empty">Carregando Planos de Ação...</div></div>';
+    if(id==='solicitacoes-apoio') return '<div id="gt-apoio-corpo"><div class="gt-empty">Carregando Solicitações de Apoio...</div></div>';
     if(id==='pesquisa') return '<div id="gt-pesquisa-corpo"><div class="gt-empty">Carregando Pesquisa de Satisfação...</div></div>';
     if(id==='formacoes') return '<div id="gt-formacoes-corpo"><div class="gt-empty">Carregando cobertura das formações...</div></div>';
     if(id==='sei') return '<div id="gt-sei-corpo"><div class="gt-empty">Carregando Controle SEI...</div></div>';
@@ -146,7 +149,7 @@
     abaAtual=ABAS.some(x=>x[0]===id)?id:'visao-geral';
     const sec=criarTela(); if(!sec) return false;
     sec.querySelectorAll('[data-gt-aba]').forEach(b=>{const ativo=b.dataset.gtAba===abaAtual;b.classList.toggle('ativo',ativo);b.setAttribute('aria-current',ativo?'page':'false');});
-    const box=sec.querySelector('#gt-conteudo'); if(box){ box.innerHTML=conteudo(abaAtual); if(abaAtual==='visao-geral') setTimeout(()=>carregarVisaoExecutiva(),0); if(abaAtual==='mapa') setTimeout(()=>window.SIGEE_TERRITORIAL_MAPA?.carregar?.(box),0); if(abaAtual==='agenda') setTimeout(()=>window.SIGEE_TERRITORIAL_AGENDA?.carregar?.(box),0); if(abaAtual==='monitoramento') setTimeout(()=>window.SIGEE_TERRITORIAL_MONITORAMENTO?.carregar?.(box),0); if(abaAtual==='plano-acao') setTimeout(()=>window.SIGEE_TERRITORIAL_PLANO_ACAO?.carregar?.(box),0); if(abaAtual==='pesquisa') setTimeout(()=>window.SIGEE_TERRITORIAL_PESQUISA?.painel?.(box),0); if(abaAtual==='formacoes') setTimeout(()=>window.SIGEE_TERRITORIAL_FORMACOES?.carregar?.(box),0); if(abaAtual==='sei') setTimeout(()=>window.SIGEE_TERRITORIAL_SEI?.carregar?.(box),0); if(abaAtual==='relatorios') setTimeout(()=>window.SIGEE_TERRITORIAL_RELATORIOS?.carregar?.(box),0); }
+    const box=sec.querySelector('#gt-conteudo'); if(box){ box.innerHTML=conteudo(abaAtual); if(abaAtual==='visao-geral') setTimeout(()=>carregarVisaoExecutiva(),0); if(abaAtual==='mapa') setTimeout(()=>window.SIGEE_TERRITORIAL_MAPA?.carregar?.(box),0); if(abaAtual==='agenda') setTimeout(()=>window.SIGEE_TERRITORIAL_AGENDA?.carregar?.(box),0); if(abaAtual==='monitoramento') setTimeout(()=>window.SIGEE_TERRITORIAL_MONITORAMENTO?.carregar?.(box),0); if(abaAtual==='plano-acao') setTimeout(()=>window.SIGEE_TERRITORIAL_PLANO_ACAO?.carregar?.(box),0); if(abaAtual==='solicitacoes-apoio') setTimeout(()=>window.SIGEE_TERRITORIAL_APOIO?.carregar?.(box),0); if(abaAtual==='pesquisa') setTimeout(()=>window.SIGEE_TERRITORIAL_PESQUISA?.painel?.(box),0); if(abaAtual==='formacoes') setTimeout(()=>window.SIGEE_TERRITORIAL_FORMACOES?.carregar?.(box),0); if(abaAtual==='sei') setTimeout(()=>window.SIGEE_TERRITORIAL_SEI?.carregar?.(box),0); if(abaAtual==='relatorios') setTimeout(()=>window.SIGEE_TERRITORIAL_RELATORIOS?.carregar?.(box),0); }
     return true;
   }
 
