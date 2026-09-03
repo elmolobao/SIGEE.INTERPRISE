@@ -1,8 +1,8 @@
-/** SIGEE Enterprise RC12.0.10A.14 — Controle regulatório estável e ofertas por procedimento próprio. */
+/** SIGEE Enterprise RC12.0.10A.15 — Checklist operacional do descredenciamento. */
 (function(window){
 'use strict';
-if(window.__SIGEE_LEGALIZACAO_SERVICE_RC1210A14__)return;
-window.__SIGEE_LEGALIZACAO_SERVICE_RC1210A14__=true;
+if(window.__SIGEE_LEGALIZACAO_SERVICE_RC1210A15__)return;
+window.__SIGEE_LEGALIZACAO_SERVICE_RC1210A15__=true;
 const MOD='LEGALIZACAO';
 function client(){try{return window.SIGEE_SUPABASE?.criarCliente?.()||window.SIGEE_SUPABASE_CLIENT||null;}catch(_){return null;}}
 function user(){return window.SIGEE_SESSION?.getUser?.()||window.usuarioLogado||null;}
@@ -75,8 +75,26 @@ async function listarProcessosRegulatorios(){
 }
 
 
+async function garantirChecklistDescredenciamento(processo){
+  assertAccess();if(!processo?.id)return[];const c=client();
+  const {data:exist,error:ee}=await c.from('legalizacao_checklist_processo').select('*').eq('processo_id',processo.id).order('id',{ascending:true});if(ee)throw ee;
+  let itens=exist||[];
+  if(!itens.length){
+    const subtipo=upper(processo.subtipo);
+    const {data:catalogo,error:ec}=await c.from('legalizacao_checklist_catalogo').select('*').eq('tipo_processo','DESCREDENCIAMENTO').eq('ativo',true).or(`subtipo_aplicavel.is.null,subtipo_aplicavel.eq.${subtipo}`).order('ordem',{ascending:true});if(ec)throw ec;
+    if((catalogo||[]).length){
+      const rows=(catalogo||[]).map(x=>({processo_id:processo.id,catalogo_id:x.id,status:'NAO_APRESENTADO'}));
+      const {data:criados,error:ei}=await c.from('legalizacao_checklist_processo').insert(rows).select('*');if(ei)throw ei;itens=criados||[];
+    }
+  }
+  const ids=[...new Set(itens.map(x=>x.catalogo_id).filter(Boolean))];let cats=[];
+  if(ids.length){const r=await c.from('legalizacao_checklist_catalogo').select('*').in('id',ids).order('ordem',{ascending:true});if(r.error)throw r.error;cats=r.data||[];}
+  const cm=new Map(cats.map(x=>[String(x.id),x]));
+  return itens.map(x=>({...x,catalogo:cm.get(String(x.catalogo_id))||null})).sort((a,b)=>(a.catalogo?.ordem||0)-(b.catalogo?.ordem||0));
+}
 async function listarDescredenciamentosRegulatorios(){
-  assertAccess();const c=client(),escopoIds=await idsInstituicoesNoEscopo();if(Array.isArray(escopoIds)&&!escopoIds.length)return[];let q=c.from('legalizacao_processos').select('*').eq('tipo','DESCREDENCIAMENTO').order('updated_at',{ascending:false}).limit(1000);if(Array.isArray(escopoIds))q=q.in('instituicao_id',escopoIds);const {data,error}=await q;if(error)throw error;const lista=data||[],ids=[...new Set(lista.map(x=>x.instituicao_id).filter(Boolean))];let inst=[];if(ids.length){let iq=c.from('legalizacao_instituicoes').select('id,nome_instituicao,tipo_cadastro,rede,nte_id').in('id',ids);if(!master())iq=iq.eq('nte_id',nteId());const r=await iq;if(!r.error)inst=r.data||[];}const im=new Map(inst.map(x=>[String(x.id),x]));return lista.filter(x=>im.has(String(x.instituicao_id))).map(x=>({...x,nte_id:im.get(String(x.instituicao_id))?.nte_id??x.nte_id,instituicao:im.get(String(x.instituicao_id))||null}));
+  assertAccess();const c=client(),escopoIds=await idsInstituicoesNoEscopo();if(Array.isArray(escopoIds)&&!escopoIds.length)return[];let q=c.from('legalizacao_processos').select('*').eq('tipo','DESCREDENCIAMENTO').order('updated_at',{ascending:false}).limit(1000);if(Array.isArray(escopoIds))q=q.in('instituicao_id',escopoIds);const {data,error}=await q;if(error)throw error;const lista=data||[],ids=[...new Set(lista.map(x=>x.instituicao_id).filter(Boolean))];let inst=[];if(ids.length){let iq=c.from('legalizacao_instituicoes').select('id,nome_instituicao,tipo_cadastro,rede,nte_id').in('id',ids);if(!master())iq=iq.eq('nte_id',nteId());const r=await iq;if(!r.error)inst=r.data||[];}const im=new Map(inst.map(x=>[String(x.id),x]));const base=lista.filter(x=>im.has(String(x.instituicao_id))).map(x=>({...x,nte_id:im.get(String(x.instituicao_id))?.nte_id??x.nte_id,instituicao:im.get(String(x.instituicao_id))||null}));
+  return await Promise.all(base.map(async x=>({...x,checklist:await garantirChecklistDescredenciamento(x)})));
 }
 async function iniciarDescredenciamento(instituicaoId,payload={}){
   assertAccess();const c=client(),inst=await oneScoped('legalizacao_instituicoes',instituicaoId),subtipo=upper(payload.subtipo),sei=clean(payload.numero_sei),dataProtocolo=clean(payload.data_protocolo);if(!['VOLUNTARIO','COMPULSORIO'].includes(subtipo))throw new Error('Selecione descredenciamento voluntário ou compulsório.');if(!sei)throw new Error('O Processo SEI é obrigatório no início do descredenciamento.');if(!dataProtocolo)throw new Error('Informe a data de protocolo do Processo SEI.');
@@ -275,7 +293,7 @@ async function obterProntuario(instituicaoId){
     let r=await c.from('legalizacao_processos_ofertas').select('*').eq('processo_id',cred.id).order('id',{ascending:true});if(r.error)throw r.error;credOfertas=r.data||[];const cids=[...new Set(credOfertas.map(x=>x.oferta_catalogo_id).filter(Boolean))];let oc=[];if(cids.length){r=await c.from('legalizacao_oferta_catalogo').select('*').in('id',cids);if(r.error)throw r.error;oc=r.data||[];}const om=new Map(oc.map(x=>[String(x.id),x]));credOfertas=credOfertas.map(x=>({...x,catalogo:om.get(String(x.oferta_catalogo_id))||null}));
     r=await c.from('legalizacao_oferta_requisitos_processo').select('*').eq('processo_id',cred.id).order('id',{ascending:true});if(r.error)throw r.error;const ori=r.data||[],rids=[...new Set(ori.map(x=>x.requisito_catalogo_id).filter(Boolean))];let rc=[];if(rids.length){r=await c.from('legalizacao_oferta_requisitos_catalogo').select('*').in('id',rids).order('ordem',{ascending:true});if(r.error)throw r.error;rc=r.data||[];}const rm=new Map(rc.map(x=>[String(x.id),x]));ofertaChecklist=ori.map(x=>({...x,catalogo:rm.get(String(x.requisito_catalogo_id))||null})).sort((a,b)=>(a.catalogo?.ordem||0)-(b.catalogo?.ordem||0));
   }
-  if(descredenciamento){const {data:di,error:de}=await c.from('legalizacao_checklist_processo').select('*').eq('processo_id',descredenciamento.id).order('id',{ascending:true});if(de)throw de;const dids=[...new Set((di||[]).map(x=>x.catalogo_id).filter(Boolean))];let dcat=[];if(dids.length){const r=await c.from('legalizacao_checklist_catalogo').select('*').in('id',dids).order('ordem',{ascending:true});if(r.error)throw r.error;dcat=r.data||[];}const dm=new Map(dcat.map(x=>[String(x.id),x]));checklistDescredenciamento=(di||[]).map(x=>({...x,catalogo:dm.get(String(x.catalogo_id))||null})).sort((a,b)=>(a.catalogo?.ordem||0)-(b.catalogo?.ordem||0));}
+  if(descredenciamento){checklistDescredenciamento=await garantirChecklistDescredenciamento(descredenciamento);}
   return {instituicao,mantenedoras,responsaveis,carimbos,ofertas,processos,fiscalizacoes,inspecoes,handoffs,atosLegais,credenciamento:cred,checklist,credOfertas,ofertaChecklist,descredenciamento,checklistDescredenciamento};
 }
 async function historicoProcesso(processoId,tipo,descricao,meta=null){const c=client();const {error}=await c.from('legalizacao_processos_historico').insert({processo_id:processoId,tipo,descricao,meta,usuario_id:currentUserId()});if(error)throw error;}
@@ -371,5 +389,5 @@ async function integrarAtosIdentificados(importacaoIds=[]){
   return{integrados,falhas:erros.length,erros};
 }
 async function listarAtosInstituicao(instituicaoId){assertAccess();const inst=await oneScoped('legalizacao_instituicoes',instituicaoId),c=client();const {data,error}=await c.from('legalizacao_atos_legais').select('id,ato,tipo_ato,numero_ato,data_publicacao,numero_processo,vigencia_inicio,vigencia_fim,vigencia_origem,detalhe,fonte,situacao_registro,created_at').eq('instituicao_id',inst.id).order('data_publicacao',{ascending:false}).limit(300);if(error)throw error;return data||[];}
-window.SIGEE_LEGALIZACAO_SERVICE=Object.freeze({listarInstituicoes,consultarInstituicoes,contarInstituicoes,resumo,listarBasePendenciasRegulatorias,listarNtes,listarInspecoesGerais,listarHistoricoRegulatorio,listarProcessosRegulatorios,listarDescredenciamentosRegulatorios,listarOfertasRegulatorias,listarProcessosOfertaRegulatorios,listarCatalogoOfertas,iniciarProcedimentoOferta,adicionarOfertasCredenciamento,atualizarRequisitoOferta,listarCarimbosRegulatorios,listarAtosHistoricosControle,criarInstituicao,atualizarInstituicao,confirmarCadastroMigrado,habilitarProntuario,obterProntuario,obterProntuarioPorEscola,iniciarCredenciamento,iniciarDescredenciamento,registrarProcessoSeiCredenciamento,atualizarChecklist,emitirDiligencia,retomarAnalise,prepararInspecao,agendarInspecao,atualizarItemInspecao,registrarRealizacaoInspecao,concluirInspecao,concluirAnaliseFinal,registrarPublicacao,concluirCredenciamento,importarAtosLote,listarAtosImportados,resumoImportacaoAtos,confirmarAtoImportado,integrarAtosIdentificados,listarAtosInstituicao,ehMaster:master,nteId});
+window.SIGEE_LEGALIZACAO_SERVICE=Object.freeze({listarInstituicoes,consultarInstituicoes,contarInstituicoes,resumo,listarBasePendenciasRegulatorias,listarNtes,listarInspecoesGerais,listarHistoricoRegulatorio,listarProcessosRegulatorios,listarDescredenciamentosRegulatorios,garantirChecklistDescredenciamento,listarOfertasRegulatorias,listarProcessosOfertaRegulatorios,listarCatalogoOfertas,iniciarProcedimentoOferta,adicionarOfertasCredenciamento,atualizarRequisitoOferta,listarCarimbosRegulatorios,listarAtosHistoricosControle,criarInstituicao,atualizarInstituicao,confirmarCadastroMigrado,habilitarProntuario,obterProntuario,obterProntuarioPorEscola,iniciarCredenciamento,iniciarDescredenciamento,registrarProcessoSeiCredenciamento,atualizarChecklist,emitirDiligencia,retomarAnalise,prepararInspecao,agendarInspecao,atualizarItemInspecao,registrarRealizacaoInspecao,concluirInspecao,concluirAnaliseFinal,registrarPublicacao,concluirCredenciamento,importarAtosLote,listarAtosImportados,resumoImportacaoAtos,confirmarAtoImportado,integrarAtosIdentificados,listarAtosInstituicao,ehMaster:master,nteId});
 })(window);
