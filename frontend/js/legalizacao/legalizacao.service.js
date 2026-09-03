@@ -1,8 +1,8 @@
-/** SIGEE Enterprise RC12.0.10A.5 — Padronização numérica de documentos e contatos. */
+/** SIGEE Enterprise RC12.0.10A.6 — Inclusão imediata de novas instituições no catálogo regulatório. */
 (function(window){
 'use strict';
-if(window.__SIGEE_LEGALIZACAO_SERVICE_RC1210A5__)return;
-window.__SIGEE_LEGALIZACAO_SERVICE_RC1210A5__=true;
+if(window.__SIGEE_LEGALIZACAO_SERVICE_RC1210A6__)return;
+window.__SIGEE_LEGALIZACAO_SERVICE_RC1210A6__=true;
 const MOD='LEGALIZACAO';
 function client(){try{return window.SIGEE_SUPABASE?.criarCliente?.()||window.SIGEE_SUPABASE_CLIENT||null;}catch(_){return null;}}
 function user(){return window.SIGEE_SESSION?.getUser?.()||window.usuarioLogado||null;}
@@ -32,14 +32,25 @@ function aplicarFiltrosCatalogo(q,filtros={}){
   if(filtros.busca){const b=String(filtros.busca).trim().replace(/[,()]/g,' ');if(b)q=q.or(`nome_instituicao.ilike.%${b}%,municipio.ilike.%${b}%,cod_inep.ilike.%${b}%,cnpj.ilike.%${b}%,cod_sec.ilike.%${b}%`);}
   return q;
 }
+async function contarFonteInstituicoes(tabela,filtros={},somenteNovas=false){
+  const c=client();let q=c.from(tabela).select('*',{count:'exact',head:true});if(somenteNovas)q=q.is('escola_id',null);q=aplicarFiltrosCatalogo(scoped(q),filtros);const {count,error}=await q;if(error)throw error;return Number(count||0);
+}
+async function buscarFaixaInstituicoes(tabela,filtros={},inicio=0,fim=49,somenteNovas=false){
+  if(fim<inicio)return[];const c=client();let q=c.from(tabela).select('*').order('nome_instituicao',{ascending:true});if(somenteNovas)q=q.is('escola_id',null);q=aplicarFiltrosCatalogo(scoped(q),filtros);const {data,error}=await q.range(inicio,fim);if(error)throw error;return(data||[]).map(x=>somenteNovas?{...x,prontuario_id:x.id,origem:x.origem||'CADASTRO_LEGALIZACAO'}:x);
+}
 async function consultarInstituicoes(filtros={}){
   assertAccess();const c=client();if(!c)throw new Error('Cliente Supabase indisponível.');
   const page=Math.max(1,intOrNull(filtros.page)||1),pageSize=Math.min(100,Math.max(10,intOrNull(filtros.pageSize)||50)),from=(page-1)*pageSize,to=from+pageSize-1;
-  let q=c.from('legalizacao_catalogo_v').select('*',{count:'exact'}).order('nome_instituicao',{ascending:true});q=aplicarFiltrosCatalogo(scoped(q),filtros);
-  const {data,error,count}=await q.range(from,to);if(error)throw error;const items=data||[];return {items,total:Number(count||0),page,pageSize,pages:Math.max(1,Math.ceil(Number(count||0)/pageSize))};
+  // O catálogo histórico é baseado na view legalizacao_catalogo_v. Instituições criadas diretamente
+  // em Legalização ainda não possuem escola_id e, por isso, precisam ser agregadas à consulta.
+  const [novasTotal,catalogoTotal]=await Promise.all([contarFonteInstituicoes('legalizacao_instituicoes',filtros,true),contarFonteInstituicoes('legalizacao_catalogo_v',filtros,false)]);
+  const total=novasTotal+catalogoTotal,items=[];
+  if(from<novasTotal){const fimNovas=Math.min(to,novasTotal-1);items.push(...await buscarFaixaInstituicoes('legalizacao_instituicoes',filtros,from,fimNovas,true));}
+  if(items.length<pageSize&&to>=novasTotal){const inicioCatalogo=Math.max(0,from-novasTotal),quantidade=pageSize-items.length;items.push(...await buscarFaixaInstituicoes('legalizacao_catalogo_v',filtros,inicioCatalogo,inicioCatalogo+quantidade-1,false));}
+  return {items,total,page,pageSize,pages:Math.max(1,Math.ceil(total/pageSize))};
 }
 async function listarInstituicoes(filtros={}){return (await consultarInstituicoes(filtros)).items;}
-async function contarInstituicoes(filtros={}){assertAccess();const c=client();let q=c.from('legalizacao_catalogo_v').select('escola_id',{count:'exact',head:true});q=aplicarFiltrosCatalogo(scoped(q),filtros);const {count,error}=await q;if(error)throw error;return Number(count||0);}
+async function contarInstituicoes(filtros={}){assertAccess();const [novas,catalogo]=await Promise.all([contarFonteInstituicoes('legalizacao_instituicoes',filtros,true),contarFonteInstituicoes('legalizacao_catalogo_v',filtros,false)]);return novas+catalogo;}
 async function contarTabela(table,configurar){const c=client();let q=c.from(table).select('id',{count:'exact',head:true});if(configurar)q=configurar(q);const {count,error}=await q;if(error)throw error;return Number(count||0);}
 async function listScoped(table,select='*',limit=1000){const c=client();if(!c)throw new Error('Cliente Supabase indisponível.');let q=c.from(table).select(select);q=scoped(q);const {data,error}=await q.limit(limit);if(error)throw error;return data||[];}
 async function safeListScoped(table,select='*',limit=1000){try{return await listScoped(table,select,limit);}catch(err){console.warn('[Legalização] fonte opcional indisponível:',table,err?.message||err);return[];}}
@@ -180,7 +191,7 @@ async function criarInstituicao(payload){
   const chaves=[];if(registro.cod_inep)chaves.push(`cod_inep.eq.${normalizar(registro.cod_inep)}`);if(registro.cnpj)chaves.push(`cnpj.eq.${normalizar(registro.cnpj)}`);
   if(chaves.length){let q=c.from('legalizacao_catalogo_v').select('prontuario_id,escola_id,nome_instituicao,cod_inep,cnpj,municipio').or(chaves.join(',')).limit(5);q=scoped(q);const {data:dup,error:ed}=await q;if(ed)throw ed;if((dup||[]).length)throw new Error(`Já existe instituição com o mesmo INEP/MEC ou CNPJ: ${(dup[0].nome_instituicao||'cadastro existente')}. Use “Localizar escola” e abra o prontuário existente.`);}
   const nomeBusca=normalizar(registro.nome_instituicao);if(nomeBusca&&registro.municipio){let q=c.from('legalizacao_catalogo_v').select('prontuario_id,escola_id,nome_instituicao,cod_inep,municipio').ilike('nome_instituicao',nomeBusca).ilike('municipio',normalizar(registro.municipio)).limit(5);q=scoped(q);const {data:dupNome,error:en}=await q;if(en)throw en;if((dupNome||[]).length)throw new Error(`Já existe uma instituição com esta denominação no município informado: ${dupNome[0].nome_instituicao}. Confirme o cadastro existente antes de criar uma nova ficha.`);}
-  const {data,error}=await c.from('legalizacao_instituicoes').insert(registro).select('*').single();if(error)throw error;
+  const {data,error}=await c.from('legalizacao_instituicoes').insert(registro).select('*').single();if(error)throw error;resumoCache=null;
   if(clean(payload.mantenedora_razao_social)){const {error:em}=await c.from('legalizacao_mantenedoras').insert({instituicao_id:data.id,razao_social:clean(payload.mantenedora_razao_social),cnpj:digits(payload.mantenedora_cnpj,14),representante_legal:clean(payload.mantenedora_representante),telefone:digits(payload.mantenedora_telefone,11),whatsapp:digits(payload.mantenedora_whatsapp,11),email:clean(payload.mantenedora_email),municipio:clean(payload.mantenedora_municipio),uf:'BA'});if(em)throw em;}
   for(const tipoResp of ['DIRETOR','SECRETARIO']){const pfx=tipoResp==='DIRETOR'?'diretor':'secretario';if(clean(payload[pfx+'_nome'])){const {error:er}=await c.from('legalizacao_responsaveis').insert({instituicao_id:data.id,tipo:tipoResp,nome:clean(payload[pfx+'_nome']),cpf:digits(payload[pfx+'_cpf'],11),telefone:digits(payload[pfx+'_telefone'],11),whatsapp:digits(payload[pfx+'_whatsapp'],11),email:clean(payload[pfx+'_email'])});if(er)throw er;}}
   return data;
@@ -196,7 +207,7 @@ async function habilitarProntuario(escolaId){
   if(ext){if(['A_CONFIRMAR','NAO_HABILITADO'].includes(upper(ext.situacao_regulatoria))){const {data,error}=await c.from('legalizacao_instituicoes').update({situacao_regulatoria:'A_CONFERIR',dados_importados_status:'A_CONFERIR',atualizado_por_id:currentUserId(),updated_at:new Date().toISOString()}).eq('id',ext.id).select('*').single();if(error)throw error;ext=data;}resumoCache=null;return escolaParaInstituicao(escola,ext);}
   const priv=depPrivada(escola.dependencia_adm||escola.dependencia),dep=upper(escola.dependencia_adm||escola.dependencia);
   const registro={escola_id:escola.id,nte_id:escola.nte_id,nome_instituicao:escola.nome_escola||escola.nome,tipo_cadastro:priv?'PRIVADA':'PUBLICA',rede:priv?'PRIVADA':(dep.includes('MUNIC')?'MUNICIPAL':(dep.includes('FEDERAL')?'FEDERAL':'ESTADUAL')),natureza:priv?'PRIVADA':(dep.includes('MUNIC')?'PUBLICA_MUNICIPAL':(dep.includes('FEDERAL')?'PUBLICA_FEDERAL':'PUBLICA_ESTADUAL')),cod_inep:clean(escola.cod_mec),municipio:clean(escola.municipio),situacao_regulatoria:'A_CONFERIR',dados_importados_status:'A_CONFERIR',origem:'CATALOGO_SIGEE',legado_sigee:true,criado_por_id:currentUserId(),atualizado_por_id:currentUserId()};
-  const {data,error}=await c.from('legalizacao_instituicoes').insert(registro).select('*').single();if(error)throw error;resumoCache=null;return escolaParaInstituicao(escola,data);
+  const {data,error}=await c.from('legalizacao_instituicoes').insert(registro).select('*').single();if(error)throw error;resumoCache=null;resumoCache=null;return escolaParaInstituicao(escola,data);
 }
 async function obterProntuario(instituicaoId){
   const c=client(),instituicao=await oneScoped('legalizacao_instituicoes',instituicaoId);
