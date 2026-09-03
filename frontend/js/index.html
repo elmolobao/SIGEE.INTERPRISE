@@ -1,0 +1,933 @@
+<!-- SIGEE SPRINT 3.5.0 — Documento Recebido, Retificação e Prontuário institucional -->
+<!-- SIGEE INDEX 2.5.9 — edição de processo por perfil -->
+<!-- SIGEE INDEX 2.5.8B — Clock antes do Timer + remoção escolas-authority + workflow 1.1.1 -->
+<!-- SIGEE PATCH 2.5.6 — app v3.2.22 -->
+<!-- SIGEE PATCH 2.5.5 — app v3.2.21 -->
+<!-- SIGEE PATCH 2.5.4 — confirmação robusta da escola -->
+<!-- SIGEE PATCH 2.5.3 — autoridade final Nova Solicitação -->
+<!DOCTYPE html>
+
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SIGEE - Sistema de Gestão de Escolas Extintas (SEC/BA)</title>
+<meta name="sigee-release" content="RC8.3.0">
+<meta content="#0B4F8A" name="theme-color"/>
+<meta content="SIGEE" name="application-name"/>
+<link href="assets/sigee-icon.svg?v=2.1.1" rel="icon" type="image/svg+xml"/>
+<link href="assets/sigee-icon-192.png?v=2.1.1" rel="alternate icon" type="image/png"/>
+<link href="assets/sigee-icon-192.png?v=2.1.1" rel="apple-touch-icon"/>
+<link href="css/enterprise.css?v=4.1.4" rel="stylesheet"/>
+<link href="css/enterprise-light.css?v=4.1.4" rel="stylesheet"/>
+<link href="css/sigee_footer_institucional.css" rel="stylesheet"/>
+<link href="css/prontuario-processo.css?v=RC11.3.14" rel="stylesheet"/>
+<link href="css/sigee-acabamento-visual.css?v=4.1.8" rel="stylesheet"/>
+<link href="css/sala-situacao.css?v=3.2.17" rel="stylesheet"/>
+<link href="css/administracao.css?v=2.4.4A" rel="stylesheet"/>
+<link href="css/controle-acesso-ntes.css?v=RC4.6.0" rel="stylesheet"/>
+<link href="css/workflow-design-system.css?v=RC4.5.32" rel="stylesheet"/>
+<link href="css/dashboard-executivo.css?v=RC5.2.0" rel="stylesheet"/>
+<link href="css/centro-inteligencia.css?v=RC5.1.2" rel="stylesheet"/><link href="css/migracao/migracao-historica.css?v=M4.2.0" rel="stylesheet"/><link href="css/migracao/importacao-oficial.css?v=M5.1.0" rel="stylesheet"/>
+<link href="css/migracao/migracao-importacao-oficial.css?v=M5.2.0" rel="stylesheet"/>
+<link href="css/cio.css?v=RC6.3.1.1" rel="stylesheet"/>
+
+<link rel="stylesheet" href="css/sala-situacao-2.css?v=RC6.4.1">
+<link rel="stylesheet" href="css/reports.css?v=RC6.6.2"/>
+<link rel="stylesheet" href="css/popup-prazos-login.css?v=RC10.8.20">
+<link rel="stylesheet" href="css/gestao-territorial.css?v=RC11.3.19B">
+<link rel="stylesheet" href="css/legalizacao.css?v=RC12.0.7B">
+</head>
+<body class="bg-gray-100 font-sans text-gray-800 font-normal">
+<div class="min-h-screen flex items-center justify-center bg-blue-900 px-4" id="tela-login">
+<div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md">
+<div class="text-center mb-6 sigee-login-brand">
+<img alt="Ícone SIGEE" class="sigee-login-logo" src="assets/sigee-icon.svg?v=2.1.1"/>
+<span class="sigee-institution-chip">SEC / BA</span>
+<h1 class="text-3xl font-extrabold text-blue-900 mt-2">SIGEE</h1>
+<p class="sigee-login-subtitle">Sistema Integrado de Gestão de Escolas Extintas</p>
+<p class="sigee-login-motto">Segurança • Transparência • Eficiência</p>
+</div>
+<form id="form-login" onsubmit="handleLogin(event)">
+<div class="mb-4">
+<label class="block text-gray-700 text-sm font-semibold mb-2">E-mail Corporativo</label>
+<input class="w-full px-4 py-2 border rounded-lg focus:outline-none placeholder:text-gray-400" id="login-email" placeholder="nome.sobrenome@enova.educacao.ba.gov.br" required="" type="email"/>
+</div>
+<div class="mb-6">
+<label class="block text-gray-700 text-sm font-semibold mb-2">Senha</label>
+<input class="w-full px-4 py-2 border rounded-lg focus:outline-none placeholder:text-gray-400" id="login-senha" name="password" autocomplete="current-password" placeholder="Sua senha" required="" type="password"/>
+</div>
+<button class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 rounded-lg shadow-md transition cursor-pointer" type="submit">Entrar no Sistema</button>
+</form>
+</div>
+</div>
+<div class="hidden min-h-screen flex flex-col md:flex-row sigee-app-shell" id="sistema-dashboard">
+<aside class="w-full md:w-64 bg-blue-950 text-white flex flex-col shadow-xl sigee-sidebar">
+<div class="p-5 bg-blue-900 border-b border-blue-800 sigee-sidebar-brand">
+<div class="sigee-brand-lockup">
+<img alt="" class="sigee-sidebar-logo" src="assets/sigee-icon.svg?v=2.1.1"/>
+<div>
+<h2 class="text-2xl font-black tracking-wider text-amber-400">SIGEE</h2>
+<span>Sistema Integrado de Gestão</span>
+</div>
+</div>
+<div class="mt-3 text-xs text-blue-200 sigee-user-card">
+<p class="font-bold" id="user-nome"></p>
+<p class="italic text-amber-500" id="user-perfil"></p>
+</div>
+</div>
+<nav aria-label="Menu principal do SIGEE" class="flex-1 p-4 space-y-2 sigee-sidebar-nav" id="sigee-menu-dinamico"></nav>
+<div class="p-4 border-t border-blue-900 sigee-sidebar-logout">
+<button class="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2 rounded-lg text-sm transition cursor-pointer" onclick="logout()">Sair</button>
+</div>
+</aside>
+<main class="flex-1 p-4 md:p-6 overflow-y-auto sigee-main">
+<section class="hidden space-y-6" id="aba-painel">
+<section aria-labelledby="sigee-welcome-title" class="sigee-welcome-strip">
+<div aria-hidden="true" class="sigee-welcome-strip-icon">👋</div>
+<div class="sigee-welcome-strip-copy">
+<h2 id="sigee-welcome-title">Bem-vindo ao SIGEE Enterprise, <strong id="sigee-boas-vindas-nome">Usuário SIGEE</strong>.</h2>
+<p>Consulte e acompanhe os processos e acervos de escolas extintas com segurança, eficiência e transparência.</p>
+</div>
+<div class="sigee-welcome-strip-meta">
+<span>SEC / BA</span>
+<small>Ambiente institucional</small>
+</div>
+</section>
+<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-4 gap-4">
+<div><h1 class="text-3xl font-bold text-blue-900">Dashboard de Monitoramento</h1></div>
+<div class="hidden bg-white border rounded-xl px-3 py-2 shadow-xs" id="box-filtro-dashboard-master">
+<label class="block text-[10px] font-black text-gray-500 uppercase mb-1">Abrangência do Dashboard</label>
+<select class="min-w-[220px] p-2 border rounded-lg text-xs font-bold bg-gray-50 focus:outline-none" id="filtro-dashboard-nte" onchange="carregarDadosDashboardReal()">
+<option value="GLOBAL">GLOBAL - TODOS OS NTES</option>
+</select>
+</div>
+<div class="export-only hidden flex flex-wrap gap-2">
+<button class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-2 rounded-lg text-xs shadow cursor-pointer" onclick="exportarDashboardSIGEE('xlsx')">📤 Exportar Excel</button>
+<button class="bg-red-600 hover:bg-red-700 text-white font-bold px-3 py-2 rounded-lg text-xs shadow cursor-pointer" onclick="exportarDashboardSIGEE('pdf')">📄 Exportar PDF</button>
+</div>
+</div>
+<div class="space-y-2">
+<h2 class="text-sm font-bold text-gray-400 uppercase tracking-wider">🏢 Informações Gerais</h2>
+<div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+<div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-blue-600"><p class="text-xs text-gray-500 font-medium">Escolas Catalogadas</p><p class="text-2xl font-bold mt-1" id="dash-escolas">0</p></div>
+<div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-emerald-500"><p class="text-xs text-gray-500 font-medium">Acervos Recolhidos</p><p class="text-2xl font-bold mt-1" id="dash-acervos">0</p></div>
+<div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-teal-500"><p class="text-xs text-gray-500 font-medium">Escolas Estaduais</p><p class="text-2xl font-bold mt-1" id="dash-estaduais">0</p></div>
+<div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-indigo-500"><p class="text-xs text-gray-500 font-medium">Total de Municípios</p><p class="text-2xl font-bold mt-1" id="dash-municipios">0</p></div>
+<div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-amber-500"><p class="text-xs text-gray-500 font-medium">Técnicos Cadastrados</p><p class="text-2xl font-bold mt-1" id="dash-usuarios">0</p></div>
+</div>
+</div>
+<div class="space-y-2 pt-2">
+<h2 class="text-sm font-bold text-gray-400 uppercase tracking-wider">⚙️ Informações de Processo (Filtrado por abrangência)</h2>
+<div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
+<div class="bg-white p-4 rounded-xl shadow-sm border-t-4 border-gray-400 text-center"><p class="text-[10px] text-gray-500 font-bold uppercase">Desarquivamento</p><p class="text-xl font-bold mt-1" id="dash-proc-desarquivamento">0</p></div>
+<div class="bg-white p-4 rounded-xl shadow-sm border-t-4 border-yellow-500 text-center"><p class="text-[10px] text-gray-500 font-bold uppercase">Análise</p><p class="text-xl font-bold mt-1" id="dash-proc-analise">0</p></div>
+<div class="bg-white p-4 rounded-xl shadow-sm border-t-4 border-gray-300 text-center"><p class="text-[10px] text-gray-500 font-bold uppercase">Pendência</p><p class="text-xl font-bold mt-1" id="dash-proc-pendencia">0</p></div>
+<div class="bg-white p-4 rounded-xl shadow-sm border-t-4 border-orange-500 text-center"><p class="text-[10px] text-gray-500 font-bold uppercase">Digitação</p><p class="text-xl font-bold mt-1" id="dash-proc-digitacao">0</p></div>
+<div class="bg-white p-4 rounded-xl shadow-sm border-t-4 border-purple-500 text-center"><p class="text-[10px] text-gray-500 font-bold uppercase">Conferência</p><p class="text-xl font-bold mt-1" id="dash-proc-conferencia">0</p></div>
+<div class="bg-white p-4 rounded-xl shadow-sm border-t-4 border-cyan-500 text-center"><p class="text-[10px] text-gray-500 font-bold uppercase">Assinatura</p><p class="text-xl font-bold mt-1" id="dash-proc-assinatura">0</p></div>
+<div class="bg-white p-4 rounded-xl shadow-sm border-t-4 border-emerald-500 text-center"><p class="text-[10px] text-gray-500 font-bold uppercase">Aguard. Retirada</p><p class="text-xl font-bold mt-1" id="dash-proc-aguardando">0</p></div>
+<div class="bg-white p-4 rounded-xl shadow-sm border-t-4 border-gray-600 text-center"><p class="text-[10px] text-gray-500 font-bold uppercase">Retirado</p><p class="text-xl font-bold mt-1" id="dash-proc-retirado">0</p></div>
+</div>
+</div>
+<div class="space-y-2 pt-2">
+<h2 class="text-sm font-bold text-gray-400 uppercase tracking-wider">🛠️ Informações Técnicas</h2>
+<div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
+<div class="bg-white p-4 rounded-xl shadow-sm border-t-4 border-blue-700 lg:col-span-2">
+<p class="text-[10px] text-gray-500 font-bold uppercase mb-2">Escolas com Mais Solicitações</p>
+<div class="space-y-1 text-xs font-semibold text-gray-700" id="dash-tec-top-escolas">Sem dados</div>
+</div>
+<div class="bg-white p-4 rounded-xl shadow-sm border-t-4 border-emerald-600 text-center"><p class="text-[10px] text-gray-500 font-bold uppercase">Média Tempo Entrega</p><p class="text-xl font-bold mt-1" id="dash-tec-media-entrega">0 dia</p></div>
+<div class="bg-white p-4 rounded-xl shadow-sm border-t-4 border-amber-500 text-center"><p class="text-[10px] text-gray-500 font-bold uppercase">Pedidos Abertos no Período</p><p class="text-xl font-bold mt-1" id="dash-tec-media-pedidos-dia">0</p></div>
+<div class="bg-white p-4 rounded-xl shadow-sm border-t-4 border-purple-600 text-center"><p class="text-[10px] text-gray-500 font-bold uppercase">Arquivos Recebidos no Período</p><p class="text-xl font-bold mt-1" id="dash-tec-media-pasta-dia">0</p></div>
+<div class="bg-white p-4 rounded-xl shadow-sm border-t-4 border-cyan-500 text-center"><p class="text-[10px] text-gray-500 font-bold uppercase">Tempo Médio até Arquivo Recebido</p><p class="text-xl font-bold mt-1" id="dash-tec-media-arquivo-tempo">Sem dados</p></div>
+</div>
+</div>
+<section class="sigee-rel-atrasos hidden" data-relatorio-legado="true" id="sigee-relatorio-atrasos-etapa" aria-labelledby="sigee-relatorio-atrasos-titulo">
+  <header>
+    <div><span>RELATÓRIO OPERACIONAL</span><h2 id="sigee-relatorio-atrasos-titulo">Atrasos e pendências por etapa</h2><p>Processos cujo prazo da etapa atual já foi ultrapassado, conforme a abrangência selecionada.</p></div>
+    <strong id="sigee-relatorio-atrasos-total">0 em atraso</strong>
+  </header>
+  <div class="sigee-rel-atraso-cabecalho"><span>Etapa</span><b>Total</b><b>Em atraso</b><b>No prazo</b><b>% atraso</b><span>Indicador</span></div>
+  <div id="sigee-relatorio-atrasos-corpo"><p class="sigee-cig-vazio">Aguardando indicadores...</p></div>
+</section>
+</section>
+
+<!-- RC12.0.3A — Legalização Escolar: navegação exclusivamente pelo menu modular -->
+<section class="hidden space-y-5" id="aba-legalizacao" data-sigee-tab="legalizacao">
+  <header class="leg-top"><div><span class="leg-eyebrow">SIGEE · DOMÍNIO REGULATÓRIO</span><h1>⚖️ Legalização Escolar</h1><p>Cadastro, regulação e fiscalização organizados em áreas independentes.</p></div><div class="leg-actions"><button type="button" class="leg-btn" id="btn-legalizacao-atualizar">↻ Atualizar</button><button type="button" class="leg-btn primary" id="btn-legalizacao-nova">⌕ Localizar escola</button></div></header>
+  <div class="leg-area" data-area="visao">
+    <div class="leg-kpis"><article class="leg-kpi"><span>Instituições</span><strong id="leg-kpi-instituicoes">0</strong></article><article class="leg-kpi"><span>Em credenciamento</span><strong id="leg-kpi-credenciamento">0</strong></article><article class="leg-kpi"><span>Ofertas em atenção</span><strong id="leg-kpi-ofertas">0</strong></article><article class="leg-kpi"><span>Carteiras funcionais em atenção</span><strong id="leg-kpi-carimbos">0</strong></article><article class="leg-kpi"><span>Fiscalizações abertas</span><strong id="leg-kpi-fiscalizacoes">0</strong></article><article class="leg-kpi"><span>Em averiguação</span><strong id="leg-kpi-averiguacoes">0</strong></article></div>
+    <div class="leg-panel"><header class="leg-panel-head"><div><h2>Instituições sob gestão</h2><p id="legalizacao-status">Cadastro regulatório por NTE</p></div><div class="leg-filter-row"><select id="legalizacao-tipo"><option value="">Públicas e privadas</option><option value="PUBLICA">Escolas públicas</option><option value="PRIVADA">Escolas privadas</option></select><input class="leg-search" id="legalizacao-busca" type="search" placeholder="Nome, COD SEC, INEP, CNPJ ou município"></div></header><div class="leg-list" id="legalizacao-lista"><div class="leg-empty"><strong>Aguardando carregamento...</strong></div></div><div class="leg-pagination" id="legalizacao-paginacao"></div></div>
+  </div>
+  <div class="leg-area hidden" data-area="instituicoes">
+    <div class="leg-panel"><header class="leg-panel-head"><div><h2>Instituições</h2><p>Cadastro institucional consolidado, com atualização regulatória progressiva.</p></div><div class="leg-filter-row"><button type="button" class="leg-btn primary" id="leg-nova-instituicao">+ Nova instituição</button><select id="legalizacao-inst-tipo"><option value="">Públicas e privadas</option><option value="PUBLICA">Públicas</option><option value="PRIVADA">Privadas</option></select><select id="legalizacao-inst-situacao"><option value="">Todas as situações</option><option value="A_CONFERIR">Dados a conferir</option><option value="EM_CADASTRO">Cadastro confirmado</option><option value="EM_CREDENCIAMENTO">Em credenciamento</option><option value="CREDENCIADA">Credenciada</option><option value="REGULAR">Regular</option><option value="EM_MANUTENCAO">Em manutenção</option><option value="SUSPENSA">Suspensa</option><option value="EM_DESCREDENCIAMENTO">Em descredenciamento</option><option value="EXTINTA">Extinta</option></select><input class="leg-search" id="legalizacao-inst-busca" type="search" placeholder="Nome, COD SEC, INEP, CNPJ ou município"></div></header><div class="leg-list" id="legalizacao-instituicoes-lista"><div class="leg-empty"><strong>Aguardando carregamento...</strong></div></div><div class="leg-pagination" id="legalizacao-instituicoes-paginacao"></div></div>
+  </div>
+  <div class="leg-area hidden" data-area="regulatorio">
+    <div class="leg-reg-tabs" role="tablist"><button type="button" class="active" data-reg-tab="credenciamento">Credenciamento</button><button type="button" data-reg-tab="ofertas">Ofertas / Cursos</button><button type="button" data-reg-tab="carimbos">Carteira Funcional</button><button type="button" data-reg-tab="descredenciamento">Descredenciamento</button><button type="button" id="leg-tab-atos-importados" class="hidden" data-reg-tab="atos">Importação de atos</button></div>
+    <div class="leg-reg-panel" data-reg-panel="credenciamento"><div class="leg-panel"><header class="leg-panel-head"><div><h2>Credenciamento e procedimentos</h2><p>Processos oficiais e referências históricas consolidados, sem criar Processo SEI automaticamente.</p></div><div class="leg-filter-row"><button type="button" class="leg-btn primary" id="leg-novo-credenciamento">+ Novo procedimento</button></div></header>
+      <form id="leg-form-novo-credenciamento" class="leg-operacional-form hidden">
+        <div class="leg-operacional-grid">
+          <label class="span-2">Instituição<input id="leg-cred-inst-busca" type="search" autocomplete="off" placeholder="Digite nome, INEP, município ou COD SEC"><input id="leg-cred-instituicao-id" name="instituicao_id" type="hidden"><div id="leg-cred-inst-resultados" class="leg-search-results hidden"></div></label>
+          <label>Procedimento<select name="subtipo"><option value="CREDENCIAMENTO">Credenciamento</option><option value="RECREDENCIAMENTO">Recredenciamento</option></select></label>
+          <div class="span-2 leg-callout compact"><div><strong>Processo SEI ainda não é informado nesta etapa.</strong><p>O número do Processo SEI será registrado somente após o recebimento e encaminhamento da documentação necessária.</p></div></div>
+          <label>Prazo da etapa documental<input name="prazo_etapa" type="date"></label>
+          <div class="span-2 leg-oferta-config"><div class="leg-oferta-config-head"><div><strong>Ofertas incluídas no ato de credenciamento</strong><span>Selecione as etapas/modalidades autorizadas neste mesmo Processo SEI. Outras ofertas poderão ser adicionadas depois no prontuário da instituição.</span></div></div><div id="leg-cred-oferta-catalogo" class="leg-oferta-catalogo"><div class="leg-empty compact"><strong>Abra o formulário para carregar o catálogo.</strong></div></div></div>
+          <div class="span-2 leg-oferta-config hidden" id="leg-cred-curso-detalhe"><div class="leg-operacional-grid"><label>Curso técnico<input name="curso_nome" placeholder="Nome do curso"></label><label>Eixo tecnológico<input name="eixo_tecnologico" placeholder="Eixo tecnológico, quando aplicável"></label></div></div>
+          <label class="span-2">Observação<textarea name="observacao" rows="2" placeholder="Informação inicial do procedimento, se necessária"></textarea></label>
+        </div>
+        <div class="leg-operacional-actions"><span id="leg-cred-form-status">Selecione a instituição para iniciar a etapa documental. O Processo SEI será informado posteriormente.</span><div><button type="button" class="leg-btn" id="leg-cancelar-credenciamento">Cancelar</button><button type="submit" class="leg-btn primary">Abrir procedimento</button></div></div>
+      </form>
+      <div class="leg-list" id="legalizacao-reg-processos"><div class="leg-empty"><strong>Aguardando carregamento...</strong></div></div></div></div>
+    <div class="leg-reg-panel hidden" data-reg-panel="descredenciamento"><div class="leg-panel"><header class="leg-panel-head"><div><h2>Descredenciamento</h2><p>Procedimento regulatório da Legalização Escolar. O recolhimento do acervo é encaminhado posteriormente para Escolas Extintas.</p></div><div class="leg-filter-row"><button type="button" class="leg-btn primary" id="leg-novo-descredenciamento">+ Novo descredenciamento</button></div></header>
+      <form id="leg-form-novo-descredenciamento" class="leg-operacional-form hidden">
+        <div class="leg-operacional-grid">
+          <label class="span-2">Instituição<input id="leg-desc-inst-busca" type="search" autocomplete="off" placeholder="Digite nome, INEP, município ou COD SEC"><input id="leg-desc-instituicao-id" name="instituicao_id" type="hidden"><div id="leg-desc-inst-resultados" class="leg-search-results hidden"></div></label>
+          <label>Modalidade do descredenciamento<select name="subtipo" required><option value="VOLUNTARIO">Voluntário</option><option value="COMPULSORIO">Compulsório</option></select></label>
+          <label>Processo SEI *<div class="leg-input-action"><input id="leg-desc-sei" name="numero_sei" required placeholder="00000.000000/0000-00"><button type="button" class="leg-btn" id="leg-desc-sei-teste">SEI de teste</button></div></label>
+          <label>Data do protocolo *<input name="data_protocolo" type="date" required></label>
+          <label>Prazo da etapa<input name="prazo_etapa" type="date"></label>
+          <div class="span-2 leg-callout compact"><div><strong>Responsabilidades separadas</strong><p>A Legalização conduz o descredenciamento e seu checklist regulatório. O recolhimento do acervo não integra este checklist: após a conclusão do ato, a demanda é encaminhada para Escolas Extintas.</p></div></div>
+          <label class="span-2">Fundamentação / observação<textarea name="observacao" rows="3" placeholder="Informe a motivação ou fundamento inicial do procedimento"></textarea></label>
+        </div>
+        <div class="leg-operacional-actions"><span id="leg-desc-form-status">Selecione a instituição e informe o Processo SEI.</span><div><button type="button" class="leg-btn" id="leg-cancelar-descredenciamento">Cancelar</button><button type="submit" class="leg-btn primary">Abrir descredenciamento</button></div></div>
+      </form>
+      <div class="leg-list" id="legalizacao-reg-descredenciamento"><div class="leg-empty"><strong>Aguardando carregamento...</strong></div></div></div></div>
+    <div class="leg-reg-panel hidden" data-reg-panel="ofertas"><div class="leg-panel"><header class="leg-panel-head"><div><h2>Ofertas / Cursos</h2><p>As ofertas são vinculadas ao ato de credenciamento da instituição e permanecem consolidadas no respectivo prontuário.</p></div></header><div class="leg-list" id="legalizacao-reg-ofertas"><div class="leg-empty"><strong>Aguardando carregamento...</strong></div></div></div></div>
+    <div class="leg-reg-panel hidden" data-reg-panel="carimbos"><div class="leg-panel"><header class="leg-panel-head"><div><h2>Carteira Funcional</h2><p>Autorizações funcionais e atos históricos de diretor e secretário(a).</p></div></header><div class="leg-list" id="legalizacao-reg-carimbos"><div class="leg-empty"><strong>Aguardando carregamento...</strong></div></div></div></div>
+    <div class="leg-reg-panel hidden" data-reg-panel="atos"><div class="leg-panel"><header class="leg-panel-head"><div><h2>Importação automática de atos legais</h2><p>Atos identificados com segurança são integrados automaticamente ao prontuário; somente exceções permanecem para tratamento.</p></div><div class="leg-filter-row"><select id="leg-atos-status"><option value="">Todos os estados</option><option value="IDENTIFICADO">Aguardando integração</option><option value="PENDENTE_CONFERENCIA">Pendentes</option><option value="AMBIGUO">Ambíguos</option><option value="CONFIRMADO">Integrados</option><option value="DUPLICADO">Duplicados</option></select><button type="button" class="leg-btn primary" id="leg-importar-atos">Importar arquivo</button><input type="file" id="leg-arquivo-atos" class="hidden" accept=".xls,.html"></div></header><div id="leg-atos-resumo" class="leg-import-resumo"></div><div class="leg-list" id="legalizacao-reg-atos"><div class="leg-empty"><strong>Aguardando consulta...</strong></div></div></div></div>
+  </div>
+  <div class="leg-area hidden" data-area="pendencias">
+    <div class="leg-kpis">
+      <article class="leg-kpi"><span>Instituições com pendências</span><strong id="leg-pend-kpi-instituicoes">0</strong></article>
+      <article class="leg-kpi"><span>Atenção crítica</span><strong id="leg-pend-kpi-criticas">0</strong></article>
+      <article class="leg-kpi"><span>Requer atenção</span><strong id="leg-pend-kpi-atencao">0</strong></article>
+      <article class="leg-kpi"><span>Conferência necessária</span><strong id="leg-pend-kpi-conferencia">0</strong></article>
+      <article class="leg-kpi"><span>Ocorrências</span><strong id="leg-pend-kpi-ocorrencias">0</strong></article>
+    </div>
+    <div class="leg-panel">
+      <header class="leg-panel-head"><div><h2>Central de Pendências Regulatórias</h2><p>Priorização automática para conferência técnica. Os sinais não declaram irregularidade e não abrem Processo SEI.</p></div></header>
+      <div class="leg-filter-row leg-pendencias-filtros">
+        <select id="leg-pend-nte"><option value="">Todos os NTEs</option></select>
+        <select id="leg-pend-municipio"><option value="">Todos os municípios</option></select>
+        <select id="leg-pend-rede"><option value="">Todas as redes</option><option value="ESTADUAL">Estadual</option><option value="MUNICIPAL">Municipal</option><option value="PRIVADA">Privada</option><option value="FEDERAL">Federal</option></select>
+        <select id="leg-pend-situacao"><option value="">Todas as situações</option><option value="A_CONFERIR">Dados a conferir</option><option value="EM_CADASTRO">Cadastro confirmado</option><option value="EM_CREDENCIAMENTO">Em credenciamento</option><option value="CREDENCIADA">Credenciada</option><option value="REGULAR">Regular</option><option value="EM_MANUTENCAO">Em manutenção</option><option value="SUSPENSA">Suspensa</option><option value="EM_DESCREDENCIAMENTO">Em descredenciamento</option><option value="DESCREDENCIADA">Descredenciada</option><option value="EXTINTA">Extinta</option></select>
+        <select id="leg-pend-nivel"><option value="">Todos os níveis</option><option value="CRITICO">Atenção crítica</option><option value="ATENCAO">Requer atenção</option><option value="CONFERENCIA">Conferência necessária</option><option value="OK">Sem alerta automático</option></select>
+        <select id="leg-pend-tipo"><option value="">Todos os tipos de pendência</option></select>
+        <input class="leg-search" id="leg-pend-busca" type="search" placeholder="Instituição, INEP ou município">
+      </div>
+      <div class="leg-list" id="legalizacao-pendencias-lista"><div class="leg-empty"><strong>Aguardando carregamento...</strong></div></div>
+      <div class="leg-pagination" id="legalizacao-pendencias-paginacao"></div>
+    </div>
+  </div>
+  <div class="leg-area hidden" data-area="fiscalizacao"><div class="leg-shell"><h2>Fiscalização</h2><p>Controle interno de irregularidades sem abertura automática de Processo SEI.</p><div class="leg-shell-grid"><article><b>Visita técnica</b><span>Constatação, orientação, providências e acompanhamento.</span></article><article><b>Notificações</b><span>Aviso · Notificação 1 · Notificação 2.</span></article><article><b>Providência formal</b><span>Encaminhamento ao Ministério Público quando cabível.</span></article></div><div class="leg-rule"><strong>Regra:</strong> irregularidade não abre SEI. O número SEI é registrado somente quando houver ato oficial formal.</div></div></div>
+  <div class="leg-area hidden" data-area="averiguacao"><div class="leg-shell"><h2>Estabelecimentos em Averiguação</h2><p>Cadastro paralelo para suspeitas de funcionamento sem autorização. O registro não transforma o estabelecimento em instituição regular do SIGEE.</p></div></div>
+  <div class="leg-area hidden" data-area="inspecoes"><div class="leg-panel"><header class="leg-panel-head"><div><h2>Inspeções</h2><p>Agenda e acompanhamento das verificações in loco da Legalização.</p></div></header><div class="leg-list" id="legalizacao-inspecoes-lista"><div class="leg-empty"><strong>Aguardando carregamento...</strong></div></div></div></div>
+  <div class="leg-area hidden" data-area="historico"><div class="leg-panel"><header class="leg-panel-head"><div><h2>Histórico Regulatório</h2><p>Linha cronológica dos procedimentos oficiais registrados no módulo.</p></div></header><div class="leg-list" id="legalizacao-historico-lista"><div class="leg-empty"><strong>Aguardando carregamento...</strong></div></div></div></div>
+</section>
+
+<!-- RC6.5.0.1 — Abas oficiais e independentes da Central de Relatórios -->
+<section class="hidden sig-rel-page" id="aba-relatorio-operacional" data-sigee-tab="relatorio-operacional"></section>
+<section class="hidden sig-rel-page" id="aba-relatorio-sla" data-sigee-tab="relatorio-sla"></section>
+<section class="hidden sig-rel-page" id="aba-relatorio-territorial" data-sigee-tab="relatorio-territorial"></section>
+<section class="hidden sig-rel-page" id="aba-relatorio-pendencias" data-sigee-tab="relatorio-pendencias"></section>
+<section class="hidden sig-rel-page" id="aba-relatorio-produtividade" data-sigee-tab="relatorio-produtividade"></section>
+<section class="hidden sig-rel-page" id="aba-relatorio-executivo" data-sigee-tab="relatorio-executivo"></section>
+<section class="hidden sigee-sala" id="aba-sala-situacao">
+<header class="sigee-sala-topo">
+<div class="sigee-sala-marca">
+<span>CENTRO DE OPERAÇÕES</span>
+<h1>Sala de Situação SIGEE</h1>
+<p>Monitoramento operacional em tempo real da rede de Escolas Extintas.</p>
+</div>
+<div class="sigee-sala-controles">
+<div class="sigee-sala-relogio">
+<strong id="sala-hora">--:--:--</strong>
+<span id="sala-data">--/--/----</span>
+</div>
+<button id="sala-btn-tela-cheia" type="button">⛶ Tela cheia</button>
+</div>
+</header>
+<div class="sigee-sala-sync" id="sala-sync">
+<i></i>
+<span id="sala-sync-texto">Aguardando dados do SIGEE...</span>
+</div>
+<div class="sigee-sala-kpis">
+<article><span>Processos ativos</span><strong id="sala-kpi-ativos">0</strong><small>Em tramitação</small></article>
+<article><span>Recebidos hoje</span><strong id="sala-kpi-recebidos">0</strong><small>Novas solicitações</small></article>
+<article><span>Concluídos hoje</span><strong id="sala-kpi-concluidos">0</strong><small>Retirados/indeferidos</small></article>
+<article><span>SLA operacional</span><strong id="sala-kpi-sla">100%</strong><small>Dentro do prazo</small></article>
+<article class="critico"><span>Processos vencidos</span><strong id="sala-kpi-vencidos">0</strong><small>Exigem atenção</small></article>
+<article class="prioridade"><span>Prioridades críticas</span><strong id="sala-kpi-prioridades">0</strong><small>MP, CEE, Exterior e Urgente</small></article>
+</div>
+<div class="sigee-sala-grid-principal">
+<article class="sigee-sala-card sigee-sala-fluxo">
+<header><div><span>FLUXO OPERACIONAL</span><h2>Distribuição por etapa</h2></div><b id="sala-total-processos">0 processos</b></header>
+<div class="sigee-sala-etapas" id="sala-fluxo-etapas"></div>
+</article>
+<article class="sigee-sala-card sigee-sala-alertas">
+<header><div><span>ALERTAS PRIORITÁRIOS</span><h2>Atenção imediata</h2></div></header>
+<div id="sala-alertas-lista"></div>
+</article>
+</div>
+<div class="sigee-sala-grid-secundario">
+<article class="sigee-sala-card">
+<header><div><span>VISÃO TERRITORIAL</span><h2>Situação dos NTEs</h2></div></header>
+<div class="sigee-sala-ntes" id="sala-ntes"></div>
+</article>
+<article class="sigee-sala-card">
+<header><div><span>MOVIMENTAÇÕES</span><h2>Atividade recente</h2></div></header>
+<div class="sigee-sala-feed" id="sala-feed"></div>
+</article>
+<article class="sigee-sala-card sigee-sala-saude">
+<header><div><span>SAÚDE DO SISTEMA</span><h2>Disponibilidade</h2></div></header>
+<dl>
+<div><dt>Aplicação</dt><dd class="ok">Operacional</dd></div>
+<div><dt>Banco de dados</dt><dd id="sala-saude-banco">Conectado</dd></div>
+<div><dt>Sincronização</dt><dd id="sala-saude-sync">Aguardando</dd></div>
+<div><dt>Última atualização</dt><dd id="sala-saude-atualizacao">--:--:--</dd></div>
+<div><dt>Versão</dt><dd>2.4.2</dd></div>
+</dl>
+</article>
+</div>
+</section>
+<section class="space-y-4 sigee-central" id="aba-processos">
+<div class="flex flex-wrap justify-between items-center bg-white p-4 rounded-xl border shadow-xs gap-3 sigee-central-topo">
+<div><h1 class="text-2xl font-black text-blue-950">📋 Central de Processos</h1><p class="text-xs text-gray-500 mt-1">Visão ampla dos pedidos e das etapas de produção.</p></div>
+<div class="flex flex-wrap gap-2 items-center">
+<div class="export-only hidden flex flex-wrap gap-2">
+<button class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-2 rounded-lg text-xs shadow cursor-pointer" onclick="exportarProcessosSIGEE('xlsx')">📤 Exportar Excel</button>
+<button class="bg-red-600 hover:bg-red-700 text-white font-bold px-3 py-2 rounded-lg text-xs shadow cursor-pointer" onclick="exportarProcessosSIGEE('pdf')">📄 Exportar PDF</button>
+</div>
+<button class="bg-amber-500 hover:bg-amber-600 text-white font-bold px-4 py-2.5 rounded-lg text-xs flex items-center gap-1.5 shadow-md cursor-pointer transition" data-acao="nova-solicitacao" id="btn-nova-solicitacao" onclick="abrirFormularioNovaSolicitacao()">➕ Nova Solicitação</button>
+</div>
+</div>
+<div class="bg-white p-3 rounded-xl border shadow-sm space-y-2 sigee-central-abas">
+<div class="flex flex-wrap items-center gap-2 w-full" id="central-processos-abas">
+<button class="sigee-etapa-tab etapa-todos" id="btn-fase-todos" onclick="filtrarProcessosPorEtapa('TODOS')"><span>📋</span> Todos (<span id="count-horiz-todos">0</span>)</button>
+<button class="sigee-etapa-tab etapa-desarquivamento" id="btn-fase-desarquivamento" onclick="filtrarProcessosPorEtapa('Desarquivamento')"><span>🗂️🔍</span> Desarquivamento (<span id="count-horiz-desarquivamento">0</span>)</button>
+<button class="sigee-etapa-tab etapa-analise" id="btn-fase-analise" onclick="filtrarProcessosPorEtapa('Análise')"><span>🔍</span> Análise (<span id="count-horiz-analise">0</span>)</button>
+<button class="sigee-etapa-tab etapa-pendencia" id="btn-fase-pendencia" onclick="filtrarProcessosPorEtapa('Pendência')"><span>⚠️</span> Pendência (<span id="count-horiz-pendencia">0</span>)</button>
+<button class="sigee-etapa-tab etapa-digitacao" id="btn-fase-digitacao" onclick="filtrarProcessosPorEtapa('Digitação')"><span>✍️</span> Digitação (<span id="count-horiz-digitacao">0</span>)</button>
+<button class="sigee-etapa-tab etapa-conferencia" id="btn-fase-conferencia" onclick="filtrarProcessosPorEtapa('Conferência')"><span>✔️</span> Conferência (<span id="count-horiz-conferencia">0</span>)</button>
+<button class="sigee-etapa-tab etapa-assinatura" id="btn-fase-assinatura" onclick="filtrarProcessosPorEtapa('Assinatura')"><span>🖋️</span> Assinatura (<span id="count-horiz-assinatura">0</span>)</button>
+<button class="sigee-etapa-tab etapa-deferido" id="btn-fase-aguardando" onclick="filtrarProcessosPorEtapa('Aguardando Retirada')"><span>✅</span> Deferido (<span id="count-horiz-aguardando">0</span>)</button>
+<button class="sigee-etapa-tab etapa-retirado" id="btn-fase-retirado" onclick="filtrarProcessosPorEtapa('Retirado')"><span>📤</span> Retirado (<span id="count-horiz-retirado">0</span>)</button>
+<button class="sigee-etapa-tab etapa-indeferido" id="btn-fase-indeferido" onclick="filtrarProcessosPorEtapa('Indeferido')"><span>⛔</span> Indeferido (<span id="count-horiz-indeferido">0</span>)</button>
+</div>
+</div>
+<div class="space-y-2 sigee-central-conteudo">
+<div class="bg-white p-2 border rounded-xl shadow-xs sigee-central-pesquisa">
+<div class="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_220px] gap-2 items-end">
+<div>
+<label class="block text-[10px] font-black text-gray-500 uppercase mb-1" for="busca-proc-nome">Pesquisar</label>
+<input class="w-full p-2 bg-gray-50 text-xs border rounded-lg focus:outline-none font-medium" id="busca-proc-nome" oninput="renderizarProcessosFlutuantes()" placeholder="🔎 Pesquisar por Código SIGEE, aluno ou escola..." type="text"/>
+</div>
+<div>
+<label class="block text-[10px] font-black text-gray-500 uppercase mb-1" for="filtro-processos-nte">NTE</label>
+<select class="w-full p-2 bg-gray-50 text-xs border rounded-lg focus:outline-none font-bold" id="filtro-processos-nte" onchange="renderizarProcessosFlutuantes()">
+<option value="TODOS">Todos os NTEs</option>
+</select>
+</div>
+</div>
+</div>
+<div class="bg-white rounded-xl border shadow-sm overflow-hidden sigee-central-lista">
+<table class="w-full text-left border-collapse table-fixed text-[11px]">
+<thead class="bg-gray-100 font-bold border-b text-gray-600 uppercase">
+<tr>
+<th class="p-2.5 w-[18%]">Aluno / Código SIGEE</th>
+<th class="p-2.5 w-[18%]">Escola / NTE - Cód. SEC</th>
+<th class="p-2.5 w-[10%] text-center">Modalidade</th>
+<th class="p-2.5 w-[9%] text-center">Prioridade</th>
+<th class="p-2.5 w-[9%] text-center">Prazo</th>
+<th class="p-2.5 w-[12%] text-center">Responsável</th>
+<th class="p-2.5 w-[10%] text-center">Etapa</th>
+<th class="p-2.5 w-[14%] text-center">Ações</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-gray-100" id="tabela-processos-corpo"></tbody>
+</table>
+</div>
+</div>
+</section>
+<section class="hidden sigee-modulo-fixo sigee-modulo-escolas" id="aba-escolas">
+<div class="bg-white p-4 rounded-xl border shadow-xs flex flex-wrap items-center justify-between gap-4 sigee-modulo-cabecalho">
+<div class="flex items-center gap-3">
+<button class="bg-blue-900 text-white text-xs font-bold px-4 py-2.5 rounded-lg shadow-sm hover:bg-blue-950 transition cursor-pointer" onclick="abrirModalNovaEscola()">➕ Cadastrar Nova Escola</button>
+<label class="hidden bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2.5 rounded-lg shadow-sm cursor-pointer transition" id="btn-importar-dados-master">
+                            📥 Importar Dados (Excel)
+                            <input accept=".xlsx, .xls, .csv" class="hidden" id="input-importar-excel" onchange="processarImportacaoOtimizada(event)" type="file"/>
+</label>
+<div class="export-only hidden flex flex-wrap gap-2">
+<button class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2.5 rounded-lg shadow-sm cursor-pointer transition" onclick="exportarEscolasSIGEE('xlsx')">📤 Exportar Excel</button>
+<button class="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 py-2.5 rounded-lg shadow-sm cursor-pointer transition" onclick="exportarEscolasSIGEE('pdf')">📄 Exportar PDF</button>
+</div>
+</div>
+<div class="text-xs font-semibold text-gray-500" id="info-quantidade-escolas-carregadas">Exibindo: 0 registros</div>
+</div>
+<div class="hidden bg-white p-4 rounded-xl border shadow-sm space-y-2 sigee-modulo-progresso" id="card-progresso-importacao">
+<div class="flex justify-between text-xs font-bold text-gray-700">
+<span id="label-status-importacao">Processando registros...</span>
+<span id="percentual-importacao-texto">0%</span>
+</div>
+<div class="w-full bg-gray-200 rounded-full h-2.5">
+<div class="bg-emerald-600 h-2.5 rounded-full transition-all duration-100" id="barra-progresso-importacao" style="width: 0%"></div>
+</div>
+</div>
+<div class="bg-white p-3 rounded-xl border shadow-xs sigee-modulo-pesquisa">
+<input class="w-full p-3 border border-gray-300 rounded-lg text-xs bg-gray-50 font-medium focus:outline-none" id="busca-escola" oninput="filtrarPorBusca()" placeholder="🔍 Pesquisar por código MEC, Nome da Escola ou Cidade..." type="text"/>
+</div>
+<div class="bg-white rounded-xl shadow-sm border overflow-hidden sigee-modulo-lista">
+<div class="overflow-x-auto sigee-modulo-tabela-scroll">
+<table class="w-full text-left border-collapse text-[11px]">
+<thead class="bg-gray-100 font-bold border-b text-gray-600 uppercase">
+<tr>
+<th class="p-3">MEC</th>
+<th class="p-3">Nome da Escola</th>
+<th class="p-3">Município</th>
+<th class="p-3">NTE / Dep. Adm</th>
+<th class="p-3">Situação</th>
+<th class="p-3">Acervo</th>
+<th class="p-3 text-center">Ações</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-gray-100" id="tabela-escolas-corpo"></tbody>
+</table>
+</div>
+<div class="p-3 bg-gray-50 border-t flex items-center justify-between text-xs font-semibold">
+<button class="px-3 py-1 bg-white border rounded shadow-xs hover:bg-gray-100 disabled:opacity-40" id="btn-escola-anterior" onclick="mudarPaginaEscola(-1)">Anterior</button>
+<span id="txt-escola-paginacao">Página 1</span>
+<button class="px-3 py-1 bg-white border rounded shadow-xs hover:bg-gray-100 disabled:opacity-40" id="btn-escola-proxima" onclick="mudarPaginaEscola(1)">Próxima</button>
+</div>
+</div>
+</section>
+<section class="hidden sigee-modulo-fixo sigee-modulo-usuarios" id="aba-usuarios">
+<div class="flex justify-between items-center border-b pb-4 sigee-modulo-cabecalho">
+<h1 class="text-3xl font-bold text-blue-900">Controle de Usuários</h1>
+<button class="bg-amber-500 hover:bg-amber-600 text-white font-bold px-4 py-2 rounded-lg text-xs shadow cursor-pointer transition" onclick="abrirModalNovoUsuarioMaster()">➕ Cadastrar Usuário</button>
+</div>
+<div class="bg-white p-3 rounded-xl border shadow-xs sigee-modulo-pesquisa">
+<input class="w-full p-3 border border-gray-300 rounded-lg text-xs bg-gray-50 font-medium focus:outline-none" id="busca-usuario" oninput="filtrarTabelaUsuariosSIGEE(this.value)" placeholder="🔎 Pesquisar por nome, e-mail, perfil ou NTE..." type="text"/>
+</div>
+<div class="bg-white rounded-xl shadow-sm border overflow-hidden sigee-modulo-lista">
+<div class="overflow-x-auto sigee-modulo-tabela-scroll">
+<table class="w-full text-left border-collapse text-sm">
+<thead class="bg-gray-100 font-semibold border-b">
+<tr>
+<th class="p-3">Nome / E-mail</th>
+<th class="p-3">Perfil</th>
+<th class="p-3">NTE Associado</th>
+<th class="p-3">Módulos</th>
+<th class="p-3 text-center">Status</th>
+<th class="p-3 text-center">Ações Administrativas Master</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-gray-100" id="tabela-usuarios-corpo"></tbody>
+</table>
+</div>
+</div>
+</section>
+<section class="hidden space-y-6" id="aba-logs">
+<div class="flex flex-wrap justify-between items-center border-b pb-4 gap-3"><h1 class="text-3xl font-bold text-blue-900">Histórico de Atividades</h1><div class="export-only hidden flex flex-wrap gap-2"><button class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-2 rounded-lg text-xs shadow cursor-pointer" onclick="exportarLogsSIGEE('xlsx')">📤 Exportar Excel</button><button class="bg-red-600 hover:bg-red-700 text-white font-bold px-3 py-2 rounded-lg text-xs shadow cursor-pointer" onclick="exportarLogsSIGEE('pdf')">📄 Exportar PDF</button></div></div>
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+<div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-blue-600"><p class="text-xs text-gray-500 font-medium">Usuários Conectados</p><p class="text-2xl font-bold mt-1" id="log-usuarios-conectados">0</p></div>
+<div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-emerald-600"><p class="text-xs text-gray-500 font-medium">SEC / Master</p><p class="text-2xl font-bold mt-1" id="log-conectados-master">0</p></div>
+<div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-amber-500"><p class="text-xs text-gray-500 font-medium">Admin / Técnico / Consulta</p><p class="text-2xl font-bold mt-1" id="log-conectados-operacao">0</p></div>
+<div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-gray-600"><p class="text-xs text-gray-500 font-medium">Último Acesso</p><p class="text-sm font-bold mt-2" id="log-ultimo-acesso">-</p></div>
+</div>
+<div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+<table class="w-full text-left border-collapse text-sm">
+<thead class="bg-gray-100 font-semibold border-b">
+<tr><th class="p-4">Data/Hora</th><th class="p-4">Técnico</th><th class="p-4">NTE</th><th class="p-4">E-mail</th><th class="p-4">Ação Executada</th></tr>
+</thead>
+<tbody class="divide-y divide-gray-100 text-gray-700" id="tabela-logs-corpo"></tbody>
+</table>
+</div>
+</section>
+</main>
+</div>
+<div class="hidden fixed inset-0 bg-blue-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-50" id="modal-fluxo-desarquivamento">
+<div class="bg-white w-full max-w-md rounded-xl shadow-2xl overflow-hidden">
+<div class="bg-blue-900 text-white px-5 py-4 flex justify-between items-center"><h3 class="font-bold text-sm">📥 Recebimento da Pasta</h3><button class="text-white font-bold cursor-pointer" onclick="fecharModalFluxo('desarquivamento')">✕</button></div>
+<form class="p-5 space-y-4" onsubmit="executarTransicaoDesarquivamento(event)">
+<input id="f00-id" type="hidden"/>
+<div class="hidden space-y-2" id="f00-container-alertas"></div>
+<div>
+<label class="block text-xs font-bold text-gray-700 uppercase mb-1" id="f00-label-tipo">Tipo de Arquivo</label>
+<select class="w-full p-2 border rounded-lg text-xs font-medium focus:outline-none bg-gray-50" id="f00-tipo" required="">
+<option value="">-- Selecione o Tipo de Arquivo --</option> <option value="Pasta">Pasta</option> <option value="Atas">Atas</option> <option value="Cadernetas">Cadernetas</option> <option value="Folha de Ponto">Folha de Ponto</option> <option value="Boletim">Boletim</option> <option value="Parecer">Parecer</option>
+</select>
+</div>
+<div>
+<label class="block text-xs font-bold text-gray-700 uppercase mb-1" id="f00-label-local">Local do Arquivo</label>
+<select class="w-full p-2 border rounded-lg text-xs font-medium focus:outline-none bg-gray-50" id="f00-local" required="">
+<option value="">-- Selecione o Local do Arquivo --</option> <option value="UEE">UEE</option> <option value="GLPI">GLPI</option> <option value="E-mail">E-mail</option> <option value="E-DOC">E-DOC</option> <option value="SIGEDUC">SIGEDUC</option> <option value="NTE">NTE</option>
+</select>
+</div>
+<div>
+<label class="block text-xs font-bold text-gray-700 uppercase mb-1">Prioridade</label>
+<select class="w-full p-2 border rounded-lg text-xs font-medium focus:outline-none bg-gray-50" id="f00-prioridade" required="">
+<option value="">-- Selecione a Prioridade --</option> <option value="Normal">Normal</option> <option value="Autenticidade">Autenticidade</option> <option value="Atestado">Atestado</option> <option value="Declaração">Declaração</option> <option value="2ª via">2ª via</option> <option value="MP">MP</option> <option value="CEE">CEE</option> <option value="Exterior">Exterior</option> <option value="Urgente">Urgente</option>
+</select>
+</div>
+<div>
+<label class="block text-xs font-bold text-gray-700 uppercase mb-1" id="f00-label-responsavel">Selecionar Responsável pelo Desarquivamento (Filtrado por NTE)</label>
+<select class="w-full p-2 border rounded-lg text-xs font-medium focus:outline-none bg-gray-50" id="f00-analista" required=""></select>
+</div>
+<div class="bg-amber-50 p-3 rounded-lg border border-amber-200">
+<label class="flex items-start gap-2 cursor-pointer text-xs font-semibold text-amber-950">
+<input class="mt-0.5" id="f00-chk-email" onchange="toggleBotaoHabilitar('f00-chk-email', 'f00-submit')" required="" type="checkbox"/>
+<span id="f00-texto-confirmacao">CONFIRMO O RECEBIMENTO DA PASTA E O ENVIO PARA DESARQUIVAMENTO</span>
+</label>
+</div>
+<div class="flex justify-end gap-2 border-t pt-3">
+<button class="px-4 py-2 border rounded-lg text-xs font-medium bg-gray-100 cursor-pointer" onclick="fecharModalFluxo('desarquivamento')" type="button">Voltar</button>
+<button class="bg-emerald-600 disabled:opacity-40 text-white font-bold px-4 py-2 rounded-lg text-xs shadow cursor-pointer" disabled="" id="f00-submit" type="submit">Enviar para Desarquivamento</button>
+</div>
+</form>
+</div>
+</div>
+<div class="hidden fixed inset-0 bg-blue-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-50" id="modal-fluxo-analise">
+<div class="bg-white w-full max-w-md rounded-xl shadow-2xl overflow-hidden">
+<div class="bg-blue-900 text-white px-5 py-4 flex justify-between items-center"><h3 class="font-bold text-sm">🔍 Análise Operacional</h3><button class="text-white font-bold cursor-pointer" onclick="fecharModalFluxo('analise')">✕</button></div>
+<form class="p-5 space-y-4" onsubmit="executarTransicaoAnalise(event)">
+<input id="f01-id" type="hidden"/>
+<div>
+<label class="block text-xs font-bold text-gray-700 uppercase mb-1">Existe Pendência?</label>
+<select class="w-full p-2 border rounded-lg text-xs font-medium focus:outline-none bg-gray-50" id="f01-pendencia" onchange="onChangePendenciaAnalise()" required="">
+<option value="não">Não</option> <option value="sim">Sim</option>
+</select>
+</div>
+<div class="hidden p-3 bg-red-50 border border-red-200 rounded-lg space-y-3" id="box-pendencia-analise">
+<div class="flex gap-4 text-xs font-semibold">
+<label class="flex items-center gap-1.5 cursor-pointer"><input id="f01-p-aluno" onchange="onChangeTipoPendenciaAnalise()" type="checkbox"/> Pendência Aluno</label>
+<label class="flex items-center gap-1.5 cursor-pointer"><input id="f01-p-inst" onchange="onChangeTipoPendenciaAnalise()" type="checkbox"/> Pendência Instituição</label>
+</div>
+<div>
+<textarea class="w-full p-2 border rounded text-xs focus:outline-none" id="f01-txt-detalhe" placeholder="Informe o detalhe..."></textarea>
+</div>
+<div class="text-xs font-bold text-blue-900 bg-white p-2 rounded border border-blue-200 italic" id="msg-email-pendencia"></div>
+</div>
+<div class="space-y-3" id="box-fluxo-normal-analise">
+<div>
+<label class="block text-xs font-bold text-gray-700 uppercase mb-1">Selecionar Digitador</label>
+<select class="w-full p-2 border rounded-lg text-xs font-medium focus:outline-none bg-gray-50" id="f01-digitador"></select>
+</div>
+<div class="bg-blue-50 p-3 rounded-lg border border-blue-200">
+<label class="flex items-start gap-2 cursor-pointer text-xs font-semibold text-blue-950">
+<input class="mt-0.5" id="f01-chk-email" onchange="atualizarBotaoSubmissaoAnalise()" type="checkbox"/>
+<span>CONFIRMO ENVIAR E-MAIL: 03-Aluno (Digitação)</span>
+</label>
+</div>
+</div>
+<div class="flex justify-end gap-2 border-t pt-3">
+<button class="px-4 py-2 border rounded-lg text-xs font-medium bg-gray-100 cursor-pointer" onclick="fecharModalFluxo('analise')" type="button">Voltar</button>
+<button class="bg-blue-900 text-white font-bold px-4 py-2 rounded-lg text-xs shadow cursor-pointer" id="f01-submit" type="submit">Enviar para Digitação</button>
+</div>
+</form>
+</div>
+</div>
+<div class="hidden fixed inset-0 bg-blue-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-50" id="modal-fluxo-pendencia">
+<div class="bg-white w-full max-w-md rounded-xl shadow-2xl overflow-hidden">
+<div class="bg-blue-900 text-white px-5 py-4 flex justify-between items-center"><h3 class="font-bold text-sm">⚠️ Regularização de Pendência</h3><button class="text-white font-bold cursor-pointer" onclick="fecharModalFluxo('pendencia')">✕</button></div>
+<form class="p-5 space-y-4" onsubmit="executarTransicaoPendencia(event)">
+<input id="f02-id" type="hidden"/>
+<div>
+<label class="block text-xs font-bold text-gray-700 uppercase mb-1">Status de Recebimento</label>
+<select class="w-full p-2 border rounded-lg text-xs font-medium focus:outline-none bg-gray-50" id="f02-recebimento" onchange="onChangeRecebimentoPendencia()" required="">
+<option value="total">Documento Recebido Total</option> <option value="parcial">Documento Recebido Parcial</option>
+</select>
+</div>
+<div class="hidden" id="box-parcial-pendencia">
+<textarea class="w-full p-2 border rounded text-xs focus:outline-none bg-gray-50" id="f02-txt-pendente" placeholder="Especifique os documentos faltantes..."></textarea>
+</div>
+<div class="space-y-3" id="box-total-pendencia">
+<div>
+<label class="block text-xs font-bold text-gray-700 uppercase mb-1">Selecionar Digitador</label>
+<select class="w-full p-2 border rounded-lg text-xs font-medium focus:outline-none bg-gray-50" id="f02-digitador"></select>
+</div>
+</div>
+<div class="bg-blue-50 p-3 rounded-lg border border-blue-200">
+<label class="flex items-start gap-2 cursor-pointer text-xs font-semibold text-blue-950">
+<input class="mt-0.5" id="f02-chk-email" onchange="toggleBotaoHabilitar('f02-chk-email', 'f02-submit')" required="" type="checkbox"/>
+<span>CONFIRMO ENVIAR E-MAIL: 03-Aluno (Digitação)</span>
+</label>
+</div>
+<div class="flex justify-end gap-2 border-t pt-3">
+<button class="px-4 py-2 border rounded-lg text-xs font-medium bg-gray-100 cursor-pointer" onclick="fecharModalFluxo('pendencia')" type="button">Voltar</button>
+<button class="bg-blue-900 text-white font-bold px-4 py-2 rounded-lg text-xs shadow cursor-pointer" disabled="" id="f02-submit" type="submit">Enviar para Digitação</button>
+</div>
+</form>
+</div>
+</div>
+<div class="hidden fixed inset-0 bg-blue-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-50" id="modal-fluxo-digitacao">
+<div class="bg-white w-full max-w-md rounded-xl shadow-2xl overflow-hidden">
+<div class="bg-blue-900 text-white px-5 py-4 flex justify-between items-center"><h3 class="font-bold text-sm">⌨️ Enviar para Conferência</h3><button class="text-white font-bold cursor-pointer" onclick="fecharModalFluxo('digitacao')">✕</button></div>
+<form class="p-5 space-y-4" onsubmit="executarTransicaoDigitacao(event)">
+<input id="f05-id" type="hidden"/>
+<div>
+<label class="block text-xs font-bold text-gray-700 uppercase mb-1">Selecionar Conferente</label>
+<select class="w-full p-2 border rounded-lg text-xs font-medium focus:outline-none bg-gray-50" id="f05-conferente" required=""></select>
+</div>
+<div class="bg-blue-50 p-3 rounded-lg border border-blue-200">
+<label class="flex items-start gap-2 cursor-pointer text-xs font-semibold text-blue-950">
+<input class="mt-0.5" id="f05-chk-email" onchange="toggleBotaoHabilitar('f05-chk-email', 'f05-submit')" required="" type="checkbox"/>
+<span>CONFIRMO ENVIAR E-MAIL: 04-Aluno (Conferência)</span>
+</label>
+</div>
+<div class="flex justify-end gap-2 border-t pt-3">
+<button class="px-4 py-2 border rounded-lg text-xs font-medium bg-gray-100 cursor-pointer" onclick="fecharModalFluxo('digitacao')" type="button">Voltar</button>
+<button class="bg-indigo-600 text-white font-bold px-4 py-2 rounded-lg text-xs shadow cursor-pointer" disabled="" id="f05-submit" type="submit">Enviar para Conferência</button>
+</div>
+</form>
+</div>
+</div>
+<div class="hidden fixed inset-0 bg-blue-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-50" id="modal-fluxo-conferencia">
+<div class="bg-white w-full max-w-md rounded-xl shadow-2xl overflow-hidden">
+<div class="bg-blue-900 text-white px-5 py-4 flex justify-between items-center"><h3 class="font-bold text-sm">🧐 Enviar para Assinatura</h3><button class="text-white font-bold cursor-pointer" onclick="fecharModalFluxo('conferencia')">✕</button></div>
+<form class="p-5 space-y-4" onsubmit="executarTransicaoConferencia(event)">
+<input id="f06-id" type="hidden"/>
+<div class="bg-blue-50 p-3 rounded-lg border border-blue-200">
+<label class="flex items-start gap-2 cursor-pointer text-xs font-semibold text-blue-950">
+<input class="mt-0.5" id="f06-chk-email" onchange="toggleBotaoHabilitar('f06-chk-email', 'f06-submit')" required="" type="checkbox"/>
+<span>CONFIRMO ENVIAR E-MAIL: 05-Aluno (Assinatura)</span>
+</label>
+</div>
+<div class="flex justify-end gap-2 border-t pt-3">
+<button class="px-4 py-2 border rounded-lg text-xs font-medium bg-gray-100 cursor-pointer" onclick="fecharModalFluxo('conferencia')" type="button">Voltar</button>
+<button class="bg-orange-600 text-white font-bold px-4 py-2 rounded-lg text-xs shadow cursor-pointer" disabled="" id="f06-submit" type="submit">Enviar para Assinatura</button>
+</div>
+</form>
+</div>
+</div>
+<div class="hidden fixed inset-0 bg-blue-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-50" id="modal-fluxo-assinatura">
+<div class="bg-white w-full max-w-md rounded-xl shadow-2xl overflow-hidden">
+<div class="bg-blue-900 text-white px-5 py-4 flex justify-between items-center"><h3 class="font-bold text-sm">✍️ Concluir e Deferir Processo</h3><button class="text-white font-bold cursor-pointer" onclick="fecharModalFluxo('assinatura')">✕</button></div>
+<form class="p-5 space-y-4" onsubmit="executarTransicaoAssinatura(event)">
+<input id="f07-id" type="hidden"/>
+<div class="bg-emerald-50 p-3 rounded-lg border border-emerald-200">
+<label class="flex items-start gap-2 cursor-pointer text-xs font-semibold text-emerald-950">
+<input class="mt-0.5" id="f07-chk-email" onchange="toggleBotaoHabilitar('f07-chk-email', 'f07-submit')" required="" type="checkbox"/>
+<span>CONFIRMO ENVIAR E-MAIL: 06-Aluno (Deferido)</span>
+</label>
+</div>
+<div class="flex justify-end gap-2 border-t pt-3">
+<button class="px-4 py-2 border rounded-lg text-xs font-medium bg-gray-100 cursor-pointer" onclick="fecharModalFluxo('assinatura')" type="button">Voltar</button>
+<button class="bg-emerald-600 text-white font-bold px-4 py-2 rounded-lg text-xs shadow cursor-pointer" disabled="" id="f07-submit" type="submit">Aguardando Retirada</button>
+</div>
+</form>
+</div>
+</div>
+<div class="hidden fixed inset-0 bg-blue-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-50" id="modal-fluxo-aguardando">
+<div class="bg-white w-full max-w-md rounded-xl shadow-2xl overflow-hidden">
+<div class="bg-blue-900 text-white px-5 py-4 flex justify-between items-center"><h3 class="font-bold text-sm">🎁 Entrega e Retirada</h3><button class="text-white font-bold cursor-pointer" onclick="fecharModalFluxo('aguardando')">✕</button></div>
+<form class="p-5 space-y-4" onsubmit="executarTransicaoAguardando(event)">
+<input id="f08-id" type="hidden"/>
+<div>
+<label class="block text-xs font-bold text-gray-700 uppercase mb-1">Forma de Retirada</label>
+<select class="w-full p-2 border rounded-lg text-xs font-medium focus:outline-none bg-gray-50" id="f08-retirada" onchange="onChangeFormaRetirada()" required="">
+<option value="solicitante">Retirada pelo Solicitante</option> <option value="terceiros">Retirada por Terceiros</option>
+</select>
+</div>
+<div class="hidden space-y-3" id="box-terceiros-retirada">
+<div>
+<input class="w-full p-2 border rounded-lg text-xs font-medium focus:outline-none" id="f08-nome-terceiro" placeholder="Nome Completo do Terceiro" type="text"/>
+</div>
+<div>
+<input class="w-full p-2 border rounded-lg text-xs font-medium focus:outline-none" id="f08-rg-terceiro" placeholder="Número do RG do Terceiro" type="text"/>
+</div>
+</div>
+<div class="flex justify-end gap-2 border-t pt-3">
+<button class="px-4 py-2 border rounded-lg text-xs font-medium bg-gray-100 cursor-pointer" onclick="fecharModalFluxo('aguardando')" type="button">Cancelar</button>
+<button class="bg-gray-800 text-white font-bold px-5 py-2 rounded-lg text-xs shadow cursor-pointer" type="submit">Finalizar Retirada</button>
+</div>
+</form>
+</div>
+</div>
+<div class="hidden fixed inset-0 bg-blue-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto" id="modal-nova-solicitacao">
+<div class="bg-white w-full max-w-xl rounded-xl shadow-2xl my-8 overflow-hidden">
+<div class="bg-blue-900 text-white px-5 py-4 flex justify-between items-center"><h3 class="font-bold text-sm">📥 Iniciar Nova Solicitação de Aluno</h3><button class="text-white font-bold cursor-pointer" onclick="fecharModalNovaSolicitacao()">✕</button></div>
+<form class="p-5 space-y-3.5" onsubmit="salvarNovaSolicitacao(event)">
+<div>
+<label class="block text-xs font-bold text-gray-700 uppercase mb-1">Nome Completo do Aluno</label>
+<input class="w-full p-2 border rounded-lg text-xs uppercase focus:outline-none font-medium" id="novo-proc-aluno" required="" type="text"/>
+</div>
+<div>
+<label class="block text-xs font-bold text-gray-700 uppercase mb-1">Selecione a Instituição de Ensino</label>
+<input id="novo-proc-escola-id" name="escola_id" type="hidden" value=""/>
+<select class="w-full p-2 border rounded-lg text-xs focus:outline-none bg-white font-semibold" id="novo-proc-escola" onchange="handleSelecaoInstituicaoFluxoAutomatico()" required=""></select>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+<div>
+<label class="block text-[10px] font-bold text-gray-500 uppercase">Código MEC</label>
+<input class="w-full p-1.5 bg-gray-200 border rounded text-xs font-bold text-gray-700 focus:outline-none" id="novo-autofill-mec" readonly="" type="text"/>
+</div>
+<div>
+<label class="block text-[10px] font-bold text-gray-500 uppercase">NTE Correspondente</label>
+<input class="w-full p-1.5 bg-gray-200 border rounded text-xs font-bold text-gray-700 focus:outline-none" id="novo-autofill-nte" readonly="" type="text"/>
+</div>
+<div>
+<label class="block text-[10px] font-bold text-gray-500 uppercase">Município</label>
+<input class="w-full p-1.5 bg-gray-200 border rounded text-xs font-bold text-gray-700 focus:outline-none" id="novo-autofill-municipio" readonly="" type="text"/>
+</div>
+<div>
+<label class="block text-[10px] font-bold text-gray-500 uppercase">Dep. Administrativo</label>
+<input class="w-full p-1.5 bg-gray-200 border rounded text-xs font-bold text-gray-700 focus:outline-none" id="novo-autofill-dep" readonly="" type="text"/>
+</div>
+<div>
+<label class="block text-[10px] font-bold text-gray-500 uppercase">Situação Funcional</label>
+<input class="w-full p-1.5 bg-gray-200 border rounded text-xs font-bold text-gray-700 focus:outline-none" id="novo-autofill-situacao" readonly="" type="text"/>
+</div>
+<div>
+<label class="block text-[10px] font-bold text-gray-500 uppercase">Status do Acervo</label>
+<input class="w-full p-1.5 bg-gray-200 border rounded text-xs font-bold text-gray-700 focus:outline-none" id="novo-autofill-acervo" readonly="" type="text"/>
+</div>
+<div class="sm:col-span-2">
+<label class="block text-[10px] font-bold text-gray-500 uppercase">Local Físico do Acervo</label>
+<input class="w-full p-1.5 bg-gray-200 border rounded text-xs font-bold text-gray-700 focus:outline-none" id="novo-autofill-local-acervo" readonly="" type="text"/>
+</div>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+<div>
+<label class="block text-xs font-bold text-gray-700 uppercase mb-1">Tipo de Documento</label>
+<select class="w-full p-2 border rounded-lg text-xs bg-white focus:outline-none font-medium" id="novo-proc-documento" required="">
+<option disabled="" selected="" value="">SELECIONE</option>
+<option value="Histórico">HISTÓRICO</option>
+<option value="Atestado">ATESTADO</option>
+<option value="Autenticidade">AUTENTICIDADE</option>
+<option value="Tempo de Serviço">TEMPO DE SERVIÇO</option>
+</select>
+</div>
+<div>
+<label class="block text-xs font-bold text-gray-700 uppercase mb-1">Modalidade</label>
+<select class="w-full p-2 border rounded-lg text-xs bg-white focus:outline-none font-medium" id="novo-proc-modalidade" required="">
+<option disabled="" selected="" value="">SELECIONE</option>
+<option value="Regular">REGULAR</option>
+<option value="Técnico">TÉCNICO</option>
+<option value="Suplência">SUPLÊNCIA</option>
+<option value="Não informado">NÃO INFORMADO</option>
+</select>
+</div>
+<div>
+<label class="block text-xs font-bold text-gray-700 uppercase mb-1">Ensino</label>
+<select class="w-full p-2 border rounded-lg text-xs bg-white focus:outline-none font-medium" id="novo-proc-ensino" required="">
+<option disabled="" selected="" value="">SELECIONE</option>
+<option value="Fundamental">FUNDAMENTAL</option>
+<option value="Médio">MÉDIO</option>
+</select>
+</div>
+</div>
+<div class="bg-amber-50 p-3 rounded-lg border border-amber-200">
+<label class="flex items-start gap-2 cursor-pointer text-xs font-bold text-amber-950">
+<input class="mt-0.5" id="f01-chk-acolhido" onchange="toggleBotaoHabilitar('f01-chk-acolhido', 'btn-submeter-nova-solicitacao')" required="" type="checkbox"/>
+<span>CONFIRMO ENVIAR E-MAIL 01- ALUNO ACOLHIDO</span>
+</label>
+</div>
+<div class="flex justify-end gap-2 border-t pt-3">
+<button class="px-4 py-2 border rounded-lg text-xs font-medium bg-gray-100 cursor-pointer" onclick="fecharModalNovaSolicitacao()" type="button">Cancelar</button>
+<button class="bg-amber-500 hover:bg-amber-600 text-white font-bold px-5 py-2 rounded-lg text-xs shadow cursor-pointer" disabled="" id="btn-submeter-nova-solicitacao" type="submit">Enviar para Desarquivamento</button>
+</div>
+</form>
+</div>
+</div>
+<div class="hidden fixed inset-0 bg-blue-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-50" id="modal-cadastro-usuario">
+<div class="bg-white w-full max-w-md rounded-xl shadow-2xl overflow-hidden">
+<div class="bg-blue-900 text-white px-5 py-4 flex justify-between items-center"><h3 class="font-bold text-sm" id="titulo-modal-usuario">👥 Cadastrar/Editar Usuário</h3><button class="text-white font-bold cursor-pointer" onclick="fecharModalUsuario()">✕</button></div>
+<form class="p-5 space-y-4" id="form-cadastro-usuario">
+<input id="user-form-id" type="hidden"/>
+<div>
+<label class="block text-xs font-bold text-gray-700 uppercase mb-1">Nome Completo</label>
+<input class="w-full p-2 border rounded-lg text-xs font-medium uppercase focus:outline-none" id="user-form-nome" required="" type="text"/>
+</div>
+<div>
+<label class="block text-xs font-bold text-gray-700 uppercase mb-1">E-mail Corporativo (Login)</label>
+<input class="w-full p-2 border rounded-lg text-xs font-medium focus:outline-none" id="user-form-email" required="" type="email"/>
+</div>
+<div>
+<label class="block text-xs font-bold text-gray-700 uppercase mb-1">Senha (Provisória ou Atualizada)</label>
+<input class="w-full p-2 border rounded-lg text-xs font-mono focus:outline-none" id="user-form-senha" placeholder="Deixe em branco; criação usa SEC@2026" type="password"/>
+</div>
+<div>
+<label class="block text-xs font-bold text-gray-700 uppercase mb-1">NTE Vinculado</label>
+<select class="w-full p-2 border rounded-lg text-xs font-medium bg-gray-50 focus:outline-none" id="user-form-nte" required=""></select>
+</div>
+<div>
+<label class="block text-xs font-bold text-gray-700 uppercase mb-1">Perfil de Usuário</label>
+<select class="w-full p-2 border rounded-lg text-xs font-medium bg-gray-50 focus:outline-none" id="user-form-perfil" required="">
+<option value="Master">Master</option> <option value="SEC">SEC</option> <option value="Gestor">Gestor</option> <option value="Administrador">Administrador</option> <option value="Técnico">Técnico</option> <option value="Estagiário">Estagiário</option> <option value="Consulta">Consulta</option>
+</select>
+</div>
+<div class="border rounded-lg p-3 bg-blue-50/60">
+<label class="block text-xs font-bold text-blue-900 uppercase mb-2">Módulos de acesso <span class="text-red-600">*</span></label>
+<p class="text-[10px] text-gray-500 mb-2">Selecione pelo menos um domínio. O NTE é único e será aplicado aos módulos selecionados.</p>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+<label class="flex items-center gap-2 bg-white border rounded-lg px-3 py-2 text-xs font-bold cursor-pointer">
+<input id="user-form-modulo-extintas" type="checkbox" value="ESCOLAS_EXTINTAS" class="accent-blue-700"/>
+<span>Escolas Extintas</span>
+</label>
+<label class="flex items-center gap-2 bg-white border rounded-lg px-3 py-2 text-xs font-bold cursor-pointer">
+<input id="user-form-modulo-legalizacao" type="checkbox" value="LEGALIZACAO" class="accent-blue-700"/>
+<span>Legalização Escolar</span>
+</label>
+</div>
+</div>
+<div class="flex justify-end gap-2 border-t pt-3">
+<button class="px-4 py-2 border rounded-lg text-xs font-semibold bg-gray-100 cursor-pointer" onclick="fecharModalUsuario()" type="button">Cancelar</button>
+<button class="bg-amber-500 hover:bg-amber-600 text-white font-bold px-5 py-2 rounded-lg text-xs shadow cursor-pointer" type="submit">Salvar Configurações</button>
+</div>
+</form>
+</div>
+</div>
+<!-- =====================================================================
+     SIGEE ENTERPRISE 1.1 / V31 - AJUSTES DE ACESSO SEC, TÉCNICO E DIGITAÇÃO
+     Mantém a base Supabase, layout futurista, exportações e fluxos já aplicados.
+     ===================================================================== -->
+<!-- =====================================================================
+     SIGEE V37 - Ajustes de perfis, escolas, técnicos globais e importação
+     Mantém todas as atualizações anteriores e aplica correções incrementais.
+     ===================================================================== -->
+<!-- =====================================================================
+     SIGEE V38 - Carregamento definitivo de Escolas/Processos/Dashboard
+     Correção incremental sem alterar a base Supabase nem a estrutura visual.
+     ===================================================================== -->
+<!-- =====================================================================
+     SIGEE V39 - Correção dos perfis sem alterar o carregamento V38
+     Mantém a rotina de carregamento de escolas, processos e dashboard.
+     Ajusta apenas a matriz de perfis, permissões, opções do cadastro de usuário
+     e seleção global SEC/Master.
+     ===================================================================== -->
+<!-- =====================================================================
+     SIGEE V40 - Perfis técnicos corrigidos + usuários conectados em Logs
+     Mantém integralmente o carregamento V38/V39 de escolas, processos e dashboard.
+     Ajusta apenas permissões finais e dashboard de usuários conectados.
+     ===================================================================== -->
+<!-- =====================================================================
+     SIGEE V41 - Persistência de alterações dos usuários
+     Mantém carregamento V38/V40 e preserva alterações de perfil/NTE/senha
+     quando a tabela usuarios_sigee não possui todas as colunas.
+     ===================================================================== -->
+<!-- =====================================================================
+     SIGEE V42 - Matriz oficial de perfis conforme PDF enviado pelo usuário
+     Preserva carregamento V38/V41 e corrige permissões sem alterar banco.
+     ===================================================================== -->
+<!-- =====================================================================
+     SIGEE V45 - Permissões Master, gestão de processos e edição limitada
+     Preserva V38/V44: carregamento, Supabase, layout, logs e permissões.
+     ===================================================================== -->
+<script src="https://unpkg.com/@tailwindcss/browser@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/core/perfis.js?v=RC11.0.0"></script>
+<script src="js/core/config.js?v=RC11.3.6"></script>
+<script src="js/core/supabase.js"></script>
+<script src="js/core/session.js?v=RC12.0.10A.9"></script>
+<script src="js/core/modulos-access.js?v=RC12.0.10A.9"></script>
+<script src="js/core/permissoes.js?v=RC11.3.6"></script>
+<script src="js/core/escopo.js?v=RC11.0.0"></script>
+<script src="js/core/elegibilidade-escola-solicitacao.js?v=RC11.3.13"></script>
+<script src="js/core/dados-escopo.js?v=RC8.0.0"></script>
+<script src="js/core/processos-store.js?v=RC8.3.0"></script>
+<script src="js/core/mensagens-config.js?v=RC10.8.15"></script>
+<script src="js/core/pop-config.js"></script>
+<script src="js/core/workflow.event.manager.js"></script>
+<script src="js/core/workflow.state.manager.js?v=0.9.5.1"></script>
+<script src="js/core/workflow.clock.js"></script>
+<script src="js/core/tempo-processo.js?v=RC11.3.7"></script>
+<script src="js/core/prazo-etapa.js?v=RC11.3.7"></script>
+<script src="js/core/workflow.timer.manager.js"></script>
+<script src="js/core/workflow-engine.js?v=0.9.5.1"></script>
+<script src="js/core/transition-manager.js?v=10.8.1"></script>
+<script src="js/core/workflow.clock.panel.js?v=RC8.3.0"></script>
+<script src="js/core/performance-manager.js?v=RC5.8.6"></script>
+<!-- SIGEE Enterprise RC6.0.1 Foundation: arquitetura aditiva e compatível -->
+<script src="js/sigee-bootstrap.js?v=RC10.8.44"></script>
+<script src="js/analytics/analytics-engine.js?v=RC7.2.1-PERFORMANCE"></script>
+<script src="js/escolas/municipios-territorios.js?v=RC4.5.0"></script>
+<script src="js/escolas/escolas.js?v=RC8.6.1"></script>
+<script src="js/escolas/importacao.js"></script>
+<script src="js/escolas/exportacao.js"></script>
+<script src="js/processos/fluxo-operacional.js"></script>
+<script src="js/core/stability-manager.js?v=RC4.3.1"></script>
+<script src="js/core/app-core.js"></script>
+<script src="js/components/WorkflowActionModal.js?v=RC10.8.9"></script>
+<script src="js/core/normalizacao-nte.js?v=RC5.2.0"></script>
+<script>window.__SIGEE_ARQUITETURA_DADOS_MODERNA__ = true;</script>
+<script src="js/app/app.js?v=RC11.3.13"></script>
+<script src="js/usuarios/diretorio-responsaveis.js?v=RC10.8.41"></script>
+<script src="js/core/login-controller.js?v=RC12.0.10A.9"></script>
+<script src="js/core/workflow-temporal-resolver.js?v=RC11.3.7"></script>
+<script src="js/core/popup-prazos-login.js?v=RC11.3.6"></script>
+<script src="js/processos/processos.js?v=RC11.3.7"></script>
+<script src="js/migracao/migracao-historica.js?v=RC7.1.2"></script>
+<script src="js/migracao/motor-persistencia.js?v=M5.2.2"></script>
+<script src="js/migracao/importacao-oficial.js?v=M5.2.2"></script>
+<script src="js/migracao/migracao-importacao-oficial.js?v=RC10.8.43"></script>
+<script src="js/processos/workflow-externo.js?v=RC11.3.7"></script>
+<script src="js/ui/sigee_footer_institucional.js?v=RC4.2.0"></script>
+<script src="js/usuarios/logs.js?v=RC8.6.3"></script>
+<script src="js/usuarios/usuarios.js?v=RC12.0.10A.8"></script>
+<script src="js/usuarios/gestao-master-unidades.js?v=RC11.1.0"></script>
+<script>
+/* SIGEE v0.9.2 - filtro visual da tabela de usuários */
+window.filtrarTabelaUsuariosSIGEE = function (termo) {
+    const busca = String(termo || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+    document.querySelectorAll('#tabela-usuarios-corpo tr').forEach(function (linha) {
+        const conteudo = (linha.textContent || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+        linha.style.display = !busca || conteudo.includes(busca) ? '' : 'none';
+    });
+};
+</script>
+<script src="js/processos/prontuario-processo.js?v=RC11.3.14"></script>
+<script src="js/ui/sigee-acabamento-visual.js?v=RC4.3.2"></script>
+<!-- RC6.4.0.2: módulo legado da Sala mantido no projeto, porém não executado -->
+<script src="js/core/regras-operacionais.js?v=RC6.5.0"></script>
+<script src="js/reports/reports-data.service.js?v=RC7.4.2-PERFORMANCE"></script>
+<script src="js/reports/reports-runtime.js?v=RC12.0.1D"></script>
+<script src="js/sala/sala-bootstrap.js?v=RC8.0.0"></script>
+<script src="js/admin/diagnostico-seguro.js?v=2.4.4A"></script>
+<script src="js/ui/workflow-design-system.js?v=RC4.3.2"></script>
+<script src="js/ui/workflow-components.js?v=RC4.3.2"></script>
+<!-- escolas-authority.js removido: arquivo inexistente no projeto -->
+<script src="js/analytics/dashboard-executivo.js?v=RC10.8.21"></script>
+<script src="js/analytics/centro-inteligencia.js?v=RC6.2.1.2"></script>
+<script src="js/core/credenciais.js?v=RC10.8.17"></script>
+<!-- RC4.5.29: arquitetura única da Nova Solicitação. Serviço primeiro; controlador único depois. -->
+<script src="js/processos/duplicidade-nova-solicitacao.js?v=RC4.7.0"></script>
+<script src="js/processos/nova-solicitacao-controller.js?v=RC11.3.13"></script>
+<script src="js/processos/central-processos-controller.js?v=RC9.1.0"></script>
+
+<script src="js/admin/controle-acesso-ntes.js?v=RC10.8.40"></script>
+<script src="js/territorial/territorial-data.service.js?v=GT-02.0"></script>
+<script src="js/territorial/territorial-indicadores.service.js?v=RC11.3.18"></script>
+<script src="js/territorial/territorial-mapa.js?v=GT-06.1.6"></script>
+<script src="js/territorial/territorial-visao-geral.service.js?v=GT-08.0"></script>
+<script src="js/territorial/territorial-agenda.service.js?v=GT-04.3"></script>
+<script src="js/territorial/territorial-agenda.js?v=GT-04.3"></script>
+<script src="js/territorial/territorial-notificacoes.js?v=GT-04.3"></script>
+<script src="js/territorial/territorial-plano-acao.service.js?v=RC11.3.19C"></script>
+<script src="js/territorial/territorial-monitoramento.service.js?v=RC11.3.18"></script>
+<script src="js/territorial/territorial-monitoramento.js?v=RC11.3.18"></script>
+<script src="js/territorial/territorial-plano-acao.js?v=RC11.3.19B"></script>
+<script src="js/territorial/territorial-formacoes.service.js?v=GT-04.1"></script>
+<script src="js/territorial/territorial-formacoes.js?v=GT-05.2.4"></script>
+<script src="js/territorial/territorial-sei.service.js?v=GT-07.0"></script>
+<script src="js/territorial/territorial-sei.js?v=GT-07.0"></script>
+<script src="js/territorial/territorial-relatorios.service.js?v=GT-05.0"></script>
+<script src="js/territorial/territorial-relatorios.js?v=GT-05.2.4"></script>
+<script src="js/territorial/territorial-pesquisa.service.js?v=GT-05.2.4"></script>
+<script src="js/territorial/territorial-pesquisa.js?v=GT-05.2.4"></script>
+<script src="js/territorial/territorial-bootstrap.js?v=RC11.3.16"></script>
+
+<script src="js/legalizacao/legalizacao.service.js?v=RC12.0.10A.7"></script>
+<script src="js/legalizacao/legalizacao.js?v=RC12.0.10A.7"></script>
+    <script src="js/core/autorizacao.js?v=RC12.0.10A.9"></script>
+<script src="js/analytics/dashboard.js?v=RC7.4.4-PERFORMANCE"></script>
+<script src="js/cio/cio-bootstrap.js?v=RC7.4.1"></script>
+<script src="js/cio/cio-widget.js?v=RC6.3.1.2"></script>
+<script src="js/core/central-scope-view.js?v=RC11.2.2"></script>
+<script src="js/core/access-ui-authority.js?v=RC11.2.3"></script>
+<script src="js/core/access-policy.js?v=RC11.3.6"></script>
+</body>
+</html>
