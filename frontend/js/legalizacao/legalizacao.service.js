@@ -1,8 +1,8 @@
-/** SIGEE Enterprise RC12.0.10A.15 — Checklist operacional do descredenciamento. */
+/** SIGEE Enterprise RC12.0.10A.16 — Carregamento regulatório isolado e resiliente. */
 (function(window){
 'use strict';
-if(window.__SIGEE_LEGALIZACAO_SERVICE_RC1210A15__)return;
-window.__SIGEE_LEGALIZACAO_SERVICE_RC1210A15__=true;
+if(window.__SIGEE_LEGALIZACAO_SERVICE_RC1210A16__)return;
+window.__SIGEE_LEGALIZACAO_SERVICE_RC1210A16__=true;
 const MOD='LEGALIZACAO';
 function client(){try{return window.SIGEE_SUPABASE?.criarCliente?.()||window.SIGEE_SUPABASE_CLIENT||null;}catch(_){return null;}}
 function user(){return window.SIGEE_SESSION?.getUser?.()||window.usuarioLogado||null;}
@@ -94,7 +94,7 @@ async function garantirChecklistDescredenciamento(processo){
 }
 async function listarDescredenciamentosRegulatorios(){
   assertAccess();const c=client(),escopoIds=await idsInstituicoesNoEscopo();if(Array.isArray(escopoIds)&&!escopoIds.length)return[];let q=c.from('legalizacao_processos').select('*').eq('tipo','DESCREDENCIAMENTO').order('updated_at',{ascending:false}).limit(1000);if(Array.isArray(escopoIds))q=q.in('instituicao_id',escopoIds);const {data,error}=await q;if(error)throw error;const lista=data||[],ids=[...new Set(lista.map(x=>x.instituicao_id).filter(Boolean))];let inst=[];if(ids.length){let iq=c.from('legalizacao_instituicoes').select('id,nome_instituicao,tipo_cadastro,rede,nte_id').in('id',ids);if(!master())iq=iq.eq('nte_id',nteId());const r=await iq;if(!r.error)inst=r.data||[];}const im=new Map(inst.map(x=>[String(x.id),x]));const base=lista.filter(x=>im.has(String(x.instituicao_id))).map(x=>({...x,nte_id:im.get(String(x.instituicao_id))?.nte_id??x.nte_id,instituicao:im.get(String(x.instituicao_id))||null}));
-  return await Promise.all(base.map(async x=>({...x,checklist:await garantirChecklistDescredenciamento(x)})));
+  return await Promise.all(base.map(async x=>{try{return {...x,checklist:await garantirChecklistDescredenciamento(x)};}catch(err){console.warn('[Legalização] checklist de descredenciamento indisponível',x.id,err);return {...x,checklist:[],checklist_erro:String(err?.message||err||'Falha ao carregar checklist')};}}));
 }
 async function iniciarDescredenciamento(instituicaoId,payload={}){
   assertAccess();const c=client(),inst=await oneScoped('legalizacao_instituicoes',instituicaoId),subtipo=upper(payload.subtipo),sei=clean(payload.numero_sei),dataProtocolo=clean(payload.data_protocolo);if(!['VOLUNTARIO','COMPULSORIO'].includes(subtipo))throw new Error('Selecione descredenciamento voluntário ou compulsório.');if(!sei)throw new Error('O Processo SEI é obrigatório no início do descredenciamento.');if(!dataProtocolo)throw new Error('Informe a data de protocolo do Processo SEI.');
