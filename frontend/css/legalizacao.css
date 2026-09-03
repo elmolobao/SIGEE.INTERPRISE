@@ -61,3 +61,6 @@
 /* RC12.0.10A.12 — Descredenciamento */
 .leg-input-action{display:flex;gap:8px;align-items:center}.leg-input-action input{flex:1}.leg-input-action .leg-btn{white-space:nowrap}
 @media(max-width:760px){.leg-input-action{align-items:stretch;flex-direction:column}}
+
+/* RC12.0.10A.18 — edição parcial somente para cadastros importados */
+.leg-imported-notice{display:flex;gap:8px;align-items:flex-start;padding:10px 12px;margin-bottom:12px;border:1px solid #bfdbfe;border-radius:10px;background:#eff6ff;color:#1e3a8a;font-size:12px}.leg-imported-notice strong{white-space:nowrap}.leg-imported-notice span{line-height:1.45}
