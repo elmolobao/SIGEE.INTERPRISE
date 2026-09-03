@@ -1,8 +1,8 @@
-/** SIGEE Enterprise RC12.0.10A.4 — Situação do imóvel obrigatória no cadastro institucional. */
+/** SIGEE Enterprise RC12.0.10A.5 — Padronização numérica de documentos e contatos. */
 (function(window){
 'use strict';
-if(window.__SIGEE_LEGALIZACAO_SERVICE_RC1210A4__)return;
-window.__SIGEE_LEGALIZACAO_SERVICE_RC1210A4__=true;
+if(window.__SIGEE_LEGALIZACAO_SERVICE_RC1210A5__)return;
+window.__SIGEE_LEGALIZACAO_SERVICE_RC1210A5__=true;
 const MOD='LEGALIZACAO';
 function client(){try{return window.SIGEE_SUPABASE?.criarCliente?.()||window.SIGEE_SUPABASE_CLIENT||null;}catch(_){return null;}}
 function user(){return window.SIGEE_SESSION?.getUser?.()||window.usuarioLogado||null;}
@@ -11,6 +11,10 @@ function nteId(){return window.SIGEE_MODULOS?.nteNoModulo?.(MOD,user()) ?? user(
 function assertAccess(){if(!window.SIGEE_MODULOS?.podeAcessar?.(MOD,user()))throw new Error('Acesso ao módulo Legalização não autorizado.');}
 function scoped(q){const n=nteId();return !master()&&n!=null?q.eq('nte_id',n):q;}
 function clean(v){const s=String(v??'').trim();return s||null;}
+function digits(v,max=99){const s=String(v??'').replace(/\D/g,'').slice(0,max);return s||null;}
+function cpfValido(v){const d=digits(v,11)||'';if(d.length!==11||/^(\d)\1{10}$/.test(d))return false;for(let t=9;t<11;t++){let soma=0;for(let i=0;i<t;i++)soma+=Number(d[i])*(t+1-i);let dig=(soma*10)%11;if(dig===10)dig=0;if(dig!==Number(d[t]))return false;}return true;}
+function cnpjValido(v){const d=digits(v,14)||'';if(d.length!==14||/^(\d)\1{13}$/.test(d))return false;const calc=t=>{const pesos=t===12?[5,4,3,2,9,8,7,6,5,4,3,2]:[6,5,4,3,2,9,8,7,6,5,4,3,2];const soma=d.slice(0,t).split('').reduce((a,n,i)=>a+Number(n)*pesos[i],0),r=soma%11;return r<2?0:11-r;};return calc(12)===Number(d[12])&&calc(13)===Number(d[13]);}
+function telefoneValido(v,obrigatorio=false){const d=digits(v,11)||'';return !d&&!obrigatorio||[10,11].includes(d.length);}
 function intOrNull(v){const n=parseInt(v,10);return Number.isFinite(n)?n:null;}
 function upper(v){return String(v||'').trim().toUpperCase();}
 function today(){return new Date().toISOString().slice(0,10);}
@@ -144,8 +148,8 @@ async function criarInstituicao(payload){
   assertAccess();const c=client();if(!c)throw new Error('Cliente Supabase indisponível.');const n=master()?payload.nte_id:nteId();if(n==null||n==='')throw new Error('NTE obrigatório.');
   const tipo=upper(payload.tipo_cadastro||'PUBLICA'),rede=tipo==='PRIVADA'?'PRIVADA':upper(payload.rede||'ESTADUAL');
   const registro={nte_id:Number(n),nome_instituicao:String(payload.nome_instituicao||'').trim(),tipo_cadastro:tipo,rede,
-    natureza:tipo==='PRIVADA'?'PRIVADA':(rede==='MUNICIPAL'?'PUBLICA_MUNICIPAL':'PUBLICA_ESTADUAL'),cod_sec:tipo==='PUBLICA'?clean(payload.cod_sec):null,cod_inep:clean(payload.cod_inep),cnpj:tipo==='PRIVADA'?clean(payload.mantenedora_cnpj):clean(payload.cnpj),municipio:clean(payload.municipio),
-    telefone:clean(payload.telefone),whatsapp:clean(payload.whatsapp),email:clean(payload.email),logradouro:clean(payload.logradouro),numero:clean(payload.numero),complemento:clean(payload.complemento),bairro:clean(payload.bairro),cep:clean(payload.cep),situacao_imovel:upper(payload.situacao_imovel),uf:'BA',
+    natureza:tipo==='PRIVADA'?'PRIVADA':(rede==='MUNICIPAL'?'PUBLICA_MUNICIPAL':'PUBLICA_ESTADUAL'),cod_sec:tipo==='PUBLICA'?clean(payload.cod_sec):null,cod_inep:clean(payload.cod_inep),cnpj:tipo==='PRIVADA'?digits(payload.mantenedora_cnpj,14):digits(payload.cnpj,14),municipio:clean(payload.municipio),
+    telefone:digits(payload.telefone,11),whatsapp:digits(payload.whatsapp,11),email:clean(payload.email),logradouro:clean(payload.logradouro),numero:clean(payload.numero),complemento:clean(payload.complemento),bairro:clean(payload.bairro),cep:digits(payload.cep,8),situacao_imovel:upper(payload.situacao_imovel),uf:'BA',
     porte:clean(payload.porte),matriculas_referencia:intOrNull(payload.matriculas_referencia),ano_base_matriculas:intOrNull(payload.ano_base_matriculas),sistema_municipal_ensino:rede==='MUNICIPAL'?clean(payload.sistema_municipal_ensino):null,
     situacao_regulatoria:'EM_CADASTRO',origem:'CADASTRO_LEGALIZACAO',legado_sigee:false,criado_por_id:currentUserId(),atualizado_por_id:currentUserId()};
   if(!registro.nome_instituicao)throw new Error('Nome da instituição é obrigatório.');
@@ -155,6 +159,12 @@ async function criarInstituicao(payload){
   if(!registro.cep)throw new Error('CEP é obrigatório.');
   if(!registro.municipio)throw new Error('Município é obrigatório.');
   if(!['PROPRIO','ALUGADO'].includes(registro.situacao_imovel))throw new Error('Informe obrigatoriamente se o imóvel é próprio ou alugado.');
+  if((registro.cep||'').length!==8)throw new Error('CEP inválido. Informe 8 dígitos.');
+  if(!cnpjValido(payload.mantenedora_cnpj))throw new Error('CNPJ da mantenedora inválido.');
+  if(!cpfValido(payload.diretor_cpf))throw new Error('CPF do diretor inválido.');
+  if(!cpfValido(payload.secretario_cpf))throw new Error('CPF do secretário inválido.');
+  if(registro.telefone&&!telefoneValido(registro.telefone))throw new Error('Telefone da escola inválido. Informe DDD + número.');
+  if(registro.whatsapp&&!telefoneValido(registro.whatsapp))throw new Error('WhatsApp da escola inválido. Informe DDD + número.');
   const municipiosNte=window.obterMunicipiosNTE?.(registro.nte_id)||[];
   if(municipiosNte.length&&!municipiosNte.some(x=>String(x.municipio||'').localeCompare(String(registro.municipio||''),'pt-BR',{sensitivity:'base'})===0))throw new Error('O município informado não pertence ao território do NTE do usuário.');
   const obrigatorios={
@@ -164,14 +174,15 @@ async function criarInstituicao(payload){
     'Nome do secretário':payload.secretario_nome,'CPF do secretário':payload.secretario_cpf,'Telefone do secretário':payload.secretario_telefone,'WhatsApp do secretário':payload.secretario_whatsapp,'E-mail do secretário':payload.secretario_email
   };
   const faltantes=Object.entries(obrigatorios).filter(([,v])=>!clean(v)).map(([k])=>k);if(faltantes.length)throw new Error('Campos obrigatórios pendentes: '+faltantes.join(', ')+'.');
+  for(const [rotulo,campo] of [['Telefone da mantenedora','mantenedora_telefone'],['WhatsApp da mantenedora','mantenedora_whatsapp'],['Telefone do diretor','diretor_telefone'],['WhatsApp do diretor','diretor_whatsapp'],['Telefone do secretário','secretario_telefone'],['WhatsApp do secretário','secretario_whatsapp']])if(!telefoneValido(payload[campo],true))throw new Error(rotulo+' inválido. Informe DDD + número.');
   // RC12.0.10A.2 — proteção contra duplicidade antes de criar uma nova ficha institucional.
   const normalizar=v=>String(v||'').trim().replace(/[,()]/g,' ');
   const chaves=[];if(registro.cod_inep)chaves.push(`cod_inep.eq.${normalizar(registro.cod_inep)}`);if(registro.cnpj)chaves.push(`cnpj.eq.${normalizar(registro.cnpj)}`);
   if(chaves.length){let q=c.from('legalizacao_catalogo_v').select('prontuario_id,escola_id,nome_instituicao,cod_inep,cnpj,municipio').or(chaves.join(',')).limit(5);q=scoped(q);const {data:dup,error:ed}=await q;if(ed)throw ed;if((dup||[]).length)throw new Error(`Já existe instituição com o mesmo INEP/MEC ou CNPJ: ${(dup[0].nome_instituicao||'cadastro existente')}. Use “Localizar escola” e abra o prontuário existente.`);}
   const nomeBusca=normalizar(registro.nome_instituicao);if(nomeBusca&&registro.municipio){let q=c.from('legalizacao_catalogo_v').select('prontuario_id,escola_id,nome_instituicao,cod_inep,municipio').ilike('nome_instituicao',nomeBusca).ilike('municipio',normalizar(registro.municipio)).limit(5);q=scoped(q);const {data:dupNome,error:en}=await q;if(en)throw en;if((dupNome||[]).length)throw new Error(`Já existe uma instituição com esta denominação no município informado: ${dupNome[0].nome_instituicao}. Confirme o cadastro existente antes de criar uma nova ficha.`);}
   const {data,error}=await c.from('legalizacao_instituicoes').insert(registro).select('*').single();if(error)throw error;
-  if(clean(payload.mantenedora_razao_social)){const {error:em}=await c.from('legalizacao_mantenedoras').insert({instituicao_id:data.id,razao_social:clean(payload.mantenedora_razao_social),cnpj:clean(payload.mantenedora_cnpj),representante_legal:clean(payload.mantenedora_representante),telefone:clean(payload.mantenedora_telefone),whatsapp:clean(payload.mantenedora_whatsapp),email:clean(payload.mantenedora_email),municipio:clean(payload.mantenedora_municipio),uf:'BA'});if(em)throw em;}
-  for(const tipoResp of ['DIRETOR','SECRETARIO']){const pfx=tipoResp==='DIRETOR'?'diretor':'secretario';if(clean(payload[pfx+'_nome'])){const {error:er}=await c.from('legalizacao_responsaveis').insert({instituicao_id:data.id,tipo:tipoResp,nome:clean(payload[pfx+'_nome']),cpf:clean(payload[pfx+'_cpf']),telefone:clean(payload[pfx+'_telefone']),whatsapp:clean(payload[pfx+'_whatsapp']),email:clean(payload[pfx+'_email'])});if(er)throw er;}}
+  if(clean(payload.mantenedora_razao_social)){const {error:em}=await c.from('legalizacao_mantenedoras').insert({instituicao_id:data.id,razao_social:clean(payload.mantenedora_razao_social),cnpj:digits(payload.mantenedora_cnpj,14),representante_legal:clean(payload.mantenedora_representante),telefone:digits(payload.mantenedora_telefone,11),whatsapp:digits(payload.mantenedora_whatsapp,11),email:clean(payload.mantenedora_email),municipio:clean(payload.mantenedora_municipio),uf:'BA'});if(em)throw em;}
+  for(const tipoResp of ['DIRETOR','SECRETARIO']){const pfx=tipoResp==='DIRETOR'?'diretor':'secretario';if(clean(payload[pfx+'_nome'])){const {error:er}=await c.from('legalizacao_responsaveis').insert({instituicao_id:data.id,tipo:tipoResp,nome:clean(payload[pfx+'_nome']),cpf:digits(payload[pfx+'_cpf'],11),telefone:digits(payload[pfx+'_telefone'],11),whatsapp:digits(payload[pfx+'_whatsapp'],11),email:clean(payload[pfx+'_email'])});if(er)throw er;}}
   return data;
 }
 async function confirmarCadastroMigrado(instituicaoId){
