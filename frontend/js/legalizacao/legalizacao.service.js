@@ -135,17 +135,24 @@ async function listarProcessosOfertaRegulatorios(){
   const im=new Map(inst.map(x=>[String(x.id),x])),cm=new Map(cat.map(x=>[String(x.id),x]));
   return lista.map(x=>{const ofertas=vinc.filter(v=>String(v.processo_id)===String(x.id)).map(v=>({...v,catalogo:cm.get(String(v.oferta_catalogo_id))||null}));const requisitos=req.filter(r=>String(r.processo_id)===String(x.id));return {...x,instituicao:im.get(String(x.instituicao_id))||null,ofertas,requisitos};});
 }
+function competenciaProcedimentoOferta(catalogo=[]){
+  const texto=(catalogo||[]).map(o=>[o.codigo,o.nome,o.titulo,o.descricao,o.etapa,o.modalidade,o.etapa_modalidade,o.grupo].filter(Boolean).join(' ')).join(' ').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
+  if(/ENSINO MEDIO|MEDIO/.test(texto))return{competencia_regulatoria:'CEE_BA',orgao_instrutor:'SEC_BA'};
+  if(/FUNDAMENTAL|ANOS INICIAIS|ANOS FINAIS/.test(texto))return{competencia_regulatoria:'NTE',orgao_instrutor:'NTE'};
+  if(/EDUCACAO INFANTIL|INFANTIL/.test(texto))return{competencia_regulatoria:'MUNICIPAL',orgao_instrutor:'MUNICIPIO'};
+  return{competencia_regulatoria:'A_DEFINIR',orgao_instrutor:'SEC_BA'};
+}
 async function iniciarProcedimentoOferta(instituicaoId,payload={}){
-  assertAccess();const c=client(),inst=await oneScoped('legalizacao_instituicoes',instituicaoId),sei=clean(payload.numero_sei);if(!sei)throw new Error('Processo SEI é obrigatório para autorização de oferta.');
+  assertAccess();const c=client(),inst=await oneScoped('legalizacao_instituicoes',instituicaoId),sei=null;
   const subtipo=upper(payload.subtipo||'AUTORIZACAO'),validos=['AUTORIZACAO','RENOVACAO','RECONHECIMENTO','RENOVACAO_RECONHECIMENTO'];if(!validos.includes(subtipo))throw new Error('Tipo de procedimento de oferta inválido.');
   const ids=[...new Set((Array.isArray(payload.oferta_catalogo_ids)?payload.oferta_catalogo_ids:[payload.oferta_catalogo_ids]).map(Number).filter(Boolean))];if(!ids.length)throw new Error('Selecione ao menos uma etapa/modalidade para o procedimento.');
   const {data:catalogo,error:ec}=await c.from('legalizacao_oferta_catalogo').select('*').in('id',ids).eq('ativo',true);if(ec)throw ec;if((catalogo||[]).length!==ids.length)throw new Error('Uma ou mais ofertas selecionadas não estão disponíveis no catálogo regulatório.');const exigeCurso=(catalogo||[]).some(o=>o.exige_curso_especifico===true),cursoNome=clean(payload.curso_nome),eixo=clean(payload.eixo_tecnologico);if(exigeCurso&&!cursoNome)throw new Error('Informe o nome do curso técnico para a oferta de Educação Profissional.');
-  const base={instituicao_id:inst.id,nte_id:inst.nte_id,tipo:'OFERTA',subtipo,numero_sei:sei,status:'EM_ANDAMENTO',etapa_atual:'CONFIGURACAO_OFERTA',data_protocolo:payload.data_protocolo||today(),prazo_etapa:clean(payload.prazo_etapa),observacao:clean(payload.observacao),responsavel_id:currentUserId(),criado_por_id:currentUserId(),atualizado_por_id:currentUserId()};
+  const competencia=competenciaProcedimentoOferta(catalogo||[]);const base={instituicao_id:inst.id,nte_id:inst.nte_id,tipo:'OFERTA',subtipo,numero_sei:null,competencia_regulatoria:competencia.competencia_regulatoria,orgao_instrutor:competencia.orgao_instrutor,status:'EM_ANDAMENTO',etapa_atual:'INSTRUCAO_DOCUMENTAL',data_protocolo:null,prazo_etapa:clean(payload.prazo_etapa),observacao:clean(payload.observacao),responsavel_id:currentUserId(),criado_por_id:currentUserId(),atualizado_por_id:currentUserId()};
   const {data:p,error:ep}=await c.from('legalizacao_processos').insert(base).select('*').single();if(ep)throw ep;
   const vinculos=ids.map(id=>{const oc=(catalogo||[]).find(o=>Number(o.id)===Number(id));return {processo_id:p.id,instituicao_id:inst.id,oferta_catalogo_id:id,curso_nome:oc?.exige_curso_especifico?cursoNome:null,eixo_tecnologico:oc?.exige_curso_especifico?eixo:null,status:'EM_ANALISE'};});const {error:ev}=await c.from('legalizacao_processos_ofertas').insert(vinculos);if(ev)throw ev;
   const {data:reqCat,error:er}=await c.from('legalizacao_oferta_requisitos_catalogo').select('*').eq('ativo',true).or(`oferta_catalogo_id.is.null,oferta_catalogo_id.in.(${ids.join(',')})`).order('ordem',{ascending:true});if(er)throw er;
   const unicos=new Map();for(const r of reqCat||[]){const chave=String(r.codigo||r.id);if(!unicos.has(chave)||r.oferta_catalogo_id)unicos.set(chave,r);}const reqRows=[...unicos.values()].map(r=>({processo_id:p.id,instituicao_id:inst.id,requisito_catalogo_id:r.id,status:'NAO_APRESENTADO'}));if(reqRows.length){const {error:erp}=await c.from('legalizacao_oferta_requisitos_processo').insert(reqRows);if(erp)throw erp;}
-  await historicoProcesso(p.id,'ABERTURA_OFERTA','Procedimento de oferta criado com etapas/modalidades e requisitos parametrizados.',{numero_sei:sei,subtipo,ofertas:(catalogo||[]).map(o=>o.codigo),requisitos:reqRows.length});resumoCache=null;return {...p,ofertas:catalogo||[],requisitos_gerados:reqRows.length};
+  await historicoProcesso(p.id,'ABERTURA_OFERTA','Procedimento de oferta criado com etapas/modalidades e requisitos parametrizados.',{numero_sei:null,subtipo,ofertas:(catalogo||[]).map(o=>o.codigo),requisitos:reqRows.length,competencia:competencia.competencia_regulatoria,regra_sei:'ULTIMA_ETAPA'});resumoCache=null;return {...p,ofertas:catalogo||[],requisitos_gerados:reqRows.length,competencia};
 }
 
 async function listarOfertasRegulatorias(){
@@ -386,6 +393,7 @@ async function registrarAcaoIrregularidade(acompanhamentoId,payload={}){assertAc
 async function garantirChecklistIrregularidade(acompanhamentoId){
   assertAccess();const c=client(),id=Number(acompanhamentoId);if(!id)throw new Error('Acompanhamento inválido.');
   let q=c.from('legalizacao_irregularidade_acompanhamentos').select('*').eq('id',id);q=scoped(q);const {data:ac,error:ea}=await q.maybeSingle();if(ea)throw ea;if(!ac)throw new Error('Acompanhamento não localizado no território.');
+  const {data:inst,error:einst}=await c.from('legalizacao_instituicoes').select('id,credenciada_res_26_2016').eq('id',ac.instituicao_id).maybeSingle();if(einst)throw einst;
   const {data:exist,error:ee}=await c.from('legalizacao_irregularidade_checklist').select('*').eq('acompanhamento_id',id).order('irregularidade_codigo',{ascending:true}).order('ordem',{ascending:true});if(ee)throw ee;
   const existentes=exist||[],irregs=Array.isArray(ac.irregularidades)?ac.irregularidades:[];if(!irregs.length)return existentes;
   const existentesPorIrreg=new Set(existentes.map(x=>upper(x.irregularidade_codigo)).filter(Boolean));
@@ -397,6 +405,14 @@ async function garantirChecklistIrregularidade(acompanhamentoId){
     AUTORIZACAO_VENCIDA_EM:['ENSINO MEDIO'],OFERTA_SEM_AUTORIZACAO_EM:['ENSINO MEDIO']
   };
   const rows=[];
+  // Instituições sem credenciamento confirmado conforme a Resolução CEE/BA nº 26/2016
+  // precisam instruir o credenciamento institucional junto com a regularização das ofertas.
+  // O bloco é único para o acompanhamento e não substitui os checklists de autorização/renovação.
+  const codigoCredRes26='CREDENCIAMENTO_RES_26_2016';
+  if(inst?.credenciada_res_26_2016!==true&&!existentesPorIrreg.has(codigoCredRes26)){
+    const {data:catsCred,error:ecred}=await c.from('legalizacao_checklist_catalogo').select('*').eq('tipo_processo','CREDENCIAMENTO').eq('ativo',true).order('ordem',{ascending:true});if(ecred)throw ecred;
+    for(const r of catsCred||[])rows.push({acompanhamento_id:id,irregularidade_codigo:codigoCredRes26,fonte_catalogo:'CREDENCIAMENTO_RES_26_2016',catalogo_origem_id:r.id,codigo_requisito:clean(r.codigo||r.codigo_item),descricao:clean(r.descricao||r.nome||r.titulo)||'Documento para credenciamento conforme Resolução CEE/BA nº 26/2016',obrigatorio:r.obrigatorio!==false,referencia_normativa:clean(r.referencia_normativa)||'Res. CEE/BA nº 26/2016',ordem:Number(r.ordem||0),status:'NAO_APRESENTADO',criado_por_id:currentUserId()});
+  }
   for(const irrRaw of irregs){
     const irr=upper(irrRaw);if(existentesPorIrreg.has(irr))continue;
     if(irr==='UNIDADE_FILIAL_SEM_AUTORIZACAO_CREDENCIAMENTO'){
@@ -426,33 +442,38 @@ async function registrarSeiRegularizacaoIrregularidade(acompanhamentoId,payload=
   let q=c.from('legalizacao_irregularidade_acompanhamentos').select('*').eq('id',id);q=scoped(q);const {data:ac,error:ea}=await q.maybeSingle();if(ea)throw ea;if(!ac)throw new Error('Acompanhamento não localizado no território.');
   const itens=await garantirChecklistIrregularidade(id);if(!itens.length)throw new Error('O checklist documental ainda não possui requisitos vinculados. Revise a parametrização regulatória.');
   const irregs=Array.isArray(ac.irregularidades)?ac.irregularidades.map(upper):[],cobertas=new Set(itens.map(x=>upper(x.irregularidade_codigo)).filter(Boolean)),semChecklist=irregs.filter(x=>!cobertas.has(x));if(semChecklist.length)throw new Error(`Ainda existem ${semChecklist.length} irregularidade(s) sem checklist documental parametrizado. O Processo SEI não pode ser liberado.`);
+  // O SEI é a última etapa: só pode ser registrado após a instrução completa do credenciamento
+  // (quando necessário) e das ofertas identificadas na fiscalização.
+  const {data:instSei,error:eInstSei}=await c.from('legalizacao_instituicoes').select('credenciada_res_26_2016').eq('id',ac.instituicao_id).maybeSingle();if(eInstSei)throw eInstSei;
+  if(instSei?.credenciada_res_26_2016!==true&&!cobertas.has('CREDENCIAMENTO_RES_26_2016'))throw new Error('O checklist de credenciamento conforme a Resolução CEE/BA nº 26/2016 ainda não foi gerado. O Processo SEI permanece bloqueado.');
   const pend=itens.filter(x=>x.obrigatorio!==false&&!['CONFORME','NAO_SE_APLICA'].includes(upper(x.status)));if(pend.length)throw new Error(`Ainda existem ${pend.length} documento(s) obrigatório(s) sem conformidade. O Processo SEI só pode ser registrado após a documentação completa.`);
+  const {data:links,error:elinks}=await c.from('legalizacao_irregularidade_procedimentos').select('id,processo_id').eq('acompanhamento_id',id);if(elinks)throw elinks;if(!(links||[]).length)throw new Error('Prepare os procedimentos regulatórios correspondentes antes de registrar o Processo SEI. O SEI é a última etapa.');
   const now=new Date().toISOString();const {error:e1}=await c.from('legalizacao_irregularidade_acompanhamentos').update({numero_sei_regularizacao:sei,data_sei_regularizacao:data,regularizacao_documental_em:now,status:'REGULARIZACAO_EM_ACOMPANHAMENTO',updated_at:now}).eq('id',id);if(e1)throw e1;
-  const {error:e2}=await c.from('legalizacao_irregularidade_eventos').insert({acompanhamento_id:id,tipo_evento:'PROCESSO_SEI_REGULARIZACAO',data_evento:data,prazo_limite:ac.prazo_atual,descricao:`Documentação considerada completa. Processo SEI da regularização: ${sei}.`,criado_por_id:currentUserId()});if(e2)throw e2;return true;
+  const procIds=(links||[]).map(x=>Number(x.processo_id)).filter(Boolean);if(procIds.length){const {error:ep}=await c.from('legalizacao_processos').update({numero_sei:sei,data_protocolo:data,updated_at:now}).in('id',procIds);if(ep)throw ep;const {error:ev}=await c.from('legalizacao_irregularidade_procedimentos').update({numero_sei:sei}).eq('acompanhamento_id',id);if(ev)throw ev;}
+  const {error:e2}=await c.from('legalizacao_irregularidade_eventos').insert({acompanhamento_id:id,tipo_evento:'PROCESSO_SEI_REGULARIZACAO',data_evento:data,prazo_limite:ac.prazo_atual,descricao:`Instrução concluída. Processo SEI registrado como última etapa da regularização: ${sei}.`,criado_por_id:currentUserId()});if(e2)throw e2;return true;
 }
 async function listarProcedimentosRegularizacaoIrregularidade(acompanhamentoId){
   assertAccess();const c=client(),id=Number(acompanhamentoId);let q=c.from('legalizacao_irregularidade_acompanhamentos').select('id,nte_id').eq('id',id);q=scoped(q);const {data:ac,error:ea}=await q.maybeSingle();if(ea)throw ea;if(!ac)throw new Error('Acompanhamento não localizado no território.');
   const {data,error}=await c.from('legalizacao_irregularidade_procedimentos').select('*,processo:legalizacao_processos(id,tipo,subtipo,status,etapa_atual,numero_sei,created_at)').eq('acompanhamento_id',id).order('created_at',{ascending:true});if(error)throw error;return data||[];
 }
 async function sugerirProcedimentosRegularizacaoIrregularidade(acompanhamentoId){
-  const ac=await obterAcompanhamentoIrregularidade(acompanhamentoId);if(!clean(ac.numero_sei_regularizacao))return[];const existentes=await listarProcedimentosRegularizacaoIrregularidade(ac.id),by=new Set(existentes.map(x=>x.irregularidade_codigo));
+  const ac=await obterAcompanhamentoIrregularidade(acompanhamentoId);const existentes=await listarProcedimentosRegularizacaoIrregularidade(ac.id),by=new Set(existentes.map(x=>x.irregularidade_codigo));
   const mapa={AUTORIZACAO_VENCIDA_EF1:{tipo:'OFERTA',subtipo:'RENOVACAO',label:'Renovação de autorização — Ensino Fundamental I'},AUTORIZACAO_VENCIDA_EF2:{tipo:'OFERTA',subtipo:'RENOVACAO',label:'Renovação de autorização — Ensino Fundamental II'},AUTORIZACAO_VENCIDA_EM:{tipo:'OFERTA',subtipo:'RENOVACAO',label:'Renovação de autorização — Ensino Médio'},OFERTA_SEM_AUTORIZACAO_EF1:{tipo:'OFERTA',subtipo:'AUTORIZACAO',label:'Autorização — Ensino Fundamental I'},OFERTA_SEM_AUTORIZACAO_EF2:{tipo:'OFERTA',subtipo:'AUTORIZACAO',label:'Autorização — Ensino Fundamental II'},OFERTA_SEM_AUTORIZACAO_EM:{tipo:'OFERTA',subtipo:'AUTORIZACAO',label:'Autorização — Ensino Médio'},UNIDADE_FILIAL_SEM_AUTORIZACAO_CREDENCIAMENTO:{tipo:'CREDENCIAMENTO',subtipo:'CREDENCIAMENTO',label:'Credenciamento/regularização da unidade (filial)'}};
   return (Array.isArray(ac.irregularidades)?ac.irregularidades:[]).map(codigo=>({...mapa[codigo],irregularidade_codigo:codigo,criado:by.has(codigo),vinculo:existentes.find(x=>x.irregularidade_codigo===codigo)||null})).filter(x=>x.tipo);
 }
 async function criarProcedimentoRegularizacaoIrregularidade(acompanhamentoId,irregularidadeCodigo){
-  assertAccess();const c=client(),ac=await obterAcompanhamentoIrregularidade(acompanhamentoId),codigo=upper(irregularidadeCodigo);if(!clean(ac.numero_sei_regularizacao))throw new Error('Registre o Processo SEI da regularização antes de abrir o procedimento regulatório.');
+  assertAccess();const c=client(),ac=await obterAcompanhamentoIrregularidade(acompanhamentoId),codigo=upper(irregularidadeCodigo);
   const sugestoes=await sugerirProcedimentosRegularizacaoIrregularidade(ac.id),sug=sugestoes.find(x=>x.irregularidade_codigo===codigo);if(!sug)throw new Error('Não foi possível determinar o procedimento regulatório para esta irregularidade.');if(sug.criado)return sug.vinculo;
   let processo=null;
   if(sug.tipo==='OFERTA'){
     const itens=(ac.checklist||[]).filter(x=>x.irregularidade_codigo===codigo&&x.fonte_catalogo==='OFERTA'),origens=[...new Set(itens.map(x=>Number(x.catalogo_origem_id)).filter(Boolean))];
     const {data:reqs,error:er}=origens.length?await c.from('legalizacao_oferta_requisitos_catalogo').select('oferta_catalogo_id').in('id',origens):{data:[],error:null};if(er)throw er;const ofertaIds=[...new Set((reqs||[]).map(x=>Number(x.oferta_catalogo_id)).filter(Boolean))];if(!ofertaIds.length)throw new Error('A oferta correspondente não foi localizada no catálogo. Revise a parametrização antes de criar o procedimento.');
-    processo=await iniciarProcedimentoOferta(ac.instituicao_id,{subtipo:sug.subtipo,oferta_catalogo_ids:ofertaIds,numero_sei:ac.numero_sei_regularizacao,observacao:`Procedimento originado da fiscalização de irregularidade #${ac.id}: ${sug.label}.`});
+    processo=await iniciarProcedimentoOferta(ac.instituicao_id,{subtipo:sug.subtipo,oferta_catalogo_ids:ofertaIds,observacao:`Procedimento originado da fiscalização de irregularidade #${ac.id}: ${sug.label}. O Processo SEI será registrado somente na última etapa.`});
   }else{
-    processo=await iniciarCredenciamento(ac.instituicao_id,{subtipo:'CREDENCIAMENTO',observacao:`Regularização de unidade/filial originada da fiscalização #${ac.id}. Processo SEI ${ac.numero_sei_regularizacao}.`});
-    const {error:ep}=await c.from('legalizacao_processos').update({numero_sei:ac.numero_sei_regularizacao,data_protocolo:ac.data_sei_regularizacao||today(),etapa_atual:'RECEBIMENTO_DOCUMENTAL',updated_at:new Date().toISOString()}).eq('id',processo.id);if(ep)throw ep;
+    processo=await iniciarCredenciamento(ac.instituicao_id,{subtipo:'CREDENCIAMENTO',observacao:`Regularização de credenciamento originada da fiscalização #${ac.id}. O Processo SEI será registrado somente na última etapa.`});
   }
-  const row={acompanhamento_id:ac.id,irregularidade_codigo:codigo,processo_id:processo.id,tipo_procedimento:sug.tipo,subtipo_procedimento:sug.subtipo,numero_sei:ac.numero_sei_regularizacao,criado_por_id:currentUserId()};const {data:link,error:el}=await c.from('legalizacao_irregularidade_procedimentos').insert(row).select('*').single();if(el)throw el;
-  await c.from('legalizacao_irregularidade_eventos').insert({acompanhamento_id:ac.id,tipo_evento:'PROCEDIMENTO_REGULATORIO_ABERTO',data_evento:today(),descricao:`${sug.label} aberto e vinculado ao Processo SEI ${ac.numero_sei_regularizacao}. Procedimento regulatório #${processo.id}.`,criado_por_id:currentUserId()});return {...link,processo};
+  const row={acompanhamento_id:ac.id,irregularidade_codigo:codigo,processo_id:processo.id,tipo_procedimento:sug.tipo,subtipo_procedimento:sug.subtipo,numero_sei:null,criado_por_id:currentUserId()};const {data:link,error:el}=await c.from('legalizacao_irregularidade_procedimentos').insert(row).select('*').single();if(el)throw el;
+  await c.from('legalizacao_irregularidade_eventos').insert({acompanhamento_id:ac.id,tipo_evento:'PROCEDIMENTO_REGULATORIO_ABERTO',data_evento:today(),descricao:`${sug.label} preparado a partir da fiscalização. Procedimento regulatório #${processo.id}. O Processo SEI será registrado na última etapa.`,criado_por_id:currentUserId()});return {...link,processo};
 }
 async function podeConcluirRegularizacaoIrregularidade(acompanhamentoId){const links=await listarProcedimentosRegularizacaoIrregularidade(acompanhamentoId);if(!links.length)return{pode:false,motivo:'Nenhum procedimento regulatório foi vinculado à regularização.',links};const pend=links.filter(x=>upper(x.processo?.status)!=='CONCLUIDO');return{pode:pend.length===0,motivo:pend.length?`${pend.length} procedimento(s) regulatório(s) ainda não concluído(s).`:'Todos os procedimentos vinculados estão concluídos.',links};}
 
