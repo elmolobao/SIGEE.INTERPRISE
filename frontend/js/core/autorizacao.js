@@ -22,6 +22,7 @@ const ROTAS = Object.freeze({
   'migracao-historica': 'migracao.executar',
   'gestao-territorial': 'gestao_territorial.gerenciar',
   'plano-acao-territorial': 'processos.visualizar',
+  'solicitacao-apoio-territorial': 'processos.visualizar',
   legalizacao: null
 });
 
@@ -29,7 +30,7 @@ const MODULO_ROTA = Object.freeze({
   painel:'ESCOLAS_EXTINTAS', processos:'ESCOLAS_EXTINTAS', escolas:'ESCOLAS_EXTINTAS',
   'nova-solicitacao':'ESCOLAS_EXTINTAS', relatorios:'ESCOLAS_EXTINTAS',
   'sala-situacao':'ESCOLAS_EXTINTAS', 'centro-inteligencia':'ESCOLAS_EXTINTAS',
-  'plano-acao-territorial':'ESCOLAS_EXTINTAS', legalizacao:'LEGALIZACAO'
+  'plano-acao-territorial':'ESCOLAS_EXTINTAS', 'solicitacao-apoio-territorial':'ESCOLAS_EXTINTAS', legalizacao:'LEGALIZACAO'
 });
 
 const MENU_EXTINTAS = Object.freeze([
@@ -44,7 +45,8 @@ const MENU_EXTINTAS = Object.freeze([
 // Acesso operacional independente para o Técnico. Não pertence ao submenu de
 // Escolas Extintas nem ao agrupamento Gestão Territorial.
 const MENU_DESTAQUES = Object.freeze([
-  { id:'menu-plano-acao-tecnico', rota:'plano-acao-territorial', modulo:'ESCOLAS_EXTINTAS', icone:'✅', rotulo:'Plano de Ação', capacidade:'processos.visualizar', perfis:['Técnico'], escopo:'NTE', destaque:true }
+  { id:'menu-plano-acao-tecnico', rota:'plano-acao-territorial', modulo:'ESCOLAS_EXTINTAS', icone:'✅', rotulo:'Plano de Ação', capacidade:'processos.visualizar', perfis:['Técnico'], escopo:'NTE', destaque:true },
+  { id:'menu-solicitacao-apoio-tecnico', rota:'solicitacao-apoio-territorial', modulo:'ESCOLAS_EXTINTAS', icone:'🆘', rotulo:'Solicitar Apoio', capacidade:'processos.visualizar', perfis:['Técnico'], escopo:'NTE', destaque:true }
 ]);
 
 const MENU_LEGALIZACAO = Object.freeze([
@@ -83,6 +85,7 @@ let navegacaoAutomatica = false;
 let instalando = false;
 let observer = null;
 let alertaPlanoCache={valor:null,em:0};
+let alertaApoioCache={valor:null,em:0};
 
 function usuario(){
   return window.SIGEE_SESSION?.getUser?.() || window.usuarioLogado || window.usuarioAtual || window.currentUser || null;
@@ -148,6 +151,9 @@ function criarBotao(item, classeExtra=''){
   if(item.id==='menu-plano-acao-tecnico'){
     const badge=document.createElement('span');badge.className='sigee-menu-alerta hidden';badge.dataset.planoAcaoAlerta='true';badge.setAttribute('aria-hidden','true');botao.appendChild(badge);
   }
+  if(item.id==='menu-solicitacao-apoio-tecnico'){
+    const badge=document.createElement('span');badge.className='sigee-menu-alerta hidden';badge.dataset.apoioAlerta='true';badge.setAttribute('aria-hidden','true');botao.appendChild(badge);
+  }
   botao.addEventListener('click', () => {
     navegarPara(item.rota, { manual:true });
     if(item.rota==='legalizacao' && item.area){
@@ -176,13 +182,15 @@ function garantirEstiloNavegacaoModular(){
     .sigee-submodulo-title .sigee-submodulo-seta{margin-left:auto;font-size:.68rem;opacity:.8}
     .sigee-submodulo-submenu{display:none;margin:.12rem 0 .2rem .62rem;padding-left:.48rem;border-left:1px solid rgba(148,163,184,.3)}
     .sigee-submodulo-menu.open>.sigee-submodulo-submenu{display:block}
-    body[data-sigee-perfil="Técnico"] #menu-plano-acao-tecnico.sigee-menu-item-destaque{
+    body[data-sigee-perfil="Técnico"] #menu-plano-acao-tecnico.sigee-menu-item-destaque,
+    body[data-sigee-perfil="Técnico"] #menu-solicitacao-apoio-tecnico.sigee-menu-item-destaque{
       display:flex!important;visibility:visible!important;opacity:1!important;align-items:center!important;
       color:#fff!important;background:rgba(16,185,129,.2)!important;
       border-left:4px solid #34d399!important;font-weight:850!important;
       margin:.55rem 0!important;box-shadow:0 0 0 1px rgba(52,211,153,.28),0 8px 18px rgba(2,6,23,.12)!important;
     }
-    body[data-sigee-perfil="Técnico"] #menu-plano-acao-tecnico.sigee-menu-item-destaque:hover{
+    body[data-sigee-perfil="Técnico"] #menu-plano-acao-tecnico.sigee-menu-item-destaque:hover,
+    body[data-sigee-perfil="Técnico"] #menu-solicitacao-apoio-tecnico.sigee-menu-item-destaque:hover{
       background:rgba(16,185,129,.3)!important;
     }
     .sigee-menu-alerta{margin-left:auto;min-width:1.35rem;height:1.35rem;padding:0 .35rem;border-radius:999px;background:#ef4444;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:.68rem;font-weight:900;box-shadow:0 0 0 3px rgba(239,68,68,.18)}
@@ -285,6 +293,17 @@ async function atualizarAlertaPlanoAcao(force=false){
   }catch(err){console.warn('[Menu] alerta do Plano de Ação indisponível:',err?.message||err);badge.textContent='!';badge.classList.remove('hidden','sem-pendencia');badge.classList.add('indisponivel');badge.setAttribute('aria-hidden','false');botao.title='Não foi possível consultar as ações pendentes';}
 }
 
+
+async function atualizarAlertaApoio(force=false){
+  if(perfil(usuario())!=='Técnico')return;
+  const botao=document.getElementById('menu-solicitacao-apoio-tecnico'),badge=botao?.querySelector('[data-apoio-alerta]');if(!botao||!badge)return;
+  try{
+    const agora=Date.now();let total=alertaApoioCache.valor;
+    if(force||total==null||agora-alertaApoioCache.em>60000){total=await window.SIGEE_TERRITORIAL_APOIO_SERVICE?.contarPendentes?.();alertaApoioCache={valor:Number(total||0),em:agora};}
+    total=Number(total||0);badge.textContent=total>99?'99+':String(total);badge.classList.remove('hidden','indisponivel');badge.classList.toggle('sem-pendencia',total===0);badge.setAttribute('aria-hidden','false');botao.title=total?`${total} orientação(ões) aguardando sua ciência`:'Nenhuma orientação nova aguardando ciência';
+  }catch(err){console.warn('[Menu] alerta de Apoio Territorial indisponível:',err?.message||err);badge.textContent='!';badge.classList.remove('hidden','sem-pendencia');badge.classList.add('indisponivel');badge.setAttribute('aria-hidden','false');}
+}
+
 function criarGrupoAdministrativo(itens){
   const grupo=document.createElement('div');
   grupo.id='menu-administrativo-grupo';
@@ -315,7 +334,7 @@ function definirGrupoAberto(id, aberto){
 function sincronizarContextoMenu(rota){
   const chave=String(rota||'').trim();
   const legalizacao = chave==='legalizacao';
-  const territorial = chave==='gestao-territorial' || chave==='plano-acao-territorial';
+  const territorial = chave==='gestao-territorial' || chave==='plano-acao-territorial' || chave==='solicitacao-apoio-territorial';
   const extintas = territorial || ['processos','escolas','painel','relatorios','sala-situacao','centro-inteligencia','nova-solicitacao'].includes(chave);
   if(legalizacao){
     definirGrupoAberto('menu-modulo-legalizacao',true);
@@ -462,6 +481,7 @@ function renderizarMenu(){
     atualizarIdentidade();
     aplicarControlesDaInterface();
     atualizarAlertaPlanoAcao(false);
+    atualizarAlertaApoio(false);
     return true;
   }
   instalando = true;
@@ -477,6 +497,7 @@ function renderizarMenu(){
   // RC12.0.1D: módulos iniciam recolhidos; somente navegação do usuário expande o contexto.
   aplicarControlesDaInterface();
   atualizarAlertaPlanoAcao(false);
+  atualizarAlertaApoio(false);
   return true;
 }
 function atualizarIdentidade(){
@@ -638,6 +659,12 @@ function navegarPara(rota, opcoes={}){
     return false;
   }
 
+  if (rota === 'solicitacao-apoio-territorial') {
+    if(window.SIGEE_TERRITORIAL_APOIO?.abrir) return window.SIGEE_TERRITORIAL_APOIO.abrir();
+    alert('A Solicitação de Apoio Territorial ainda não concluiu o carregamento.');
+    return false;
+  }
+
   if (rota === 'gestao-territorial') {
     if(window.SIGEE_GESTAO_TERRITORIAL?.abrir) return window.SIGEE_GESTAO_TERRITORIAL.abrir();
     alert('A Central de Gestão Territorial ainda não concluiu o carregamento.');
@@ -773,6 +800,7 @@ window.addEventListener('sigee:login-concluido', () => {
   setTimeout(() => { iniciar(); aplicarControlesDaInterface(); }, 0);
 });
 document.addEventListener('sigee:gt-plano-acao-atualizado',()=>{alertaPlanoCache={valor:null,em:0};atualizarAlertaPlanoAcao(true);});
+document.addEventListener('sigee:gt-apoio-atualizado',()=>{alertaApoioCache={valor:null,em:0};atualizarAlertaApoio(true);});
 window.addEventListener('load', () => setTimeout(iniciar, 50));
 
 window.SIGEE_AUTORIZACAO = Object.freeze({
