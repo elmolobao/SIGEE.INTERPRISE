@@ -244,9 +244,9 @@
     <div class="leg-callout compact"><div><strong>Inspeção de manutenção regulatória</strong><p>Não é aberta neste menu. Ela nasce dentro do procedimento de Credenciamento, Ofertas/Cursos ou Alteração Cadastral que exigir verificação in loco.</p></div></div>
     <form id="leg-form-inspecao-irregularidade" class="leg-operacional-form hidden">
       <div class="leg-operacional-grid">
-        <label class="span-2">Localizar escola<input id="leg-irr-inst-busca" type="search" autocomplete="off" placeholder="Nome da instituição ou código INEP/MEC"><input id="leg-irr-instituicao-id" name="instituicao_id" type="hidden"><div id="leg-irr-inst-resultados" class="leg-search-results hidden"></div></label>
+        <label class="span-2">Localizar escola pelo nome<input id="leg-irr-inst-busca" type="search" autocomplete="off" placeholder="Nome da instituição"><input id="leg-irr-instituicao-id" name="instituicao_id" type="hidden"><div id="leg-irr-inst-resultados" class="leg-search-results hidden"></div></label>
         <label>Nome da escola<input id="leg-irr-inst-nome" type="text" readonly placeholder="Selecione uma instituição"></label>
-        <label>Código INEP/MEC<input id="leg-irr-inst-inep" type="text" readonly placeholder="—"></label>
+        <label>Código INEP/MEC<input id="leg-irr-inst-inep" name="cod_inep" type="text" inputmode="numeric" maxlength="20" placeholder="Informe ou confirme o código"></label>
         <label>Data da visita técnica<input name="data_visita" type="date" required></label>
         <label>Prazo sugerido pelo responsável (dias)<select name="prazo_dias" id="leg-irr-prazo-dias" required><option value="">Selecione</option><option>15</option><option>20</option><option>25</option><option>30</option><option>35</option><option>40</option><option>45</option><option>50</option><option>60</option></select></label>
         <label class="span-2">Data limite calculada<input id="leg-irr-prazo-calculado" name="prazo_regularizacao" type="date" readonly required><small>Calculada automaticamente a partir da data da visita técnica e do prazo acordado.</small></label>
@@ -967,8 +967,8 @@ window.filtrarTabelaUsuariosSIGEE = function (termo) {
 <script src="js/territorial/territorial-pesquisa.js?v=GT-05.2.4"></script>
 <script src="js/territorial/territorial-bootstrap.js?v=RC11.3.16"></script>
 
-<script src="js/legalizacao/legalizacao.service.js?v=RC12.0.10A.21"></script>
-<script src="js/legalizacao/legalizacao.js?v=RC12.0.10A.21"></script>
+<script src="js/legalizacao/legalizacao.service.js?v=RC12.0.10A.23"></script>
+<script src="js/legalizacao/legalizacao.js?v=RC12.0.10A.23"></script>
     <script src="js/core/autorizacao.js?v=RC12.0.10A.9"></script>
 <script src="js/analytics/dashboard.js?v=RC7.4.4-PERFORMANCE"></script>
 <script src="js/cio/cio-bootstrap.js?v=RC7.4.1"></script>
