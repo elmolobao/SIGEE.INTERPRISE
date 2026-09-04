@@ -1,8 +1,8 @@
-/** SIGEE Enterprise RC12.0.10A.23 — Ajustes da visita técnica e pesquisa por nome. */
+/** SIGEE Enterprise RC12.0.10A.24 — Busca bidirecional por nome/INEP e correções de inicialização. */
 (function(window){
 'use strict';
-if(window.__SIGEE_LEGALIZACAO_SERVICE_RC1210A22__)return;
-window.__SIGEE_LEGALIZACAO_SERVICE_RC1210A22__=true;
+if(window.__SIGEE_LEGALIZACAO_SERVICE_RC1210A24__)return;
+window.__SIGEE_LEGALIZACAO_SERVICE_RC1210A24__=true;
 const MOD='LEGALIZACAO';
 function client(){try{return window.SIGEE_SUPABASE?.criarCliente?.()||window.SIGEE_SUPABASE_CLIENT||null;}catch(_){return null;}}
 function user(){return window.SIGEE_SESSION?.getUser?.()||window.usuarioLogado||null;}
@@ -29,7 +29,8 @@ function aplicarFiltrosCatalogo(q,filtros={}){
   if(filtros.situacao)q=q.eq('situacao_regulatoria',filtros.situacao);
   const tipo=upper(filtros.tipoCadastro);
   if(tipo)q=q.eq('tipo_cadastro',tipo);
-  if(filtros.buscaNome){const b=String(filtros.buscaNome).trim().replace(/[,()]/g,' ');if(b)q=q.ilike('nome_instituicao',`%${b}%`);}
+  if(filtros.codInep){const cod=digits(filtros.codInep,20);if(cod)q=q.eq('cod_inep',cod);}
+  else if(filtros.buscaNome){const b=String(filtros.buscaNome).trim().replace(/[,()]/g,' ');if(b)q=q.ilike('nome_instituicao',`%${b}%`);}
   else if(filtros.busca){const b=String(filtros.busca).trim().replace(/[,()]/g,' ');if(b)q=q.or(`nome_instituicao.ilike.%${b}%,municipio.ilike.%${b}%,cod_inep.ilike.%${b}%,cnpj.ilike.%${b}%,cod_sec.ilike.%${b}%`);}
   return q;
 }
