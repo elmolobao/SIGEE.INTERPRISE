@@ -1,4 +1,4 @@
-/** SIGEE RC12.0.2 — Serviço de Solicitação de Apoio Territorial. */
+/** SIGEE RC12.0.3 — Serviço de Solicitação de Apoio Territorial. */
 (function(window){
 'use strict';
 if(window.SIGEE_TERRITORIAL_APOIO_SERVICE?.versao==='RC12.0.3')return;

@@ -1,7 +1,7 @@
-/** SIGEE RC12.0.2 — Interface de Solicitação de Apoio Territorial. */
+/** SIGEE RC12.0.3 — Interface de Solicitação de Apoio Territorial. */
 (function(window,document){
 'use strict';
-if(window.SIGEE_TERRITORIAL_APOIO?.versao==='RC12.0.2')return;
+if(window.SIGEE_TERRITORIAL_APOIO?.versao==='RC12.0.3')return;
 const S=()=>window.SIGEE_TERRITORIAL_APOIO_SERVICE;let visao='ABERTAS';
 const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const fmt=d=>d?new Date(d).toLocaleString('pt-BR'):'—';
@@ -15,5 +15,5 @@ function ligar(a){a.querySelector('[data-ap-nova]')?.addEventListener('click',()
 function criarTela(){let s=document.getElementById('aba-solicitacao-apoio-territorial');if(s)return s;const m=document.querySelector('#sistema-dashboard main');if(!m)return null;s=document.createElement('section');s.id='aba-solicitacao-apoio-territorial';s.className='hidden sigee-territorial';s.innerHTML='<div id="gt-apoio-corpo"></div>';m.appendChild(s);return s;}
 function abrir(){if(!S()?.territorial?.()){alert('Solicitação de Apoio disponível somente para usuários territoriais.');return false;}const s=criarTela();document.querySelectorAll('#sistema-dashboard main > section[id^="aba-"]').forEach(x=>{x.classList.add('hidden');x.hidden=true});s.classList.remove('hidden');s.hidden=false;s.style.removeProperty('display');carregar(s);return true;}
 document.addEventListener('sigee:gt-apoio-atualizado',()=>{const s=document.getElementById('aba-solicitacao-apoio-territorial');if(s&&!s.hidden)carregar(s)});
-window.SIGEE_TERRITORIAL_APOIO=Object.freeze({abrir,carregar,novaSolicitacao,criarTela,versao:'RC12.0.2'});
+window.SIGEE_TERRITORIAL_APOIO=Object.freeze({abrir,carregar,novaSolicitacao,criarTela,versao:'RC12.0.3'});
 })(window,document);
