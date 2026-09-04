@@ -267,6 +267,18 @@
       <div class="leg-operacional-actions"><span>A Visita Técnica precede o acompanhamento da irregularidade. O prazo é sugerido pelo responsável da instituição e, após o acordo firmado, o SIGEE calcula e controla a data-limite. O vencimento apenas libera a providência seguinte.</span><div><button type="button" class="leg-btn" id="leg-cancelar-irregularidade">Cancelar</button><button type="submit" class="leg-btn primary">Registrar visita técnica e acordo</button></div></div>
     </form>
     <form id="leg-form-enquadramento" class="leg-operacional-form hidden"><div class="leg-operacional-grid"><label class="span-2">Nome do estabelecimento<input name="nome_estabelecimento" required placeholder="Nome utilizado pelo estabelecimento"></label><label>NTE<input name="nte_id" readonly></label><label>Município<input name="municipio" required></label><label>Data da identificação<input name="data_identificacao" type="date" required></label><label>Prazo inicial de adequação<input name="prazo_adequacao" type="date" required></label><label class="span-2">Situação constatada<textarea name="constatacao" rows="3" required placeholder="Descreva o funcionamento sem credenciamento"></textarea></label><label class="span-2">Dados iniciais da mantenedora/responsável<textarea name="responsavel_inicial" rows="2" required></textarea></label></div><div class="leg-operacional-actions"><span>Cria cadastro preliminar de enquadramento. O estabelecimento não será marcado como credenciado.</span><div><button type="button" class="leg-btn" id="leg-cancelar-enquadramento">Cancelar</button><button type="submit" class="leg-btn primary">Iniciar enquadramento</button></div></div></form>
+    <form id="leg-form-acao-irregularidade" class="leg-operacional-form hidden">
+      <input type="hidden" name="acompanhamento_id" id="leg-acao-irreg-id">
+      <input type="hidden" name="acao" id="leg-acao-irreg-tipo">
+      <div class="leg-section-title"><div><small>ACOMPANHAMENTO SEQUENCIAL</small><h3 id="leg-acao-irreg-titulo">Registrar ação</h3><p id="leg-acao-irreg-ajuda"></p></div></div>
+      <div class="leg-operacional-grid">
+        <label>Data da ação<input name="data_acao" type="date" required></label>
+        <label id="leg-acao-prazo-wrap">Prazo concedido (dias)<select name="prazo_dias" id="leg-acao-prazo"><option value="">Selecione</option><option>15</option><option>20</option><option>25</option><option>30</option><option>35</option><option>40</option><option>45</option><option>50</option><option>60</option></select></label>
+        <label class="span-2 hidden" id="leg-acao-sei-wrap">Processo SEI para encaminhamento ao Ministério Público<input name="numero_sei" id="leg-acao-sei" placeholder="Informe o número do Processo SEI"></label>
+        <label class="span-2">Registro da ação / observações<textarea name="observacao" rows="3" required placeholder="Registre a execução da ação e as providências adotadas."></textarea></label>
+      </div>
+      <div class="leg-operacional-actions"><span>A etapa só avança após o técnico registrar a execução. O vencimento do prazo apenas sinaliza a próxima providência.</span><div><button type="button" class="leg-btn" id="leg-cancelar-acao-irregularidade">Cancelar</button><button type="submit" class="leg-btn primary">Confirmar execução</button></div></div>
+    </form>
     <div class="leg-reg-tabs leg-inspecao-tabs"><button type="button" class="active" data-inspecao-lista="irregularidade">Irregularidades em acompanhamento</button><button type="button" data-inspecao-lista="enquadramento">Escolas sem credenciamento / Enquadramento</button></div><div class="leg-list" id="legalizacao-inspecoes-lista"><div class="leg-empty"><strong>Aguardando carregamento...</strong></div></div></div></div>
   <div class="leg-area hidden" data-area="historico"><div class="leg-panel"><header class="leg-panel-head"><div><h2>Histórico Regulatório</h2><p>Linha cronológica dos procedimentos oficiais registrados no módulo.</p></div></header><div class="leg-list" id="legalizacao-historico-lista"><div class="leg-empty"><strong>Aguardando carregamento...</strong></div></div></div></div>
 </section>
@@ -967,8 +979,8 @@ window.filtrarTabelaUsuariosSIGEE = function (termo) {
 <script src="js/territorial/territorial-pesquisa.js?v=GT-05.2.4"></script>
 <script src="js/territorial/territorial-bootstrap.js?v=RC11.3.16"></script>
 
-<script src="js/legalizacao/legalizacao.service.js?v=RC12.0.10A.24"></script>
-<script src="js/legalizacao/legalizacao.js?v=RC12.0.10A.24"></script>
+<script src="js/legalizacao/legalizacao.service.js?v=RC12.0.10A.26"></script>
+<script src="js/legalizacao/legalizacao.js?v=RC12.0.10A.26"></script>
     <script src="js/core/autorizacao.js?v=RC12.0.10A.9"></script>
 <script src="js/analytics/dashboard.js?v=RC7.4.4-PERFORMANCE"></script>
 <script src="js/cio/cio-bootstrap.js?v=RC7.4.1"></script>
