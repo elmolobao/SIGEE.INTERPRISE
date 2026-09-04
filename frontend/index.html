@@ -244,20 +244,20 @@
     <div class="leg-callout compact"><div><strong>Inspeção de manutenção regulatória</strong><p>Não é aberta neste menu. Ela nasce dentro do procedimento de Credenciamento, Ofertas/Cursos ou Alteração Cadastral que exigir verificação in loco.</p></div></div>
     <form id="leg-form-inspecao-irregularidade" class="leg-operacional-form hidden">
       <div class="leg-operacional-grid">
-        <label class="span-2">Localizar escola pelo nome<input id="leg-irr-inst-busca" type="search" autocomplete="off" placeholder="Nome da instituição"><input id="leg-irr-instituicao-id" name="instituicao_id" type="hidden"><div id="leg-irr-inst-resultados" class="leg-search-results hidden"></div></label>
+        <label class="span-2">Localizar escola pelo nome<input id="leg-irr-inst-busca" type="search" autocomplete="off" placeholder="Digite o nome da instituição"><input id="leg-irr-instituicao-id" name="instituicao_id" type="hidden"><div id="leg-irr-inst-resultados" class="leg-search-results hidden"></div></label>
         <label>Nome da escola<input id="leg-irr-inst-nome" type="text" readonly placeholder="Selecione uma instituição"></label>
-        <label>Código INEP/MEC<input id="leg-irr-inst-inep" name="cod_inep" type="text" inputmode="numeric" maxlength="20" placeholder="Informe ou confirme o código"></label>
+        <label>Código INEP/MEC<input id="leg-irr-inst-inep" name="cod_inep" type="text" inputmode="numeric" maxlength="20" placeholder="Digite o código para localizar"><small id="leg-irr-inep-status">Ao informar o código, o SIGEE localiza e preenche a escola automaticamente.</small></label>
         <label>Data da visita técnica<input name="data_visita" type="date" required></label>
         <label>Prazo sugerido pelo responsável (dias)<select name="prazo_dias" id="leg-irr-prazo-dias" required><option value="">Selecione</option><option>15</option><option>20</option><option>25</option><option>30</option><option>35</option><option>40</option><option>45</option><option>50</option><option>60</option></select></label>
         <label class="span-2">Data limite calculada<input id="leg-irr-prazo-calculado" name="prazo_regularizacao" type="date" readonly required><small>Calculada automaticamente a partir da data da visita técnica e do prazo acordado.</small></label>
         <fieldset class="span-2 leg-checklist-box"><legend>Irregularidades constatadas *</legend>
-          <label><input type="checkbox" name="irregularidades" value="AUTORIZACAO_VENCIDA_EF1"> Autorização vencida do Ensino Fundamental I</label>
-          <label><input type="checkbox" name="irregularidades" value="AUTORIZACAO_VENCIDA_EF2"> Autorização vencida do Ensino Fundamental II</label>
-          <label><input type="checkbox" name="irregularidades" value="AUTORIZACAO_VENCIDA_EM"> Autorização vencida do Ensino Médio</label>
-          <label><input type="checkbox" name="irregularidades" value="OFERTA_SEM_AUTORIZACAO_EF1"> Oferta de Ensino Fundamental I sem autorização</label>
-          <label><input type="checkbox" name="irregularidades" value="OFERTA_SEM_AUTORIZACAO_EF2"> Oferta de Ensino Fundamental II sem autorização</label>
-          <label><input type="checkbox" name="irregularidades" value="OFERTA_SEM_AUTORIZACAO_EM"> Oferta de Ensino Médio sem autorização</label>
-          <label><input type="checkbox" name="irregularidades" value="UNIDADE_FILIAL_SEM_AUTORIZACAO_CREDENCIAMENTO"> Unidade de Ensino (filial) sem autorização/credenciamento</label>
+          <label class="leg-irregularidade-opcao"><input type="checkbox" name="irregularidades" value="AUTORIZACAO_VENCIDA_EF1"><span>Autorização vencida do Ensino Fundamental I</span></label>
+          <label class="leg-irregularidade-opcao"><input type="checkbox" name="irregularidades" value="AUTORIZACAO_VENCIDA_EF2"><span>Autorização vencida do Ensino Fundamental II</span></label>
+          <label class="leg-irregularidade-opcao"><input type="checkbox" name="irregularidades" value="AUTORIZACAO_VENCIDA_EM"><span>Autorização vencida do Ensino Médio</span></label>
+          <label class="leg-irregularidade-opcao"><input type="checkbox" name="irregularidades" value="OFERTA_SEM_AUTORIZACAO_EF1"><span>Oferta de Ensino Fundamental I sem autorização</span></label>
+          <label class="leg-irregularidade-opcao"><input type="checkbox" name="irregularidades" value="OFERTA_SEM_AUTORIZACAO_EF2"><span>Oferta de Ensino Fundamental II sem autorização</span></label>
+          <label class="leg-irregularidade-opcao"><input type="checkbox" name="irregularidades" value="OFERTA_SEM_AUTORIZACAO_EM"><span>Oferta de Ensino Médio sem autorização</span></label>
+          <label class="leg-irregularidade-opcao"><input type="checkbox" name="irregularidades" value="UNIDADE_FILIAL_SEM_AUTORIZACAO_CREDENCIAMENTO"><span>Unidade de Ensino (filial) sem autorização/credenciamento</span></label>
         </fieldset>
         <label>Nome do representante<input name="ciente_nome" required></label>
         <label>Cargo/Função<input name="ciente_funcao" required placeholder="Ex.: mantenedor, diretor, representante legal"></label>
@@ -336,7 +336,7 @@
 </article>
 </div>
 </section>
-<section class="space-y-4 sigee-central" id="aba-processos">
+<section class="hidden space-y-4 sigee-central" id="aba-processos">
 <div class="flex flex-wrap justify-between items-center bg-white p-4 rounded-xl border shadow-xs gap-3 sigee-central-topo">
 <div><h1 class="text-2xl font-black text-blue-950">📋 Central de Processos</h1><p class="text-xs text-gray-500 mt-1">Visão ampla dos pedidos e das etapas de produção.</p></div>
 <div class="flex flex-wrap gap-2 items-center">
@@ -967,8 +967,8 @@ window.filtrarTabelaUsuariosSIGEE = function (termo) {
 <script src="js/territorial/territorial-pesquisa.js?v=GT-05.2.4"></script>
 <script src="js/territorial/territorial-bootstrap.js?v=RC11.3.16"></script>
 
-<script src="js/legalizacao/legalizacao.service.js?v=RC12.0.10A.23"></script>
-<script src="js/legalizacao/legalizacao.js?v=RC12.0.10A.23"></script>
+<script src="js/legalizacao/legalizacao.service.js?v=RC12.0.10A.24"></script>
+<script src="js/legalizacao/legalizacao.js?v=RC12.0.10A.24"></script>
     <script src="js/core/autorizacao.js?v=RC12.0.10A.9"></script>
 <script src="js/analytics/dashboard.js?v=RC7.4.4-PERFORMANCE"></script>
 <script src="js/cio/cio-bootstrap.js?v=RC7.4.1"></script>
