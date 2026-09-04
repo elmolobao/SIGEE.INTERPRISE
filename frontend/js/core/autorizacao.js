@@ -52,8 +52,6 @@ const MENU_LEGALIZACAO = Object.freeze([
   { id:'menu-legalizacao-instituicoes', rota:'legalizacao', area:'instituicoes', icone:'🏫', rotulo:'Instituições', capacidade:null, perfis:['Master','Administrador','Técnico','Consulta'], modulo:'LEGALIZACAO' },
   { id:'menu-legalizacao-regulatorio', rota:'legalizacao', area:'regulatorio', icone:'🧭', rotulo:'Controle Regulatório', capacidade:null, perfis:['Master','Administrador','Técnico','Consulta'], modulo:'LEGALIZACAO' },
   // RC12.0.7B.2: Central de Pendências Regulatórias preservada em código, porém desativada para evitar cálculo global/consumo massivo do Supabase.
-  { id:'menu-legalizacao-fiscalizacao', rota:'legalizacao', area:'fiscalizacao', icone:'🔎', rotulo:'Fiscalização', capacidade:null, perfis:['Master','Administrador','Técnico','Consulta'], modulo:'LEGALIZACAO' },
-  { id:'menu-legalizacao-averiguacao', rota:'legalizacao', area:'averiguacao', icone:'⚠️', rotulo:'Em Averiguação', capacidade:null, perfis:['Master','Administrador','Técnico','Consulta'], modulo:'LEGALIZACAO' },
   { id:'menu-legalizacao-inspecoes', rota:'legalizacao', area:'inspecoes', icone:'📋', rotulo:'Inspeções', capacidade:null, perfis:['Master','Administrador','Técnico','Consulta'], modulo:'LEGALIZACAO' },
   { id:'menu-legalizacao-historico', rota:'legalizacao', area:'historico', icone:'🕘', rotulo:'Histórico', capacidade:null, perfis:['Master','Administrador','Técnico','Consulta'], modulo:'LEGALIZACAO' }
 ]);
