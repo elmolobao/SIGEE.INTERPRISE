@@ -1,4 +1,4 @@
-/** SIGEE Enterprise RC12.0.10A.34.3 — Tipos AUTORIZACAO/RENOVACAO e catálogo canônico de ofertas. */
+/** SIGEE Enterprise RC12.0.10A.34.4 — RLS das ofertas e rollback de abertura. */
 (function(window){
 'use strict';
 if(window.__SIGEE_LEGALIZACAO_SERVICE_RC1210A26__)return;
@@ -161,10 +161,22 @@ async function iniciarProcedimentoOferta(instituicaoId,payload={}){
   const {data:catalogo,error:ec}=await c.from('legalizacao_oferta_catalogo').select('*').in('id',ids).eq('ativo',true);if(ec)throw ec;if((catalogo||[]).length!==ids.length)throw new Error('Uma ou mais ofertas selecionadas não estão disponíveis no catálogo regulatório.');const exigeCurso=(catalogo||[]).some(o=>o.exige_curso_especifico===true),cursoNome=clean(payload.curso_nome),eixo=clean(payload.eixo_tecnologico);if(exigeCurso&&!cursoNome)throw new Error('Informe o nome do curso técnico para a oferta de Educação Profissional.');
   const competencia=competenciaProcedimentoOferta(catalogo||[]);const tipoProcesso=['RENOVACAO','RENOVACAO_RECONHECIMENTO'].includes(subtipo)?'RENOVACAO':'AUTORIZACAO';const base={instituicao_id:inst.id,nte_id:inst.nte_id,tipo:tipoProcesso,subtipo,numero_sei:null,competencia_regulatoria:competencia.competencia_regulatoria,orgao_instrutor:competencia.orgao_instrutor,status:'EM_ANDAMENTO',etapa_atual:'INSTRUCAO_DOCUMENTAL',data_protocolo:null,prazo_etapa:clean(payload.prazo_etapa),observacao:clean(payload.observacao),responsavel_id:currentUserId(),criado_por_id:currentUserId(),atualizado_por_id:currentUserId()};
   const {data:p,error:ep}=await c.from('legalizacao_processos').insert(base).select('*').single();if(ep)throw ep;
-  const vinculos=ids.map(id=>{const oc=(catalogo||[]).find(o=>Number(o.id)===Number(id));return {processo_id:p.id,instituicao_id:inst.id,oferta_catalogo_id:id,curso_nome:oc?.exige_curso_especifico?cursoNome:null,eixo_tecnologico:oc?.exige_curso_especifico?eixo:null,status:'EM_ANALISE'};});const {error:ev}=await c.from('legalizacao_processos_ofertas').insert(vinculos);if(ev)throw ev;
-  const {data:reqCat,error:er}=await c.from('legalizacao_oferta_requisitos_catalogo').select('*').eq('ativo',true).or(`oferta_catalogo_id.is.null,oferta_catalogo_id.in.(${ids.join(',')})`).order('ordem',{ascending:true});if(er)throw er;
-  const unicos=new Map();for(const r of reqCat||[]){const chave=String(r.codigo||r.id);if(!unicos.has(chave)||r.oferta_catalogo_id)unicos.set(chave,r);}const reqRows=[...unicos.values()].map(r=>({processo_id:p.id,instituicao_id:inst.id,requisito_catalogo_id:r.id,status:'NAO_APRESENTADO'}));if(reqRows.length){const {error:erp}=await c.from('legalizacao_oferta_requisitos_processo').insert(reqRows);if(erp)throw erp;}
-  await historicoProcesso(p.id,'ABERTURA_OFERTA','Procedimento de oferta criado com etapas/modalidades e requisitos parametrizados.',{numero_sei:null,subtipo,ofertas:(catalogo||[]).map(o=>o.codigo),requisitos:reqRows.length,competencia:competencia.competencia_regulatoria,regra_sei:'ULTIMA_ETAPA'});resumoCache=null;return {...p,ofertas:catalogo||[],requisitos_gerados:reqRows.length,competencia};
+  let aberturaConcluida=false;
+  try{
+    const vinculos=ids.map(id=>{const oc=(catalogo||[]).find(o=>Number(o.id)===Number(id));return {processo_id:p.id,instituicao_id:inst.id,oferta_catalogo_id:id,curso_nome:oc?.exige_curso_especifico?cursoNome:null,eixo_tecnologico:oc?.exige_curso_especifico?eixo:null,status:'EM_ANALISE'};});const {error:ev}=await c.from('legalizacao_processos_ofertas').insert(vinculos);if(ev)throw ev;
+    const {data:reqCat,error:er}=await c.from('legalizacao_oferta_requisitos_catalogo').select('*').eq('ativo',true).or(`oferta_catalogo_id.is.null,oferta_catalogo_id.in.(${ids.join(',')})`).order('ordem',{ascending:true});if(er)throw er;
+    const unicos=new Map();for(const r of reqCat||[]){const chave=String(r.codigo||r.id);if(!unicos.has(chave)||r.oferta_catalogo_id)unicos.set(chave,r);}const reqRows=[...unicos.values()].map(r=>({processo_id:p.id,instituicao_id:inst.id,requisito_catalogo_id:r.id,status:'NAO_APRESENTADO'}));if(reqRows.length){const {error:erp}=await c.from('legalizacao_oferta_requisitos_processo').insert(reqRows);if(erp)throw erp;}
+    await historicoProcesso(p.id,'ABERTURA_OFERTA','Procedimento de oferta criado com etapas/modalidades e requisitos parametrizados.',{numero_sei:null,subtipo,ofertas:(catalogo||[]).map(o=>o.codigo),requisitos:reqRows.length,competencia:competencia.competencia_regulatoria,regra_sei:'ULTIMA_ETAPA'});
+    aberturaConcluida=true;resumoCache=null;return {...p,ofertas:catalogo||[],requisitos_gerados:reqRows.length,competencia};
+  }catch(err){
+    // A abertura é lógica/transacional no cliente: se qualquer etapa filha falhar, remove o processo recém-criado.
+    try{await c.from('legalizacao_oferta_requisitos_processo').delete().eq('processo_id',p.id);}catch(_){ }
+    try{await c.from('legalizacao_processos_historico').delete().eq('processo_id',p.id);}catch(_){ }
+    try{await c.from('legalizacao_processos_ofertas').delete().eq('processo_id',p.id);}catch(_){ }
+    try{await c.from('legalizacao_processos').delete().eq('id',p.id);}catch(_){ }
+    const msg=String(err?.message||err||'Falha ao concluir abertura do procedimento.');
+    throw new Error(msg+' O procedimento incompleto foi revertido automaticamente.');
+  }finally{if(!aberturaConcluida)resumoCache=null;}
 }
 
 async function listarOfertasRegulatorias(){
