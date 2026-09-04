@@ -204,8 +204,7 @@
         <div class="leg-operacional-grid">
           <label class="span-2">Instituição<input id="leg-oferta-inst-busca" type="search" autocomplete="off" placeholder="Digite nome, INEP, município ou COD SEC"><input id="leg-oferta-instituicao-id" name="instituicao_id" type="hidden"><div id="leg-oferta-inst-resultados" class="leg-search-results hidden"></div></label>
           <label>Procedimento<select name="subtipo" required><option value="AUTORIZACAO">Autorização</option><option value="RENOVACAO">Renovação</option><option value="RECONHECIMENTO">Reconhecimento</option><option value="RENOVACAO_RECONHECIMENTO">Renovação de reconhecimento</option></select></label>
-          <label>Processo SEI *<input name="numero_sei" required placeholder="00000.000000/0000-00"></label>
-          <label>Data do protocolo *<input name="data_protocolo" type="date" required></label>
+          <div class="span-2 leg-callout compact"><div><strong>Processo SEI na última etapa</strong><p>O procedimento começa pela instrução documental. O número SEI será informado somente após a documentação, análise e inspeção aplicável.</p></div></div>
           <label>Prazo da etapa<input name="prazo_etapa" type="date"></label>
           <div class="span-2 leg-oferta-config"><div class="leg-oferta-config-head"><div><strong>Etapas, modalidades ou cursos</strong><span>Selecione uma ou mais ofertas para este procedimento regulatório.</span></div></div><div id="leg-oferta-catalogo" class="leg-oferta-catalogo"><div class="leg-empty compact"><strong>Abra o formulário para carregar o catálogo.</strong></div></div></div>
           <div class="span-2 leg-oferta-config hidden" id="leg-oferta-curso-detalhe"><div class="leg-operacional-grid"><label>Curso técnico *<input name="curso_nome" placeholder="Nome do curso"></label><label>Eixo tecnológico<input name="eixo_tecnologico" placeholder="Eixo tecnológico, quando aplicável"></label></div></div>
@@ -980,8 +979,8 @@ window.filtrarTabelaUsuariosSIGEE = function (termo) {
 <script src="js/territorial/territorial-pesquisa.js?v=GT-05.2.4"></script>
 <script src="js/territorial/territorial-bootstrap.js?v=RC11.3.16"></script>
 
-<script src="js/legalizacao/legalizacao.service.js?v=RC12.0.10A.31.1"></script>
-<script src="js/legalizacao/legalizacao.js?v=RC12.0.10A.31.1"></script>
+<script src="js/legalizacao/legalizacao.service.js?v=RC12.0.10A.32"></script>
+<script src="js/legalizacao/legalizacao.js?v=RC12.0.10A.32"></script>
     <script src="js/core/autorizacao.js?v=RC12.0.10A.9"></script>
 <script src="js/analytics/dashboard.js?v=RC7.4.4-PERFORMANCE"></script>
 <script src="js/cio/cio-bootstrap.js?v=RC7.4.1"></script>
