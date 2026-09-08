@@ -36,7 +36,7 @@
 <link rel="stylesheet" href="css/reports.css?v=RC6.6.2"/>
 <link rel="stylesheet" href="css/popup-prazos-login.css?v=RC10.8.20">
 <link rel="stylesheet" href="css/gestao-territorial.css?v=RC11.3.19B">
-<link rel="stylesheet" href="css/legalizacao.css?v=RC12.0.10A.36.3.3">
+<link rel="stylesheet" href="css/legalizacao.css?v=RC12.0.10A.36.3.8">
 </head>
 <body class="bg-gray-100 font-sans text-gray-800 font-normal">
 <div class="min-h-screen flex items-center justify-center bg-blue-900 px-4" id="tela-login">
@@ -170,20 +170,22 @@
         <div class="leg-operacional-grid">
           <label class="span-2">Instituição<input id="leg-cred-inst-busca" type="search" autocomplete="off" placeholder="Digite nome, INEP, município ou COD SEC"><input id="leg-cred-instituicao-id" name="instituicao_id" type="hidden"><div id="leg-cred-inst-resultados" class="leg-search-results hidden"></div></label>
           <label>Procedimento<select name="subtipo"><option value="CREDENCIAMENTO">Credenciamento</option><option value="RECREDENCIAMENTO">Recredenciamento</option></select></label>
-          <div class="span-2 leg-callout compact"><div><strong>Processo SEI ainda não é informado nesta etapa.</strong><p>O número do Processo SEI será registrado somente após o recebimento e encaminhamento da documentação necessária.</p></div></div>
+          <div class="span-2 leg-callout compact"><div><strong>Processo SEI obrigatório desde a abertura.</strong><p>Todo ato regulatório deve nascer vinculado ao respectivo Processo SEI. Esse número acompanhará o procedimento, a inspeção e o ato legal até a publicação.</p></div></div>
+          <label>Processo SEI *<input name="numero_sei" required placeholder="00000.000000/0000-00"></label>
+          <label>Data do protocolo *<input name="data_protocolo" type="date" required></label>
           <label>Prazo da etapa documental<input name="prazo_etapa" type="date"></label>
           <label>Situação do imóvel *<select name="situacao_imovel" required><option value="">Selecione</option><option value="PROPRIO">Próprio</option><option value="ALUGADO">Alugado</option></select></label>
           <div class="span-2 leg-oferta-config"><div class="leg-oferta-config-head"><div><strong>Mantenedora</strong><span>Informações vinculadas ao credenciamento da instituição.</span></div></div><div class="leg-operacional-grid"><label class="span-2">Razão social *<input name="mantenedora_razao_social" required></label><label>CNPJ *<input name="mantenedora_cnpj" required inputmode="numeric"></label><label>Representante legal *<input name="mantenedora_representante" required></label><label>WhatsApp *<input name="mantenedora_whatsapp" required inputmode="numeric"></label><label>E-mail *<input name="mantenedora_email" type="email" required></label><label>Município *<input name="mantenedora_municipio" required></label></div></div>
           <label class="span-2">Observação<textarea name="observacao" rows="2" placeholder="Informação inicial do procedimento, se necessária"></textarea></label>
         </div>
-        <div class="leg-operacional-actions"><span id="leg-cred-form-status">Selecione a instituição para iniciar a etapa documental. O Processo SEI será informado posteriormente.</span><div><button type="button" class="leg-btn" id="leg-cancelar-credenciamento">Cancelar</button><button type="submit" class="leg-btn primary">Abrir procedimento</button></div></div>
+        <div class="leg-operacional-actions"><span id="leg-cred-form-status">Selecione a instituição e informe o Processo SEI para abrir o ato regulatório.</span><div><button type="button" class="leg-btn" id="leg-cancelar-credenciamento">Cancelar</button><button type="submit" class="leg-btn primary">Abrir procedimento</button></div></div>
       </form>
       <div class="leg-list" id="legalizacao-reg-processos"><div class="leg-empty"><strong>Aguardando carregamento...</strong></div></div></div></div>
     <div class="leg-reg-panel hidden" data-reg-panel="alteracao"><div class="leg-panel"><header class="leg-panel-head"><div><h2>Alteração Cadastral</h2><p>Procedimentos formais de mudança cadastral. Quando houver necessidade de verificação in loco, a inspeção de manutenção é vinculada a este procedimento.</p></div><div class="leg-filter-row"><button type="button" class="leg-btn primary" id="leg-nova-alteracao">+ Nova alteração cadastral</button></div></header>
       <form id="leg-form-nova-alteracao" class="leg-operacional-form hidden"><div class="leg-operacional-grid">
         <label class="span-2">Instituição<input id="leg-alt-inst-busca" type="search" autocomplete="off" placeholder="Digite nome, INEP, município ou COD SEC"><input id="leg-alt-instituicao-id" name="instituicao_id" type="hidden"><div id="leg-alt-inst-resultados" class="leg-search-results hidden"></div></label>
         <label>Tipo de alteração<select name="subtipo" required><option value="ENDERECO">Mudança de endereço</option><option value="DENOMINACAO">Mudança de denominação</option><option value="MANTENEDORA">Alteração de mantenedora</option><option value="RESPONSAVEIS">Alteração de responsáveis</option><option value="OUTRA">Outra alteração cadastral</option></select></label>
-        <label>Processo SEI<input name="numero_sei" placeholder="00000.000000/0000-00"></label><label>Data do protocolo<input name="data_protocolo" type="date"></label><label>Prazo da etapa<input name="prazo_etapa" type="date"></label>
+        <label>Processo SEI *<input name="numero_sei" required placeholder="00000.000000/0000-00"></label><label>Data do protocolo *<input name="data_protocolo" type="date" required></label><label>Prazo da etapa<input name="prazo_etapa" type="date"></label>
         <label class="span-2">Descrição da alteração<textarea name="observacao" rows="3" required placeholder="Descreva a alteração solicitada"></textarea></label>
       </div><div class="leg-operacional-actions"><span id="leg-alt-form-status">Selecione a instituição e descreva a alteração.</span><div><button type="button" class="leg-btn" id="leg-cancelar-alteracao">Cancelar</button><button type="submit" class="leg-btn primary">Abrir procedimento</button></div></div></form>
       <div class="leg-list" id="legalizacao-reg-alteracao"><div class="leg-empty"><strong>Aguardando carregamento...</strong></div></div></div></div>
@@ -206,7 +208,9 @@
         <div class="leg-operacional-grid">
           <label class="span-2">Instituição<input id="leg-oferta-inst-busca" type="search" autocomplete="off" placeholder="Digite nome, INEP, município ou COD SEC"><input id="leg-oferta-instituicao-id" name="instituicao_id" type="hidden"><div id="leg-oferta-inst-resultados" class="leg-search-results hidden"></div></label>
           <label>Procedimento<select name="subtipo" required><option value="AUTORIZACAO">Autorização</option><option value="RENOVACAO">Renovação</option><option value="RECONHECIMENTO">Reconhecimento</option><option value="RENOVACAO_RECONHECIMENTO">Renovação de reconhecimento</option></select></label>
-          <div class="span-2 leg-callout compact"><div><strong>Processo SEI na última etapa</strong><p>O procedimento começa pela instrução documental. O número SEI será informado somente após a documentação, análise e inspeção aplicável.</p></div></div>
+          <div class="span-2 leg-callout compact"><div><strong>Processo SEI obrigatório desde a abertura.</strong><p>Autorização, renovação e reconhecimento devem iniciar já vinculados ao Processo SEI correspondente.</p></div></div>
+          <label>Processo SEI *<input name="numero_sei" required placeholder="00000.000000/0000-00"></label>
+          <label>Data do protocolo *<input name="data_protocolo" type="date" required></label>
           <label>Prazo da etapa<input name="prazo_etapa" type="date"></label>
           <div class="span-2 leg-oferta-config" id="leg-autorizacao-dados"><div class="leg-oferta-config-head"><div><strong>Dados da autorização</strong><span>Obrigatórios na abertura de procedimento de Autorização.</span></div></div><div class="leg-operacional-grid"><label>Ano-base *<input name="ano_base_matriculas" type="number" min="1900" max="2200"></label><div></div><fieldset><legend>Diretor</legend><label>Nome *<input name="diretor_nome"></label><label>CPF *<input name="diretor_cpf" inputmode="numeric"></label><label>WhatsApp *<input name="diretor_whatsapp" inputmode="numeric"></label><label>E-mail *<input name="diretor_email" type="email"></label></fieldset><fieldset><legend>Secretário(a)</legend><label>Nome *<input name="secretario_nome"></label><label>CPF *<input name="secretario_cpf" inputmode="numeric"></label><label>WhatsApp *<input name="secretario_whatsapp" inputmode="numeric"></label><label>E-mail *<input name="secretario_email" type="email"></label></fieldset></div></div>
           <div class="span-2 leg-oferta-config"><div class="leg-oferta-config-head"><div><strong>Etapas, modalidades ou cursos</strong><span>Selecione uma ou mais ofertas para este procedimento regulatório.</span></div></div><div id="leg-oferta-catalogo" class="leg-oferta-catalogo"><div class="leg-empty compact"><strong>Abra o formulário para carregar o catálogo.</strong></div></div></div>
@@ -984,8 +988,8 @@ window.filtrarTabelaUsuariosSIGEE = function (termo) {
 <script src="js/territorial/territorial-pesquisa.js?v=GT-05.2.4"></script>
 <script src="js/territorial/territorial-bootstrap.js?v=RC11.3.16"></script>
 
-<script src="js/legalizacao/legalizacao.service.js?v=RC12.0.10A.36.3.7.5"></script>
-<script src="js/legalizacao/legalizacao.js?v=RC12.0.10A.36.3.7.5"></script>
+<script src="js/legalizacao/legalizacao.service.js?v=RC12.0.10A.36.3.8"></script>
+<script src="js/legalizacao/legalizacao.js?v=RC12.0.10A.36.3.8"></script>
     <script src="js/core/autorizacao.js?v=RC12.0.10A.9"></script>
 <script src="js/analytics/dashboard.js?v=RC7.4.4-PERFORMANCE"></script>
 <script src="js/cio/cio-bootstrap.js?v=RC7.4.1"></script>
