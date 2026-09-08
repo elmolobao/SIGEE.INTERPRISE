@@ -1,4 +1,4 @@
-/** SIGEE Enterprise RC12.0.10A.27 — Gestão do acompanhamento de irregularidades. */
+/** SIGEE Enterprise RC12.0.10A.36.3.1 — Correção de bootstrap do Controle Regulatório. */
 (function(window,document){
 'use strict';
 if(window.__SIGEE_LEGALIZACAO_RC1210A21__)return;window.__SIGEE_LEGALIZACAO_RC1210A21__=true;
@@ -215,6 +215,65 @@ function bindRegInspecoes(host){
   host?.querySelectorAll('[data-reg-realizar]').forEach(btn=>btn.addEventListener('click',async()=>{if(btn.disabled)return;const r=btn.closest('[data-reg-inspecao-id]'),d=r?.querySelector('[data-reg-inspecao-data]')?.value||new Date().toISOString().slice(0,10);if(!confirm(`Registrar a realização da inspeção em ${fmtDate(d)} e liberar o checklist?`))return;try{await svc.registrarRealizacaoInspecao(r.dataset.regInspecaoId,d);await carregarRegulatorio('inspecao',true);}catch(err){alert(err.message||err);}}));
   host?.querySelectorAll('[data-reg-inspecao-save]').forEach(btn=>btn.addEventListener('click',async()=>{if(btn.disabled)return;const r=btn.closest('[data-reg-inspecao-item-id]');try{await svc.atualizarItemInspecao(r.dataset.regInspecaoItemId,{resultado:r.querySelector('[data-reg-inspecao-resultado]').value,observacao:r.querySelector('[data-reg-inspecao-obs]').value,orientacao:r.querySelector('[data-reg-inspecao-orientacao]').value});await carregarRegulatorio('inspecao',true);}catch(err){alert(err.message||err);}}));
   host?.querySelectorAll('[data-reg-concluir-inspecao]').forEach(btn=>btn.addEventListener('click',async()=>{const r=btn.closest('[data-reg-inspecao-id]'),resultado=r.querySelector('[data-reg-resultado-global]')?.value,parecer=r.querySelector('[data-reg-relatorio-tecnico]')?.value?.trim();if(!resultado){alert('Informe a conclusão técnica da inspeção.');return;}if(!parecer){alert('Registre o parecer final da inspeção.');return;}if(!confirm('Concluir a inspeção e encaminhar o procedimento para Análise técnica pós-inspeção?'))return;btn.disabled=true;try{await svc.concluirInspecao(r.dataset.regInspecaoId,{resultado_global:resultado,relatorio_tecnico:parecer});await carregarRegulatorio('inspecao',true);regTabsCarregadas.delete('credenciamento');regTabsCarregadas.delete('ofertas');}catch(err){alert(err.message||err);btn.disabled=false;}}));
+}
+async function carregarRegulatorio(tab=null,force=false){
+  const svc=window.SIGEE_LEGALIZACAO_SERVICE;
+  tab=tab||$$('[data-reg-tab].active')[0]?.dataset.regTab||'credenciamento';
+  if(tab==='atos'){await carregarAtosImportados();return;}if(tab==='atoslegais'){const host=$('#legalizacao-reg-atos-legais');if(!host)return;host.innerHTML='<div class="leg-loading">Carregando atos publicados…</div>';try{const atos=await svc.listarAtosHistoricosControle(force);host.innerHTML=atos.length?`<div class="leg-subcard"><h4>Publicações oficiais</h4><p class="leg-help">Somente publicações confirmadas no Diário Oficial consolidam a situação regulatória oficial.</p><div class="leg-simple-list">${atos.map(a=>`<article><div><strong>${esc(a.instituicao?.nome_instituicao||'Instituição')}</strong><span>${esc(a.ato||a.tipo_ato||'Ato legal')}${a.numero_ato?' nº '+esc(a.numero_ato):''}</span><small>Diário Oficial · publicação ${fmtDate(a.data_publicacao)}${a.numero_processo?' · Processo '+esc(a.numero_processo):''}</small></div><span class="leg-badge ok">PUBLICADO</span></article>`).join('')}</div></div>`:'<div class="leg-empty compact"><strong>Nenhum ato legal publicado localizado.</strong><span>Os atos concluídos permanecerão aguardando publicação até o registro do Diário Oficial.</span></div>';}catch(err){host.innerHTML=`<div class="leg-empty danger"><strong>Falha ao carregar Atos Legais.</strong><span>${esc(err.message||err)}</span></div>`;}return;}
+  if(force){regTabsCarregadas.delete(tab);atosControleCache=null;}
+  if(regTabsCarregadas.has(tab)&&!force)return;
+  const hosts={credenciamento:'#legalizacao-reg-processos',ofertas:'#legalizacao-reg-ofertas',inspecao:'#legalizacao-reg-inspecoes',carimbos:'#legalizacao-reg-carimbos',alteracao:'#legalizacao-reg-alteracao',descredenciamento:'#legalizacao-reg-descredenciamento'};
+  const host=$(hosts[tab]||'');
+  if(!host)return;
+  const labels={credenciamento:'procedimentos',ofertas:'ofertas e procedimentos',inspecao:'inspeções regulatórias',carimbos:'carteiras funcionais',alteracao:'alterações cadastrais',descredenciamento:'descredenciamentos'};
+  host.innerHTML=`<div class="leg-loading">Carregando ${labels[tab]||'dados'}…</div>`;
+  try{
+    if(!svc)throw new Error('Serviço da Legalização não foi carregado. Atualize a página.');
+    let historicos=[];
+    const carregarHistoricos=async()=>{
+      try{
+        const h=atosControleCache||await svc.listarAtosHistoricosControle(force);
+        atosControleCache=h||[];
+        return atosControleCache;
+      }catch(err){
+        console.warn('[Legalização] histórico regulatório indisponível',err);
+        return [];
+      }
+    };
+    if(tab==='credenciamento'){
+      if(typeof svc.listarProcessosRegulatorios!=='function')throw new Error('Serviço de Credenciamento indisponível.');
+      const lista=await svc.listarProcessosRegulatorios();
+      historicos=await carregarHistoricos();
+      renderRegProcessos(lista||[],historicosControle('REGULACAO'));bindProcedimentosRegulatorios($('#legalizacao-reg-processos'));
+    }else if(tab==='ofertas'){
+      if(typeof svc.listarOfertasRegulatorias!=='function'||typeof svc.listarProcessosOfertaRegulatorios!=='function')throw new Error('Serviço de Ofertas / Cursos indisponível.');
+      const [lista,processos]=await Promise.all([svc.listarOfertasRegulatorias(),svc.listarProcessosOfertaRegulatorios()]);
+      historicos=await carregarHistoricos();
+      renderRegOfertas(lista||[],historicosControle('OFERTA'),processos||[]);
+    }else if(tab==='inspecao'){
+      if(typeof svc.listarInspecoesRegulatorias!=='function')throw new Error('Serviço de Inspeção Regulatória indisponível.');
+      const lista=await svc.listarInspecoesRegulatorias();
+      renderRegInspecoes(lista||[]);
+    }else if(tab==='carimbos'){
+      if(typeof svc.listarCarimbosRegulatorios!=='function')throw new Error('Serviço de Carteira Funcional indisponível.');
+      const lista=await svc.listarCarimbosRegulatorios();
+      historicos=await carregarHistoricos();
+      renderRegCarimbos(lista||[],historicosControle('RESPONSAVEIS'));
+    }else if(tab==='alteracao'){
+      if(typeof svc.listarAlteracoesCadastrais!=='function')throw new Error('Serviço de Alteração Cadastral indisponível.');
+      const lista=await svc.listarAlteracoesCadastrais();
+      renderRegAlteracoes(lista||[]);
+    }else if(tab==='descredenciamento'){
+      if(typeof svc.listarDescredenciamentosRegulatorios!=='function')throw new Error('Serviço de Descredenciamento indisponível.');
+      const lista=await svc.listarDescredenciamentosRegulatorios();
+      renderRegDescredenciamentos(lista||[]);
+    }else return;
+    regTabsCarregadas.add(tab);
+  }catch(err){
+    console.error('[Legalização] falha ao carregar aba regulatória',tab,err);
+    host.innerHTML=`<div class="leg-empty danger"><strong>Falha ao carregar ${esc(labels[tab]||'o controle regulatório')}.</strong><span>${esc(err.message||err)}</span><button type="button" class="leg-link" data-reg-retry="${esc(tab)}">Tentar novamente</button></div>`;
+    host.querySelector('[data-reg-retry]')?.addEventListener('click',()=>carregarRegulatorio(tab,true));
+  }
 }
 function montarCentralPendencias(base){const porInst=new Map();for(const a of (base?.atos||[])){const k=String(a.instituicao_id||'');if(!k)continue;if(!porInst.has(k))porInst.set(k,[]);porInst.get(k).push(a);}return (base?.instituicoes||[]).map(inst=>{const atos=porInst.get(String(inst.prontuario_id||''))||[],diagnostico=diagnosticoInstitucionalDados(inst,atos);return{instituicao:inst,atos,diagnostico};});}
 function preencherFiltrosPendencias(){if(!pendenciasCache)return;const nte=$('#leg-pend-nte'),mun=$('#leg-pend-municipio'),tipo=$('#leg-pend-tipo');const manter=(el,html)=>{if(!el)return;const atual=el.value;el.innerHTML=html;if([...el.options].some(o=>o.value===atual))el.value=atual;};const ntes=[...new Set(pendenciasCache.map(x=>String(x.instituicao.nte_id||'')).filter(Boolean))].sort((a,b)=>Number(a)-Number(b));manter(nte,'<option value="">Todos os NTEs</option>'+ntes.map(x=>`<option value="${esc(x)}">NTE ${esc(x)}</option>`).join(''));const municipios=[...new Set(pendenciasCache.map(x=>String(x.instituicao.municipio||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));manter(mun,'<option value="">Todos os municípios</option>'+municipios.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join(''));const tipos=new Map();for(const x of pendenciasCache)for(const item of x.diagnostico.itens)tipos.set(item.codigo,item.titulo);manter(tipo,'<option value="">Todos os tipos de pendência</option>'+[...tipos.entries()].sort((a,b)=>a[1].localeCompare(b[1],'pt-BR')).map(([k,v])=>`<option value="${esc(k)}">${esc(v)}</option>`).join(''));}
