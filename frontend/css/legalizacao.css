@@ -87,3 +87,12 @@
 @media(max-width:900px){#leg-form-inspecao-irregularidade .leg-checklist-box{grid-template-columns:1fr!important}}
 /* RC12.0.10A.27 — gestão visual do acompanhamento de irregularidades */
 .leg-irreg-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px}.leg-irreg-kpis>div{border:1px solid #dfe8f2;border-radius:12px;padding:12px 14px;background:#fbfdff;display:flex;flex-direction:column}.leg-irreg-kpis strong{font-size:22px;color:#173a63}.leg-irreg-kpis span{font-size:10px;color:#64748b}.leg-irreg-stepper{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0 18px}.leg-irreg-stepper>div{border:1px solid #dfe7ef;border-radius:10px;padding:10px;display:flex;align-items:center;gap:8px;color:#64748b}.leg-irreg-stepper b{width:25px;height:25px;border-radius:999px;background:#e8eef5;display:grid;place-items:center;font-size:10px}.leg-irreg-stepper span{font-size:10px;font-weight:800}.leg-irreg-stepper .done{border-color:#bbf7d0;background:#f0fdf4;color:#166534}.leg-irreg-stepper .done b{background:#dcfce7}.leg-irreg-stepper .current{border-color:#bfdbfe;background:#eff6ff;color:#1d4ed8}.leg-irreg-stepper .current b{background:#dbeafe}@media(max-width:900px){.leg-irreg-kpis,.leg-irreg-stepper{grid-template-columns:1fr 1fr}}
+
+/* RC12.0.10A.36.3.2 — bloqueio visual/estrutural do checklist da inspeção regulatória */
+.leg-inspecao-checklist-lock{border:0;margin:0;padding:0;min-width:0}
+.leg-inspecao-checklist-lock.is-locked{position:relative;opacity:.58;filter:grayscale(.18)}
+.leg-inspecao-checklist-lock.is-locked .leg-inspecao-itens{pointer-events:none;user-select:none}
+.leg-inspecao-checklist-lock.is-locked select,.leg-inspecao-checklist-lock.is-locked input,.leg-inspecao-checklist-lock.is-locked button{cursor:not-allowed!important;background:#f1f5f9!important;color:#94a3b8!important;border-color:#d7e0ea!important;box-shadow:none!important}
+.leg-inspecao-checklist-lock:disabled{opacity:.58}
+.leg-inspecao-checklist-lock:disabled .leg-inspecao-itens{pointer-events:none}
+.sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
