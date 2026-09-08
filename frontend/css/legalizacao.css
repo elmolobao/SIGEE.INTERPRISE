@@ -96,3 +96,21 @@
 .leg-inspecao-checklist-lock:disabled{opacity:.58}
 .leg-inspecao-checklist-lock:disabled .leg-inspecao-itens{pointer-events:none}
 .sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
+/* RC12.0.10A.36.3.3 — checklist da inspeção regulatória recolhido por padrão */
+.leg-inspecao-checklist-details{margin-top:14px;border:1px solid #d7e0ea;border-radius:14px;background:#fff;overflow:hidden}
+.leg-inspecao-checklist-details>summary{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 16px;cursor:pointer;list-style:none;background:#f8fafc;color:#0f3768}
+.leg-inspecao-checklist-details>summary::-webkit-details-marker{display:none}
+.leg-inspecao-checklist-details>summary span:first-child{display:flex;flex-direction:column;gap:2px}
+.leg-inspecao-checklist-details>summary small{font-size:12px;font-weight:500;color:#64748b}
+.leg-checklist-toggle-label{font-size:12px;font-weight:800;color:#1d4ed8;white-space:nowrap}
+.leg-inspecao-checklist-details[open]>summary{border-bottom:1px solid #e2e8f0}
+.leg-checklist-details-body{padding:14px 16px 18px}
+/* RC12.0.10A.36.3.3 — checklist da inspeção regulatória recolhido por padrão */
+.leg-inspecao-checklist-details{margin-top:14px;border:1px solid #d7e0ea;border-radius:14px;background:#fff;overflow:hidden}
+.leg-inspecao-checklist-details>summary{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 16px;cursor:pointer;list-style:none;background:#f8fafc;color:#0f3768}
+.leg-inspecao-checklist-details>summary::-webkit-details-marker{display:none}
+.leg-inspecao-checklist-details>summary span:first-child{display:flex;flex-direction:column;gap:2px}
+.leg-inspecao-checklist-details>summary small{font-size:12px;font-weight:500;color:#64748b}
+.leg-checklist-toggle-label{font-size:12px;font-weight:800;color:#1d4ed8;white-space:nowrap}
+.leg-inspecao-checklist-details[open]>summary{border-bottom:1px solid #e2e8f0}
+.leg-checklist-details-body{padding:14px 16px 18px}
