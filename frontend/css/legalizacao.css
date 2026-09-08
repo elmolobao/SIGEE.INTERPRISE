@@ -121,3 +121,6 @@
 .leg-reagendamento-form label{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:700;color:#17365d}
 .leg-reagendamento-form label.grow{flex:1;min-width:260px}
 .leg-reagendamento-form input{min-height:38px;border:1px solid #cbd8ea;border-radius:9px;padding:7px 10px;background:#fff;color:#102a43}
+
+/* RC12.0.10A.36.3.8 — referência SEI sempre à vista na inspeção regulatória */
+.leg-sei-ref{display:inline-flex;flex-direction:column;gap:2px;margin-top:8px;padding:7px 10px;border:1px solid #bfd3ee;border-radius:9px;background:#f4f8ff;color:#123d72}.leg-sei-ref small{font-size:10px;font-weight:800;letter-spacing:.06em}.leg-sei-ref strong{font-size:14px;letter-spacing:.02em}
