@@ -114,3 +114,10 @@
 .leg-checklist-toggle-label{font-size:12px;font-weight:800;color:#1d4ed8;white-space:nowrap}
 .leg-inspecao-checklist-details[open]>summary{border-bottom:1px solid #e2e8f0}
 .leg-checklist-details-body{padding:14px 16px 18px}
+
+/* RC12.0.10A.36.3.6 — alteração auditável da data da inspeção */
+.leg-reagendamento-form{display:flex;align-items:end;gap:10px;flex-wrap:wrap;width:100%;margin-top:8px;padding:12px;border:1px solid #d9e2ef;border-radius:12px;background:#f8fbff}
+.leg-reagendamento-form.hidden{display:none!important}
+.leg-reagendamento-form label{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:700;color:#17365d}
+.leg-reagendamento-form label.grow{flex:1;min-width:260px}
+.leg-reagendamento-form input{min-height:38px;border:1px solid #cbd8ea;border-radius:9px;padding:7px 10px;background:#fff;color:#102a43}
