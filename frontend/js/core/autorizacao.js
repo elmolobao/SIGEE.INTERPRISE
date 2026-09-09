@@ -60,6 +60,7 @@ const MENU_LEGALIZACAO = Object.freeze([
 
 const MENU_GESTAO_TERRITORIAL = Object.freeze([
   { id:'menu-gestao-territorial', rota:'gestao-territorial', icone:'🗺️', rotulo:'Visão Geral Territorial', capacidade:'gestao_territorial.gerenciar', perfis:['Master'] },
+  { id:'menu-tecnicos-territorial', rota:'tecnicos-territorial', icone:'👥', rotulo:'Técnicos', capacidade:null, perfis:['Master','SEC'], escopo:'GLOBAL' },
   { id:'menu-solicitacoes-apoio-master', rota:'solicitacao-apoio-territorial', icone:'🆘', rotulo:'Solicitações de Apoio', capacidade:'processos.visualizar', perfis:['Master'], escopo:'GLOBAL', modulo:'ESCOLAS_EXTINTAS' },
   { id:'menu-plano-acao-territorial', rota:'plano-acao-territorial', icone:'✅', rotulo:'Plano de Ação', capacidade:'processos.visualizar', perfis:['Gestor','Administrador','Atendimento','Estagiário','Consulta'], escopo:'NTE', modulo:'ESCOLAS_EXTINTAS' }
 ]);
@@ -152,6 +153,7 @@ function criarBotao(item, classeExtra=''){
   if(item.id==='menu-plano-acao-tecnico'){
     const badge=document.createElement('span');badge.className='sigee-menu-alerta hidden';badge.dataset.planoAcaoAlerta='true';badge.setAttribute('aria-hidden','true');botao.appendChild(badge);
   }
+  if(item.id==='menu-tecnicos-territorial'){const badge=document.createElement('span');badge.className='sigee-menu-alerta hidden';badge.dataset.tecnicosAlerta='true';badge.setAttribute('aria-hidden','true');botao.appendChild(badge);}
   if(item.id==='menu-solicitacao-apoio-tecnico'||item.id==='menu-solicitacoes-apoio-master'){
     const badge=document.createElement('span');badge.className='sigee-menu-alerta hidden';badge.dataset.apoioAlerta='true';badge.setAttribute('aria-hidden','true');botao.appendChild(badge);
   }
@@ -314,6 +316,13 @@ async function atualizarAlertaApoio(force=false){
   }catch(err){console.warn('[Menu] alerta de Apoio Territorial indisponível:',err?.message||err);badge.textContent='!';badge.classList.remove('hidden','sem-pendencia');badge.classList.add('indisponivel');badge.setAttribute('aria-hidden','false');}
 }
 
+async function atualizarAlertaTecnicos(force=false){
+  const p=perfil(usuario()); if(!['Master','SEC'].includes(p))return;
+  const botao=document.getElementById('menu-tecnicos-territorial'),badge=botao?.querySelector('[data-tecnicos-alerta]'); if(!botao||!badge)return;
+  try{const total=Number(await window.SIGEE_TERRITORIAL_TECNICOS_SERVICE?.contarNovos?.()||0);badge.textContent=total>99?'99+':String(total);badge.classList.remove('hidden','indisponivel');badge.classList.toggle('sem-pendencia',total===0);badge.setAttribute('aria-hidden','false');botao.title=total?`${total} novo(s) cadastro(s) de técnico aguardando conferência`:'Nenhum novo cadastro de técnico';}
+  catch(err){console.warn('[Menu] alerta de Técnicos indisponível:',err?.message||err);badge.textContent='!';badge.classList.remove('hidden','sem-pendencia');badge.classList.add('indisponivel');}
+}
+
 function criarGrupoAdministrativo(itens){
   const grupo=document.createElement('div');
   grupo.id='menu-administrativo-grupo';
@@ -344,7 +353,7 @@ function definirGrupoAberto(id, aberto){
 function sincronizarContextoMenu(rota){
   const chave=String(rota||'').trim();
   const legalizacao = chave==='legalizacao';
-  const territorial = chave==='gestao-territorial' || chave==='plano-acao-territorial' || chave==='solicitacao-apoio-territorial';
+  const territorial = chave==='gestao-territorial' || chave==='plano-acao-territorial' || chave==='solicitacao-apoio-territorial' || chave==='tecnicos-territorial';
   const extintas = territorial || ['processos','escolas','painel','relatorios','sala-situacao','centro-inteligencia','nova-solicitacao'].includes(chave);
   if(legalizacao){
     definirGrupoAberto('menu-modulo-legalizacao',true);
@@ -492,12 +501,14 @@ function renderizarMenu(){
     aplicarControlesDaInterface();
     atualizarAlertaPlanoAcao(false);
     atualizarAlertaApoio(false);
+    atualizarAlertaTecnicos(false);
     return true;
   }
   instalando = true;
   const fragment=document.createDocumentFragment();
   if(legalizacao.length) fragment.appendChild(criarGrupoModulo({id:'menu-modulo-legalizacao',icone:'⚖️',rotulo:'Legalização Escolar',itens:legalizacao,modulo:'LEGALIZACAO',aberto:false}));
   if(extintas.length) fragment.appendChild(criarGrupoExtintas(extintas,territorial));
+  else territorial.forEach(item=>fragment.appendChild(criarBotao(item,'sigee-menu-item-principal')));
   destaques.forEach(item=>fragment.appendChild(criarBotao(item,'sigee-menu-item-principal')));
   if(administrativos.length) fragment.appendChild(criarGrupoAdministrativo(administrativos));
   nav.replaceChildren(fragment);
@@ -508,6 +519,7 @@ function renderizarMenu(){
   aplicarControlesDaInterface();
   atualizarAlertaPlanoAcao(false);
   atualizarAlertaApoio(false);
+  atualizarAlertaTecnicos(false);
   return true;
 }
 function atualizarIdentidade(){
@@ -675,6 +687,11 @@ function navegarPara(rota, opcoes={}){
     return false;
   }
 
+  if (rota === 'tecnicos-territorial') {
+    if(window.SIGEE_TERRITORIAL_TECNICOS?.abrir) return window.SIGEE_TERRITORIAL_TECNICOS.abrir();
+    alert('O Cadastro de Técnicos ainda não concluiu o carregamento.'); return false;
+  }
+
   if (rota === 'gestao-territorial') {
     if(window.SIGEE_GESTAO_TERRITORIAL?.abrir) return window.SIGEE_GESTAO_TERRITORIAL.abrir();
     alert('A Central de Gestão Territorial ainda não concluiu o carregamento.');
@@ -811,9 +828,11 @@ window.addEventListener('sigee:login-concluido', () => {
 });
 document.addEventListener('sigee:gt-plano-acao-atualizado',()=>{alertaPlanoCache={valor:null,em:0};atualizarAlertaPlanoAcao(true);});
 document.addEventListener('sigee:gt-apoio-atualizado',()=>{alertaApoioCache={valor:null,em:0};atualizarAlertaApoio(true);});
+document.addEventListener('sigee:gt-tecnicos-novo',(event)=>{atualizarAlertaTecnicos(true); const nome=event?.detail?.nome_completo||'Novo técnico'; if(window.SIGEE_TERRITORIAL_TECNICOS_SERVICE?.autorizado?.()) setTimeout(()=>alert(`Novo cadastro de técnico recebido: ${nome}`),50);});
+document.addEventListener('sigee:gt-tecnicos-atualizado',()=>atualizarAlertaTecnicos(true));
 window.addEventListener('load', () => setTimeout(iniciar, 50));
 
-window.SIGEE_AUTORIZACAO = Object.freeze({
+window.SIGEE_AUTORIZACAO = Object.freeze({atualizarAlertaTecnicos,
   usuario, perfil, pode, rotaCanonica, capacidadeRota, autorizarRota,
   aplicarMenus:renderizarMenu, renderizarMenu, primeiraRota, aplicarRotaInicialForcada,
   navegarPara, garantirRotaVisivel, protegerNavegacao:instalarNavegacao, instalarLogin,
