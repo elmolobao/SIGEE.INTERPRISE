@@ -60,6 +60,7 @@ const MENU_LEGALIZACAO = Object.freeze([
 
 const MENU_GESTAO_TERRITORIAL = Object.freeze([
   { id:'menu-gestao-territorial', rota:'gestao-territorial', icone:'🗺️', rotulo:'Visão Geral Territorial', capacidade:'gestao_territorial.gerenciar', perfis:['Master'] },
+  { id:'menu-solicitacoes-apoio-master', rota:'solicitacao-apoio-territorial', icone:'🆘', rotulo:'Solicitações de Apoio', capacidade:'processos.visualizar', perfis:['Master'], escopo:'GLOBAL', modulo:'ESCOLAS_EXTINTAS' },
   { id:'menu-plano-acao-territorial', rota:'plano-acao-territorial', icone:'✅', rotulo:'Plano de Ação', capacidade:'processos.visualizar', perfis:['Gestor','Administrador','Atendimento','Estagiário','Consulta'], escopo:'NTE', modulo:'ESCOLAS_EXTINTAS' }
 ]);
 
@@ -151,7 +152,7 @@ function criarBotao(item, classeExtra=''){
   if(item.id==='menu-plano-acao-tecnico'){
     const badge=document.createElement('span');badge.className='sigee-menu-alerta hidden';badge.dataset.planoAcaoAlerta='true';badge.setAttribute('aria-hidden','true');botao.appendChild(badge);
   }
-  if(item.id==='menu-solicitacao-apoio-tecnico'){
+  if(item.id==='menu-solicitacao-apoio-tecnico'||item.id==='menu-solicitacoes-apoio-master'){
     const badge=document.createElement('span');badge.className='sigee-menu-alerta hidden';badge.dataset.apoioAlerta='true';badge.setAttribute('aria-hidden','true');botao.appendChild(badge);
   }
   botao.addEventListener('click', () => {
@@ -295,12 +296,21 @@ async function atualizarAlertaPlanoAcao(force=false){
 
 
 async function atualizarAlertaApoio(force=false){
-  if(perfil(usuario())!=='Técnico')return;
-  const botao=document.getElementById('menu-solicitacao-apoio-tecnico'),badge=botao?.querySelector('[data-apoio-alerta]');if(!botao||!badge)return;
+  const p=perfil(usuario());
+  if(!['Técnico','Master'].includes(p))return;
+  const id=p==='Master'?'menu-solicitacoes-apoio-master':'menu-solicitacao-apoio-tecnico';
+  const botao=document.getElementById(id),badge=botao?.querySelector('[data-apoio-alerta]');if(!botao||!badge)return;
   try{
     const agora=Date.now();let total=alertaApoioCache.valor;
     if(force||total==null||agora-alertaApoioCache.em>60000){total=await window.SIGEE_TERRITORIAL_APOIO_SERVICE?.contarPendentes?.();alertaApoioCache={valor:Number(total||0),em:agora};}
-    total=Number(total||0);badge.textContent=total>99?'99+':String(total);badge.classList.remove('hidden','indisponivel');badge.classList.toggle('sem-pendencia',total===0);badge.setAttribute('aria-hidden','false');botao.title=total?`${total} orientação(ões) aguardando sua ciência`:'Nenhuma orientação nova aguardando ciência';
+    total=Number(total||0);badge.textContent=total>99?'99+':String(total);badge.classList.remove('hidden','indisponivel');badge.classList.toggle('sem-pendencia',total===0);badge.setAttribute('aria-hidden','false');
+    if(p==='Master'){
+      botao.title=total?`${total} solicitação(ões) de apoio em aberto para a Gestão Master`:'Nenhuma solicitação de apoio em aberto';
+      botao.setAttribute('aria-label',total?`Solicitações de Apoio, ${total} em aberto`:'Solicitações de Apoio, nenhuma em aberto');
+    }else{
+      botao.title=total?`${total} orientação(ões) aguardando sua ciência`:'Nenhuma orientação nova aguardando ciência';
+      botao.setAttribute('aria-label',total?`Solicitar Apoio, ${total} orientação(ões) aguardando ciência`:'Solicitar Apoio, nenhuma orientação aguardando ciência');
+    }
   }catch(err){console.warn('[Menu] alerta de Apoio Territorial indisponível:',err?.message||err);badge.textContent='!';badge.classList.remove('hidden','sem-pendencia');badge.classList.add('indisponivel');badge.setAttribute('aria-hidden','false');}
 }
 
@@ -468,7 +478,7 @@ function renderizarMenu(){
   const destaques = MENU_DESTAQUES.filter(item => itemPermitido(item, u));
   const territorial = MENU_GESTAO_TERRITORIAL.filter(item => itemPermitido(item, u));
   const administrativos = MENU_ADMIN.filter(item => itemPermitido(item, u));
-  const assinatura = `RC12.0.10A.36.3.14|${perfil(u)}|LEG:${legalizacao.map(i=>i.id).join(',')}|EXT:${extintas.map(i=>i.id).join(',')}|DESTAQUES:${destaques.map(i=>i.id).join(',')}|GT:${territorial.map(i=>i.id).join(',')}|ADMIN:${administrativos.map(i=>i.id).join(',')}`;
+  const assinatura = `RC12.0.10A.36.3.15|${perfil(u)}|LEG:${legalizacao.map(i=>i.id).join(',')}|EXT:${extintas.map(i=>i.id).join(',')}|DESTAQUES:${destaques.map(i=>i.id).join(',')}|GT:${territorial.map(i=>i.id).join(',')}|ADMIN:${administrativos.map(i=>i.id).join(',')}`;
   const precisaRelatorios = extintas.some(i=>i.tipo==='relatorios');
   const estruturaIntegra = nav.dataset.sigeeMenuAssinatura === assinatura &&
     (!legalizacao.length || document.getElementById('menu-modulo-legalizacao')) &&
