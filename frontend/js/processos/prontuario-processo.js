@@ -1,12 +1,12 @@
 /* =====================================================================
-   SIGEE Enterprise — RC11.3.14
+   SIGEE Enterprise — RC11.3.15
    Prontuário Eletrônico do Processo
    Camada aditiva: não altera regras, transições ou persistência do workflow.
    ===================================================================== */
 (function () {
   'use strict';
-  if (window.__SIGEE_PRONTUARIO_RC11314__) return;
-  window.__SIGEE_PRONTUARIO_RC11314__ = true;
+  if (window.__SIGEE_PRONTUARIO_RC11315__) return;
+  window.__SIGEE_PRONTUARIO_RC11315__ = true;
 
   const ETAPAS = Object.freeze([
     { tipo:'SOLICITACAO', label:'Solicitação' },
@@ -36,7 +36,40 @@
   }
 
   function processo(id) {
-    return processos().find(p => String(p.id) === String(id));
+    const chave = texto(typeof id === 'object' ? (id?.id ?? id?.processo_id ?? id?.workflow_instance_id ?? id?.codigo_sigee) : id);
+    return processos().find(p => [p.id, p.processo_id, p.workflow_instance_id, p.codigo_sigee, p.codigo, p.protocolo]
+      .some(v => texto(v) && texto(v) === chave));
+  }
+
+  async function resolverProcesso(id) {
+    const local = processo(id);
+    if (local) return local;
+
+    const c = supabase();
+    if (!c) return null;
+    const bruto = typeof id === 'object' ? id : { id };
+    const candidatos = [
+      ['id', bruto?.id ?? bruto?.processo_id],
+      ['workflow_instance_id', bruto?.workflow_instance_id],
+      ['codigo_sigee', bruto?.codigo_sigee ?? (typeof id === 'string' && !/^\d+$/.test(id) ? id : null)]
+    ].filter(([,v]) => v != null && texto(v));
+
+    // Se recebemos apenas um ID numérico, ele é primeiro tratado como processos.id.
+    if (!candidatos.length && id != null) candidatos.push(['id', id]);
+
+    for (const [campo, valorBusca] of candidatos) {
+      try {
+        const { data, error } = await c.from('processos').select('*').eq(campo, valorBusca).limit(1);
+        if (error) { console.warn(`[SIGEE RC11.3.15] Falha ao resolver processo por ${campo}:`, error); continue; }
+        const achado = Array.isArray(data) ? data[0] : data;
+        if (achado) {
+          if (!Array.isArray(window.processosDB)) window.processosDB = [];
+          if (!window.processosDB.some(x => String(x.id) === String(achado.id))) window.processosDB.push(achado);
+          return achado;
+        }
+      } catch (e) { console.warn(`[SIGEE RC11.3.15] Consulta do processo por ${campo} indisponível:`, e); }
+    }
+    return null;
   }
 
   function supabase() {
@@ -918,7 +951,7 @@
 
   function mostrarErroCarregamento(id, erro, token) {
     if (token !== sequenciaAbertura) return;
-    console.error('[SIGEE RC11.3.14] Falha ao abrir prontuário:', erro);
+    console.error('[SIGEE RC11.3.15] Falha ao abrir prontuário:', erro);
     const atual = document.getElementById('sigee-prontuario-overlay');
     if (!atual) return;
     atual.classList.remove('sigee-pep-carregando');
@@ -929,11 +962,12 @@
 
   async function abrir(id) {
     const token = ++sequenciaAbertura;
-    const p = processo(id);
+    const p = await resolverProcesso(id);
     if (!p) {
-      alert('Processo não localizado para abertura do prontuário. Atualize a Central de Processos e tente novamente.');
+      alert('Processo não localizado para abertura do prontuário. Verifique se o processo ainda existe e se seu perfil possui acesso.');
       return;
     }
+    id = p.id;
 
     fechar();
     // fechar() zera o ID; a atribuição deve ocorrer depois dele.
