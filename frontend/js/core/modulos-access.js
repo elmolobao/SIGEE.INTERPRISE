@@ -64,7 +64,6 @@ function normalizarVinculo(v){
 }
 function vinculos(u=usuario()){
   if(!u) return [];
-  if(ehMaster(u)) return legadoVinculos(u);
   const raw = Array.isArray(u?.vinculos_modulo) ? u.vinculos_modulo : [];
   const ativos=raw.map(normalizarVinculo).filter(v=>v&&v.ativo);
   if(ativos.length) return ativos;
@@ -89,7 +88,6 @@ function vinculos(u=usuario()){
 function vinculo(modulo,u=usuario()){
   const cod=normalizarModulo(modulo);
   if(!cod) return null;
-  if(ehMaster(u)) return {modulo_codigo:cod,perfil_codigo:'Master',nte_id:null,ativo:true,pode_configurar:true};
   return vinculos(u).find(v=>v.modulo_codigo===cod) || null;
 }
 function podeAcessar(modulo,u=usuario()){ return !!vinculo(modulo,u); }
@@ -126,7 +124,6 @@ async function buscarVinculos(usuarioId){
 }
 async function hidratarUsuario(u){
   if(!u||typeof u!=='object') return u;
-  if(ehMaster(u)) return {...u,vinculos_modulo:legadoVinculos(u),modulos_acesso:TODOS.slice()};
   const encontrados=await buscarVinculos(u.id);
   // Se a tabela respondeu, inclusive com um único módulo, ela prevalece integralmente.
   // O fallback legado só existe para instalações onde a estrutura modular ainda não foi aplicada.
@@ -136,7 +133,7 @@ async function hidratarUsuario(u){
 
 async function reconciliarSessaoPersistida(){
   const atual=usuario();
-  if(!atual||ehMaster(atual)||atual.id==null) return atual;
+  if(!atual||atual.id==null) return atual;
   try{
     const hidratado=await hidratarUsuario(atual);
     const antes=JSON.stringify(vinculos(atual).map(v=>[v.modulo_codigo,v.perfil_codigo,v.nte_id,v.ativo!==false]));
