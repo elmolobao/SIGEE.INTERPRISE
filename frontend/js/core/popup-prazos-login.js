@@ -19,7 +19,7 @@
   if (window.__SIGEE_POPUP_PRAZOS_LOGIN_RC10820__) return;
   window.__SIGEE_POPUP_PRAZOS_LOGIN_RC10820__ = true;
 
-  const VERSION = 'RC10.8.20';
+  const VERSION = 'RC12.0.11';
   const LIMITES_OPERACIONAIS = Object.freeze({
     ANALISE: 7,
     DIGITACAO: 15,
@@ -40,7 +40,12 @@
   }
   function perfilOperacional(u) {
     const perfil = normalizar(u && (u.perfil || u.role || u.tipo));
-    return ['TECN', 'ADMIN', 'MASTER', 'SEC'].some(item => perfil.includes(item));
+    // Legalização utiliza também Gestor e Estagiário como perfis operacionais.
+    // Consulta permanece fora do alerta obrigatório de ciência.
+    return ['TECN', 'ADMIN', 'MASTER', 'SEC', 'GESTOR', 'ESTAG'].some(item => perfil.includes(item));
+  }
+  function podeModulo(codigo, usuario) {
+    try { return window.SIGEE_MODULOS?.podeAcessar?.(codigo, usuario) === true; } catch (_) { return false; }
   }
   function perfilMaster(u) { return normalizar(u && (u.perfil || u.role || u.tipo)).includes('MASTER'); }
   function statusRelogio() {
@@ -266,20 +271,75 @@
     return p?.data_etapa_atual || p?.data_etapa || p?.etapa_iniciada_em || p?.inicio_etapa || p?.prazo_inicio || p?.updated_at || p?.created_at || p?.criado_em;
   }
 
+  function escopoLegalizacaoQuery(q, usuario) {
+    const ctx = contextoEscopo(usuario);
+    if (ctx.global) return q;
+    const id = ctx.nteId || Number(nteCanonico(ctx.nte) || 0);
+    if (!id) throw new Error('Usuário de Legalização sem NTE válido.');
+    return q.eq('nte_id', id);
+  }
+
+  async function obterResumoLegalizacao(usuario, token) {
+    const vazio = { PRAZO_VENCIDO:0, DILIGENCIA:0, AGUARDANDO_PUBLICACAO:0, ids:[], total:0 };
+    if (!podeModulo('LEGALIZACAO', usuario)) return vazio;
+    const c = clienteSupabase();
+    if (!c?.from) throw new Error('Cliente Supabase indisponível para Legalização.');
+    const hoje = new Date().toISOString().slice(0,10);
+
+    let qIrr = c.from('legalizacao_irregularidade_acompanhamentos')
+      .select('id,nte_id,status,etapa_atual,prazo_atual')
+      .not('status','in','(REGULARIZADO,ENCAMINHADO_MP)')
+      .not('prazo_atual','is',null)
+      .lte('prazo_atual', hoje)
+      .limit(2000);
+    qIrr = escopoLegalizacaoQuery(qIrr, usuario);
+
+    let qProc = c.from('legalizacao_processos')
+      .select('id,nte_id,status,etapa_atual')
+      .neq('status','CONCLUIDO')
+      .limit(2000);
+    qProc = escopoLegalizacaoQuery(qProc, usuario);
+
+    const [rIrr, rProc] = await Promise.all([qIrr, qProc]);
+    if (token !== tokenLogin) return vazio;
+    if (rIrr.error) throw rIrr.error;
+    if (rProc.error) throw rProc.error;
+
+    const irregs = Array.isArray(rIrr.data) ? rIrr.data : [];
+    const procs = Array.isArray(rProc.data) ? rProc.data : [];
+    vazio.PRAZO_VENCIDO = irregs.length;
+    vazio.DILIGENCIA = procs.filter(x => normalizar(x.etapa_atual).includes('DILIGENCIA') || normalizar(x.status).includes('DILIGENCIA')).length;
+    vazio.AGUARDANDO_PUBLICACAO = procs.filter(x => normalizar(x.etapa_atual).includes('AGUARDANDO PUBLICACAO')).length;
+    vazio.ids.push(...irregs.map(x=>`IRR:${x.id}`), ...procs.filter(x => normalizar(x.etapa_atual).includes('DILIGENCIA') || normalizar(x.status).includes('DILIGENCIA') || normalizar(x.etapa_atual).includes('AGUARDANDO PUBLICACAO')).map(x=>`PROC:${x.id}`));
+    vazio.total = vazio.PRAZO_VENCIDO + vazio.DILIGENCIA + vazio.AGUARDANDO_PUBLICACAO;
+    return vazio;
+  }
+
   function resumoVazio() {
     return {
       desarquivamento: { REITERACAO:0, REITERACAO_URGENTE:0, CONFIRMACAO_DADOS:0, SOLICITACAO_ATAS:0 },
       operacional: { ANALISE:0, DIGITACAO:0, CONFERENCIA:0, ASSINATURA:0 },
+      legalizacao: { PRAZO_VENCIDO:0, DILIGENCIA:0, AGUARDANDO_PUBLICACAO:0 },
+      modulos: { extintas:false, legalizacao:false },
       ids: [], total: 0
     };
   }
 
   async function obterResumo(usuario, token) {
-    const origem = await obterProcessos(usuario, token);
-    const processos = origem.processos;
     const resumo = resumoVazio();
-    resumo.fonte = origem.fonte;
-    resumo.fonteIndisponivel = origem.indisponivel;
+    resumo.modulos.extintas = podeModulo('ESCOLAS_EXTINTAS', usuario);
+    resumo.modulos.legalizacao = podeModulo('LEGALIZACAO', usuario);
+
+    let processos = [];
+    if (resumo.modulos.extintas) {
+      const origem = await obterProcessos(usuario, token);
+      processos = origem.processos;
+      resumo.fonte = origem.fonte;
+      resumo.fonteIndisponivel = origem.indisponivel;
+    } else {
+      resumo.fonte = 'Supabase — Legalização Escolar';
+      resumo.fonteIndisponivel = false;
+    }
 
     for (const p of processos) {
       if (!p || p.ativo === false || etapaTerminalOuPosDeferimento(p) || !dentroEscopo(p, usuario)) continue;
@@ -312,8 +372,17 @@
       }
     }
 
+    if (resumo.modulos.legalizacao) {
+      const leg = await obterResumoLegalizacao(usuario, token);
+      resumo.legalizacao = { PRAZO_VENCIDO:leg.PRAZO_VENCIDO, DILIGENCIA:leg.DILIGENCIA, AGUARDANDO_PUBLICACAO:leg.AGUARDANDO_PUBLICACAO };
+      resumo.ids.push(...leg.ids);
+      if (!resumo.modulos.extintas) resumo.fonte = 'Supabase — Legalização Escolar';
+      else resumo.fonte = 'Supabase — fontes oficiais dos módulos autorizados';
+    }
+
     resumo.total = ORDEM_DESARQUIVAMENTO.reduce((s,k)=>s+resumo.desarquivamento[k],0) +
-      ORDEM_OPERACIONAL.reduce((s,k)=>s+resumo.operacional[k],0);
+      ORDEM_OPERACIONAL.reduce((s,k)=>s+resumo.operacional[k],0) +
+      (resumo.legalizacao.PRAZO_VENCIDO||0) + (resumo.legalizacao.DILIGENCIA||0) + (resumo.legalizacao.AGUARDANDO_PUBLICACAO||0);
     return resumo;
   }
 
@@ -329,6 +398,8 @@
       nte: usuario?.nte || usuario?.nte_nome || null,
       ciclo_desarquivamento: resumo.desarquivamento,
       fluxo_operacional_vencido: resumo.operacional,
+      legalizacao_pendencias: resumo.legalizacao,
+      modulos_alertados: resumo.modulos,
       total: resumo.total,
       processos_considerados: [...new Set(resumo.ids)].length,
       sessao_id: window.SIGEE_SESSAO_ID || null,
@@ -349,7 +420,8 @@
   const ROTULOS = Object.freeze({
     REITERACAO:'Reiteração', REITERACAO_URGENTE:'Reiteração com Urgência',
     CONFIRMACAO_DADOS:'Confirmação dos Dados da Busca', SOLICITACAO_ATAS:'Solicitação de Atas de Resultados Finais',
-    ANALISE:'Análise', DIGITACAO:'Digitação', CONFERENCIA:'Conferência', ASSINATURA:'Assinatura'
+    ANALISE:'Análise', DIGITACAO:'Digitação', CONFERENCIA:'Conferência', ASSINATURA:'Assinatura',
+    PRAZO_VENCIDO:'Irregularidades com prazo vencido', DILIGENCIA:'Processos em diligência', AGUARDANDO_PUBLICACAO:'Aguardando publicação no Diário Oficial'
   });
   function linhas(grupo, ordem) {
     return ordem.map(k => `
@@ -367,22 +439,28 @@
       <section class="sigee-prazos-login-modal" role="dialog" aria-modal="true" aria-labelledby="sigee-prazos-login-titulo">
         <header>
           <span class="sigee-prazos-login-selo">ALERTA</span>
-          <h2 id="sigee-prazos-login-titulo">Processos vencidos</h2>
+          <h2 id="sigee-prazos-login-titulo">Pendências e prazos</h2>
           <p>Existem ações pendentes no ${escapar(usuario?.nte || usuario?.nte_nome || 'escopo atual')}.</p>
           <small class="sigee-prazos-login-fonte">Fonte: ${escapar(resumo.fonte || 'não identificada')}</small>
         </header>
         ${resumo.fonteIndisponivel ? '<p class="sigee-prazos-login-aviso">A fonte oficial estava temporariamente indisponível. Os dados abaixo foram obtidos da base local de contingência.</p>' : ''}
 
-        <div class="sigee-alerta-bloco">
-          <h3>ALERTA 01 — Ciclo de Desarquivamento</h3>
+        ${resumo.modulos?.extintas ? `<div class="sigee-alerta-bloco">
+          <h3>ALERTA — Escolas Extintas · Ciclo de Desarquivamento</h3>
           <div class="sigee-alerta-linhas">${linhas(resumo.desarquivamento, ORDEM_DESARQUIVAMENTO)}</div>
         </div>
 
         <div class="sigee-alerta-bloco">
-          <h3>ALERTA 02 — Fluxo Operacional</h3>
+          <h3>ALERTA — Escolas Extintas · Fluxo Operacional</h3>
           <p>Processos com prazo operacional vencido.</p>
           <div class="sigee-alerta-linhas">${linhas(resumo.operacional, ORDEM_OPERACIONAL)}</div>
-        </div>
+        </div>` : ''}
+
+        ${resumo.modulos?.legalizacao ? `<div class="sigee-alerta-bloco">
+          <h3>ALERTA — Legalização Escolar</h3>
+          <p>Pendências regulatórias que exigem acompanhamento do perfil habilitado.</p>
+          <div class="sigee-alerta-linhas">${linhas(resumo.legalizacao, ['PRAZO_VENCIDO','DILIGENCIA','AGUARDANDO_PUBLICACAO'])}</div>
+        </div>` : ''}
 
         <label class="sigee-prazos-login-ciencia">
           <input type="checkbox" id="sigee-prazos-login-checkbox">
@@ -440,6 +518,7 @@
 
     const usuario = usuarioAtual(detalhe);
     if (!usuario || !perfilOperacional(usuario)) return;
+    if (!podeModulo('ESCOLAS_EXTINTAS', usuario) && !podeModulo('LEGALIZACAO', usuario)) return;
     const loginId = texto(detalhe.login_id || detalhe.loginId || '');
     if (!loginId) return;
     if (loginId && loginId === loginIdProcessado) return;
@@ -470,5 +549,5 @@
 
 
 
-  window.SIGEE_POPUP_PRAZOS_LOGIN = Object.freeze({ version:VERSION, verificar:iniciarNovoLogin, reiniciar:iniciarNovoLogin, obterResumo, etapaDesarquivamento, etapaOperacional });
+  window.SIGEE_POPUP_PRAZOS_LOGIN = Object.freeze({ version:VERSION, verificar:iniciarNovoLogin, reiniciar:iniciarNovoLogin, obterResumo, obterResumoLegalizacao, etapaDesarquivamento, etapaOperacional });
 })(window, document);
