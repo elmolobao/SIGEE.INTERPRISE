@@ -50,12 +50,12 @@ const MENU_DESTAQUES = Object.freeze([
 ]);
 
 const MENU_LEGALIZACAO = Object.freeze([
-  { id:'menu-legalizacao-visao', rota:'legalizacao', area:'visao', icone:'◫', rotulo:'Visão Geral', capacidade:null, perfis:['Master','Administrador','Técnico','Consulta'], modulo:'LEGALIZACAO' },
-  { id:'menu-legalizacao-instituicoes', rota:'legalizacao', area:'instituicoes', icone:'🏫', rotulo:'Instituições', capacidade:null, perfis:['Master','Administrador','Técnico','Consulta'], modulo:'LEGALIZACAO' },
-  { id:'menu-legalizacao-regulatorio', rota:'legalizacao', area:'regulatorio', icone:'🧭', rotulo:'Controle Regulatório', capacidade:null, perfis:['Master','Administrador','Técnico','Consulta'], modulo:'LEGALIZACAO' },
+  { id:'menu-legalizacao-visao', rota:'legalizacao', area:'visao', icone:'◫', rotulo:'Visão Geral', capacidade:null, perfis:['Master','SEC','Administrador','Técnico','Consulta'], modulo:'LEGALIZACAO' },
+  { id:'menu-legalizacao-instituicoes', rota:'legalizacao', area:'instituicoes', icone:'🏫', rotulo:'Instituições', capacidade:null, perfis:['Master','SEC','Administrador','Técnico','Consulta'], modulo:'LEGALIZACAO' },
+  { id:'menu-legalizacao-regulatorio', rota:'legalizacao', area:'regulatorio', icone:'🧭', rotulo:'Controle Regulatório', capacidade:null, perfis:['Master','SEC','Administrador','Técnico','Consulta'], modulo:'LEGALIZACAO' },
   // RC12.0.7B.2: Central de Pendências Regulatórias preservada em código, porém desativada para evitar cálculo global/consumo massivo do Supabase.
-  { id:'menu-legalizacao-inspecoes', rota:'legalizacao', area:'inspecoes', icone:'📋', rotulo:'Inspeções', capacidade:null, perfis:['Master','Administrador','Técnico','Consulta'], modulo:'LEGALIZACAO' },
-  { id:'menu-legalizacao-historico', rota:'legalizacao', area:'historico', icone:'🕘', rotulo:'Histórico', capacidade:null, perfis:['Master','Administrador','Técnico','Consulta'], modulo:'LEGALIZACAO' }
+  { id:'menu-legalizacao-inspecoes', rota:'legalizacao', area:'inspecoes', icone:'📋', rotulo:'Inspeções', capacidade:null, perfis:['Master','SEC','Administrador','Técnico','Consulta'], modulo:'LEGALIZACAO' },
+  { id:'menu-legalizacao-historico', rota:'legalizacao', area:'historico', icone:'🕘', rotulo:'Histórico', capacidade:null, perfis:['Master','SEC','Administrador','Técnico','Consulta'], modulo:'LEGALIZACAO' }
 ]);
 
 const MENU_GESTAO_TERRITORIAL = Object.freeze([
@@ -468,7 +468,7 @@ function renderizarMenu(){
   const destaques = MENU_DESTAQUES.filter(item => itemPermitido(item, u));
   const territorial = MENU_GESTAO_TERRITORIAL.filter(item => itemPermitido(item, u));
   const administrativos = MENU_ADMIN.filter(item => itemPermitido(item, u));
-  const assinatura = `RC12.0.10A.9|${perfil(u)}|LEG:${legalizacao.map(i=>i.id).join(',')}|EXT:${extintas.map(i=>i.id).join(',')}|DESTAQUES:${destaques.map(i=>i.id).join(',')}|GT:${territorial.map(i=>i.id).join(',')}|ADMIN:${administrativos.map(i=>i.id).join(',')}`;
+  const assinatura = `RC12.0.10A.36.3.14|${perfil(u)}|LEG:${legalizacao.map(i=>i.id).join(',')}|EXT:${extintas.map(i=>i.id).join(',')}|DESTAQUES:${destaques.map(i=>i.id).join(',')}|GT:${territorial.map(i=>i.id).join(',')}|ADMIN:${administrativos.map(i=>i.id).join(',')}`;
   const precisaRelatorios = extintas.some(i=>i.tipo==='relatorios');
   const estruturaIntegra = nav.dataset.sigeeMenuAssinatura === assinatura &&
     (!legalizacao.length || document.getElementById('menu-modulo-legalizacao')) &&

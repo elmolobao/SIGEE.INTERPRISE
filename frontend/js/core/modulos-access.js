@@ -1,5 +1,5 @@
 /**
- * SIGEE Enterprise RC12.0.0 — Autoridade de módulos.
+ * SIGEE Enterprise RC12.0.10A.36.3.14 — Autoridade de módulos.
  *
  * Separa, dentro da sessão institucional, o domínio de Escolas Extintas do
  * domínio de Legalização. O usuário continua único em usuarios_sigee e recebe
@@ -7,8 +7,8 @@
  */
 (function(window){
 'use strict';
-if (window.__SIGEE_MODULOS_RC1210A9__) return;
-window.__SIGEE_MODULOS_RC1210A9__ = true;
+if (window.__SIGEE_MODULOS_RC1210A3614__) return;
+window.__SIGEE_MODULOS_RC1210A3614__ = true;
 
 const CODIGOS = Object.freeze({
   EXTINTAS: 'ESCOLAS_EXTINTAS',
@@ -29,13 +29,18 @@ function perfilBase(u=usuario()){
   return window.SIGEE_PERFIS?.normalizar?.(u?.perfil) || window.SIGEE_SESSION?.normalizarPerfil?.(u?.perfil) || texto(u?.perfil);
 }
 function ehMaster(u=usuario()){ return perfilBase(u)==='Master'; }
+function ehSEC(u=usuario()){ return perfilBase(u)==='SEC'; }
 function cliente(){
   try{return window.SIGEE_SUPABASE?.criarCliente?.() || window.SIGEE_SUPABASE_CLIENT || null;}catch(_){return null;}
 }
 function legadoVinculos(u=usuario()){
   if(!u) return [];
   if(ehMaster(u)) return TODOS.map(modulo_codigo=>({modulo_codigo,perfil_codigo:'Master',nte_id:null,ativo:true,pode_configurar:true,legado:true}));
-  // Compatibilidade: antes da RC12 todos os usuários pertenciam ao domínio Extintas.
+  // RC12.0.10A.36.3.14: o perfil SEC não recebe mais Escolas Extintas por herança.
+  // SEC é perfil institucional/global; os domínios acessíveis devem vir exclusivamente
+  // dos vínculos modulares configurados para o usuário.
+  if(ehSEC(u)) return [];
+  // Compatibilidade: antes da RC12 os demais usuários pertenciam ao domínio Extintas.
   return [{
     modulo_codigo:CODIGOS.EXTINTAS,
     perfil_codigo:perfilBase(u)||'Consulta',
@@ -75,6 +80,10 @@ function vinculos(u=usuario()){
       pode_configurar:['Administrador','Gestor'].includes(p), sessao_explicita:true
     }));
   }
+  // Para SEC, ausência de vínculo explícito significa ausência de módulo.
+  // Isso evita que uma sessão SEC exclusiva de Legalização receba Extintas enquanto
+  // os vínculos do Supabase ainda estão sendo hidratados.
+  if(ehSEC(u)) return [];
   return legadoVinculos(u);
 }
 function vinculo(modulo,u=usuario()){
@@ -150,7 +159,7 @@ function aplicarDataset(u=usuario()){
 document?.addEventListener?.('sigee:usuario-logado',()=>aplicarDataset());
 window?.addEventListener?.('sigee:session-ready',()=>setTimeout(reconciliarSessaoPersistida,0));
 window.SIGEE_MODULOS=Object.freeze({
-  CODIGOS,TODOS,normalizarModulo,usuario,ehMaster,vinculos,vinculo,podeAcessar,
+  CODIGOS,TODOS,normalizarModulo,usuario,ehMaster,ehSEC,vinculos,vinculo,podeAcessar,
   perfilNoModulo,nteNoModulo,podeConfigurar,buscarVinculos,hidratarUsuario,reconciliarSessaoPersistida,aplicarDataset
 });
 })(window);
