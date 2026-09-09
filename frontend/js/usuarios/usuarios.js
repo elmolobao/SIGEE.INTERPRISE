@@ -743,7 +743,6 @@
     const id=usuarioSalvo?.id;
     if(id==null) throw new Error('Usuário salvo sem identificador para configurar os módulos.');
     let selecionados=[...new Set((modulos||[]).filter(m=>MODULOS_DISPONIVEIS.includes(m)))];
-    if(perfilCanonico(usuarioSalvo.perfil)==='Master') selecionados=MODULOS_DISPONIVEIS.slice();
     if(!selecionados.length) throw new Error('Selecione pelo menos um módulo de acesso.');
     const perfil=perfilCanonico(usuarioSalvo.perfil)||'Consulta';
     const nte=usuarioSalvo.nte_id ?? null;
@@ -931,13 +930,10 @@
     const ext=document.getElementById('user-form-modulo-extintas');
     const leg=document.getElementById('user-form-modulo-legalizacao');
     let selecionados=Array.isArray(modulos)&&modulos.length ? modulos : ['ESCOLAS_EXTINTAS'];
-    const master=perfilCanonico(perfil)==='Master';
-    if(master) selecionados=MODULOS_DISPONIVEIS.slice();
-    if(ext){ ext.checked=selecionados.includes('ESCOLAS_EXTINTAS'); ext.disabled=master; }
-    if(leg){ leg.checked=selecionados.includes('LEGALIZACAO'); leg.disabled=master; }
+    if(ext){ ext.checked=selecionados.includes('ESCOLAS_EXTINTAS'); ext.disabled=false; }
+    if(leg){ leg.checked=selecionados.includes('LEGALIZACAO'); leg.disabled=false; }
   }
   function lerModulosFormulario(perfil){
-    if(perfilCanonico(perfil)==='Master') return MODULOS_DISPONIVEIS.slice();
     const mods=[];
     if(document.getElementById('user-form-modulo-extintas')?.checked) mods.push('ESCOLAS_EXTINTAS');
     if(document.getElementById('user-form-modulo-legalizacao')?.checked) mods.push('LEGALIZACAO');
