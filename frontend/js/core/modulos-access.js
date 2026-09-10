@@ -99,7 +99,6 @@ function nteNoModulo(modulo,u=usuario()){
   return v.nte_id ?? u?.nte_id ?? null;
 }
 function podeConfigurar(modulo,u=usuario()){
-  if(ehMaster(u)) return true;
   const v=vinculo(modulo,u);
   return !!v && (v.pode_configurar===true || ['Administrador','Gestor'].includes(v.perfil_codigo));
 }
@@ -124,6 +123,8 @@ async function buscarVinculos(usuarioId){
 }
 async function hidratarUsuario(u){
   if(!u||typeof u!=='object') return u;
+  // RC12.0.10A.36.3.15: inclusive Master deve consultar os vínculos persistidos.
+  // Assim, um Master exclusivo de Legalização não recebe Extintas por herança.
   const encontrados=await buscarVinculos(u.id);
   // Se a tabela respondeu, inclusive com um único módulo, ela prevalece integralmente.
   // O fallback legado só existe para instalações onde a estrutura modular ainda não foi aplicada.
