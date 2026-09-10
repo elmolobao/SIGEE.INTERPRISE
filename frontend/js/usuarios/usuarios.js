@@ -707,6 +707,8 @@
   }
   function modulosLegado(u){
     const n=normalizarUsuario(u||{});
+    // Compatibilidade somente quando não existem vínculos modulares persistidos.
+    // Master não implica acesso automático aos dois domínios.
     if(n.perfil==='Master') return MODULOS_DISPONIVEIS.slice();
     return ['ESCOLAS_EXTINTAS'];
   }
@@ -930,6 +932,8 @@
     const ext=document.getElementById('user-form-modulo-extintas');
     const leg=document.getElementById('user-form-modulo-legalizacao');
     let selecionados=Array.isArray(modulos)&&modulos.length ? modulos : ['ESCOLAS_EXTINTAS'];
+    // RC12.0.10A.36.3.15: perfil e domínio são dimensões independentes.
+    // Inclusive Master pode ser autorizado em apenas um módulo.
     if(ext){ ext.checked=selecionados.includes('ESCOLAS_EXTINTAS'); ext.disabled=false; }
     if(leg){ leg.checked=selecionados.includes('LEGALIZACAO'); leg.disabled=false; }
   }
