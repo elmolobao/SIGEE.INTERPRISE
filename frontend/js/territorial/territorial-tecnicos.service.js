@@ -1,7 +1,7 @@
-/** SIGEE RC12.0.4 — Cadastro de Técnicos Territoriais. */
+/** SIGEE RC12.0.10A.36.3.19 — Cadastro de Técnicos Territoriais. */
 (function(window){
 'use strict';
-if(window.SIGEE_TERRITORIAL_TECNICOS_SERVICE?.versao==='RC12.0.4')return;
+if(window.SIGEE_TERRITORIAL_TECNICOS_SERVICE?.versao==='RC12.0.10A.36.3.19')return;
 const T='gt_tecnicos';
 function cliente(){try{return window.SIGEE_SUPABASE?.criarCliente?.()||window.SIGEE_SUPABASE_CLIENT||window.supabaseClient||null;}catch(_){return null;}}
 function usuario(){return window.SIGEE_SESSION?.getUser?.()||window.usuarioLogado||window.usuarioAtual||null;}
@@ -17,5 +17,5 @@ let canal=null;
 function iniciarRealtime(){if(canal||!autorizado())return;const c=cliente();if(!c?.channel)return;try{canal=c.channel('gt-tecnicos-novos').on('postgres_changes',{event:'INSERT',schema:'public',table:T},payload=>{document.dispatchEvent(new CustomEvent('sigee:gt-tecnicos-novo',{detail:payload.new||{}}));}).subscribe();}catch(e){console.warn('[Técnicos] realtime indisponível:',e?.message||e);}}
 window.addEventListener('sigee:session-ready',()=>setTimeout(iniciarRealtime,500));
 window.addEventListener('sigee:login-concluido',()=>setTimeout(iniciarRealtime,500));
-window.SIGEE_TERRITORIAL_TECNICOS_SERVICE=Object.freeze({listar,contarNovos,atualizar,marcarInativo,autorizado,iniciarRealtime,versao:'RC12.0.4'});
+window.SIGEE_TERRITORIAL_TECNICOS_SERVICE=Object.freeze({listar,contarNovos,atualizar,marcarInativo,autorizado,iniciarRealtime,versao:'RC12.0.10A.36.3.19'});
 })(window);
