@@ -36,7 +36,7 @@
 <link rel="stylesheet" href="css/reports.css?v=RC6.6.2"/>
 <link rel="stylesheet" href="css/popup-prazos-login.css?v=RC10.8.20">
 <link rel="stylesheet" href="css/gestao-territorial.css?v=RC11.3.19B">
-<link rel="stylesheet" href="css/legalizacao.css?v=RC12.0.10A.36.3.16">
+<link rel="stylesheet" href="css/legalizacao.css?v=RC12.0.10A.36.3.15">
 </head>
 <body class="bg-gray-100 font-sans text-gray-800 font-normal">
 <div class="min-h-screen flex items-center justify-center bg-blue-900 px-4" id="tela-login">
@@ -223,7 +223,7 @@
 
     <div class="leg-reg-panel hidden" data-reg-panel="inspecao"><div class="leg-panel"><header class="leg-panel-head"><div><h2>Inspeção Regulatória</h2><p>Inspeções vinculadas aos procedimentos de credenciamento, autorização e renovação que exigem verificação in loco. O checklist e o relatório técnico são tratados nesta etapa do Controle Regulatório.</p></div></header><div class="leg-list" id="legalizacao-reg-inspecoes"><div class="leg-empty"><strong>Aguardando carregamento...</strong></div></div></div></div>
     <div class="leg-reg-panel hidden" data-reg-panel="carimbos"><div class="leg-panel"><header class="leg-panel-head"><div><h2>Carteira Funcional</h2><p>Autorizações funcionais e atos históricos de diretor e secretário(a).</p></div></header><div class="leg-list" id="legalizacao-reg-carimbos"><div class="leg-empty"><strong>Aguardando carregamento...</strong></div></div></div></div>
-    <div class="leg-reg-panel hidden" data-reg-panel="atoslegais"><div class="leg-panel"><header class="leg-panel-head"><div><h2>Atos Legais / Diário Oficial</h2><p>Importe o PDF do Diário Oficial. O SIGEE identifica a publicação pelo CNPJ da mantenedora nas escolas privadas ou pelo INEP/COD SEC nas públicas, confirmando também o nome da instituição e o tipo do ato publicado. Somente após a conferência a publicação atualiza oficialmente o procedimento e o prontuário.</p></div><div class="leg-filter-row"><select id="leg-atos-status"><option value="">Pendências ativas</option><option value="IDENTIFICADO">Aguardando conferência</option><option value="PENDENTE_CONFERENCIA">Pendentes</option><option value="AMBIGUO">Ambíguos</option><option value="DUPLICADO">Duplicados</option></select><button type="button" class="leg-btn primary" id="leg-importar-atos">Importar PDF do DOE</button><input type="file" id="leg-arquivo-atos" class="hidden" accept=".pdf,.xls,.html,.htm,application/pdf"></div></header><div class="leg-callout info"><div><strong>Fluxo de oficialização</strong><p>PDF do DOE → extração do texto → identificação por CNPJ (privada) ou INEP/COD SEC (pública) + nome da escola + tipo do ato → conferência técnica → confirmação → atualização oficial do ato regulatório. O Processo SEI permanece como referência interna do procedimento, mas não é critério de localização da publicação. HTML/XLS permanecem disponíveis apenas como formatos auxiliares.</p></div></div><div id="leg-atos-resumo" class="leg-import-resumo"></div><div class="leg-list" id="legalizacao-reg-atos"></div><div class="leg-list" id="legalizacao-reg-atos-legais"><div class="leg-empty"><strong>Aguardando carregamento...</strong></div></div></div></div>
+    <div class="leg-reg-panel hidden" data-reg-panel="atoslegais"><div class="leg-panel"><header class="leg-panel-head"><div><h2>Atos Legais / Diário Oficial</h2><p>Importe o PDF do Diário Oficial, confira os atos regulatórios identificados e a vinculação com a unidade de ensino. O Processo SEI é utilizado quando existir, mas não é obrigatório para a importação. Somente após a conferência a publicação atualiza oficialmente o prontuário e, quando aplicável, o procedimento.</p></div><div class="leg-filter-row"><select id="leg-atos-status"><option value="">Pendências ativas</option><option value="IDENTIFICADO">Aguardando conferência</option><option value="PENDENTE_CONFERENCIA">Pendentes</option><option value="AMBIGUO">Ambíguos</option><option value="DUPLICADO">Duplicados</option></select><button type="button" class="leg-btn primary" id="leg-importar-atos">Importar PDF do DOE</button><input type="file" id="leg-arquivo-atos" class="hidden" accept=".pdf,.xls,.html,.htm,application/pdf"></div></header><div class="leg-callout info"><div><strong>Fluxo de oficialização</strong><p>PDF do DOE → extração do texto → filtro de conteúdo regulatório → identificação da unidade por INEP/SEC, nome, município e CNPJ → extração do ato, datas e vigência → conferência técnica → atualização do prontuário. O Processo SEI funciona como vínculo adicional quando disponível. HTML/XLS permanecem disponíveis apenas como formatos auxiliares.</p></div></div><div id="leg-atos-resumo" class="leg-import-resumo"></div><div class="leg-list" id="legalizacao-reg-atos"></div><div class="leg-list" id="legalizacao-reg-atos-legais"><div class="leg-empty"><strong>Aguardando carregamento...</strong></div></div></div></div>
   </div>
   <div class="leg-area hidden" data-area="pendencias">
     <div class="leg-kpis">
@@ -984,13 +984,12 @@ window.filtrarTabelaUsuariosSIGEE = function (termo) {
 <script src="js/territorial/territorial-sei.js?v=GT-07.0"></script>
 <script src="js/territorial/territorial-relatorios.service.js?v=GT-05.0"></script>
 <script src="js/territorial/territorial-relatorios.js?v=GT-05.2.4"></script>
-<script src="js/territorial/territorial-pesquisa.service.js?v=GT-09.2"></script>
-<script src="js/territorial/territorial-pesquisa.js?v=GT-09.2"></script>
-<script src="js/territorial/territorial-pesquisa-alertas.js?v=GT-09.2"></script>
+<script src="js/territorial/territorial-pesquisa.service.js?v=GT-05.2.4"></script>
+<script src="js/territorial/territorial-pesquisa.js?v=GT-05.2.4"></script>
 <script src="js/territorial/territorial-bootstrap.js?v=RC11.3.16"></script>
 
-<script src="js/legalizacao/legalizacao.service.js?v=RC12.0.10A.36.3.16"></script>
-<script src="js/legalizacao/legalizacao.js?v=RC12.0.10A.36.3.16"></script>
+<script src="js/legalizacao/legalizacao.service.js?v=RC12.0.10A.36.3.15"></script>
+<script src="js/legalizacao/legalizacao.js?v=RC12.0.10A.36.3.15"></script>
     <script src="js/core/autorizacao.js?v=RC12.0.10A.36.3.14"></script>
 <script src="js/analytics/dashboard.js?v=RC7.4.4-PERFORMANCE"></script>
 <script src="js/cio/cio-bootstrap.js?v=RC7.4.1"></script>
