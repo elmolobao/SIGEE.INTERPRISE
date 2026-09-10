@@ -185,16 +185,90 @@ function tipoRegulatorioDoe(texto){const n=normalizarTextoDoe(texto),ren=/\b(REN
 function tiposRegulatoriosDoe(texto){const n=normalizarTextoDoe(texto),ren=/\b(RENOVA|RENOVACAO|PRORROGA|PRORROGACAO)\b/.test(n),out=[];const add=x=>{if(x&&!out.includes(x))out.push(x);};if(/DESCREDENCI/.test(n)){add(/COMPULSOR|CASSACAO|DE OFICIO/.test(n)?'DESCREDENCIAMENTO_COMPULSORIO':'DESCREDENCIAMENTO_VOLUNTARIO');return out;}if(/RECREDENCI|RENOVACAO\s+(?:DO\s+)?CREDENCI/.test(n))add('RENOVACAO_CREDENCIAMENTO');else if(/\bCREDENCI/.test(n))add('CREDENCIAMENTO');if(/MATRIZ\s+CURRICULAR/.test(n))add('APROVACAO_MATRIZ_CURRICULAR');if(/AUTORIZACAO\s+(?:DE\s+)?FUNCIONAMENTO|AUTORIZA[^.]{0,100}FUNCIONAMENTO/.test(n))add(ren?'RENOVACAO_AUTORIZACAO_FUNCIONAMENTO':'AUTORIZACAO_FUNCIONAMENTO');if(/ENSINO\s+FUNDAMENTAL[\s\S]{0,130}(ANOS\s+INICIAIS|FUNDAMENTAL\s+I|1[ºO]\s*(?:AO|A)\s*5[ºO])/.test(n)||/(ANOS\s+INICIAIS|FUNDAMENTAL\s+I)[\s\S]{0,130}ENSINO\s+FUNDAMENTAL/.test(n))add(ren?'RENOVACAO_AUTORIZACAO_FUNDAMENTAL_I':'AUTORIZACAO_FUNDAMENTAL_I');if(/ENSINO\s+FUNDAMENTAL[\s\S]{0,130}(ANOS\s+FINAIS|FUNDAMENTAL\s+II|6[ºO]\s*(?:AO|A)\s*9[ºO])/.test(n)||/(ANOS\s+FINAIS|FUNDAMENTAL\s+II)[\s\S]{0,130}ENSINO\s+FUNDAMENTAL/.test(n))add(ren?'RENOVACAO_AUTORIZACAO_FUNDAMENTAL_II':'AUTORIZACAO_FUNDAMENTAL_II');if(/ENSINO\s+MEDIO/.test(n))add(ren?'RENOVACAO_AUTORIZACAO_ENSINO_MEDIO':'AUTORIZACAO_ENSINO_MEDIO');if(/CURSO\s+TECNIC|TECNICO\s+EM|EDUCACAO\s+PROFISSIONAL/.test(n))add(ren?'RENOVACAO_AUTORIZACAO_TECNICO':'AUTORIZACAO_TECNICO');if(/EDUCACAO\s+INFANTIL/.test(n))add(ren?'RENOVACAO_AUTORIZACAO_EDUCACAO_INFANTIL':'AUTORIZACAO_EDUCACAO_INFANTIL');if(/RECONHECIMENTO/.test(n)&&!out.some(x=>x.includes('TECNICO')))add('RECONHECIMENTO');if(/MUDANCA|ALTERACAO/.test(n)&&/DENOMINACAO|NOME/.test(n))add('MUDANCA_DENOMINACAO');if(/MUDANCA|ALTERACAO/.test(n)&&/SEDE|ENDERECO/.test(n))add('MUDANCA_SEDE');if(/MUDANCA|ALTERACAO|TRANSFERENCIA/.test(n)&&/MANTENEDORA|MANTENCA/.test(n))add('MUDANCA_MANTENEDORA');if(!out.length)add(tipoRegulatorioDoe(texto));return out;}
 function ruidoNaoRegulatorioEscolarDoe(texto){const n=normalizarTextoDoe(texto);return /LICITACAO|PREGAO|DISPENSA\s+DE\s+LICITACAO|INEXIGIBILIDADE|ADJUDICACAO|HOMOLOGACAO|CONTRATO|TERMO\s+ADITIVO|TERMO\s+DE\s+ADESAO|EDITAL\s+DE\s+CREDENCIAMENTO|AVISO\s+DE\s+(?:MANIFESTACAO\s+DE\s+)?CREDENCIAMENTO|EMPRESA(?:S)?\s+CREDENCIAD|PRESTACAO\s+DE\s+SERVICOS|FORNECIMENTO|AQUISICAO|PAGAMENTO|LOCACAO|COOPERACAO\s+TECNICA|AVALIACAO\s+EXTERNA\s+DE\s+DESEMPENHO|LICENCA[- ]PREMIO|LICENCA\s+PARA\s+TRATAMENTO|READAPTAR|SERVIDOR(?:ES)?|MATRICULA\s+NOME\s+CARGO|REDA|CONCLUINTE(?:S)?|RELACAO\s+(?:DOS|DE)\s+ALUN|VIDA\s+ESCOLAR|TORNA\s+PUBLIC[AO]\s+A\s+RELACAO|UNIVERSIDADE|UNEB|UESC|UFRB|UFBA|LICENCIATURA|BACHARELADO|MAGISTERIO\s+SUPERIOR|ENSINO\s+SUPERIOR|DEPARTAMENTO\s+DE\s+EDUCACAO,?\s+CAMPUS|INEMA|RECURSOS\s+HIDRICOS|MEIO\s+AMBIENTE|OUTORGA|CAPTACAO\s+SUBTERRANEA|DESAPROPRIACAO|UTILIDADE\s+PUBLICA|SISTEMA\s+DE\s+ABASTECIMENTO\s+DE\s+AGUA/.test(n);}
 function contextoRegulatorioDoe(texto){const n=normalizarTextoDoe(texto);if(ruidoNaoRegulatorioEscolarDoe(n))return false;const unidade=/\b(ESCOLA|COLEGIO|CENTRO\s+(?:DE\s+)?EDUCACAO|CENTRO\s+EDUCACIONAL|INSTITUTO\s+(?:DE\s+)?EDUCACAO|INSTITUTO\s+EDUCACIONAL|EDUCANDARIO|UNIDADE\s+ESCOLAR|ESTABELECIMENTO\s+DE\s+ENSINO|INSTITUICAO\s+(?:PRIVADA\s+)?DE\s+ENSINO)\b/.test(n);const etapa=/EDUCACAO\s+INFANTIL|CRECHE|PRE[- ]?ESCOLA|ENSINO\s+FUNDAMENTAL|ANOS\s+INICIAIS|ANOS\s+FINAIS|ENSINO\s+MEDIO|EDUCACAO\s+PROFISSIONAL|CURSO\s+TECNIC|EJA/.test(n);const ato=/DESCREDENCI|RECREDENCI|(?:^|\W)CREDENCI(?:A|AR|AMENTO)|RENOVA[\s\S]{0,180}(AUTORIZ|CREDENCI|FUNCIONAMENTO|OFERTA|ENSINO|CURSO)|AUTORIZA[\s\S]{0,180}(FUNCIONAMENTO|OFERTA|ENSINO|EDUCACAO|CURSO)|MATRIZ\s+CURRICULAR|MUDANCA[\s\S]{0,80}(SEDE|DENOMINACAO|MANTENEDORA)|ALTERACAO[\s\S]{0,80}(SEDE|DENOMINACAO|MANTENEDORA)/.test(n);const orgao=/SECRETARIA\s+DA\s+EDUCACAO|SECRETARIA\s+DE\s+EDUCACAO|CONSELHO\s+ESTADUAL\s+DE\s+EDUCACAO|NUCLEO\s+TERRITORIAL\s+DE\s+EDUCACAO|\bNTE\s*-?\s*\d{1,2}\b|\bCEE(?:\/BA)?\b/.test(n);return ato&&orgao&&(unidade||etapa);}
-function segmentarPublicacoesDoe(paginas){const blocos=[];for(const pagina of paginas){const texto=String(pagina.texto||'');const norm=semAcento(texto);const inicios=[];const add=(m,especie,numero)=>{if(!inicios.some(x=>x.idx===m.index))inicios.push({idx:m.index,especie,numero});};let m;const rx=/(PORTARIA|DECRETO)\s+(?:CEE(?:\/BA)?\s*)?(?:N(?:O|RO|º|°)?\.?\s*)?([0-9][0-9.\/-]{0,18})\s+DE\s+\d{1,2}\s+DE\s+(?:JANEIRO|FEVEREIRO|MARCO|ABRIL|MAIO|JUNHO|JULHO|AGOSTO|SETEMBRO|OUTUBRO|NOVEMBRO|DEZEMBRO)\s+DE\s+(?:19|20)\d{2}/g;while((m=rx.exec(norm)))add(m,m[1],m[2]);const rxNte=/PORTARIA\s+(?:N(?:O|RO|º|°)?\.?\s*)?([0-9]{1,5}\s*\/\s*20\d{2})\s*[-–—]?\s*NTE\s*-?\s*\d{1,2}\b/g;while((m=rxNte.exec(norm)))add(m,'PORTARIA',m[1].replace(/\s/g,''));const rxCee=/(RESOLUCAO|PARECER)\s+(?:CEE(?:\/BA)?\s*)?(?:N(?:O|RO|º|°)?\.?\s*)?([0-9]{1,6}(?:\s*\/\s*20\d{2})?)/g;while((m=rxCee.exec(norm)))add(m,m[1],m[2].replace(/\s/g,''));inicios.sort((a,b)=>a.idx-b.idx);for(let i=0;i<inicios.length;i++){const a=inicios[i],proximoAto=inicios[i+1]?.idx??texto.length;let fim=proximoAto;const depois=texto.slice(a.idx,proximoAto);const fechamento=depois.match(/<#E\.G\.B#[^>]*\/>/i);if(fechamento&&fechamento.index>30)fim=Math.min(fim,a.idx+fechamento.index+fechamento[0].length);else{const proximoCabecalho=semAcento(depois.slice(40)).search(/(?:^|\n)\s*(?:EDITAL\s+DE\s+CONCLUINTES|AVISO\s+DE|RESUMO\s+DO|RESUMO\s+DE|RESULTADO\s+DE\s+LICITACAO|ADJUDICACAO|HOMOLOGACAO|APOSTILA|DESPACHO)\b/im);if(proximoCabecalho>=0)fim=Math.min(fim,a.idx+40+proximoCabecalho);}const trecho=texto.slice(a.idx,fim).trim();if(trecho.length<40)continue;blocos.push({pagina:pagina.pagina,ordem:i+1,texto:trecho,normalizado:normalizarBuscaDoe(trecho),especie:a.especie,numero:a.numero});}}return blocos;}
-function extrairVigenciaDoe(texto,dataPublicacao){const raw=String(texto||''),n=normalizarTextoDoe(raw);let inicio=null,fim=null,origem='NAO_IDENTIFICADA';let m=raw.match(/vig[eê]ncia[^.]{0,100}?(\d{1,2}[\/.-]\d{1,2}[\/.-](?:19|20)\d{2})\s*(?:a|at[eé])\s*(\d{1,2}[\/.-]\d{1,2}[\/.-](?:19|20)\d{2})/i);if(m){inicio=dataIsoDoe(m[1]);fim=dataIsoDoe(m[2]);origem='EXPLICITA_NO_ATO';return{inicio,fim,origem};}m=n.match(/(?:VIGENCIA|VALIDADE)[\s\S]{0,80}?ATE\s+((?:\d{1,2}[\/.-]\d{1,2}[\/.-](?:19|20)\d{2})|(?:\d{1,2}\s+DE\s+[A-Z]+\s+DE\s+(?:19|20)\d{2}))/);if(m){fim=dataIsoDoe(m[1]);origem='FIM_EXPLICITO_NO_ATO';}m=n.match(/A\s+PARTIR\s+DE\s+((?:\d{1,2}[\/.-]\d{1,2}[\/.-](?:19|20)\d{2})|(?:\d{1,2}\s+DE\s+[A-Z]+\s+DE\s+(?:19|20)\d{2}))/);if(m)inicio=dataIsoDoe(m[1]);const anoLetivo=n.match(/A\s+PARTIR\s+DO\s+ANO\s+LETIVO\s+DE\s+((?:19|20)\d{2})/);const prazo=n.match(/(?:PELO\s+PRAZO|POR\s+UM\s+PERIODO|PELO\s+PERIODO|VALIDADE|VIGENCIA)[\s\S]{0,50}?DE\s+(\d{1,2})\s+ANOS?/)||n.match(/\bPOR\s+(\d{1,2})\s+ANOS?\b/);if(anoLetivo){inicio=`${anoLetivo[1]}-01-01`;if(prazo)fim=`${Number(anoLetivo[1])+Number(prazo[1])-1}-12-31`;origem=prazo?'ANO_LETIVO_DO_ATO':'ANO_LETIVO_SEM_PRAZO';return{inicio,fim,origem};}if(prazo){inicio=inicio||dataPublicacao||null;fim=inicio?adicionarAnosIso(inicio,Number(prazo[1])):fim;origem=fim?(m?'PRAZO_DO_ATO':'PROJETADA_DA_PUBLICACAO'):'PRAZO_SEM_DATA_BASE';}return{inicio,fim,origem};}
-function prepararBaseDoe(base){return (base||[]).map(x=>({...x,_nome:normalizarBuscaDoe(x.nome_instituicao),_municipio:normalizarTextoDoe(x.municipio),_inep:somenteDigitosDoe(x.cod_inep),_sec:somenteDigitosDoe(x.cod_sec),_cnpj:somenteDigitosDoe(x.cnpj),_mcnpj:(x.mantenedora_cnpjs||[]).map(somenteDigitosDoe).filter(Boolean)}));}
-function pontuarInstituicaoDoe(inst,pagina){let pontos=0,criterios=[];const compact=pagina.normalizado,digits=somenteDigitosDoe(pagina.texto),plain=normalizarTextoDoe(pagina.texto),cnpjs=[inst._cnpj,...inst._mcnpj].filter(x=>x.length===14);const cnpjExato=cnpjs.some(c=>digits.includes(c)),inepExato=inst._inep.length>=6&&digits.includes(inst._inep),secExato=inst._sec.length>=3&&digits.includes(inst._sec),nomeExato=inst._nome.length>=8&&compact.includes(inst._nome);if(cnpjExato){pontos+=160;criterios.push('CNPJ exato');}if(inepExato){pontos+=150;criterios.push('INEP/MEC exato');}if(secExato){pontos+=120;criterios.push('COD SEC exato');}if(nomeExato){pontos+=100;criterios.push('nome exato da unidade');}else if(inst._nome.length>=10){const stop=new Set(['ESCOLA','COLEGIO','CENTRO','EDUCACAO','EDUCACIONAL','INSTITUTO','ENSINO','UNIDADE','ESTADUAL','MUNICIPAL','PRIVADA']);const palavras=normalizarTextoDoe(inst.nome_instituicao).split(/\s+/).filter(w=>w.length>=4&&!stop.has(w));const hits=palavras.filter(w=>plain.includes(w));const proporcao=palavras.length?hits.length/palavras.length:0;if(palavras.length>=2&&hits.length>=2&&proporcao>=0.6){pontos+=Math.min(70,35+hits.length*8);criterios.push(`nome aproximado ${hits.length}/${palavras.length}`);}}if(inst._municipio&&plain.includes(inst._municipio)){pontos+=15;criterios.push('município');}return{pontos,criterios,forte:cnpjExato||inepExato||secExato||nomeExato};}
-function extrairNomeInstituicaoDoe(texto){const t=String(texto||'').replace(/\s+/g,' ').trim(),pats=[/institui[cç][aã]o\s+privada\s+de\s+ensino\s*[;:\-]\s*([^,;]+?)(?=,\s*(?:processo|localizad|situad|mantid|cnpj)|;\s*(?:processo|localizad|situad|mantid|cnpj))/i,/(?:da|do)\s+institui[cç][aã]o\s+(?:de\s+ensino\s+)?[;:\-]?\s*([^,;]+?)(?=,\s*(?:processo|localizad|situad|mantid|cnpj))/i,/(?:autoriza[cç][aã]o|funcionamento|credenciamento|renovar|renova[cç][aã]o)[^.;]{0,180}?\b(?:ESCOLA|COL[EÉ]GIO|CENTRO\s+EDUCACIONAL|INSTITUTO)\s+([^,;.]{3,120})/i];for(const r of pats){const m=t.match(r);if(m?.[1]){let n=m[1].trim().replace(/\s+/g,' ');if(!/^(ESCOLA|COL[EÉ]GIO|CENTRO|INSTITUTO)/i.test(n)&&r===pats[2])n=n;return n;}}const m=t.match(/\b((?:ESCOLA|COL[EÉ]GIO|CENTRO\s+EDUCACIONAL|INSTITUTO)\s+[A-ZÀ-Ü0-9][A-ZÀ-Ü0-9 '\-]{4,100})/i);return m?.[1]?.trim()||null;}
-function extrairMunicipioDoe(texto){const t=String(texto||'').replace(/\s+/g,' '),m=t.match(/munic[ií]pio\s+de\s+([A-ZÀ-Ü][A-ZÀ-Ü '\-]{2,60}?)(?=\/BA|\s*-\s*BA|,|\.|;)/i);return m?.[1]?.trim()||null;}
-function extrairNteDoe(texto){const t=String(texto||''),m=t.match(/\bNTE\s*[-–—:]?\s*(\d{1,2})\b/i);return m?Number(m[1]):null;}
-function contextoDaInstituicaoDoe(texto,inst){const raw=String(texto||''),alvos=[inst.nome_instituicao,inst.cod_inep,inst.cod_sec,inst.cnpj,...(inst.mantenedora_cnpjs||[])].filter(Boolean);let pos=-1;for(const a of alvos){const p=semAcento(raw).indexOf(semAcento(String(a)));if(p>=0){pos=p;break;}}if(pos<0)return raw.slice(0,2600);return raw.slice(Math.max(0,pos-1000),Math.min(raw.length,pos+1800));}
-function extrairSeiDoe(texto){const t=String(texto||''),m=t.match(/(?:PROCESSO\s+)?SEI\s*(?:N[º°O]\.?\s*)?[:\s]*([0-9]{4,6}\.[0-9]{4,8}\/20\d{2}-[0-9]{1,2}|[0-9]{5,6}\.[0-9]{6}\/20\d{2}-[0-9]{2}|[0-9.\/\-]{12,30})/i);return m?.[1]?.trim()||null;}
-function extrairCnpjDoe(texto){const m=String(texto||'').match(/\b\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}\b|\b\d{14}\b/);return m?.[0]||null;}
+function segmentarPublicacoesDoe(paginas){
+  const blocos=[];
+  let grupoAtivo=null;
+  for(const pagina of paginas){
+    const texto=String(pagina.texto||'');
+    const norm=semAcento(texto);
+    const inicios=[];
+    const add=(idx,especie,numero,extra={})=>{
+      if(idx<0||inicios.some(x=>x.idx===idx&&x.especie===especie&&String(x.numero)===String(numero)))return;
+      inicios.push({idx,especie,numero,...extra});
+    };
+    let m;
+
+    // Publicações unitárias com cabeçalho próprio.
+    const rx=/(PORTARIA|DECRETO)\s+(?:CEE(?:\/BA)?\s*)?(?:N(?:O|RO|º|°)?\.?\s*)?([0-9][0-9.\/-]{0,18})\s+DE\s+\d{1,2}\s+DE\s+(?:JANEIRO|FEVEREIRO|MARCO|ABRIL|MAIO|JUNHO|JULHO|AGOSTO|SETEMBRO|OUTUBRO|NOVEMBRO|DEZEMBRO)\s+DE\s+(?:19|20)\d{2}/g;
+    while((m=rx.exec(norm)))add(m.index,m[1],m[2]);
+    const rxNte=/PORTARIA\s+(?:N(?:O|RO|º|°)?\.?\s*)?([0-9]{1,5}\s*\/\s*20\d{2})\s*[-–—]?\s*NTE\s*-?\s*\d{1,2}\b/g;
+    while((m=rxNte.exec(norm)))add(m.index,'PORTARIA',m[1].replace(/\s/g,''));
+    const rxCee=/(RESOLUCAO|PARECER)\s+(?:CEE(?:\/BA)?\s*)?(?:N(?:O|RO|º|°)?\.?\s*)?([0-9]{1,6}(?:\s*\/\s*20\d{2})?)/g;
+    while((m=rxCee.exec(norm)))add(m.index,m[1],m[2].replace(/\s/g,''));
+
+    // DOE/EGBA também publica vários atos sob um único cabeçalho, por exemplo:
+    // "PORTARIAS DE 03 DE SETEMBRO DE 2026 ... NTE-20" e, em seguida,
+    // "14/2026- ART. 1º...", "15/2026- ART. 1º..." etc. O grupo pode continuar
+    // na página seguinte sem repetir o cabeçalho.
+    const rxGrupo=/PORTARIAS?\s+DE\s+\d{1,2}\s+DE\s+(?:JANEIRO|FEVEREIRO|MARCO|ABRIL|MAIO|JUNHO|JULHO|AGOSTO|SETEMBRO|OUTUBRO|NOVEMBRO|DEZEMBRO)\s+DE\s+20\d{2}[\s\S]{0,420}?NUCLEO\s+TERRITORIAL\s+DE\s+EDUCACAO[\s\S]{0,160}?\bNTE\s*-?\s*(\d{1,2})\b/i;
+    const mg=norm.match(rxGrupo);
+    if(mg){
+      grupoAtivo={nte:Number(mg[1]),paginaInicio:Number(pagina.pagina)||null};
+    }
+
+    if(grupoAtivo){
+      const rxSub=/(?:^|\n|\s)(\d{1,4}\s*\/\s*20\d{2})\s*[-–—]\s*(?=ART\.?\s*1(?:º|O|°)?\b)/g;
+      while((m=rxSub.exec(norm))){
+        const idx=m.index+(m[0].length-m[0].trimStart().length);
+        const numero=m[1].replace(/\s/g,'');
+        add(idx,'PORTARIA',numero,{agrupada:true,nteGrupo:grupoAtivo.nte});
+      }
+    }
+
+    inicios.sort((a,b)=>a.idx-b.idx||Number(!!a.agrupada)-Number(!!b.agrupada));
+
+    // Se esta página já contém um novo ato unitário após os itens agrupados,
+    // ele encerra a continuidade do grupo para as páginas seguintes.
+    const primeiroUnitarioAposGrupo=inicios.find(x=>!x.agrupada&&inicios.some(g=>g.agrupada&&g.idx<x.idx));
+
+    for(let i=0;i<inicios.length;i++){
+      const a=inicios[i],proximoAto=inicios[i+1]?.idx??texto.length;
+      let fim=proximoAto;
+      const depois=texto.slice(a.idx,proximoAto);
+      const fechamento=depois.match(/<#E\.G\.B#[^>]*\/>/i);
+      if(fechamento&&fechamento.index>30)fim=Math.min(fim,a.idx+fechamento.index+fechamento[0].length);
+      else{
+        const proximoCabecalho=semAcento(depois.slice(40)).search(/(?:^|\n)\s*(?:EDITAL\s+DE\s+CONCLUINTES|AVISO\s+DE|RESUMO\s+DO|RESUMO\s+DE|RESULTADO\s+DE\s+LICITACAO|ADJUDICACAO|HOMOLOGACAO|APOSTILA|DESPACHO)\b/im);
+        if(proximoCabecalho>=0)fim=Math.min(fim,a.idx+40+proximoCabecalho);
+      }
+      let trecho=texto.slice(a.idx,fim).trim();
+      if(trecho.length<40)continue;
+      if(a.agrupada){
+        // Prefixo sintético apenas para o classificador: preserva o número individual
+        // e o NTE do cabeçalho agrupador sem alterar a evidência textual armazenada.
+        trecho=`PORTARIA Nº ${a.numero} - NTE ${a.nteGrupo}. ${trecho}`;
+      }
+      blocos.push({pagina:pagina.pagina,ordem:0,idx:a.idx,texto:trecho,normalizado:normalizarBuscaDoe(trecho),especie:a.especie,numero:a.numero,agrupada:!!a.agrupada,nteGrupo:a.nteGrupo||null});
+    }
+
+    if(primeiroUnitarioAposGrupo)grupoAtivo=null;
+    else if(grupoAtivo&&!inicios.some(x=>x.agrupada)&&!mg)grupoAtivo=null;
+  }
+
+  // Define uma ordem única por página somente depois de combinar atos unitários e agrupados.
+  const porPagina=new Map();
+  for(const b of blocos){
+    const k=Number(b.pagina)||0;
+    if(!porPagina.has(k))porPagina.set(k,[]);
+    porPagina.get(k).push(b);
+  }
+  const saida=[];
+  for(const [pagina,lista] of [...porPagina.entries()].sort((a,b)=>a[0]-b[0])){
+    lista.sort((a,b)=>a.idx-b.idx);
+    lista.forEach((b,i)=>{b.ordem=i+1;delete b.idx;saida.push(b);});
+  }
+  return saida;
+}
 function extrairAtoDoContexto(texto,tipoFallback=''){const docs=extrairDocumentosDoe(texto);return{ato:docs.especie||tipoFallback||'ATO LEGAL',numero:docs.numero,...docs};}
 function textoPdfPorColunasDoe(items,larguraPagina){const validos=(items||[]).filter(i=>String(i.str||'').trim()).map((i,ordem)=>({texto:String(i.str||'').trim(),x:Number(i.transform?.[4])||0,y:Number(i.transform?.[5])||0,w:Number(i.width)||0,ordem}));if(!validos.length)return'';const largura=Number(larguraPagina)||Math.max(...validos.map(i=>i.x+i.w),1),corte=largura*0.50;const montar=lista=>{const ordenada=[...lista].sort((a,b)=>Math.abs(b.y-a.y)>2.5?b.y-a.y:a.x-b.x||a.ordem-b.ordem),linhas=[];for(const it of ordenada){let linha=linhas.find(l=>Math.abs(l.y-it.y)<=2.5);if(!linha){linha={y:it.y,itens:[]};linhas.push(linha);}linha.itens.push(it);}return linhas.sort((a,b)=>b.y-a.y).map(l=>l.itens.sort((a,b)=>a.x-b.x||a.ordem-b.ordem).map(i=>i.texto).join(' ')).join('\n');};const esquerda=validos.filter(i=>i.x<corte),direita=validos.filter(i=>i.x>=corte);if(!esquerda.length||!direita.length)return montar(validos).replace(/\s*\n\s*/g,'\n').trim();return `${montar(esquerda)}\n${montar(direita)}`.replace(/\s*\n\s*/g,'\n').trim();}
 async function extrairPaginasPdfDoe(file,onProgress){if(!window.pdfjsLib?.getDocument)throw new Error('Leitor de PDF indisponível. Atualize a página e tente novamente.');window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';const data=new Uint8Array(await file.arrayBuffer()),pdf=await window.pdfjsLib.getDocument({data}).promise,paginas=[];for(let n=1;n<=pdf.numPages;n++){const pg=await pdf.getPage(n),tc=await pg.getTextContent(),viewport=pg.getViewport({scale:1}),texto=textoPdfPorColunasDoe(tc.items||[],viewport.width);paginas.push({pagina:n,texto,normalizado:normalizarBuscaDoe(texto)});if(onProgress)onProgress(n,pdf.numPages);if(n%8===0)await new Promise(r=>setTimeout(r,0));}if(!paginas.some(x=>x.texto.length>30))throw new Error('O PDF não possui texto pesquisável. Se o Diário Oficial estiver digitalizado como imagem, será necessária uma etapa de OCR antes da importação.');return paginas;}
