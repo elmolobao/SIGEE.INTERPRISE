@@ -302,6 +302,41 @@ function ensureModalConferenciaAto(){
   return m;
 }
 async function abrirConferenciaAto(id){const m=ensureModalConferenciaAto(),f=m.querySelector('form');try{const x=await window.SIGEE_LEGALIZACAO_SERVICE.obterAtoImportado(id);f.id.value=x.id||'';f.escola_id.value=x.escola_id||'';f.instituicao_id.value=x.instituicao_id||'';f.escola_nome.value=x.escola_nome||'Instituição não identificada';f.cnpj_extraido.value=x.cnpj_extraido||'—';f.territorio.value=`NTE ${x.nte_numero||'—'} · ${x.municipio||'—'}`;f.ato.value=x.ato||'';f.numero_publicacao.value=x.numero_publicacao||'';f.tipo_ato.value=x.tipo_ato||'';f.numero_processo.value=x.numero_processo||'';const dataDoe=dataDoeDoArquivo(x.arquivo_origem)||String(x.data_publicacao||'').slice(0,10);f.data_publicacao.value=dataDoe;f.vigencia_inicio.value=String(x.vigencia_inicio||'').slice(0,10);f.vigencia_fim.value=String(x.vigencia_fim||'').slice(0,10);f.vigencia_origem.value=x.vigencia_origem||'—';f.pagina.value=paginaOrigemAto(x)||'—';f.arquivo_origem.value=x.arquivo_origem||'—';f.detalhe.value=x.detalhe||'';f.municipio_vinculo.value=x.municipio||'';f.criterio_vinculo.value=x.cnpj_extraido?'CNPJ':'NOME';f.valor_vinculo.value=x.cnpj_extraido||x.escola_nome||'';const vs=m.querySelector('[data-vinculo-status]');vs.textContent=(x.instituicao_id||x.escola_id)?'INSTITUIÇÃO VINCULADA':'VÍNCULO A CONFIRMAR';vs.className=`leg-badge ${(x.instituicao_id||x.escola_id)?'ok':'info'}`;m.querySelector('[data-rejeicao]').classList.add('hidden');m.querySelector('[data-localizador-instituicao]').classList.add('hidden');m.querySelector('[data-localizador-resultados]').innerHTML='';m.querySelector('[data-localizador-status]').textContent='';m.classList.remove('hidden');}catch(err){alert('Não foi possível abrir a conferência: '+(err.message||err));}}
+
+function dataArquivoDoe(item){
+  const nome=String(item?.arquivo_origem||'');
+  let m=nome.match(/(?:^|[^0-9])(20\d{2})[-_.](\d{2})[-_.](\d{2})(?:[^0-9]|$)/i);
+  if(m)return `${m[1]}-${m[2]}-${m[3]}`;
+  m=nome.match(/(?:^|[^0-9])(\d{2})[-_.](\d{2})[-_.](20\d{2})(?:[^0-9]|$)/i);
+  if(m)return `${m[3]}-${m[2]}-${m[1]}`;
+  m=nome.match(/(?:^|[^0-9])(20\d{2})(\d{2})(\d{2})(?:[^0-9]|$)/i);
+  if(m)return `${m[1]}-${m[2]}-${m[3]}`;
+  return null;
+}
+function dataDoeDoLote(itens=[]){
+  if(!Array.isArray(itens)||!itens.length)return'SEM_DATA';
+  for(const x of itens){const d=dataArquivoDoe(x);if(d)return d;}
+  const freq=new Map();
+  for(const x of itens){const d=dataValidaIso(x?.data_publicacao);if(d)freq.set(d,(freq.get(d)||0)+1);}
+  if(freq.size)return [...freq.entries()].sort((a,b)=>b[1]-a[1]||String(b[0]).localeCompare(String(a[0])))[0][0];
+  const criado=dataValidaIso(itens[0]?.created_at);
+  return criado||'SEM_DATA';
+}
+function chaveLoteDoe(item){
+  const lote=String(item?.lote_id||'').trim();
+  const arquivo=String(item?.arquivo_origem||'').trim();
+  const data=dataArquivoDoe(item)||dataValidaIso(item?.created_at)||dataValidaIso(item?.data_publicacao)||'SEM_DATA';
+  if(lote)return `LOTE:${lote}|DOE:${data}`;
+  if(arquivo)return `ARQ:${arquivo}|DOE:${data}`;
+  return `REG:${item?.id||'SEM_ID'}|DOE:${data}`;
+}
+function metadadosLoteDoe(item){return{loteId:item?.lote_id||null,dataDoe:dataArquivoDoe(item)||dataValidaIso(item?.data_publicacao)||null,arquivo:item?.arquivo_origem||null};}
+function resumoListaDoe(lista=[]){
+  const r={total:0,identificados:0,pendentes:0,ambiguos:0,confirmados:0,duplicados:0,rejeitados:0};
+  for(const x of lista||[]){r.total++;const st=upper(x?.status_match);if(st==='IDENTIFICADO')r.identificados++;else if(st==='PENDENTE_CONFERENCIA')r.pendentes++;else if(st==='AMBIGUO')r.ambiguos++;else if(st==='CONFIRMADO')r.confirmados++;else if(st==='DUPLICADO')r.duplicados++;else if(st==='REJEITADO')r.rejeitados++;}
+  return r;
+}
+
 function renderAtosImportados(lista,resumo,filtro=''){const host=$('#legalizacao-reg-atos'),rh=$('#leg-atos-resumo');if(rh&&resumo)rh.innerHTML=`<span>Total <b>${resumo.total}</b></span><span>Confirmados <b>${resumo.confirmados}</b></span><span>Aguardando conferência <b>${resumo.identificados}</b></span><span>Pendentes <b>${resumo.pendentes}</b></span><span>Ambíguos <b>${resumo.ambiguos}</b></span><span>Rejeitados <b>${resumo.rejeitados||0}</b></span>`;if(!host)return;const lotes=new Map();for(const x of lista||[]){const k=chaveLoteDoe(x);if(!lotes.has(k))lotes.set(k,[]);lotes.get(k).push(x);}const ordenados=[...lotes.entries()].map(([k,itens])=>({k,itens,data:dataDoeDoLote(itens)})).sort((a,b)=>String(b.data).localeCompare(String(a.data))||String(b.itens[0]?.created_at||'').localeCompare(String(a.itens[0]?.created_at||'')));if(!ordenados.length){host.innerHTML='<div class="leg-empty compact"><strong>Nenhum Diário Oficial importado nesta situação.</strong></div>';return;}host.innerHTML=`<div class="leg-subcard"><h4>Conferência por Diário Oficial</h4><p class="leg-help">Cada importação é tratada como uma edição do Diário Oficial. Abra a data para conferir cada ocorrência; quando todos os atos forem confirmados ou descartados, o Diário é encerrado automaticamente.</p><div class="leg-doe-date-list">${ordenados.map(g=>{const {itens,data}=g,total=itens.length,confirmados=itens.filter(x=>upper(x.status_match)==='CONFIRMADO').length,descartados=itens.filter(x=>upper(x.status_match)==='REJEITADO').length,pendentes=total-confirmados-descartados,concluido=pendentes===0&&total>0,label=data==='SEM_DATA'?'Data do DOE não identificada':fmtDate(data),progresso=concluido?`${total} atos analisados · ${confirmados} confirmados · ${descartados} descartados`:`${pendentes} ato${pendentes===1?'':'s'} a conferir · ${confirmados} confirmado${confirmados===1?'':'s'} · ${descartados} descartado${descartados===1?'':'s'}`;return `<section class="leg-doe-date-card ${concluido?'is-done':''}" data-doe-lote="${esc(g.k)}"><div class="leg-doe-date-head"><div><small>DIÁRIO OFICIAL</small><h3>${concluido?'Diário conferido':'Atos para conferência'} · ${esc(label)}</h3><p>${esc(progresso)}</p></div><div class="leg-inst-meta"><span class="leg-badge ${concluido?'ok':pendentes<total?'info':'warn'}">${concluido?'CONFERIDO':pendentes<total?'EM CONFERÊNCIA':'PENDENTE DE CONFERÊNCIA'}</span>${!concluido?`<button type="button" class="leg-btn primary mini" data-doe-toggle>Abrir data</button>${podeGerirDoe()?`<button type="button" class="leg-btn secondary mini" data-doe-descartar style="border-color:#dc2626;color:#b91c1c">Descartar lote</button>`:''}`:''}</div></div>${concluido?`<div class="leg-doe-date-closed"><strong>Conferência concluída.</strong><span>Este Diário está encerrado e não possui mais ações de conferência.</span></div>`:`<div class="leg-doe-date-body hidden" data-doe-body>${itens.filter(x=>!filtro||upper(x.status_match)===upper(filtro)).map(x=>renderLinhaAtoDoe(x,false)).join('')||'<div class="leg-empty compact"><strong>Nenhum ato deste Diário corresponde ao filtro selecionado.</strong></div>'}</div>`}</section>`;}).join('')}</div></div>`;host.querySelectorAll('[data-doe-toggle]').forEach(btn=>btn.addEventListener('click',()=>{const card=btn.closest('[data-doe-lote]'),body=card?.querySelector('[data-doe-body]');if(!body)return;const abrir=body.classList.contains('hidden');body.classList.toggle('hidden',!abrir);btn.textContent=abrir?'Recolher':'Abrir data';}));host.querySelectorAll('[data-doe-descartar]').forEach(btn=>btn.addEventListener('click',()=>{const card=btn.closest('[data-doe-lote]'),key=card?.dataset.doeLote,itens=lotes.get(key)||[],data=dataDoeDoLote(itens);abrirDescarteLoteDoe(itens,data);}));host.querySelectorAll('[data-conferir-ato-importado]').forEach(btn=>btn.addEventListener('click',()=>{const id=btn.closest('[data-ato-importado-id]')?.dataset.atoImportadoId;if(id)abrirConferenciaAto(id);}));}
 
 function renderInstituicoesArea(lista){const host=$('#legalizacao-instituicoes-lista');if(!host)return;if(!lista.length){host.innerHTML='<div class="leg-empty"><strong>Nenhuma instituição localizada.</strong><span>Altere os filtros ou cadastre uma nova instituição.</span></div>';return;}host.innerHTML=lista.map(i=>`<article class="leg-inst-card"><div class="leg-inst-main"><div class="leg-inst-icon">${privada(i)?'🏢':'🏫'}</div><div><h3>${esc(i.nome_instituicao)}</h3><p>${esc(i.municipio||'Município não informado')}${i.bairro?' · '+esc(i.bairro):''} · NTE ${esc(i.nte_id)} · ${esc(tipoInstituicao(i))}</p><small>${i.codigo_cadastro?`Cadastro ${esc(i.codigo_cadastro)} · `:''}${i.cod_sec?`COD SEC ${esc(i.cod_sec)} · `:''}${i.cod_inep?`INEP ${esc(i.cod_inep)} · `:''}${esc(statusLabel(i.situacao_regulatoria))}</small></div></div>${cardAcoes(i,'data-inst-prontuario')}</article>`).join('');bindCards(host,'[data-inst-prontuario]');}
@@ -381,11 +416,10 @@ async function carregarAtosImportados(){
     const filtro=$('#leg-atos-status')?.value||'';
     const svc=window.SIGEE_LEGALIZACAO_SERVICE;
     if(!svc?.listarAtosImportados)throw new Error('Serviço de consulta dos atos importados não disponível.');
-    const [lista,resumo]=await Promise.all([
-      svc.listarAtosImportados(''),
-      svc.resumoImportacaoAtos?svc.resumoImportacaoAtos():Promise.resolve(null)
-    ]);
-    renderAtosImportados(lista||[],resumo||{},filtro);
+    const statusConsulta=filtro||'ATIVAS';
+    const lista=await svc.listarAtosImportados(statusConsulta);
+    const resumo=resumoListaDoe(lista||[]);
+    renderAtosImportados(lista||[],resumo,filtro);
   }catch(err){
     console.error('[SIGEE][DOE] Falha ao carregar atos importados:',err);
     if(host)host.innerHTML=`<div class="leg-empty danger"><strong>Falha ao consultar importações.</strong><span>${esc(err.message||err)}</span><button type="button" class="leg-btn" data-doe-tentar-novamente>Tentar novamente</button></div>`;
