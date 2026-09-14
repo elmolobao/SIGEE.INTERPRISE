@@ -554,10 +554,59 @@ async function obterAtoImportado(importacaoId){assertAccess();if(!podeGerirDoe()
 async function resumoImportacaoAtos(){assertAccess();if(!podeGerirDoe())return null;const c=client(),contar=async status=>{let q=c.from('legalizacao_atos_importacao').select('id',{count:'exact',head:true});if(status)q=q.eq('status_match',status);const {count,error}=await q;if(error)throw error;return Number(count||0);};const [total,identificados,pendentes,ambiguos,confirmados,duplicados,rejeitados]=await Promise.all([contar(),contar('IDENTIFICADO'),contar('PENDENTE_CONFERENCIA'),contar('AMBIGUO'),contar('CONFIRMADO'),contar('DUPLICADO'),contar('REJEITADO')]);return{total,identificados,pendentes,ambiguos,confirmados,duplicados,rejeitados};}
 function limparAjustesAtoImportado(ajustes={}){const permitidos=['ato','tipo_ato','numero_publicacao','numero_processo','data_publicacao','vigencia_inicio','vigencia_fim'];const out={};for(const k of permitidos){if(!Object.prototype.hasOwnProperty.call(ajustes,k))continue;out[k]=clean(ajustes[k]);}return out;}
 function normalizarChaveDoe(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]+/g,' ').trim();}
-async function reconciliarVinculoAtoImportado(r){const iid=Number(r?.instituicao_id)||null,eid=Number(r?.escola_id)||null;if(iid)return oneScoped('legalizacao_instituicoes',iid);if(eid)return habilitarProntuario(eid);const base=await listarBaseIdentificacaoDoe(),cnpj=digits(r?.cnpj_extraido,14),nome=normalizarChaveDoe(r?.escola_nome),municipio=normalizarChaveDoe(r?.municipio);let candidatos=[];if(cnpj.length===14){candidatos=base.filter(x=>{const cs=[digits(x.cnpj,14),...(x.mantenedora_cnpjs||[]).map(v=>digits(v,14))].filter(Boolean);return cs.includes(cnpj);});}
-if(!candidatos.length&&nome){candidatos=base.filter(x=>normalizarChaveDoe(x.nome_instituicao)===nome&&(!municipio||normalizarChaveDoe(x.municipio)===municipio));}
-if(!candidatos.length)throw new Error('Vincule uma instituição antes de confirmar o ato. Não foi possível reconciliar automaticamente o cadastro pelo CNPJ/nome da unidade.');
-const unicos=[];const chaves=new Set();for(const x of candidatos){const k=Number(x.prontuario_id||x.id)?`I:${Number(x.prontuario_id||x.id)}`:`E:${Number(x.escola_id)||0}`;if(!chaves.has(k)){chaves.add(k);unicos.push(x);}}if(unicos.length!==1)throw new Error(`A vinculação automática encontrou ${unicos.length} cadastros compatíveis. Selecione a instituição correta antes de confirmar.`);const alvo=unicos[0];let inst=null;if(Number(alvo.prontuario_id||alvo.id))inst=await oneScoped('legalizacao_instituicoes',Number(alvo.prontuario_id||alvo.id));else if(Number(alvo.escola_id))inst=await habilitarProntuario(Number(alvo.escola_id));if(!inst)throw new Error('Não foi possível consolidar o vínculo da instituição identificada.');const escolaLegada=Number(inst.escola_id||alvo.escola_id)||null;const c=client();const {error}=await c.from('legalizacao_atos_importacao').update({instituicao_id:inst.id,escola_id:escolaLegada,status_match:upper(r?.status_match)==='AMBIGUO'?'PENDENTE_CONFERENCIA':r?.status_match}).eq('id',r.id);if(error)throw error;return inst;}
+async function buscarCandidatosVinculoDoeDireto(r){
+  const c=client(),cnpj=digits(r?.cnpj_extraido,14),nome=clean(r?.escola_nome),nomeNorm=normalizarChaveDoe(nome),municipio=clean(r?.municipio),munNorm=normalizarChaveDoe(municipio),achados=[];
+  const add=(x,origem)=>{if(!x)return;const iid=Number(x.prontuario_id||x.instituicao_id||x.id)||null,eid=Number(x.escola_id||x.id_escola)||null;if(!iid&&!eid)return;achados.push({...x,prontuario_id:iid,escola_id:eid,_origem_vinculo:origem});};
+  // 1) Prontuários atuais: consulta sem restringir a escola_id nulo. Esse fallback cobre
+  // cadastros existentes que por algum motivo ainda não estejam refletidos na view do catálogo.
+  if(nome){
+    let q=c.from('legalizacao_instituicoes').select('id,escola_id,nte_id,nome_instituicao,cod_inep,cod_sec,cnpj,municipio').ilike('nome_instituicao',nome).limit(50);q=scoped(q);
+    const {data,error}=await q;if(error)throw error;for(const x of data||[]){if(!munNorm||normalizarChaveDoe(x.municipio)===munNorm)add(x,'legalizacao_instituicoes:nome');}
+  }
+  // 2) CNPJ direto do prontuário (quando o CNPJ estiver salvo na própria instituição).
+  if(cnpj.length===14){
+    const out=[];for(let ini=0;ini<10000;ini+=1000){let q=c.from('legalizacao_instituicoes').select('id,escola_id,nte_id,nome_instituicao,cod_inep,cod_sec,cnpj,municipio').order('id',{ascending:true}).range(ini,ini+999);q=scoped(q);const {data,error}=await q;if(error)throw error;out.push(...(data||[]));if((data||[]).length<1000)break;}
+    for(const x of out){if(digits(x.cnpj,14)===cnpj)add(x,'legalizacao_instituicoes:cnpj');}
+    // 3) CNPJ da mantenedora: é a fonte mais comum nas publicações de instituições privadas.
+    const mantenedoras=[];for(let ini=0;ini<10000;ini+=1000){const {data,error}=await c.from('legalizacao_mantenedoras').select('instituicao_id,cnpj,razao_social').order('instituicao_id',{ascending:true}).range(ini,ini+999);if(error)throw error;mantenedoras.push(...(data||[]));if((data||[]).length<1000)break;}
+    const ids=[...new Set(mantenedoras.filter(m=>digits(m.cnpj,14)===cnpj).map(m=>Number(m.instituicao_id)).filter(Boolean))];
+    for(let i=0;i<ids.length;i+=300){let q=c.from('legalizacao_instituicoes').select('id,escola_id,nte_id,nome_instituicao,cod_inep,cod_sec,cnpj,municipio').in('id',ids.slice(i,i+300));q=scoped(q);const {data,error}=await q;if(error)throw error;for(const x of data||[])add(x,'legalizacao_mantenedoras:cnpj');}
+  }
+  // 4) Cadastro mestre legado. Se o prontuário ainda não tiver sido materializado, o nome
+  // da escola no cadastro mestre é suficiente para habilitá-lo quando nome + município forem inequívocos.
+  if(nome){
+    let q=c.from('escolas_sigee').select('id,nome_escola,nome,municipio,nte_id,cod_mec').or(`nome_escola.ilike.${nome},nome.ilike.${nome}`).limit(50);const {data,error}=await q;if(error)throw error;
+    for(const e of data||[]){const en=normalizarChaveDoe(e.nome_escola||e.nome),em=normalizarChaveDoe(e.municipio);if(en===nomeNorm&&(!munNorm||em===munNorm))add({escola_id:e.id,nome_instituicao:e.nome_escola||e.nome,municipio:e.municipio,nte_id:e.nte_id,cod_inep:e.cod_mec},'escolas_sigee:nome');}
+  }
+  return achados;
+}
+async function reconciliarVinculoAtoImportado(r){
+  const iid=Number(r?.instituicao_id)||null,eid=Number(r?.escola_id)||null;
+  if(iid)return oneScoped('legalizacao_instituicoes',iid);
+  if(eid)return habilitarProntuario(eid);
+  const c=client(),cnpj=digits(r?.cnpj_extraido,14),nome=normalizarChaveDoe(r?.escola_nome),municipio=normalizarChaveDoe(r?.municipio);
+  let candidatos=[];
+  // Primeiro usa a mesma base consolidada empregada pelo parser do DOE.
+  try{
+    const base=await listarBaseIdentificacaoDoe();
+    if(cnpj.length===14)candidatos=base.filter(x=>{const cs=[digits(x.cnpj,14),...(x.mantenedora_cnpjs||[]).map(v=>digits(v,14))].filter(Boolean);return cs.includes(cnpj);});
+    if(!candidatos.length&&nome)candidatos=base.filter(x=>normalizarChaveDoe(x.nome_instituicao)===nome&&(!municipio||normalizarChaveDoe(x.municipio)===municipio));
+  }catch(e){console.warn('[SIGEE DOE] Falha na base consolidada durante reconciliação; usando busca direta.',e);}
+  // Registros antigos podem ter sido importados antes de o vínculo interno ser persistido.
+  // Nesse cenário, consulta diretamente prontuários, mantenedoras e cadastro mestre.
+  if(!candidatos.length)candidatos=await buscarCandidatosVinculoDoeDireto(r);
+  const unicos=[],chaves=new Set();
+  for(const x of candidatos){const pi=Number(x.prontuario_id||x.instituicao_id||x.id)||null,pe=Number(x.escola_id)||null,k=pi?`I:${pi}`:(pe?`E:${pe}`:null);if(k&&!chaves.has(k)){chaves.add(k);unicos.push({...x,prontuario_id:pi,escola_id:pe});}}
+  if(!unicos.length)throw new Error('Vincule uma instituição antes de confirmar o ato. O SIGEE consultou CNPJ, mantenedora, nome/município e cadastro mestre, mas não encontrou vínculo inequívoco.');
+  if(unicos.length!==1)throw new Error(`A vinculação automática encontrou ${unicos.length} cadastros compatíveis. Selecione a instituição correta antes de confirmar.`);
+  const alvo=unicos[0];let inst=null;
+  if(Number(alvo.prontuario_id))inst=await oneScoped('legalizacao_instituicoes',Number(alvo.prontuario_id));
+  else if(Number(alvo.escola_id))inst=await habilitarProntuario(Number(alvo.escola_id));
+  if(!inst)throw new Error('Não foi possível consolidar o vínculo da instituição identificada.');
+  const escolaLegada=Number(inst.escola_id||alvo.escola_id)||null;
+  const {error}=await c.from('legalizacao_atos_importacao').update({instituicao_id:inst.id,escola_id:escolaLegada,status_match:upper(r?.status_match)==='AMBIGUO'?'PENDENTE_CONFERENCIA':r?.status_match}).eq('id',r.id);if(error)throw error;
+  return inst;
+}
 async function rejeitarAtoImportado(importacaoId,motivo){assertAccess();if(!podeGerirDoe())throw new Error('A rejeição de atos é autorizada apenas para os perfis Master e SEC.');const id=Number(importacaoId),just=clean(motivo);if(!id)throw new Error('Publicação inválida.');if(!just||just.length<5)throw new Error('Informe o motivo da rejeição.');const c=client(),{data:r,error:er}=await c.from('legalizacao_atos_importacao').select('*').eq('id',id).single();if(er)throw er;const st=upper(r.status_match);if(st==='CONFIRMADO')throw new Error('Uma publicação já confirmada não pode ser rejeitada.');if(st==='REJEITADO')return r;const now=new Date().toISOString(),uid=currentUserId(),auditoria=`\n\n[REJEIÇÃO DOE] ${now} · usuário ${uid??'não identificado'} · motivo: ${just}`;const {data,error}=await c.from('legalizacao_atos_importacao').update({status_match:'REJEITADO',detalhe:`${r.detalhe||''}${auditoria}`.trim()}).eq('id',id).select('*').single();if(error)throw error;return data;}
 async function confirmarAtoImportado(importacaoId,escolaId=null,ajustes={}){assertAccess();if(!podeGerirDoe())throw new Error('A confirmação de atos é autorizada apenas para os perfis Master e SEC.');const c=client(),id=Number(importacaoId);if(!id)throw new Error('Publicação inválida.');const {data:r0,error:er}=await c.from('legalizacao_atos_importacao').select('*').eq('id',id).single();if(er)throw er;const estado=upper(r0.status_match);if(estado==='CONFIRMADO')throw new Error('Este ato já foi confirmado.');if(estado==='REJEITADO')throw new Error('Esta publicação foi rejeitada e não pode ser confirmada sem nova análise.');const correcoes=limparAjustesAtoImportado(ajustes),r={...r0,...correcoes};const iid=Number(r.instituicao_id)||null,eid=Number(escolaId||r.escola_id)||null;let inst=null;if(iid){inst=await oneScoped('legalizacao_instituicoes',iid);}else if(eid){inst=await habilitarProntuario(eid);}else{inst=await reconciliarVinculoAtoImportado(r);}const escolaLegada=Number(inst.escola_id||eid)||null,now=new Date().toISOString();if(Object.keys(correcoes).length){const {error:ec}=await c.from('legalizacao_atos_importacao').update(correcoes).eq('id',r.id);if(ec)throw ec;}const registro={instituicao_id:inst.id,escola_id:escolaLegada,importacao_id:r.id,ato:r.ato,tipo_ato:r.tipo_ato,numero_ato:r.numero_publicacao,data_publicacao:r.data_publicacao,numero_processo:r.numero_processo,vigencia_inicio:r.vigencia_inicio,vigencia_fim:r.vigencia_fim,vigencia_origem:r.vigencia_origem,detalhe:r.detalhe,fonte:`IMPORTACAO:${r.arquivo_origem}`,situacao_registro:'CONFIRMADO',criado_por_id:currentUserId()};const {data,error}=await c.from('legalizacao_atos_legais').upsert(registro,{onConflict:'importacao_id'}).select('*').single();if(error)throw error;const {error:eu}=await c.from('legalizacao_atos_importacao').update({...correcoes,escola_id:escolaLegada,instituicao_id:inst.id,status_match:'CONFIRMADO',confirmado_em:now,confirmado_por_id:currentUserId()}).eq('id',r.id);if(eu)throw eu;if(r.endereco_extraido&&!inst.endereco_importado){await c.from('legalizacao_instituicoes').update({endereco_importado:r.endereco_extraido,endereco_importado_fonte:r.arquivo_origem,dados_importados_status:'A_CONFERIR',updated_at:now}).eq('id',inst.id);}
   // A publicação confirmada oficializa o procedimento regulatório correspondente pelo Processo SEI.
