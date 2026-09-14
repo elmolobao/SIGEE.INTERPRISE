@@ -707,8 +707,8 @@ async function confirmarAtoImportado(importacaoId,escolaId=null,ajustes={}){
       }else if(candidatos.length>1){avisos.push('Há mais de um procedimento ativo com este Processo SEI; o DOE foi confirmado, mas o procedimento não foi encerrado automaticamente.');}
     }catch(e){console.warn('[DOE] confirmação concluída, mas a integração auxiliar com o Processo SEI falhou',e);avisos.push('A integração auxiliar com o Processo SEI não foi concluída.');}
   }
-  const {error:eu}=await c.from('legalizacao_atos_importacao').update({...correcoes,escola_id:escolaLegada,instituicao_id:inst.id,status_match:'CONFIRMADO',confirmado_em:r0.confirmado_em||now,confirmado_por_id:r0.confirmado_por_id||currentUserId()}).eq('id',r.id);if(eu)throw eu;
-  atosControleCache=null;resumoCache=null;return{ato:data,instituicao_id:inst.id,escola_id:escolaLegada,avisos};
+  const {data:importacaoConfirmada,error:eu}=await c.from('legalizacao_atos_importacao').update({...correcoes,escola_id:escolaLegada,instituicao_id:inst.id,status_match:'CONFIRMADO',confirmado_em:r0.confirmado_em||now,confirmado_por_id:r0.confirmado_por_id||currentUserId()}).eq('id',r.id).select('*').maybeSingle();if(eu)throw eu;if(!importacaoConfirmada||upper(importacaoConfirmada.status_match)!=='CONFIRMADO')throw new Error('O banco não consolidou o status CONFIRMADO da ocorrência do DOE. Verifique a política de atualização de legalizacao_atos_importacao.');
+  atosControleCache=null;resumoCache=null;return{ato:data,importacao:importacaoConfirmada,instituicao_id:inst.id,escola_id:escolaLegada,avisos};
 }
 async function integrarAtosIdentificados(importacaoIds=[]){
   assertAccess();if(!podeGerirDoe())throw new Error('A integração automática de atos é autorizada apenas para os perfis Master e SEC.');
