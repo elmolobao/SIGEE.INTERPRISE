@@ -305,11 +305,23 @@ async function obterProntuario(instituicaoId){
     c.from('legalizacao_fiscalizacoes').select('*').eq('instituicao_id',iid).order('created_at',{ascending:false}),
     c.from('legalizacao_inspecoes').select('*').eq('instituicao_id',iid).order('created_at',{ascending:false}),
     c.from('legalizacao_handoff_acervo').select('*').eq('instituicao_id',iid).order('created_at',{ascending:false}),
-    c.from('legalizacao_atos_legais').select('id,ato,tipo_ato,numero_ato,data_publicacao,numero_processo,vigencia_inicio,vigencia_fim,vigencia_origem,detalhe,fonte,situacao_registro,created_at').eq('instituicao_id',iid).order('data_publicacao',{ascending:false}),
+    c.from('legalizacao_atos_legais').select('id,importacao_id,ato,tipo_ato,numero_ato,data_publicacao,numero_processo,vigencia_inicio,vigencia_fim,vigencia_origem,detalhe,fonte,situacao_registro,created_at').eq('instituicao_id',iid).order('data_publicacao',{ascending:false}),
     c.from('legalizacao_irregularidade_acompanhamentos').select('*').eq('instituicao_id',iid).order('created_at',{ascending:false})
   ]);
   for(const r of queries){if(r.error)throw r.error;}
   let [mantenedoras,responsaveis,carimbos,ofertas,processos,fiscalizacoes,inspecoes,handoffs,atosLegais,irregularidades]=queries.map(r=>r.data||[]);
+  const importacaoIds=[...new Set((atosLegais||[]).map(x=>Number(x.importacao_id)).filter(Boolean))];
+  if(importacaoIds.length){
+    try{
+      const {data:imports,error:eimp}=await c.from('legalizacao_atos_importacao').select('id,lote_id,arquivo_origem,linha_origem,nte_numero,municipio,escola_nome,numero_publicacao,data_publicacao,numero_processo,vigencia_inicio,vigencia_fim,vigencia_origem,status_match,cnpj_extraido,detalhe,endereco_extraido,created_at,confirmado_em,confirmado_por_id').in('id',importacaoIds);
+      if(!eimp&&imports?.length){
+        const usuarioIds=[...new Set(imports.map(x=>Number(x.confirmado_por_id)).filter(Boolean))],usuarios=new Map();
+        if(usuarioIds.length){try{const {data:us,error:eu}=await c.from('usuarios_sigee').select('id,nome,nome_completo,email').in('id',usuarioIds);if(!eu)for(const u of us||[])usuarios.set(String(u.id),u);}catch(_){}}
+        const im=new Map(imports.map(x=>[String(x.id),{...x,confirmado_por_nome:(()=>{const u=usuarios.get(String(x.confirmado_por_id));return u?.nome_completo||u?.nome||u?.email||null;})()}]));
+        atosLegais=atosLegais.map(a=>({...a,importacao:im.get(String(a.importacao_id))||null}));
+      }
+    }catch(err){console.warn('[SIGEE Legalização] Não foi possível enriquecer os atos com metadados do DOE.',err);}
+  }
   if(inspecoes.length){
     const ids=inspecoes.map(x=>x.id);
     const {data:ii,error:eii}=await c.from('legalizacao_inspecao_itens').select('*').in('inspecao_id',ids).order('ordem',{ascending:true});if(eii)throw eii;
