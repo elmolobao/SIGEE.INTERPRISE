@@ -26,7 +26,7 @@ const escolaCache=new Map();
 function depPrivada(v){const d=upper(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'');return d.includes('PARTICULAR')||d.includes('PRIVAD');}
 function escolaParaInstituicao(escola,extensao=null){const dep=escola?.dependencia_adm||escola?.dependencia||'',priv=depPrivada(dep),tipoExt=upper(extensao?.tipo_cadastro),redeExt=upper(extensao?.rede);return {...(extensao||{}),id:extensao?.id||null,prontuario_id:extensao?.id||null,escola_id:escola?.id,nte_id:extensao?.nte_id??escola?.nte_id,nome_instituicao:extensao?.nome_instituicao||escola?.nome_escola||escola?.nome,cod_inep:extensao?.cod_inep||escola?.cod_mec,municipio:extensao?.municipio||escola?.municipio,tipo_cadastro:tipoExt|| (priv?'PRIVADA':'PUBLICA'),rede:redeExt||(priv?'PRIVADA':(upper(dep).includes('MUNICIPAL')?'MUNICIPAL':(upper(dep).includes('FEDERAL')?'FEDERAL':'ESTADUAL'))),natureza:extensao?.natureza||(priv?'PRIVADA':`PUBLICA_${upper(dep)||'NAO_CLASSIFICADA'}`),dependencia_adm:dep,situacao_funcional:escola?.situacao_funcional||escola?.situacao||null,situacao_regulatoria:extensao?.situacao_regulatoria||'A_CONFERIR',prontuario_habilitado:true,dados_importados_status:extensao?.dados_importados_status||'A_CONFERIR',origem:extensao?.origem||'CATALOGO_SIGEE'};}
 async function obterEscolaMestre(escolaId){if(!escolaId)return null;const k=String(escolaId);if(escolaCache.has(k))return escolaCache.get(k);const c=client(),{data,error}=await c.from('escolas_sigee').select('id,cod_mec,nome_escola,nome,municipio,nte_id,nte,dependencia_adm,dependencia,situacao_funcional,situacao,status_acervo,acervo,local_acervo,ativo').eq('id',escolaId).maybeSingle();if(error)throw error;if(data)escolaCache.set(k,data);return data||null;}
-async function oneScoped(table,id){assertAccess();const c=client();let q=c.from(table).select('*').eq('id',id);q=scoped(q);const {data,error}=await q.maybeSingle();if(error)throw error;if(!data)throw new Error('Registro não encontrado na sua abrangência.');if(table==='legalizacao_instituicoes'&&data.escola_id){const escola=await obterEscolaMestre(data.escola_id);if(escola)return escolaParaInstituicao(escola,data);}return data;}
+async function oneScoped(table,id,opts={}){assertAccess();const c=client();let q=c.from(table).select('*').eq('id',id);if(!(opts?.globalDoe&&podeGerirDoe()))q=scoped(q);const {data,error}=await q.maybeSingle();if(error)throw error;if(!data)throw new Error(opts?.globalDoe&&podeGerirDoe()?'Registro não encontrado.':'Registro não encontrado na sua abrangência.');if(table==='legalizacao_instituicoes'&&data.escola_id){const escola=await obterEscolaMestre(data.escola_id);if(escola)return escolaParaInstituicao(escola,data);}return data;}
 function aplicarFiltrosCatalogo(q,filtros={}){
   if(filtros.situacao)q=q.eq('situacao_regulatoria',filtros.situacao);
   const tipo=upper(filtros.tipoCadastro);
@@ -285,8 +285,8 @@ async function confirmarCadastroMigrado(instituicaoId){
   const registro={situacao_regulatoria:'EM_CADASTRO',atualizado_por_id:currentUserId(),updated_at:new Date().toISOString()};
   const {data,error}=await c.from('legalizacao_instituicoes').update(registro).eq('id',inst.id).select('*').single();if(error)throw error;resumoCache=null;return data;
 }
-async function habilitarProntuario(escolaId){
-  assertAccess();const c=client(),escola=await obterEscolaMestre(escolaId);if(!escola)throw new Error('Escola não localizada no cadastro mestre do SIGEE.');if(!master()&&Number(escola.nte_id)!==Number(nteId()))throw new Error('Escola fora da sua abrangência.');
+async function habilitarProntuario(escolaId,opts={}){
+  assertAccess();const c=client(),escola=await obterEscolaMestre(escolaId);if(!escola)throw new Error('Escola não localizada no cadastro mestre do SIGEE.');const escopoGlobalDoe=opts?.globalDoe&&podeGerirDoe();if(!escopoGlobalDoe&&!master()&&Number(escola.nte_id)!==Number(nteId()))throw new Error('Escola fora da sua abrangência.');
   const {data:exist,error:ee}=await c.from('legalizacao_instituicoes').select('*').eq('escola_id',escola.id).order('id',{ascending:false}).limit(1);if(ee)throw ee;let ext=(exist||[])[0]||null;
   if(ext){if(['A_CONFIRMAR','NAO_HABILITADO'].includes(upper(ext.situacao_regulatoria))){const {data,error}=await c.from('legalizacao_instituicoes').update({situacao_regulatoria:'A_CONFERIR',dados_importados_status:'A_CONFERIR',atualizado_por_id:currentUserId(),updated_at:new Date().toISOString()}).eq('id',ext.id).select('*').single();if(error)throw error;ext=data;}resumoCache=null;return escolaParaInstituicao(escola,ext);}
   const priv=depPrivada(escola.dependencia_adm||escola.dependencia),dep=upper(escola.dependencia_adm||escola.dependencia);
@@ -536,7 +536,7 @@ async function listarProcedimentosAguardandoPublicacao(){
 async function listarBaseIdentificacaoDoe(){
   assertAccess();if(!podeGerirDoe())throw new Error('A identificação automática do Diário Oficial é autorizada apenas para os perfis Master e SEC.');
   const c=client();if(!c)throw new Error('Cliente Supabase indisponível.');
-  const carregar=async(tabela,campos,filtroNovas=false)=>{const out=[];for(let ini=0;ini<10000;ini+=1000){let q=c.from(tabela).select(campos).order('nome_instituicao',{ascending:true}).range(ini,ini+999);if(filtroNovas)q=q.is('escola_id',null);q=scoped(q);const {data,error}=await q;if(error)throw error;out.push(...(data||[]));if((data||[]).length<1000)break;}return out;};
+  const carregar=async(tabela,campos,filtroNovas=false)=>{const out=[];for(let ini=0;ini<10000;ini+=1000){let q=c.from(tabela).select(campos).order('nome_instituicao',{ascending:true}).range(ini,ini+999);if(filtroNovas)q=q.is('escola_id',null);if(!podeGerirDoe())q=scoped(q);const {data,error}=await q;if(error)throw error;out.push(...(data||[]));if((data||[]).length<1000)break;}return out;};
   const [catalogo,novas]=await Promise.all([
     carregar('legalizacao_catalogo_v','prontuario_id,escola_id,nte_id,nome_instituicao,cod_inep,cod_sec,cnpj,municipio,tipo_cadastro,rede'),
     carregar('legalizacao_instituicoes','id,escola_id,nte_id,nome_instituicao,cod_inep,cod_sec,cnpj,municipio,tipo_cadastro,rede',true)
@@ -601,8 +601,8 @@ async function buscarCandidatosVinculoDoeDireto(r){
 }
 async function reconciliarVinculoAtoImportado(r){
   const iid=Number(r?.instituicao_id)||null,eid=Number(r?.escola_id)||null;
-  if(iid)return oneScoped('legalizacao_instituicoes',iid);
-  if(eid)return habilitarProntuario(eid);
+  if(iid)return oneScoped('legalizacao_instituicoes',iid,{globalDoe:true});
+  if(eid)return habilitarProntuario(eid,{globalDoe:true});
   const c=client(),cnpj=digits(r?.cnpj_extraido,14),nome=normalizarChaveDoe(r?.escola_nome),municipio=normalizarChaveDoe(r?.municipio);
   let candidatos=[];
   // Primeiro usa a mesma base consolidada empregada pelo parser do DOE.
@@ -619,8 +619,8 @@ async function reconciliarVinculoAtoImportado(r){
   if(!unicos.length)throw new Error('Vincule uma instituição antes de confirmar o ato. O SIGEE consultou CNPJ, mantenedora, nome/município e cadastro mestre, mas não encontrou vínculo inequívoco.');
   if(unicos.length!==1)throw new Error(`A vinculação automática encontrou ${unicos.length} cadastros compatíveis. Selecione a instituição correta antes de confirmar.`);
   const alvo=unicos[0];let inst=null;
-  if(Number(alvo.prontuario_id))inst=await oneScoped('legalizacao_instituicoes',Number(alvo.prontuario_id));
-  else if(Number(alvo.escola_id))inst=await habilitarProntuario(Number(alvo.escola_id));
+  if(Number(alvo.prontuario_id))inst=await oneScoped('legalizacao_instituicoes',Number(alvo.prontuario_id),{globalDoe:true});
+  else if(Number(alvo.escola_id))inst=await habilitarProntuario(Number(alvo.escola_id),{globalDoe:true});
   if(!inst)throw new Error('Não foi possível consolidar o vínculo da instituição identificada.');
   const escolaLegada=Number(inst.escola_id||alvo.escola_id)||null;
   const {error}=await c.from('legalizacao_atos_importacao').update({instituicao_id:inst.id,escola_id:escolaLegada,status_match:upper(r?.status_match)==='AMBIGUO'?'PENDENTE_CONFERENCIA':r?.status_match}).eq('id',r.id);if(error)throw error;
@@ -656,7 +656,7 @@ async function vincularAtoImportado(importacaoId,referencia={}){
   const id=Number(importacaoId);if(!id)throw new Error('Publicação inválida.');const c=client();
   const {data:r,error:er}=await c.from('legalizacao_atos_importacao').select('*').eq('id',id).single();if(er)throw er;if(['CONFIRMADO','REJEITADO'].includes(upper(r.status_match)))throw new Error('Este ato já está encerrado e não pode ter o vínculo alterado.');
   let inst=null;const iid=Number(referencia.instituicao_id)||null,eid=Number(referencia.escola_id)||null;
-  if(iid)inst=await oneScoped('legalizacao_instituicoes',iid);else if(eid)inst=await habilitarProntuario(eid);else throw new Error('Selecione uma instituição válida.');
+  if(iid)inst=await oneScoped('legalizacao_instituicoes',iid,{globalDoe:true});else if(eid)inst=await habilitarProntuario(eid,{globalDoe:true});else throw new Error('Selecione uma instituição válida.');
   const escolaLegada=Number(inst.escola_id||eid)||null;
   const {error}=await c.from('legalizacao_atos_importacao').update({instituicao_id:inst.id,escola_id:escolaLegada,status_match:upper(r.status_match)==='AMBIGUO'?'PENDENTE_CONFERENCIA':r.status_match}).eq('id',id);if(error)throw error;
   return{instituicao_id:inst.id,prontuario_id:inst.id,escola_id:escolaLegada,nome_instituicao:inst.nome_instituicao||null,municipio:inst.municipio||null,nte_id:inst.nte_id||null,cod_inep:inst.cod_inep||null,cod_sec:inst.cod_sec||null,cnpj:inst.cnpj||null};
@@ -684,7 +684,7 @@ async function confirmarAtoImportado(importacaoId,escolaId=null,ajustes={}){
   const {data:r0,error:er}=await c.from('legalizacao_atos_importacao').select('*').eq('id',id).single();if(er)throw er;
   const estado=upper(r0.status_match);if(estado==='REJEITADO')throw new Error('Esta publicação foi rejeitada e não pode ser confirmada sem nova análise.');
   const correcoes=limparAjustesAtoImportado(ajustes),r={...r0,...correcoes};const iid=Number(r.instituicao_id)||null,eid=Number(escolaId||r.escola_id)||null;let inst=null;
-  if(iid){inst=await oneScoped('legalizacao_instituicoes',iid);}else if(eid){inst=await habilitarProntuario(eid);}else{inst=await reconciliarVinculoAtoImportado(r);}
+  if(iid){inst=await oneScoped('legalizacao_instituicoes',iid,{globalDoe:true});}else if(eid){inst=await habilitarProntuario(eid,{globalDoe:true});}else{inst=await reconciliarVinculoAtoImportado(r);}
   if(!inst?.id)throw new Error('Vincule uma instituição antes de confirmar o ato.');
   const escolaLegada=Number(inst.escola_id||eid)||null,now=new Date().toISOString(),avisos=[];
   if(Object.keys(correcoes).length){const {error:ec}=await c.from('legalizacao_atos_importacao').update(correcoes).eq('id',r.id);if(ec)throw ec;}
