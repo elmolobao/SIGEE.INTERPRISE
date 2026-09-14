@@ -342,6 +342,47 @@ function bindRegInspecoes(host){
   host?.querySelectorAll('[data-reg-inspecao-save]').forEach(btn=>btn.addEventListener('click',async()=>{if(btn.disabled)return;const r=btn.closest('[data-reg-inspecao-item-id]');const card=r?.closest('[data-reg-inspecao-id]');const inspecaoId=card?.dataset.regInspecaoId;const itemId=r?.dataset.regInspecaoItemId;btn.disabled=true;const texto=btn.textContent;btn.textContent='Salvando...';try{await svc.atualizarItemInspecao(itemId,{resultado:r.querySelector('[data-reg-inspecao-resultado]').value,observacao:r.querySelector('[data-reg-inspecao-obs]').value,orientacao:r.querySelector('[data-reg-inspecao-orientacao]').value});await carregarRegulatorio('inspecao',true);const novoCard=host?.querySelector(`[data-reg-inspecao-id=\"${inspecaoId}\"]`);const details=novoCard?.querySelector('[data-reg-checklist-details]');if(details){details.open=true;const label=details.querySelector('.leg-checklist-toggle-label');if(label)label.textContent='Recolher checklist';}const item=novoCard?.querySelector(`[data-reg-inspecao-item-id=\"${itemId}\"]`);item?.scrollIntoView({block:'nearest'});}catch(err){alert(err.message||err);btn.disabled=false;btn.textContent=texto;}}));
   host?.querySelectorAll('[data-reg-concluir-inspecao]').forEach(btn=>btn.addEventListener('click',async()=>{const r=btn.closest('[data-reg-inspecao-id]'),resultado=r.querySelector('[data-reg-resultado-global]')?.value,parecer=r.querySelector('[data-reg-relatorio-tecnico]')?.value?.trim();if(!resultado){alert('Informe a conclusão técnica da inspeção.');return;}if(!parecer){alert('Registre o parecer final da inspeção.');return;}if(!confirm('Concluir a inspeção e encaminhar o procedimento para Análise técnica pós-inspeção?'))return;btn.disabled=true;try{await svc.concluirInspecao(r.dataset.regInspecaoId,{resultado_global:resultado,relatorio_tecnico:parecer});await carregarRegulatorio('inspecao',true);regTabsCarregadas.delete('credenciamento');regTabsCarregadas.delete('ofertas');}catch(err){alert(err.message||err);btn.disabled=false;}}));
 }
+
+async function abrirDescarteLoteDoe(itens,dataDoe){
+  const pendentes=(itens||[]).filter(x=>!['CONFIRMADO','REJEITADO'].includes(upper(x.status_match)));
+  if(!pendentes.length){alert('Este Diário não possui atos pendentes para descarte.');return;}
+  const label=dataDoe&&dataDoe!=='SEM_DATA'?fmtDate(dataDoe):'data não identificada';
+  const motivo=prompt(`Informe a justificativa para descartar os ${pendentes.length} ato(s) pendente(s) do Diário Oficial de ${label}:`,'Importação de teste / ocorrências não regulatórias.');
+  if(motivo===null)return;
+  const justificativa=String(motivo||'').trim();
+  if(justificativa.length<5){alert('Informe uma justificativa com pelo menos 5 caracteres.');return;}
+  if(!confirm(`Descartar ${pendentes.length} ato(s) pendente(s) deste Diário? Atos já confirmados não serão alterados.`))return;
+  const svc=window.SIGEE_LEGALIZACAO_SERVICE;
+  if(!svc?.rejeitarAtoImportado)throw new Error('Serviço de rejeição de atos não disponível.');
+  let ok=0,falhas=[];
+  for(const ato of pendentes){
+    try{await svc.rejeitarAtoImportado(ato.id,`DESCARTE DE LOTE: ${justificativa}`);ok++;}
+    catch(err){falhas.push(`${ato.numero_publicacao||ato.id}: ${err.message||err}`);}
+  }
+  await carregarAtosImportados();
+  if(falhas.length)alert(`Descarte concluído parcialmente: ${ok} ato(s) descartado(s) e ${falhas.length} falha(s).\n\n${falhas.slice(0,5).join('\n')}`);
+}
+
+async function carregarAtosImportados(){
+  if(!podeGerirDoe())return;
+  const host=$('#legalizacao-reg-atos');
+  if(host)host.innerHTML='<div class="leg-loading">Carregando Diários importados…</div>';
+  try{
+    const filtro=$('#leg-atos-status')?.value||'';
+    const svc=window.SIGEE_LEGALIZACAO_SERVICE;
+    if(!svc?.listarAtosImportados)throw new Error('Serviço de consulta dos atos importados não disponível.');
+    const [lista,resumo]=await Promise.all([
+      svc.listarAtosImportados(''),
+      svc.resumoImportacaoAtos?svc.resumoImportacaoAtos():Promise.resolve(null)
+    ]);
+    renderAtosImportados(lista||[],resumo||{},filtro);
+  }catch(err){
+    console.error('[SIGEE][DOE] Falha ao carregar atos importados:',err);
+    if(host)host.innerHTML=`<div class="leg-empty danger"><strong>Falha ao consultar importações.</strong><span>${esc(err.message||err)}</span><button type="button" class="leg-btn" data-doe-tentar-novamente>Tentar novamente</button></div>`;
+    host?.querySelector('[data-doe-tentar-novamente]')?.addEventListener('click',carregarAtosImportados);
+  }
+}
+
 async function carregarRegulatorio(tab=null,force=false){
   const svc=window.SIGEE_LEGALIZACAO_SERVICE;
   tab=tab||$$('[data-reg-tab].active')[0]?.dataset.regTab||'credenciamento';
