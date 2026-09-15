@@ -36,15 +36,11 @@
   function isGlobal() { const p = perfilAtual(); return p === 'MASTER' || p === 'SEC'; }
   function isTecnico() { return perfilAtual() === 'TECNICO'; }
   function podeCadastrar() { return perfilAtual() === 'MASTER'; }
-  function podeEditar() {
-    try {
-      if (window.SIGEE_PERMISSOES && typeof window.SIGEE_PERMISSOES.pode === 'function') {
-        return !!window.SIGEE_PERMISSOES.pode('editarEscola');
-      }
-    } catch (_) {}
-    const p = perfilAtual();
-    return ['MASTER','SEC','ADMINISTRADOR','TECNICO'].includes(p);
-  }
+  // 2026-09-15 — O catálogo de Escolas Extintas deixa de ser a origem
+  // operacional para mudança de situação/acervo. Essas mudanças passam pelos
+  // fluxos de Descredenciamento, Inspeção e Recolhimento. Master conserva
+  // edição administrativa para correções excepcionais.
+  function podeEditar() { return perfilAtual() === 'MASTER'; }
   function podeEditarCompleto() { return perfilAtual() === 'MASTER'; }
   function podeEditarLimitado() {
     const p = perfilAtual();
