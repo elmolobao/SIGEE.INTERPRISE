@@ -3,8 +3,10 @@
 const C=()=>w.SIGEE_SUPABASE?.criarCliente?.()||w.SIGEE_SUPABASE_CLIENT||w.supabaseClient;
 const U=()=>w.SIGEE_SESSION?.getUser?.()||w.usuarioLogado||{};
 const norm=v=>String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().trim();
-const perfil=()=>norm(U().perfil),global=()=>['MASTER','SEC'].includes(perfil());
-const nte=()=>Number(U().nte_id||String(U().nte||'').match(/\d{1,2}/)?.[0]||0)||null;
+const perfilBase=()=>norm(U().perfil);
+const perfil=()=>norm(w.SIGEE_MODULOS?.perfilNoModulo?.('ESCOLAS_EXTINTAS',U())||U().perfil);
+const global=()=>['MASTER','SEC'].includes(perfilBase())&&w.SIGEE_MODULOS?.podeAcessar?.('ESCOLAS_EXTINTAS',U())===true;
+const nte=()=>{const modular=w.SIGEE_MODULOS?.nteNoModulo?.('ESCOLAS_EXTINTAS',U());return Number(modular||U().nte_id||String(U().nte||'').match(/\d{1,2}/)?.[0]||0)||null;};
 function qscope(q){return global()?q:(nte()?q.eq('nte_id',nte()):q.eq('nte_id',-1));}
 async function listar(){let q=C().from('extintas_descredenciamentos').select('*').order('updated_at',{ascending:false}).limit(1000);q=qscope(q);const r=await q;if(r.error)throw r.error;return r.data||[];}
 async function escolasTerritorio(busca=''){let q=C().from('escolas_sigee').select('id,cod_mec,nome_escola,nome,municipio,nte_id,situacao_funcional,status_acervo,acervo').order('nome_escola').limit(80);if(!global()&&nte())q=q.eq('nte_id',nte());if(busca)q=q.or(`nome_escola.ilike.%${busca.replace(/[%(),]/g,'')}%,cod_mec.ilike.%${busca.replace(/[%(),]/g,'')}%`);const r=await q;if(r.error)throw r.error;return r.data||[];}
@@ -16,6 +18,22 @@ async function adicionarItem(recolhimento_id,p){const r=await C().from('extintas
 async function salvarAcervo(id,p){const r=await C().from('extintas_acervo_recolhimentos').update({situacao:p.situacao||'EM_RECOLHIMENTO',data_recolhimento:p.data_recolhimento||null,local_guarda:p.local_guarda||null,termo_referencia:p.termo_referencia||null,observacoes:p.observacoes||null,updated_at:new Date().toISOString()}).eq('id',id);if(r.error)throw r.error;}
 async function concluirAcervo(chamadoId){const u=U(),r=await C().rpc('sigee_extintas_concluir_recolhimento',{p_chamado_id:chamadoId,p_usuario_id:String(u.id||''),p_usuario_nome:u.nome||u.name||u.email||''});if(r.error)throw r.error;return r.data;}
 async function salvarInspecao(chamadoId,p){const u=U(),row={chamado_id:chamadoId,tipo:'SUSPEITA_EXTINCAO',data_inspecao:p.data_inspecao,tecnico_id:String(u.id||''),tecnico_nome:u.nome||u.name||'',desativacao_constatada:p.desativacao_constatada,escola_localizada:p.escola_localizada,responsavel_localizado:p.responsavel_localizado,acervo_localizado:p.acervo_localizado,acervo_recuperado:p.acervo_recuperado,relatorio:p.relatorio,evidencias:p.evidencias||null};const r=await C().from('extintas_inspecoes').insert(row);if(r.error)throw r.error;const upd=p.desativacao_constatada?{status:p.acervo_recuperado?'EM_RECOLHIMENTO':'AGUARDANDO_SEI_COMPULSORIO',etapa_atual:p.acervo_recuperado?'RECOLHIMENTO':'DESCREDENCIAMENTO_COMPULSORIO',desativacao_constatada:true,responsavel_localizado:p.responsavel_localizado,acervo_localizado:p.acervo_localizado}:{status:'SUSPEITA_NAO_CONFIRMADA',etapa_atual:'ENCERRADO',desativacao_constatada:false};const x=await C().from('extintas_descredenciamentos').update({...upd,updated_at:new Date().toISOString()}).eq('id',chamadoId);if(x.error)throw x.error;}
+
+async function salvarTratativas(id,p){
+  const u=U(),payload={contato_registro:p.contato_registro||null,instrucao_registro:p.instrucao_registro||null,atualizado_por_id:String(u.id||''),updated_at:new Date().toISOString()};
+  const r=await C().from('extintas_descredenciamentos').update(payload).eq('id',id);if(r.error)throw r.error;
+  await C().from('extintas_descredenciamento_historico').insert({chamado_id:id,evento:'TRATATIVAS_ATUALIZADAS',descricao:[p.contato_registro&&('Contato: '+p.contato_registro),p.instrucao_registro&&('Instrução: '+p.instrucao_registro)].filter(Boolean).join(' | '),usuario_id:String(u.id||''),usuario_nome:u.nome||u.name||u.email||''});
+}
+async function agendarAtividade(chamadoId,p){
+  const z=await detalhe(chamadoId),c=z.chamado,u=U();
+  const tipo=String(p.tipo||'').toUpperCase();
+  if(!['INSPECAO_SUSPEITA_EXTINCAO','RECOLHIMENTO_ACERVO'].includes(tipo))throw new Error('Tipo de agenda inválido para Escolas Extintas.');
+  if(!p.inicio)throw new Error('Informe a data e hora da atividade.');
+  const row={tipo,titulo:(tipo==='RECOLHIMENTO_ACERVO'?'Recolhimento de acervo — ':'Inspeção de suspeita de extinção — ')+c.escola_nome,inicio:p.inicio,fim:p.fim||p.inicio,modalidade:'PRESENCIAL',local:p.local||null,motivo:p.motivo||null,objetivo:tipo==='RECOLHIMENTO_ACERVO'?'Recolher e conferir o acervo escolar disponível.':'Constatar a desativação da instituição e tentar localizar/recuperar o acervo escolar.',situacao:'AGENDADO',prioridade:p.prioridade||'NORMAL',observacoes:p.observacoes||null,comunicar_ntes:true,ntes:[Number(c.nte_id)].filter(Boolean),dominio:'ESCOLAS_EXTINTAS',escola_id:c.escola_id||null,chamado_extintas_id:c.id,legalizacao_processo_id:c.legalizacao_processo_id||null,numero_sei:c.numero_sei||c.numero_sei_compulsorio||null,criado_por_id:u.id||null,criado_por_nome:u.nome||u.name||'',criado_por_email:String(u.email||'').toLowerCase()||null,updated_at:new Date().toISOString()};
+  const r=await C().from('gt_agenda').insert(row).select('*').single();if(r.error)throw r.error;
+  await C().from('extintas_descredenciamento_historico').insert({chamado_id:c.id,evento:'AGENDA_CRIADA',descricao:`${tipo}: ${p.inicio}${p.local?' · '+p.local:''}`,usuario_id:String(u.id||''),usuario_nome:u.nome||u.name||u.email||''});
+  return r.data;
+}
 async function registrarCompulsorio(id,p){const r=await C().from('extintas_descredenciamentos').update({tipo:'COMPULSORIO',numero_sei_compulsorio:p.sei,status:'AGUARDANDO_MP',etapa_atual:'ENCAMINHAMENTO_MP',updated_at:new Date().toISOString()}).eq('id',id);if(r.error)throw r.error;}
 async function registrarMP(id,p){const r=await C().from('extintas_descredenciamentos').update({encaminhado_mp:true,data_encaminhamento_mp:p.data,referencia_mp:p.referencia,status:'ENCAMINHADO_MP',etapa_atual:'ACOMPANHAMENTO',updated_at:new Date().toISOString()}).eq('id',id);if(r.error)throw r.error;}
-w.SIGEE_EXTINTAS_DESC_SERVICE=Object.freeze({listar,escolasTerritorio,abrirSuspeita,detalhe,garantirItens,salvarItem,adicionarItem,salvarAcervo,concluirAcervo,salvarInspecao,registrarCompulsorio,registrarMP,global,nte});})(window);
+w.SIGEE_EXTINTAS_DESC_SERVICE=Object.freeze({listar,escolasTerritorio,abrirSuspeita,detalhe,garantirItens,salvarItem,adicionarItem,salvarAcervo,concluirAcervo,salvarInspecao,salvarTratativas,agendarAtividade,registrarCompulsorio,registrarMP,global,nte});})(window);
