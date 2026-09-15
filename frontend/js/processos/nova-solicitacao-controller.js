@@ -84,16 +84,13 @@
       if (!ehEstadual(e.dependencia) || !ehAtiva(e.situacao) || escola.ativo === false) return { ok:false, motivo:'A unidade vinculada precisa permanecer Estadual, Ativa e habilitada no catálogo.' };
       return { ok:true };
     }
-    if (contexto.tipo === 'NTE') {
-      if (!contexto.nteId || Number(e.nte_id) !== Number(contexto.nteId)) return { ok:false, motivo:'A escola não pertence ao NTE deste usuário.' };
-      const sit = normalizar(e.situacao);
-      if (!['EXTINTA','PARALISADA','ATIVA'].includes(sit)) return { ok:false, motivo:'A situação funcional desta escola não está habilitada para abertura pelo NTE.' };
-      const acervoCanonico = texto(escola.acervo) && normalizar(escola.acervo) !== 'SELECIONE' ? escola.acervo : escola.status_acervo;
-      if (!ehRecolhido(acervoCanonico)) return { ok:false, motivo:`A escola está ${e.situacao || 'cadastrada'}, mas o acervo não está oficialmente Recolhido. A unidade permanece visível para consulta, porém a abertura do processo está bloqueada até a regularização do acervo.` };
-      if (escola.ativo === false) return { ok:false, motivo:'A escola está desabilitada no catálogo.' };
-      return { ok:true };
-    }
-    return { ok:true };
+    if (contexto.tipo === 'NTE' && (!contexto.nteId || Number(e.nte_id) !== Number(contexto.nteId))) return { ok:false, motivo:'A escola não pertence ao NTE deste usuário.' };
+    const sit=normalizar(e.situacao), acervoCanonico=texto(escola.acervo)&&normalizar(escola.acervo)!=='SELECIONE'?escola.acervo:escola.status_acervo;
+    const municipalizada=sit==='MUNICIPALIZADA'&&['PARCIALMENTE RECOLHIDO','RECOLHIDO PARCIALMENTE','PARCIAL'].includes(normalizar(acervoCanonico));
+    if(municipalizada) return {ok:true,codigo:'MUNICIPALIZADA_MEDIO',somenteEnsinoMedio:true};
+    if(!['EXTINTA','PARALISADA'].includes(sit)||!ehRecolhido(acervoCanonico)) return {ok:false,motivo:'A unidade não possui acervo elegível para Nova Solicitação em Escolas Extintas.'};
+    if(escola.ativo===false)return {ok:false,motivo:'A escola está desabilitada no catálogo.'};
+    return {ok:true};
   }
 
   function limparAutofill() {
@@ -501,6 +498,13 @@
     try { window.aplicarClasseStatusAcervoSIGEE?.(); } catch (_) {}
     try { window.aplicarStatusBotaoNovaSolicitacaoV25?.(); } catch (_) {}
     if (contextoEscopo().tipo === 'ESCOLA') modoVisualEscolaVinculada(true, e);
+    const ensino=campo('novo-proc-ensino');
+    if(ensino){
+      const somenteMedio=politica?.somenteEnsinoMedio===true || politica?.codigo==='MUNICIPALIZADA_MEDIO';
+      [...ensino.options].forEach(o=>{ if(normalizar(o.value)==='FUNDAMENTAL') o.disabled=somenteMedio; });
+      if(somenteMedio){ ensino.value='Médio'; ensino.dataset.sigeeMunicipalizada='1'; }
+      else delete ensino.dataset.sigeeMunicipalizada;
+    }
     if (botao) {
       botao.disabled = false;
       botao.textContent = contextoEscopo().tipo === 'ESCOLA' ? 'Criar Solicitação' : 'Enviar para Desarquivamento';
@@ -516,7 +520,7 @@
     if (aluno) aluno.value = '';
     ['novo-proc-documento', 'novo-proc-modalidade', 'novo-proc-ensino'].forEach((id) => {
       const el = campo(id);
-      if (el) el.selectedIndex = 0;
+      if (el) { el.selectedIndex = 0; [...el.options].forEach(o=>o.disabled = o.hasAttribute('disabled') && !o.value); delete el.dataset.sigeeMunicipalizada; }
     });
     const chk = campo('f01-chk-acolhido');
     if (chk) chk.checked = false;
@@ -651,6 +655,11 @@
     const politica = validarPoliticaEscola(escolaOficial);
     if (!politica.ok) {
       exibirCadastroNaoPermitido(e, politica);
+      return false;
+    }
+
+    if ((politica.somenteEnsinoMedio===true || politica.codigo==='MUNICIPALIZADA_MEDIO') && normalizar(campo('novo-proc-ensino')?.value)!=='MEDIO') {
+      alert('Instituição municipalizada. O acervo sob responsabilidade estadual corresponde exclusivamente ao Ensino Médio.');
       return false;
     }
 
