@@ -5,7 +5,7 @@ if(window.SIGEE_TERRITORIAL_AGENDA) return;
 let eventos=[];
 let ciencias=[];
 
-const TIPOS={REUNIAO:'Reunião',ALINHAMENTO_TECNICO:'Alinhamento técnico',FORMACAO_TERRITORIAL:'Formação territorial',VISITA_TECNICA:'Visita técnica',ACOMPANHAMENTO:'Acompanhamento',OUTRA:'Outra atividade'};
+const TIPOS={REUNIAO:'Reunião',ALINHAMENTO_TECNICO:'Alinhamento técnico',FORMACAO_TERRITORIAL:'Formação territorial',VISITA_TECNICA:'Visita técnica',INSPECAO_REGULATORIA:'⚖️ Inspeção regulatória',INSPECAO_IRREGULARIDADE:'⚠️ Inspeção de irregularidade',INSPECAO_SUSPEITA_EXTINCAO:'🔎 Inspeção de suspeita de extinção',RECOLHIMENTO_ACERVO:'📦 Recolhimento de acervo',ACOMPANHAMENTO:'Acompanhamento',OUTRA:'Outra atividade'};
 const STATUS={PLANEJADO:'Planejado',AGENDADO:'Agendado',EM_ANDAMENTO:'Em andamento',REALIZADO:'Realizado',REMARCADO:'Remarcado',CANCELADO:'Cancelado'};
 const MODALIDADES={PRESENCIAL:'Presencial',ONLINE:'Online',HIBRIDA:'Híbrida'};
 function esc(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
