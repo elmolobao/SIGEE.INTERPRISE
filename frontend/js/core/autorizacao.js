@@ -10,6 +10,7 @@ window.__SIGEE_AUTORIZACAO_RC1201D__ = true;
 const ROTAS = Object.freeze({
   painel: 'relatorios.visualizar',
   processos: 'processos.visualizar',
+  'extintas-descredenciamento': 'escolas.visualizar',
   escolas: 'escolas.visualizar',
   usuarios: ['usuarios.gerenciar_global', 'usuarios.gerenciar_nte', 'usuarios.visualizar_nte'],
   logs: 'logs.visualizar',
@@ -27,7 +28,7 @@ const ROTAS = Object.freeze({
 });
 
 const MODULO_ROTA = Object.freeze({
-  painel:'ESCOLAS_EXTINTAS', processos:'ESCOLAS_EXTINTAS', escolas:'ESCOLAS_EXTINTAS',
+  painel:'ESCOLAS_EXTINTAS', processos:'ESCOLAS_EXTINTAS', escolas:'ESCOLAS_EXTINTAS', 'extintas-descredenciamento':'ESCOLAS_EXTINTAS',
   'nova-solicitacao':'ESCOLAS_EXTINTAS', relatorios:'ESCOLAS_EXTINTAS',
   'sala-situacao':'ESCOLAS_EXTINTAS', 'centro-inteligencia':'ESCOLAS_EXTINTAS',
   'plano-acao-territorial':'ESCOLAS_EXTINTAS', 'solicitacao-apoio-territorial':'ESCOLAS_EXTINTAS', legalizacao:'LEGALIZACAO'
@@ -35,6 +36,7 @@ const MODULO_ROTA = Object.freeze({
 
 const MENU_EXTINTAS = Object.freeze([
   { id:'menu-central-processos', rota:'processos', modulo:'ESCOLAS_EXTINTAS', icone:'📋', rotulo:'Central de Processos', capacidade:'processos.visualizar', perfis:['Master','SEC','Secretaria','Gestor','Administrador','Técnico','Atendimento','Estagiário','Consulta'] },
+  { id:'menu-extintas-descredenciamento', rota:'extintas-descredenciamento', modulo:'ESCOLAS_EXTINTAS', icone:'📕', rotulo:'Descredenciamento', capacidade:'escolas.visualizar', perfis:['Master','SEC','Administrador','Técnico','Atendimento'] },
   { id:'menu-catalogo-escolas', rota:'escolas', modulo:'ESCOLAS_EXTINTAS', icone:'🏫', rotulo:'Catálogo de Escolas', capacidade:'escolas.visualizar', perfis:['Master','SEC','Administrador','Técnico','Atendimento','Estagiário','Consulta'] },
   { id:'menu-painel', rota:'painel', modulo:'ESCOLAS_EXTINTAS', icone:'📊', rotulo:'Painel Gerencial', capacidade:'indicadores.visualizar', perfis:['Gestor'] },
   { id:'menu-centro-inteligencia', rota:'centro-inteligencia', modulo:'ESCOLAS_EXTINTAS', icone:'🧠', rotulo:'Centro de Inteligência', capacidade:'indicadores.visualizar', perfis:['Master','Administrador'] },
@@ -60,7 +62,7 @@ const MENU_LEGALIZACAO = Object.freeze([
 
 const MENU_GESTAO_TERRITORIAL = Object.freeze([
   { id:'menu-gestao-territorial', rota:'gestao-territorial', icone:'🗺️', rotulo:'Visão Geral Territorial', capacidade:'gestao_territorial.gerenciar', perfis:['Master'] },
-  { id:'menu-tecnicos-territorial', rota:'tecnicos-territorial', icone:'👥', rotulo:'Técnicos', capacidade:null, perfis:['Master','SEC'], escopo:'GLOBAL' },
+  { id:'menu-tecnicos-territorial', rota:'tecnicos-territorial', icone:'👥', rotulo:'Técnicos', capacidade:null, perfis:['Master'], escopo:'GLOBAL' },
   { id:'menu-solicitacoes-apoio-master', rota:'solicitacao-apoio-territorial', icone:'🆘', rotulo:'Solicitações de Apoio', capacidade:'processos.visualizar', perfis:['Master'], escopo:'GLOBAL', modulo:'ESCOLAS_EXTINTAS' },
   { id:'menu-plano-acao-territorial', rota:'plano-acao-territorial', icone:'✅', rotulo:'Plano de Ação', capacidade:'processos.visualizar', perfis:['Gestor','Administrador','Atendimento','Estagiário','Consulta'], escopo:'NTE', modulo:'ESCOLAS_EXTINTAS' }
 ]);
@@ -667,6 +669,12 @@ function navegarPara(rota, opcoes={}){
     if(window.SIGEE_MIGRACAO_HISTORICA?.abrir) window.SIGEE_MIGRACAO_HISTORICA.abrir();
     else garantirRotaVisivel('migracao-historica');
     return true;
+  }
+
+  if (rota === 'extintas-descredenciamento') {
+    if(window.SIGEE_EXTINTAS_DESC?.abrir) return window.SIGEE_EXTINTAS_DESC.abrir();
+    alert('O módulo Descredenciamento de Escolas Extintas ainda não concluiu o carregamento.');
+    return false;
   }
 
   if (rota === 'legalizacao') {
