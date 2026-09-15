@@ -1,4 +1,4 @@
-/** SIGEE Enterprise — GT-02 Interface da Agenda Institucional (Master). */
+/** SIGEE Enterprise — GT-02 Interface da Agenda de Monitoramento (Master). */
 (function(window,document){
 'use strict';
 if(window.SIGEE_TERRITORIAL_AGENDA) return;

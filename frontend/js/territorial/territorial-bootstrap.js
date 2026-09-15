@@ -23,7 +23,7 @@
   const ABAS = Object.freeze([
     ['visao-geral','Visão Geral'],
     ['mapa','Mapa'],
-    ['agenda','Agenda'],
+    ['agenda','Agenda de Monitoramento'],
     ['monitoramento','Monitoramento'],
     ['plano-acao','Planos de Ação'],
     ['solicitacoes-apoio','Solicitações de Apoio'],
@@ -137,7 +137,7 @@
   function conteudo(id){
     if(id==='visao-geral') return visaoGeral();
     if(id==='mapa') return mapa();
-    if(id==='agenda') return '<div id="gt-agenda-corpo"><div class="gt-empty">Carregando Agenda Institucional...</div></div>';
+    if(id==='agenda') return '<div id="gt-agenda-corpo"><div class="gt-empty">Carregando Agenda de Monitoramento...</div></div>';
     if(id==='monitoramento') return '<div id="gt-monitoramento-corpo"><div class="gt-empty">Carregando Monitoramento Territorial...</div></div>';
     if(id==='plano-acao') return '<div id="gt-plano-acao-corpo"><div class="gt-empty">Carregando Planos de Ação...</div></div>';
     if(id==='solicitacoes-apoio') return '<div id="gt-apoio-corpo"><div class="gt-empty">Carregando Solicitações de Apoio...</div></div>';
