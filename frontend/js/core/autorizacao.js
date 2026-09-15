@@ -11,6 +11,7 @@ const ROTAS = Object.freeze({
   painel: 'relatorios.visualizar',
   processos: 'processos.visualizar',
   'extintas-descredenciamento': 'escolas.visualizar',
+  'extintas-agenda': 'escolas.visualizar',
   escolas: 'escolas.visualizar',
   usuarios: ['usuarios.gerenciar_global', 'usuarios.gerenciar_nte', 'usuarios.visualizar_nte'],
   logs: 'logs.visualizar',
@@ -24,18 +25,20 @@ const ROTAS = Object.freeze({
   'gestao-territorial': 'gestao_territorial.gerenciar',
   'plano-acao-territorial': 'processos.visualizar',
   'solicitacao-apoio-territorial': 'processos.visualizar',
-  legalizacao: null
+  legalizacao: null,
+  'legalizacao-agenda': null
 });
 
 const MODULO_ROTA = Object.freeze({
-  painel:'ESCOLAS_EXTINTAS', processos:'ESCOLAS_EXTINTAS', escolas:'ESCOLAS_EXTINTAS', 'extintas-descredenciamento':'ESCOLAS_EXTINTAS',
+  painel:'ESCOLAS_EXTINTAS', processos:'ESCOLAS_EXTINTAS', escolas:'ESCOLAS_EXTINTAS', 'extintas-descredenciamento':'ESCOLAS_EXTINTAS', 'extintas-agenda':'ESCOLAS_EXTINTAS',
   'nova-solicitacao':'ESCOLAS_EXTINTAS', relatorios:'ESCOLAS_EXTINTAS',
   'sala-situacao':'ESCOLAS_EXTINTAS', 'centro-inteligencia':'ESCOLAS_EXTINTAS',
-  'plano-acao-territorial':'ESCOLAS_EXTINTAS', 'solicitacao-apoio-territorial':'ESCOLAS_EXTINTAS', legalizacao:'LEGALIZACAO'
+  'plano-acao-territorial':'ESCOLAS_EXTINTAS', 'solicitacao-apoio-territorial':'ESCOLAS_EXTINTAS', legalizacao:'LEGALIZACAO', 'legalizacao-agenda':'LEGALIZACAO'
 });
 
 const MENU_EXTINTAS = Object.freeze([
   { id:'menu-central-processos', rota:'processos', modulo:'ESCOLAS_EXTINTAS', icone:'📋', rotulo:'Central de Processos', capacidade:'processos.visualizar', perfis:['Master','SEC','Secretaria','Gestor','Administrador','Técnico','Atendimento','Estagiário','Consulta'] },
+  { id:'menu-extintas-agenda', rota:'extintas-agenda', modulo:'ESCOLAS_EXTINTAS', icone:'📅', rotulo:'Agenda de Procedimentos', capacidade:'escolas.visualizar', perfis:['Master','SEC','Administrador','Técnico','Atendimento'] },
   { id:'menu-extintas-descredenciamento', rota:'extintas-descredenciamento', modulo:'ESCOLAS_EXTINTAS', icone:'📕', rotulo:'Descredenciamento', capacidade:'escolas.visualizar', perfis:['Master','SEC','Administrador','Técnico','Atendimento'] },
   { id:'menu-catalogo-escolas', rota:'escolas', modulo:'ESCOLAS_EXTINTAS', icone:'🏫', rotulo:'Catálogo de Escolas', capacidade:'escolas.visualizar', perfis:['Master','SEC','Administrador','Técnico','Atendimento','Estagiário','Consulta'] },
   { id:'menu-painel', rota:'painel', modulo:'ESCOLAS_EXTINTAS', icone:'📊', rotulo:'Painel Gerencial', capacidade:'indicadores.visualizar', perfis:['Gestor'] },
@@ -57,6 +60,7 @@ const MENU_LEGALIZACAO = Object.freeze([
   { id:'menu-legalizacao-regulatorio', rota:'legalizacao', area:'regulatorio', icone:'🧭', rotulo:'Controle Regulatório', capacidade:null, perfis:['Master','SEC','Administrador','Técnico','Consulta'], modulo:'LEGALIZACAO' },
   // RC12.0.7B.2: Central de Pendências Regulatórias preservada em código, porém desativada para evitar cálculo global/consumo massivo do Supabase.
   { id:'menu-legalizacao-inspecoes', rota:'legalizacao', area:'inspecoes', icone:'📋', rotulo:'Inspeções', capacidade:null, perfis:['Master','SEC','Administrador','Técnico','Consulta'], modulo:'LEGALIZACAO' },
+  { id:'menu-legalizacao-agenda', rota:'legalizacao-agenda', area:'agenda', icone:'📅', rotulo:'Agenda de Procedimentos', capacidade:null, perfis:['Master','SEC','Administrador','Técnico','Consulta'], modulo:'LEGALIZACAO' },
   { id:'menu-legalizacao-historico', rota:'legalizacao', area:'historico', icone:'🕘', rotulo:'Histórico', capacidade:null, perfis:['Master','SEC','Administrador','Técnico','Consulta'], modulo:'LEGALIZACAO' }
 ]);
 
@@ -112,6 +116,7 @@ function autorizarRota(rota, silencioso=false){
   const chave = String(rota || '').trim();
   const u = usuario();
   const modulo = MODULO_ROTA[chave] || null;
+  if (perfil(u)==='Master') return true;
   if (modulo && window.SIGEE_MODULOS?.podeAcessar?.(modulo,u)!==true) {
     if (!silencioso) alert('Seu usuário não possui acesso ao módulo solicitado.');
     return false;
@@ -126,6 +131,7 @@ function autorizarRota(rota, silencioso=false){
   return false;
 }
 function itemPermitido(item, u){
+  if(perfil(u)==='Master') return true;
   if(item.modulo && window.SIGEE_MODULOS?.podeAcessar?.(item.modulo,u)!==true) return false;
   const p = item.modulo
     ? (window.SIGEE_MODULOS?.perfilNoModulo?.(item.modulo,u) || perfil(u))
@@ -669,6 +675,16 @@ function navegarPara(rota, opcoes={}){
     if(window.SIGEE_MIGRACAO_HISTORICA?.abrir) window.SIGEE_MIGRACAO_HISTORICA.abrir();
     else garantirRotaVisivel('migracao-historica');
     return true;
+  }
+
+  if (rota === 'extintas-agenda') {
+    if(window.SIGEE_AGENDA_PROCEDIMENTOS?.abrir) return window.SIGEE_AGENDA_PROCEDIMENTOS.abrir('ESCOLAS_EXTINTAS');
+    alert('A Agenda de Procedimentos de Escolas Extintas ainda não concluiu o carregamento.'); return false;
+  }
+
+  if (rota === 'legalizacao-agenda') {
+    if(window.SIGEE_AGENDA_PROCEDIMENTOS?.abrir) return window.SIGEE_AGENDA_PROCEDIMENTOS.abrir('LEGALIZACAO');
+    alert('A Agenda de Procedimentos da Legalização ainda não concluiu o carregamento.'); return false;
   }
 
   if (rota === 'extintas-descredenciamento') {
