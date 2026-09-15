@@ -16,6 +16,8 @@
   function usuario(){return window.SIGEE_SESSION?.getUser?.() || window.usuarioLogado || null;}
   function perfil(){return window.SIGEE_PERFIS?.normalizar?.(usuario()?.perfil) || window.SIGEE_SESSION?.normalizarPerfil?.(usuario()?.perfil) || String(usuario()?.perfil||'');}
   function master(){return perfil()==='Master';}
+  function sec(){return String(perfil()).toUpperCase()==='SEC';}
+  function global(){return master()||sec();}
   function nteNumero(valor){return window.SIGEE_TERRITORIAL_DATA?.numeroNte?.(valor) || null;}
   function nteUsuario(){const u=usuario()||{}; return nteNumero(u.nte_id ?? u.nte ?? u.nte_nome);}
   function erroBanco(error){
@@ -44,9 +46,9 @@
   }
 
   async function listar(filtros={}){
-    if(!master()) throw new Error('Acesso restrito ao perfil Master.');
     const c=cliente(); if(!c) throw new Error('Cliente Supabase indisponível.');
     let q=c.from(TABELA).select('*').order('inicio',{ascending:true});
+    if(!global()){const n=nteUsuario();if(!n)return [];q=q.contains('ntes',[Number(n)]);}
     if(filtros.situacao) q=q.eq('situacao',filtros.situacao);
     if(filtros.tipo) q=q.eq('tipo',filtros.tipo);
     if(filtros.nte) q=q.contains('ntes',[Number(filtros.nte)]);
@@ -138,5 +140,5 @@
     return true;
   }
 
-  window.SIGEE_TERRITORIAL_AGENDA_SERVICE=Object.freeze({listar,salvar,excluir,notificacoesUsuario,listarCiencias,marcarVisualizado,confirmarCiencia,nteUsuario,master,versao:'GT-04.3'});
+  window.SIGEE_TERRITORIAL_AGENDA_SERVICE=Object.freeze({listar,salvar,excluir,notificacoesUsuario,listarCiencias,marcarVisualizado,confirmarCiencia,nteUsuario,master,sec,global,versao:'GT-05.0'});
 })(window);
