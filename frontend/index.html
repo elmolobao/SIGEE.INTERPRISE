@@ -37,7 +37,7 @@
 <link rel="stylesheet" href="css/popup-prazos-login.css?v=RC10.8.20">
 <link rel="stylesheet" href="css/gestao-territorial.css?v=RC11.3.19B">
 <link rel="stylesheet" href="css/legalizacao.css?v=RC12.0.10A.36.3.15">
-<link rel="stylesheet" href="css/extintas-descredenciamento.css?v=20260915.1"/>
+<link rel="stylesheet" href="css/extintas-descredenciamento.css?v=20260915.3"/>
 </head>
 <body class="bg-gray-100 font-sans text-gray-800 font-normal">
 <div class="min-h-screen flex items-center justify-center bg-blue-900 px-4" id="tela-login">
@@ -359,8 +359,15 @@
 </section>
 
 <section class="hidden space-y-4 sigee-central" id="aba-extintas-descredenciamento">
-  <div class="extd-head"><div><h1>📕 Descredenciamento</h1><p>Chamados, suspeitas de extinção, inspeções e recolhimento de acervo.</p></div><button type="button" class="extd-btn primary" id="extintas-nova-suspeita">+ Suspeita de Extinção</button></div>
-  <div id="extintas-desc-lista"></div>
+  <div class="extd-head"><div><h1>🏫 Controle de Extintas</h1><p>Central administrativa de suspeitas, descredenciamentos, inspeções e recolhimento de acervo.</p></div></div>
+  <div class="extd-tabs" role="tablist">
+    <button type="button" class="extd-tab active" data-extd-tab="procedimentos">Procedimentos <span id="extd-count-procedimentos">0</span></button>
+    <button type="button" class="extd-tab" data-extd-tab="catalogo">Catálogo de Escolas</button>
+  </div>
+  <div data-extd-panel="procedimentos"><div id="extintas-desc-lista"></div></div>
+  <div data-extd-panel="catalogo" class="hidden">
+    <div class="extd-panel"><div class="extd-catalogo-head"><div><h3>Catálogo para atuação de Escolas Extintas</h3><p class="extd-help">Consulte instituições do território. Escolas ativas podem ser selecionadas para abertura de Suspeita de Extinção sem alterar sua situação funcional.</p></div><input id="extd-catalogo-busca" placeholder="Pesquisar escola ou código MEC"></div><div id="extd-catalogo-lista"></div></div>
+  </div>
 </section>
 <section class="hidden space-y-4 sigee-central" id="aba-processos">
 <div class="flex flex-wrap justify-between items-center bg-white p-4 rounded-xl border shadow-xs gap-3 sigee-central-topo">
@@ -898,7 +905,7 @@
 <script src="js/core/modulos-access.js?v=RC12.0.10A.36.3.14"></script>
 <script src="js/core/permissoes.js?v=RC11.3.6"></script>
 <script src="js/core/escopo.js?v=RC11.0.0"></script>
-<script src="js/core/elegibilidade-escola-solicitacao.js?v=RC11.3.13"></script>
+<script src="js/core/elegibilidade-escola-solicitacao.js?v=RC11.3.14"></script>
 <script src="js/core/dados-escopo.js?v=RC8.0.0"></script>
 <script src="js/core/processos-store.js?v=RC8.3.0"></script>
 <script src="js/core/mensagens-config.js?v=RC10.8.15"></script>
@@ -917,12 +924,12 @@
 <script src="js/sigee-bootstrap.js?v=RC10.8.44"></script>
 <script src="js/analytics/analytics-engine.js?v=RC7.2.1-PERFORMANCE"></script>
 <script src="js/escolas/municipios-territorios.js?v=RC4.5.0"></script>
-<script src="js/escolas/escolas.js?v=RC8.6.1"></script>
+<script src="js/escolas/escolas.js?v=RC8.6.2"></script>
 <script src="js/escolas/importacao.js"></script>
 <script src="js/escolas/exportacao.js"></script>
 <script src="js/processos/fluxo-operacional.js"></script>
-<script src="js/extintas/extintas-descredenciamento.service.js?v=20260915.1"></script>
-<script src="js/extintas/extintas-descredenciamento.js?v=20260915.1"></script>
+<script src="js/extintas/extintas-descredenciamento.service.js?v=20260915.3"></script>
+<script src="js/extintas/extintas-descredenciamento.js?v=20260915.3"></script>
 <script src="js/core/stability-manager.js?v=RC4.3.1"></script>
 <script src="js/core/app-core.js"></script>
 <script src="js/components/WorkflowActionModal.js?v=RC10.8.9"></script>
@@ -969,7 +976,7 @@ window.filtrarTabelaUsuariosSIGEE = function (termo) {
 <script src="js/core/credenciais.js?v=RC10.8.17"></script>
 <!-- RC4.5.29: arquitetura única da Nova Solicitação. Serviço primeiro; controlador único depois. -->
 <script src="js/processos/duplicidade-nova-solicitacao.js?v=RC4.7.0"></script>
-<script src="js/processos/nova-solicitacao-controller.js?v=RC11.3.13"></script>
+<script src="js/processos/nova-solicitacao-controller.js?v=RC11.3.14"></script>
 <script src="js/processos/central-processos-controller.js?v=RC9.1.0"></script>
 
 <script src="js/admin/controle-acesso-ntes.js?v=RC10.8.40"></script>
@@ -1001,7 +1008,7 @@ window.filtrarTabelaUsuariosSIGEE = function (termo) {
 
 <script src="js/legalizacao/legalizacao.service.js?v=RC12.0.10A.36.3.16"></script>
 <script src="js/legalizacao/legalizacao.js?v=RC12.0.10A.36.3.15"></script>
-    <script src="js/core/autorizacao.js?v=RC12.0.10A.36.3.14"></script>
+    <script src="js/core/autorizacao.js?v=RC12.0.10A.36.3.15"></script>
 <script src="js/analytics/dashboard.js?v=RC7.4.4-PERFORMANCE"></script>
 <script src="js/cio/cio-bootstrap.js?v=RC7.4.1"></script>
 <script src="js/cio/cio-widget.js?v=RC6.3.1.2"></script>
