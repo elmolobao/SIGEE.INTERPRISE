@@ -39,8 +39,7 @@ const MODULO_ROTA = Object.freeze({
 const MENU_EXTINTAS = Object.freeze([
   { id:'menu-central-processos', rota:'processos', modulo:'ESCOLAS_EXTINTAS', icone:'📋', rotulo:'Central de Processos', capacidade:'processos.visualizar', perfis:['Master','SEC','Secretaria','Gestor','Administrador','Técnico','Atendimento','Estagiário','Consulta'] },
   { id:'menu-extintas-agenda', rota:'extintas-agenda', modulo:'ESCOLAS_EXTINTAS', icone:'📅', rotulo:'Agenda de Procedimentos', capacidade:'escolas.visualizar', perfis:['Master','SEC','Administrador','Técnico','Atendimento'] },
-  { id:'menu-extintas-descredenciamento', rota:'extintas-descredenciamento', modulo:'ESCOLAS_EXTINTAS', icone:'📕', rotulo:'Descredenciamento', capacidade:'escolas.visualizar', perfis:['Master','SEC','Administrador','Técnico','Atendimento'] },
-  { id:'menu-catalogo-escolas', rota:'escolas', modulo:'ESCOLAS_EXTINTAS', icone:'🏫', rotulo:'Catálogo de Escolas', capacidade:'escolas.visualizar', perfis:['Master','SEC','Administrador','Técnico','Atendimento','Estagiário','Consulta'] },
+  { id:'menu-extintas-descredenciamento', rota:'extintas-descredenciamento', modulo:'ESCOLAS_EXTINTAS', icone:'🏫', rotulo:'Controle de Extintas', capacidade:'escolas.visualizar', perfis:['Master','SEC','Administrador','Técnico','Atendimento'] },
   { id:'menu-painel', rota:'painel', modulo:'ESCOLAS_EXTINTAS', icone:'📊', rotulo:'Painel Gerencial', capacidade:'indicadores.visualizar', perfis:['Gestor'] },
   { id:'menu-centro-inteligencia', rota:'centro-inteligencia', modulo:'ESCOLAS_EXTINTAS', icone:'🧠', rotulo:'Centro de Inteligência', capacidade:'indicadores.visualizar', perfis:['Master','Administrador'] },
   { id:'menu-sala-situacao', rota:'sala-situacao', modulo:'ESCOLAS_EXTINTAS', icone:'📡', rotulo:'Sala de Situação', capacidade:'indicadores.visualizar', perfis:['Master','SEC','Gestor'] },
@@ -689,7 +688,7 @@ function navegarPara(rota, opcoes={}){
 
   if (rota === 'extintas-descredenciamento') {
     if(window.SIGEE_EXTINTAS_DESC?.abrir) return window.SIGEE_EXTINTAS_DESC.abrir();
-    alert('O módulo Descredenciamento de Escolas Extintas ainda não concluiu o carregamento.');
+    alert('O Controle de Extintas ainda não concluiu o carregamento.');
     return false;
   }
 

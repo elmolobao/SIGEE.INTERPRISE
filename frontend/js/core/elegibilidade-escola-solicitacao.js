@@ -38,9 +38,11 @@
     return s === 'EXTINTA' || s === 'PARALISADA' || s === 'ATIVA';
   }
 
-  function ehRecolhido(valor) {
-    return norm(valor) === 'RECOLHIDO';
-  }
+  function ehRecolhido(valor) { return norm(valor) === 'RECOLHIDO'; }
+
+  function ehMunicipalizada(escola) { return norm(formatar(escola).situacao) === 'MUNICIPALIZADA'; }
+  function acervoParcial(valor) { return ['PARCIALMENTE RECOLHIDO','RECOLHIDO PARCIALMENTE','PARCIAL'].includes(norm(valor)); }
+  function municipalizadaComAcervoMedio(escola) { const e=formatar(escola); return ehMunicipalizada(e) && acervoParcial(acervoCanonico(e)); }
 
   function contextoUsuario(usuario) {
     const u = usuario || {};
@@ -70,18 +72,16 @@
       return { ok: true, codigo: 'ESCOLA_ATIVA', acervoCanonico: acervoCanonico(e) };
     }
 
-    if (tipo === 'NTE') {
-      if (!nteId || Number(e.nte_id) !== nteId) return { ok: false, codigo: 'OUTRO_NTE', motivo: 'A escola não pertence ao NTE deste usuário.' };
-      const situacao = norm(e.situacao);
-      if (!situacaoNtePermitida(situacao)) return { ok: false, codigo: 'SITUACAO_NAO_PERMITIDA', motivo: 'A situação funcional desta escola não está habilitada para abertura pelo NTE.' };
-      const acervo = acervoCanonico(e);
-      if (!ehRecolhido(acervo)) return { ok: false, codigo: 'ACERVO_NAO_RECOLHIDO', motivo: `A escola está ${e.situacao || 'com situação cadastrada'}, porém o acervo não está oficialmente Recolhido. A unidade permanece visível para consulta, mas a abertura do processo está bloqueada até a regularização do acervo.` };
-      const codigo = situacao === 'ATIVA' ? 'ATIVA_RECOLHIDA' : (situacao === 'PARALISADA' ? 'PARALISADA_RECOLHIDA' : 'EXTINTA_RECOLHIDA');
-      return { ok: true, codigo, acervoCanonico: acervo };
-    }
+    if (tipo === 'NTE' && (!nteId || Number(e.nte_id) !== nteId)) return { ok: false, codigo: 'OUTRO_NTE', motivo: 'A escola não pertence ao NTE deste usuário.' };
 
-    // GLOBAL/SEC preservam a operação administrativa; as demais proteções continuam ativas.
-    return { ok: true, codigo: 'GLOBAL', acervoCanonico: acervoCanonico(e) };
+    // Regra de negócio de Escolas Extintas vale também para visão estadual.
+    // MASTER mantém poder administrativo total, mas uma solicitação acadêmica não pode ser criada sobre acervo inexistente.
+    const situacao = norm(e.situacao);
+    const acervo = acervoCanonico(e);
+    if (municipalizadaComAcervoMedio(e)) return { ok: true, codigo: 'MUNICIPALIZADA_MEDIO', acervoCanonico: acervo, somenteEnsinoMedio: true };
+    if (!['EXTINTA','PARALISADA'].includes(situacao)) return { ok: false, codigo: 'SITUACAO_NAO_PERMITIDA', motivo: 'Somente escolas extintas/paralisadas com acervo recolhido ou escolas municipalizadas com acervo estadual parcial podem receber nova solicitação em Escolas Extintas.' };
+    if (!ehRecolhido(acervo)) return { ok: false, codigo: 'ACERVO_NAO_RECOLHIDO', motivo: `A escola está ${e.situacao || 'cadastrada'}, porém o acervo não está oficialmente Recolhido. A unidade permanece disponível no Controle de Extintas, mas não para Nova Solicitação.` };
+    return { ok: true, codigo: situacao === 'PARALISADA' ? 'PARALISADA_RECOLHIDA' : 'EXTINTA_RECOLHIDA', acervoCanonico: acervo };
   }
 
   function filtrar(lista, contexto) {
@@ -95,6 +95,8 @@
     acervoCanonico,
     situacaoNtePermitida,
     ehRecolhido,
+    ehMunicipalizada,
+    municipalizadaComAcervoMedio,
     contextoUsuario,
     validar,
     filtrar
