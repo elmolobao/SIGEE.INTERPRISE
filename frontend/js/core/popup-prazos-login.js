@@ -33,6 +33,8 @@
   let popupExibidoNesteLogin = false;
   let tokenLogin = 0;
   let loginIdProcessado = '';
+  let usuarioPendenteExtintas = null;
+  let cienciaExtintasNesteLogin = false;
 
   function texto(v) { return v == null ? '' : String(v).trim(); }
   function normalizar(v) {
@@ -328,7 +330,9 @@
   async function obterResumo(usuario, token) {
     const resumo = resumoVazio();
     resumo.modulos.extintas = podeModulo('ESCOLAS_EXTINTAS', usuario);
-    resumo.modulos.legalizacao = podeModulo('LEGALIZACAO', usuario);
+    // Este controlador pertence exclusivamente ao contexto de Escolas Extintas.
+    // Alertas da Legalização devem ser tratados pelo próprio módulo.
+    resumo.modulos.legalizacao = false;
 
     let processos = [];
     if (resumo.modulos.extintas) {
@@ -370,14 +374,6 @@
         resumo.operacional[op] += 1;
         resumo.ids.push(p.id);
       }
-    }
-
-    if (resumo.modulos.legalizacao) {
-      const leg = await obterResumoLegalizacao(usuario, token);
-      resumo.legalizacao = { PRAZO_VENCIDO:leg.PRAZO_VENCIDO, DILIGENCIA:leg.DILIGENCIA, AGUARDANDO_PUBLICACAO:leg.AGUARDANDO_PUBLICACAO };
-      resumo.ids.push(...leg.ids);
-      if (!resumo.modulos.extintas) resumo.fonte = 'Supabase — Legalização Escolar';
-      else resumo.fonte = 'Supabase — fontes oficiais dos módulos autorizados';
     }
 
     resumo.total = ORDEM_DESARQUIVAMENTO.reduce((s,k)=>s+resumo.desarquivamento[k],0) +
@@ -480,6 +476,7 @@
       confirmar.disabled = true;
       confirmar.textContent = 'Registrando ciência...';
       erro.hidden = true;
+      cienciaExtintasNesteLogin = true;
       removerPopup();
       try {
         await registrarCiencia(usuario, resumo);
@@ -507,46 +504,71 @@
     }
   }
 
+  function rotaEhExtintas(rota) {
+    const r = texto(rota).toLowerCase();
+    return ['processos','painel','escolas','extintas-descredenciamento','extintas-agenda','relatorios','sala-situacao','centro-inteligencia','plano-acao-territorial','solicitacao-apoio-territorial','nova-solicitacao'].includes(r);
+  }
+
+  function aoNavegar(event) {
+    const rota = event?.detail?.rota || event?.detail?.aba || '';
+    if (!rotaEhExtintas(rota)) {
+      // Ao sair de Escolas Extintas, nenhum alerta deste módulo pode permanecer
+      // sobre Legalização, Gestão Territorial ou qualquer outro domínio.
+      if (document.getElementById('sigee-popup-prazos-login')) {
+        removerPopup();
+        if (!cienciaExtintasNesteLogin) popupExibidoNesteLogin = false;
+      }
+      if (loginEmProcessamento) {
+        tokenLogin += 1;
+        loginEmProcessamento = false;
+      }
+      return;
+    }
+
+    if (!usuarioPendenteExtintas || cienciaExtintasNesteLogin || popupExibidoNesteLogin || loginEmProcessamento) return;
+    if (!podeModulo('ESCOLAS_EXTINTAS', usuarioPendenteExtintas)) return;
+    tokenLogin += 1;
+    processarLogin(usuarioPendenteExtintas, tokenLogin);
+  }
+
   function iniciarNovoLogin(event) {
     const detalhe = event?.detail || {};
 
-    // RC10.8.18: o alerta só pode nascer de um login manual efetivamente
-    // concluído. Eventos de restauração de sessão e inicialização da página
-    // não são gatilhos válidos.
+    // O login apenas prepara o alerta. A exibição ocorre quando a navegação
+    // confirma que o contexto ativo pertence a Escolas Extintas.
     if (detalhe.loginConcluido !== true) return;
     if (!document.getElementById('tela-login')?.classList.contains('hidden')) return;
 
     const usuario = usuarioAtual(detalhe);
     if (!usuario || !perfilOperacional(usuario)) return;
-    if (!podeModulo('ESCOLAS_EXTINTAS', usuario) && !podeModulo('LEGALIZACAO', usuario)) return;
     const loginId = texto(detalhe.login_id || detalhe.loginId || '');
-    if (!loginId) return;
-    if (loginId && loginId === loginIdProcessado) return;
+    if (!loginId || loginId === loginIdProcessado) return;
     loginIdProcessado = loginId;
 
-    // Somente o evento oficial de login cria uma nova execução. Eventos auxiliares
-    // da mesma autenticação não podem invalidar a consulta que já está em andamento.
     tokenLogin += 1;
     popupExibidoNesteLogin = false;
     loginEmProcessamento = false;
+    cienciaExtintasNesteLogin = false;
     removerPopup();
-    processarLogin(usuario, tokenLogin);
+    usuarioPendenteExtintas = podeModulo('ESCOLAS_EXTINTAS', usuario) ? usuario : null;
   }
 
   function aoLogout() {
     tokenLogin += 1;
     loginEmProcessamento = false;
     popupExibidoNesteLogin = false;
+    cienciaExtintasNesteLogin = false;
+    usuarioPendenteExtintas = null;
     loginIdProcessado = '';
     removerPopup();
   }
 
-  // Único gatilho autorizado: evento explícito emitido ao final do login
-  // manual. Não escutar session-ready e não verificar sessão já restaurada.
+  // O login prepara o estado; somente a navegação para Escolas Extintas pode
+  // disparar o alerta. Assim ele nunca vaza para Legalização Escolar.
   document.addEventListener('sigee:login-concluido', iniciarNovoLogin);
+  document.addEventListener('sigee:navegacao-concluida', aoNavegar);
   document.addEventListener('sigee:usuario-deslogado', aoLogout);
   window.addEventListener('sigee:usuario-deslogado', aoLogout);
-
 
 
   window.SIGEE_POPUP_PRAZOS_LOGIN = Object.freeze({ version:VERSION, verificar:iniciarNovoLogin, reiniciar:iniciarNovoLogin, obterResumo, obterResumoLegalizacao, etapaDesarquivamento, etapaOperacional });
