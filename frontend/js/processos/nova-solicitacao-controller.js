@@ -1,4 +1,4 @@
-/* SIGEE RC11.3.13 — Pesquisa ampla + bloqueio motivado + Ativa/Recolhida permitida */
+/* SIGEE RC11.3.15 — Municipalização: ATIVA + acervo recolhido, somente Ensino Médio */
 (function () {
   'use strict';
 
@@ -86,8 +86,9 @@
     }
     if (contexto.tipo === 'NTE' && (!contexto.nteId || Number(e.nte_id) !== Number(contexto.nteId))) return { ok:false, motivo:'A escola não pertence ao NTE deste usuário.' };
     const sit=normalizar(e.situacao), acervoCanonico=texto(escola.acervo)&&normalizar(escola.acervo)!=='SELECIONE'?escola.acervo:escola.status_acervo;
-    const municipalizada=sit==='MUNICIPALIZADA'&&['PARCIALMENTE RECOLHIDO','RECOLHIDO PARCIALMENTE','PARCIAL'].includes(normalizar(acervoCanonico));
-    if(municipalizada) return {ok:true,codigo:'MUNICIPALIZADA_MEDIO',somenteEnsinoMedio:true};
+    const ac=normalizar(acervoCanonico);
+    const municipalizada=(sit==='MUNICIPALIZADA'&&['PARCIALMENTE RECOLHIDO','RECOLHIDO PARCIALMENTE','PARCIAL','RECOLHIDO'].includes(ac)) || (sit==='ATIVA'&&ac==='RECOLHIDO');
+    if(municipalizada) return {ok:true,codigo:'MUNICIPALIZADA_MEDIO',somenteEnsinoMedio:true,municipalizada:true};
     if(!['EXTINTA','PARALISADA'].includes(sit)||!ehRecolhido(acervoCanonico)) return {ok:false,motivo:'A unidade não possui acervo elegível para Nova Solicitação em Escolas Extintas.'};
     if(escola.ativo===false)return {ok:false,motivo:'A escola está desabilitada no catálogo.'};
     return {ok:true};
@@ -744,7 +745,7 @@
     window.abrirFormularioNovaSolicitacao = abrir;
     window.fecharModalNovaSolicitacao = fechar;
     window.handleSelecaoInstituicaoFluxoAutomatico = () => !!texto(campo('novo-proc-escola-id')?.value);
-    window.SIGEE_NOVA_SOLICITACAO_CONTROLLER = { abrir, fechar, limpar: resetarFormulario, selecionarEscola, validarPoliticaEscola, versao: 'RC11.3.13' };
+    window.SIGEE_NOVA_SOLICITACAO_CONTROLLER = { abrir, fechar, limpar: resetarFormulario, selecionarEscola, validarPoliticaEscola, versao: 'RC11.3.15' };
 
     // Defesa de autoridade: builds legados reaplicavam o autocomplete em timers tardios.
     // Reafirma o controlador canônico sem reconstruir o modal ou apagar dados digitados.
