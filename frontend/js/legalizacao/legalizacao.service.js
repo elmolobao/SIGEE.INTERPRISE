@@ -294,9 +294,42 @@ async function atualizarInstituicao(instituicaoId,payload){
   const campos=Object.keys(registro).filter(k=>!['atualizado_por_id','updated_at'].includes(k)&&String(anterior[k]??'')!==String(registro[k]??''));try{const u=user();await c.from('logs_sigee').insert({usuario_id:currentUserId(),nome:u?.nome||null,email:u?.email||null,acao:'Cadastro institucional atualizado.',created_at:new Date().toISOString(),nte:String(registro.nte_id),perfil:u?.perfil||null,detalhes:`Instituição ${anterior.id} · ${registro.nome_instituicao} · Campos alterados: ${campos.join(', ')||'nenhum'}${mudouNte?` · Transferência territorial: NTE-${anterior.nte_id} → NTE-${registro.nte_id}`:''}`,modulo:'legalizacao',etapa:'CADASTRO',sessao_id:window.SIGEE_SESSAO_ID||null});}catch(e){console.warn('[Legalização] Cadastro salvo, mas o log complementar falhou:',e);}resumoCache=null;return anterior.escola_id?escolaParaInstituicao(await obterEscolaMestre(anterior.escola_id),data):data;
 }
 async function excluirInstituicao(instituicaoId){
-  assertAccess();if(!master())throw new Error('A exclusão de cadastro é exclusiva do perfil Master.');const c=client();const {data:inst,error:ei}=await c.from('legalizacao_instituicoes').select('*').eq('id',instituicaoId).maybeSingle();if(ei)throw ei;if(!inst)throw new Error('Cadastro institucional não localizado.');if(inst.escola_id)throw new Error('Este prontuário está vinculado ao cadastro mestre do SIGEE e não pode ser excluído por esta função.');
-  const dependencias=['legalizacao_processos','legalizacao_atos_legais','legalizacao_inspecoes','legalizacao_fiscalizacoes'];for(const tabela of dependencias){try{const {count,error}=await c.from(tabela).select('id',{count:'exact',head:true}).eq('instituicao_id',inst.id);if(error&&!/relation|column|schema cache|does not exist/i.test(String(error.message||'')))throw error;if((count||0)>0)throw new Error('O cadastro possui procedimentos, inspeções ou atos vinculados e não pode ser excluído. Preserve o histórico regulatório.');}catch(e){if(e?.message?.includes('não pode ser excluído'))throw e;}}
-  for(const tabela of ['legalizacao_mantenedoras','legalizacao_responsaveis','legalizacao_ofertas','legalizacao_autorizacoes_carimbo']){try{const r=await c.from(tabela).delete().eq('instituicao_id',inst.id);if(r.error&&!/relation|column|schema cache|does not exist/i.test(String(r.error.message||'')))throw r.error;}catch(e){console.warn('[Legalização] limpeza complementar de cadastro:',tabela,e?.message||e);}}const {error}=await c.from('legalizacao_instituicoes').delete().eq('id',inst.id);if(error)throw error;try{const u=user();await c.from('logs_sigee').insert({usuario_id:currentUserId(),nome:u?.nome||null,email:u?.email||null,acao:'Cadastro institucional excluído pelo Master.',created_at:new Date().toISOString(),nte:String(inst.nte_id||''),perfil:u?.perfil||null,detalhes:`Instituição ${inst.id} · ${inst.nome_instituicao}`,modulo:'legalizacao',etapa:'CADASTRO',sessao_id:window.SIGEE_SESSAO_ID||null});}catch(_){ }resumoCache=null;return true;
+  assertAccess();
+  if(!master())throw new Error('A exclusão de cadastro é exclusiva do perfil Master.');
+  const c=client();
+  const {data:inst,error:ei}=await c.from('legalizacao_instituicoes').select('*').eq('id',instituicaoId).maybeSingle();
+  if(ei)throw ei;
+  if(!inst)throw new Error('Cadastro institucional não localizado.');
+  if(inst.escola_id)throw new Error('Este prontuário está vinculado ao cadastro mestre do SIGEE e não pode ser excluído por esta função.');
+
+  // Integridade regulatória absoluta: nenhum perfil, inclusive Master, pode excluir
+  // uma instituição que já possua ato publicado incorporado ao prontuário.
+  const {count:atosPublicados,error:eAtos}=await c.from('legalizacao_atos_legais').select('id',{count:'exact',head:true}).eq('instituicao_id',inst.id);
+  if(eAtos&&!/relation|column|schema cache|does not exist/i.test(String(eAtos.message||'')))throw eAtos;
+  if((atosPublicados||0)>0)throw new Error('Exclusão não permitida. Esta instituição possui ato(s) publicado(s) vinculado(s) ao prontuário. Por integridade do histórico regulatório, o cadastro institucional não pode ser excluído.');
+
+  // Sem ato publicado, o Master pode remover um cadastro criado na Legalização.
+  // Os registros operacionais dependentes são eliminados antes da ficha principal
+  // para não deixar referências órfãs.
+  const {data:processos,error:eProc}=await c.from('legalizacao_processos').select('id').eq('instituicao_id',inst.id);
+  if(eProc&&!/relation|column|schema cache|does not exist/i.test(String(eProc.message||'')))throw eProc;
+  const pids=(processos||[]).map(x=>x.id).filter(Boolean);
+  if(pids.length){
+    const filhosProcesso=['legalizacao_oferta_requisitos_processo','legalizacao_checklist_processo','legalizacao_processos_historico','legalizacao_processos_ofertas'];
+    for(const tabela of filhosProcesso){const r=await c.from(tabela).delete().in('processo_id',pids);if(r.error&&!/relation|column|schema cache|does not exist/i.test(String(r.error.message||'')))throw r.error;}
+  }
+  const {data:inspecoes,error:eInsp}=await c.from('legalizacao_inspecoes').select('id').eq('instituicao_id',inst.id);
+  if(eInsp&&!/relation|column|schema cache|does not exist/i.test(String(eInsp.message||'')))throw eInsp;
+  const iids=(inspecoes||[]).map(x=>x.id).filter(Boolean);
+  if(iids.length){const r=await c.from('legalizacao_inspecao_itens').delete().in('inspecao_id',iids);if(r.error&&!/relation|column|schema cache|does not exist/i.test(String(r.error.message||'')))throw r.error;}
+  for(const tabela of ['legalizacao_inspecoes','legalizacao_fiscalizacoes','legalizacao_handoff_acervo','legalizacao_ofertas','legalizacao_autorizacoes_carimbo','legalizacao_responsaveis','legalizacao_mantenedoras']){
+    const r=await c.from(tabela).delete().eq('instituicao_id',inst.id);
+    if(r.error&&!/relation|column|schema cache|does not exist/i.test(String(r.error.message||'')))throw r.error;
+  }
+  if(pids.length){const r=await c.from('legalizacao_processos').delete().in('id',pids);if(r.error)throw r.error;}
+  const {error}=await c.from('legalizacao_instituicoes').delete().eq('id',inst.id);if(error)throw error;
+  try{const u=user();await c.from('logs_sigee').insert({usuario_id:currentUserId(),nome:u?.nome||null,email:u?.email||null,acao:'Cadastro institucional excluído pelo Master.',created_at:new Date().toISOString(),nte:String(inst.nte_id||''),perfil:u?.perfil||null,detalhes:`Instituição ${inst.id} · ${inst.nome_instituicao} · Exclusão permitida após validação de inexistência de ato publicado.`,modulo:'legalizacao',etapa:'CADASTRO',sessao_id:window.SIGEE_SESSAO_ID||null});}catch(_){ }
+  resumoCache=null;return true;
 }
 
 async function confirmarCadastroMigrado(instituicaoId){
