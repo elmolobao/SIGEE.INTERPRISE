@@ -1,4 +1,4 @@
-/* SIGEE RC11.3.13 — Pesquisa ampla + autorização por acervo recolhido */
+/* SIGEE RC11.3.15 — Municipalização: escola ATIVA com acervo recolhido = Ensino Médio sob guarda SEC */
 (function () {
   'use strict';
 
@@ -40,9 +40,21 @@
 
   function ehRecolhido(valor) { return norm(valor) === 'RECOLHIDO'; }
 
-  function ehMunicipalizada(escola) { return norm(formatar(escola).situacao) === 'MUNICIPALIZADA'; }
+  function ehMunicipalizada(escola) {
+    const e = formatar(escola);
+    const situacao = norm(e.situacao);
+    const acervo = norm(acervoCanonico(e));
+    // Regra homologada: no universo de Escolas Extintas, escola ATIVA cujo
+    // acervo já está sob guarda da SEC representa municipalização; esse acervo
+    // estadual corresponde exclusivamente ao Ensino Médio.
+    return situacao === 'MUNICIPALIZADA' || (situacao === 'ATIVA' && acervo === 'RECOLHIDO');
+  }
   function acervoParcial(valor) { return ['PARCIALMENTE RECOLHIDO','RECOLHIDO PARCIALMENTE','PARCIAL'].includes(norm(valor)); }
-  function municipalizadaComAcervoMedio(escola) { const e=formatar(escola); return ehMunicipalizada(e) && acervoParcial(acervoCanonico(e)); }
+  function municipalizadaComAcervoMedio(escola) {
+    const e = formatar(escola);
+    const acervo = acervoCanonico(e);
+    return ehMunicipalizada(e) && (ehRecolhido(acervo) || acervoParcial(acervo));
+  }
 
   function contextoUsuario(usuario) {
     const u = usuario || {};
@@ -78,7 +90,7 @@
     // MASTER mantém poder administrativo total, mas uma solicitação acadêmica não pode ser criada sobre acervo inexistente.
     const situacao = norm(e.situacao);
     const acervo = acervoCanonico(e);
-    if (municipalizadaComAcervoMedio(e)) return { ok: true, codigo: 'MUNICIPALIZADA_MEDIO', acervoCanonico: acervo, somenteEnsinoMedio: true };
+    if (municipalizadaComAcervoMedio(e)) return { ok: true, codigo: 'MUNICIPALIZADA_MEDIO', acervoCanonico: acervo, somenteEnsinoMedio: true, municipalizada: true };
     if (!['EXTINTA','PARALISADA'].includes(situacao)) return { ok: false, codigo: 'SITUACAO_NAO_PERMITIDA', motivo: 'Somente escolas extintas/paralisadas com acervo recolhido ou escolas municipalizadas com acervo estadual parcial podem receber nova solicitação em Escolas Extintas.' };
     if (!ehRecolhido(acervo)) return { ok: false, codigo: 'ACERVO_NAO_RECOLHIDO', motivo: `A escola está ${e.situacao || 'cadastrada'}, porém o acervo não está oficialmente Recolhido. A unidade permanece disponível no Controle de Extintas, mas não para Nova Solicitação.` };
     return { ok: true, codigo: situacao === 'PARALISADA' ? 'PARALISADA_RECOLHIDA' : 'EXTINTA_RECOLHIDA', acervoCanonico: acervo };
@@ -89,7 +101,7 @@
   }
 
   window.SIGEE_ELEGIBILIDADE_ESCOLA = Object.freeze({
-    versao: 'RC11.3.13',
+    versao: 'RC11.3.15',
     formatar,
     normalizar: norm,
     acervoCanonico,
