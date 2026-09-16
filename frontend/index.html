@@ -171,15 +171,13 @@
         <div class="leg-operacional-grid">
           <label class="span-2">Instituição<input id="leg-cred-inst-busca" type="search" autocomplete="off" placeholder="Digite nome, INEP, município ou COD SEC"><input id="leg-cred-instituicao-id" name="instituicao_id" type="hidden"><div id="leg-cred-inst-resultados" class="leg-search-results hidden"></div></label>
           <label>Procedimento<select name="subtipo"><option value="CREDENCIAMENTO">Credenciamento</option><option value="RECREDENCIAMENTO">Recredenciamento</option></select></label>
-          <div class="span-2 leg-callout compact"><div><strong>Processo SEI obrigatório desde a abertura.</strong><p>Todo ato regulatório deve nascer vinculado ao respectivo Processo SEI. Esse número acompanhará o procedimento, a inspeção e o ato legal até a publicação.</p></div></div>
-          <label>Processo SEI *<input name="numero_sei" required placeholder="00000.000000/0000-00"></label>
-          <label>Data do protocolo *<input name="data_protocolo" type="date" required></label>
+          <div class="span-2 leg-callout compact"><div><strong>O procedimento começa pelo checklist documental.</strong><p>Após a juntada dos documentos obrigatórios, o NTE registra o Processo SEI. Somente então o procedimento é liberado para inspeção.</p></div></div>
           <label>Prazo da etapa documental<input name="prazo_etapa" type="date"></label>
           <label>Situação do imóvel *<select name="situacao_imovel" required><option value="">Selecione</option><option value="PROPRIO">Próprio</option><option value="ALUGADO">Alugado</option></select></label>
           <div class="span-2 leg-oferta-config"><div class="leg-oferta-config-head"><div><strong>Mantenedora</strong><span>Informações vinculadas ao credenciamento da instituição.</span></div></div><div class="leg-operacional-grid"><label class="span-2">Razão social *<input name="mantenedora_razao_social" required></label><label>CNPJ *<input name="mantenedora_cnpj" required inputmode="numeric"></label><label>Representante legal *<input name="mantenedora_representante" required></label><label>WhatsApp *<input name="mantenedora_whatsapp" required inputmode="numeric"></label><label>E-mail *<input name="mantenedora_email" type="email" required></label><label>Município *<input name="mantenedora_municipio" required></label></div></div>
           <label class="span-2">Observação<textarea name="observacao" rows="2" placeholder="Informação inicial do procedimento, se necessária"></textarea></label>
         </div>
-        <div class="leg-operacional-actions"><span id="leg-cred-form-status">Selecione a instituição e informe o Processo SEI para abrir o ato regulatório.</span><div><button type="button" class="leg-btn" id="leg-cancelar-credenciamento">Cancelar</button><button type="submit" class="leg-btn primary">Abrir procedimento</button></div></div>
+        <div class="leg-operacional-actions"><span id="leg-cred-form-status">Selecione a instituição para iniciar o checklist documental. Após a juntada, o Processo SEI será registrado.</span><div><button type="button" class="leg-btn" id="leg-cancelar-credenciamento">Cancelar</button><button type="submit" class="leg-btn primary">Abrir procedimento</button></div></div>
       </form>
       <div class="leg-list" id="legalizacao-reg-processos"><div class="leg-empty"><strong>Aguardando carregamento...</strong></div></div></div></div>
     <div class="leg-reg-panel hidden" data-reg-panel="alteracao"><div class="leg-panel"><header class="leg-panel-head"><div><h2>Alteração Cadastral</h2><p>Procedimentos formais de mudança cadastral. Quando houver necessidade de verificação in loco, a inspeção de manutenção é vinculada a este procedimento.</p></div><div class="leg-filter-row"><button type="button" class="leg-btn primary" id="leg-nova-alteracao">+ Nova alteração cadastral</button></div></header>
@@ -209,9 +207,7 @@
         <div class="leg-operacional-grid">
           <label class="span-2">Instituição<input id="leg-oferta-inst-busca" type="search" autocomplete="off" placeholder="Digite nome, INEP, município ou COD SEC"><input id="leg-oferta-instituicao-id" name="instituicao_id" type="hidden"><div id="leg-oferta-inst-resultados" class="leg-search-results hidden"></div></label>
           <label>Procedimento<select name="subtipo" required><option value="AUTORIZACAO">Autorização</option><option value="RENOVACAO">Renovação</option><option value="RECONHECIMENTO">Reconhecimento</option><option value="RENOVACAO_RECONHECIMENTO">Renovação de reconhecimento</option></select></label>
-          <div class="span-2 leg-callout compact"><div><strong>Processo SEI obrigatório desde a abertura.</strong><p>Autorização, renovação e reconhecimento devem iniciar já vinculados ao Processo SEI correspondente.</p></div></div>
-          <label>Processo SEI *<input name="numero_sei" required placeholder="00000.000000/0000-00"></label>
-          <label>Data do protocolo *<input name="data_protocolo" type="date" required></label>
+          <div class="span-2 leg-callout compact"><div><strong>Checklist antes do Processo SEI.</strong><p>O NTE realiza a juntada documental; concluídos os requisitos obrigatórios, registra o Processo SEI e libera a inspeção.</p></div></div>
           <label>Prazo da etapa<input name="prazo_etapa" type="date"></label>
           <div class="span-2 leg-oferta-config" id="leg-autorizacao-dados"><div class="leg-oferta-config-head"><div><strong>Dados da autorização</strong><span>Obrigatórios na abertura de procedimento de Autorização.</span></div></div><div class="leg-operacional-grid"><label>Ano-base *<input name="ano_base_matriculas" type="number" min="1900" max="2200"></label><div></div><fieldset><legend>Diretor</legend><label>Nome *<input name="diretor_nome"></label><label>CPF *<input name="diretor_cpf" inputmode="numeric"></label><label>WhatsApp *<input name="diretor_whatsapp" inputmode="numeric"></label><label>E-mail *<input name="diretor_email" type="email"></label></fieldset><fieldset><legend>Secretário(a)</legend><label>Nome *<input name="secretario_nome"></label><label>CPF *<input name="secretario_cpf" inputmode="numeric"></label><label>WhatsApp *<input name="secretario_whatsapp" inputmode="numeric"></label><label>E-mail *<input name="secretario_email" type="email"></label></fieldset></div></div>
           <div class="span-2 leg-oferta-config"><div class="leg-oferta-config-head"><div><strong>Etapas, modalidades ou cursos</strong><span>Selecione uma ou mais ofertas para este procedimento regulatório.</span></div></div><div id="leg-oferta-catalogo" class="leg-oferta-catalogo"><div class="leg-empty compact"><strong>Abra o formulário para carregar o catálogo.</strong></div></div></div>
@@ -1006,8 +1002,8 @@ window.filtrarTabelaUsuariosSIGEE = function (termo) {
 <script src="js/agenda/agenda-procedimentos.js?v=5.1"></script>
 <script src="js/territorial/territorial-bootstrap.js?v=RC11.3.16"></script>
 
-<script src="js/legalizacao/legalizacao.service.js?v=RC12.0.10A.36.3.16"></script>
-<script src="js/legalizacao/legalizacao.js?v=RC12.0.10A.36.3.16"></script>
+<script src="js/legalizacao/legalizacao.service.js?v=RC12.0.10A.36.3.17"></script>
+<script src="js/legalizacao/legalizacao.js?v=RC12.0.10A.36.3.17"></script>
     <script src="js/core/autorizacao.js?v=RC12.0.10A.36.3.15"></script>
 <script src="js/analytics/dashboard.js?v=RC7.4.4-PERFORMANCE"></script>
 <script src="js/cio/cio-bootstrap.js?v=RC7.4.1"></script>
