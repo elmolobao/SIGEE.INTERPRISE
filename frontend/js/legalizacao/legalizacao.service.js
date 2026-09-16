@@ -252,7 +252,6 @@ async function listarHistoricoRegulatorio(){
 }
 async function criarInstituicao(payload){
   assertOperacaoNte();
-  if(String(payload?._cadastro_pdf_validado||'')!=='1')throw new Error('A criação de instituição pelo NTE exige importação e análise prévia de PDF.');
   assertAccess();const c=client();if(!c)throw new Error('Cliente Supabase indisponível.');const n=master()?payload.nte_id:nteId();if(n==null||n==='')throw new Error('NTE obrigatório.');
   const tipo=upper(payload.tipo_cadastro||'PUBLICA'),rede=tipo==='PRIVADA'?'PRIVADA':upper(payload.rede||'ESTADUAL');
   const registro={nte_id:Number(n),nome_instituicao:String(payload.nome_instituicao||'').trim(),tipo_cadastro:tipo,rede,
@@ -276,9 +275,9 @@ async function criarInstituicao(payload){
   const {data,error}=await c.from('legalizacao_instituicoes').insert(registro).select('*').single();if(error)throw error;resumoCache=null;return data;
 }
 async function atualizarInstituicao(instituicaoId,payload){
-  assertAccess();if(!master()&&!sec())throw new Error('A edição do cadastro institucional é exclusiva dos perfis SEC e Master.');const c=client();if(!c)throw new Error('Cliente Supabase indisponível.');
+  assertAccess();const c=client();if(!c)throw new Error('Cliente Supabase indisponível.');
   let q=c.from('legalizacao_instituicoes').select('*').eq('id',instituicaoId);q=scoped(q);const {data:anterior,error:ea}=await q.maybeSingle();if(ea)throw ea;if(!anterior)throw new Error('Instituição não localizada na sua abrangência.');
-  const n=master()?(payload.nte_id||anterior.nte_id):(sec()?anterior.nte_id:nteId());if(n==null||n==='')throw new Error('NTE obrigatório.');if(!master()&&!sec()&&Number(n)!==Number(anterior.nte_id))throw new Error('O NTE da instituição não pode ser alterado pelo usuário territorial.');
+  const n=master()?(payload.nte_id||anterior.nte_id):nteId();if(n==null||n==='')throw new Error('NTE obrigatório.');if(!master()&&Number(n)!==Number(anterior.nte_id))throw new Error('O NTE da instituição não pode ser alterado pelo usuário territorial.');
   const tipo=upper(payload.tipo_cadastro||anterior.tipo_cadastro||'PUBLICA'),rede=tipo==='PRIVADA'?'PRIVADA':upper(payload.rede||anterior.rede||'ESTADUAL');
   const registro={nte_id:Number(n),nome_instituicao:clean(payload.nome_instituicao),tipo_cadastro:tipo,rede,natureza:tipo==='PRIVADA'?'PRIVADA':(rede==='MUNICIPAL'?'PUBLICA_MUNICIPAL':'PUBLICA_ESTADUAL'),cod_sec:tipo==='PUBLICA'?clean(payload.cod_sec):null,cod_inep:clean(payload.cod_inep),municipio:clean(payload.municipio),telefone:null,whatsapp:digits(payload.whatsapp,11),email:clean(payload.email),logradouro:clean(payload.logradouro),numero:clean(payload.numero),complemento:clean(payload.complemento),bairro:clean(payload.bairro),cep:digits(payload.cep,8),uf:'BA',porte:tipo==='PRIVADA'?null:clean(payload.porte),matriculas_referencia:tipo==='PRIVADA'?null:intOrNull(payload.matriculas_referencia),sistema_municipal_ensino:rede==='MUNICIPAL'?clean(payload.sistema_municipal_ensino):null,atualizado_por_id:currentUserId(),updated_at:new Date().toISOString(),situacao_imovel:clean(payload.situacao_imovel)||anterior.situacao_imovel||null,ano_base_matriculas:intOrNull(payload.ano_base_matriculas)||anterior.ano_base_matriculas||null};
   const importado=anterior.legado_sigee===true||!!anterior.escola_id||upper(anterior.origem||'')!=='CADASTRO_LEGALIZACAO';
