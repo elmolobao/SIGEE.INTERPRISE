@@ -339,10 +339,18 @@
       <section class="sigee-cnp-card">
         <header class="sigee-cnp-header" id="sigee-cnp-titulo">Cadastro não permitido</header>
         <div class="sigee-cnp-body">
-          <p id="sigee-cnp-motivo">Esta unidade não está autorizada para abertura de nova solicitação.</p>
-          <p>O registro permanece disponível na pesquisa para consulta e conferência cadastral.</p>
-          <p>Regularize a condição indicada no Catálogo de Escolas antes de tentar uma nova abertura.</p>
-          <div class="sigee-cnp-unidade"><strong>Unidade:</strong> <span id="sigee-cnp-unidade-nome"></span></div>
+          <div id="sigee-cnp-conteudo-padrao">
+            <p id="sigee-cnp-motivo">Esta unidade não está autorizada para abertura de nova solicitação.</p>
+            <p>O registro permanece disponível na pesquisa para consulta e conferência cadastral.</p>
+            <p>Regularize a condição indicada no Catálogo de Escolas antes de tentar uma nova abertura.</p>
+            <div class="sigee-cnp-unidade"><strong>Unidade:</strong> <span id="sigee-cnp-unidade-nome"></span></div>
+          </div>
+          <div id="sigee-cnp-conteudo-remanejado" class="sigee-hidden">
+            <p><strong>UNIDADE DE ORIGEM:</strong> <span id="sigee-cnp-rem-origem"></span></p>
+            <p><strong>O acervo foi remanejado.</strong></p>
+            <p><strong>Procedimento:</strong> A solicitação não poderá ser aberta nesta unidade. Oriente o interessado a procurar a Unidade de Ensino indicada através da <strong>ASSINATURA 15 - ACERVO (ACERVO REMANEJADO)</strong>, preenchendo as informações abaixo:</p>
+            <div class="sigee-cnp-unidade"><strong>Local atual do acervo:</strong> <span id="sigee-cnp-rem-local"></span></div>
+          </div>
         </div>
         <footer class="sigee-cnp-footer">
           <button type="button" class="sigee-cnp-btn" id="sigee-cnp-entendi">Entendi</button>
@@ -371,8 +379,23 @@
     const modal = garantirModalCadastroNaoPermitido();
     const unidade = campo('sigee-cnp-unidade-nome');
     const motivo = campo('sigee-cnp-motivo');
-    if (unidade) unidade.textContent = texto(escola?.nome || 'UNIDADE NÃO IDENTIFICADA').toUpperCase();
-    if (motivo) motivo.textContent = texto(politica?.motivo || 'Esta unidade não está autorizada para abertura de nova solicitação.');
+    const conteudoPadrao = campo('sigee-cnp-conteudo-padrao');
+    const conteudoRemanejado = campo('sigee-cnp-conteudo-remanejado');
+    const origemRemanejado = campo('sigee-cnp-rem-origem');
+    const localRemanejado = campo('sigee-cnp-rem-local');
+    const remanejado = politica?.codigo === 'ACERVO_REMANEJADO' || normalizar(escola?.status_acervo || escola?.acervo) === 'REMANEJADO';
+
+    if (remanejado) {
+      conteudoPadrao?.classList.add('sigee-hidden');
+      conteudoRemanejado?.classList.remove('sigee-hidden');
+      if (origemRemanejado) origemRemanejado.textContent = texto(escola?.nome || 'UNIDADE NÃO IDENTIFICADA').toUpperCase();
+      if (localRemanejado) localRemanejado.textContent = texto(escola?.local_acervo || 'NÃO INFORMADO').toUpperCase();
+    } else {
+      conteudoRemanejado?.classList.add('sigee-hidden');
+      conteudoPadrao?.classList.remove('sigee-hidden');
+      if (unidade) unidade.textContent = texto(escola?.nome || 'UNIDADE NÃO IDENTIFICADA').toUpperCase();
+      if (motivo) motivo.textContent = texto(politica?.motivo || 'Esta unidade não está autorizada para abertura de nova solicitação.');
+    }
     modal.classList.remove('sigee-hidden');
     modal.removeAttribute('aria-hidden');
     setTimeout(() => campo('sigee-cnp-entendi')?.focus(), 0);
