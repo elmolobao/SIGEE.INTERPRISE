@@ -14,7 +14,7 @@
    if(!cli){const local=Array.isArray(window.processosDB)?window.processosDB:[];return {dados:local.slice(),fonte:'MEMORIA_LOCAL'};}
    const lote=1000;let de=0;let todos=[];
    while(true){
-     let q=cli.from('processos').select('*');q=window.SIGEE_ESCOPO?.aplicarQueryProcessos?window.SIGEE_ESCOPO.aplicarQueryProcessos(q,usuario()):q;const {data,error}=await q.range(de,de+lote-1);
+     let q=cli.from('processos').select('id,codigo_sigee,codigo,aluno_nome,aluno,escola_nome,escola,nte,nte_nome,nte_id,territorio,etapa_atual,etapa,fase_atual,tecnico_atribuido,tecnico_responsavel,responsavel_etapa,analista,digitador,conferente,responsavel,usuario_lancamento,criado_por_nome,data_etapa_atual,data_etapa,prazo_inicio,created_at,updated_at,finalizado_em,retirado_em,prioridade');q=window.SIGEE_ESCOPO?.aplicarQueryProcessos?window.SIGEE_ESCOPO.aplicarQueryProcessos(q,usuario()):q;const {data,error}=await q.range(de,de+lote-1);
      if(error)throw error;
      const arr=Array.isArray(data)?data:[];todos=todos.concat(arr);
      if(arr.length<lote)break;de+=lote;
