@@ -29,6 +29,10 @@
         'REITERACAO URGENTE',
         'CONFIRMACAO DOS DADOS DA BUSCA',
         'CONFIRMAR DADOS DA BUSCA',
+        'CONFIRMACAO DOS DADOS',
+        'CONFIRMAR DADOS',
+        'SOLICITACAO DE ATAS',
+        'SOLICITACAO DE ATAS SEM PASTA',
         'PEDIDO DE ATAS SEM PASTA'
     ];
 
@@ -38,7 +42,7 @@
         // do ciclo externo de Reiteração / Urgência / Confirmação / Atas.
         if (p && ehProcessoEscola(p)) return false;
         const codigo = normalizar(p && p.etapa_codigo);
-        if (['DES', 'RET', 'REU', 'CFD'].includes(codigo)) return true;
+        if (['DES', 'RET', 'REU', 'CFD', 'PAS'].includes(codigo)) return true;
         const etapa = p ? processoEtapa(p) : etapaOuProcesso;
         const e = normalizar(etapa);
         return CICLO_DESARQUIVAMENTO.includes(e);
@@ -1897,6 +1901,22 @@
       const {data,error}=await c.rpc('sigee_processos_contadores',{p_nte:nteValor||null,p_busca:busca||null});
       if(error) throw error;
       const obj=typeof data==='string'?JSON.parse(data):data||{};
+
+      /* RC11.4.0 — O indicador Desarquivamento representa o CICLO completo,
+       * não apenas a etapa literal DESARQUIVAMENTO. O RPC legado pode devolver
+       * somente a etapa inicial; por isso este contador é recalculado com a
+       * mesma regra server-side usada pelo filtro da Central. */
+      let qCiclo=c.from(tabelaProcessos()).select('id',{count:'exact',head:true});
+      if(nteValor){
+        const nteId=window.SIGEE_ESCOPO?.numeroNte?.(nteValor);
+        if(nteId!=null) qCiclo=qCiclo.eq('nte_id',nteId);
+      }
+      if(busca) qCiclo=qCiclo.or(`codigo_sigee.ilike.%${busca}%,aluno_nome.ilike.%${busca}%,escola_nome.ilike.%${busca}%`);
+      qCiclo=aplicarFiltroEtapaRemoto(qCiclo,'DESARQUIVAMENTO');
+      const {count:countCiclo,error:errorCiclo}=await qCiclo;
+      if(errorCiclo) throw errorCiclo;
+      obj.desarquivamento=Number(countCiclo||0);
+
       cacheContadoresRemotos.set(chave,{em:Date.now(),valor:obj});
       window.__SIGEE_CONTADORES_PROCESSOS_REMOTOS__=obj;
       return obj;
