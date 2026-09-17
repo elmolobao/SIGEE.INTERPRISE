@@ -24,7 +24,7 @@
     return dados.filter(item=>nteProc(item)===ctx.nte);
   }
 
-  async function buscarTodasPaginas(nome,{pageSize=1000,maxPages=200}={}){
+  async function buscarTodasPaginas(nome,{pageSize=1000,maxPages=200,usuario=null}={}){
     const c=client();
     if(!c) return [];
 
@@ -32,7 +32,12 @@
     for(let pagina=0; pagina<maxPages; pagina++){
       const inicio=pagina*pageSize;
       const fim=inicio+pageSize-1;
-      const {data,error}=await c.from(nome).select('*').range(inicio,fim);
+      const campos = nome==='processos'
+        ? 'id,codigo_sigee,codigo,aluno_nome,aluno,escola_nome,escola,nte,nte_nome,nte_id,territorio,etapa_atual,etapa,fase_atual,tecnico_atribuido,tecnico_atribuido_nome,tecnico_responsavel,tecnico_responsavel_nome,responsavel_etapa,responsavel_etapa_nome,analista,analista_nome,digitador,digitador_nome,conferente,conferente_nome,responsavel,responsavel_nome,responsavel_assinatura,responsavel_assinatura_nome,usuario_lancamento,usuario_lancamento_nome,usuario_criacao,usuario_criacao_nome,criado_por,criado_por_nome,nome_solicitante,solicitante_nome,data_solicitacao,data_etapa_atual,data_etapa,prazo_etapa,prazo_fim,prazo_inicio,created_at,updated_at,finalizado_em,deferido_em,retirado_em,prioridade,ativo'
+        : (nome==='usuarios_sigee' ? 'id,nome,email,perfil,role,tipo,nte,nte_nome,nte_id,nte_vinculado,grupo,ativo' : '*');
+      let q=c.from(nome).select(campos);
+      if(nome==='processos'&&global.SIGEE_ESCOPO?.aplicarQueryProcessos) q=global.SIGEE_ESCOPO.aplicarQueryProcessos(q,usuario);
+      const {data,error}=await q.range(inicio,fim);
       if(error) throw error;
       const lote=Array.isArray(data)?data:[];
       resultado.push(...lote);
@@ -41,9 +46,9 @@
     return resultado;
   }
 
-  async function tabelaCompleta(nome,local,{pageSize=1000}={}){
+  async function tabelaCompleta(nome,local,{pageSize=1000,usuario=null}={}){
     try{
-      const remotos=await buscarTodasPaginas(nome,{pageSize});
+      const remotos=await buscarTodasPaginas(nome,{pageSize,usuario});
       if(remotos.length) return remotos;
 
       // Fallback somente quando o Supabase estiver indisponível. A coleção local
@@ -66,7 +71,7 @@
     }
 
     const [processos,usuarios]=await Promise.all([
-      tabelaCompleta('processos','processosDB',{pageSize:1000}),
+      tabelaCompleta('processos','processosDB',{pageSize:1000,usuario:ctx.usuario}),
       tabelaCompleta('usuarios_sigee','usuariosDB',{pageSize:1000})
     ]);
 
