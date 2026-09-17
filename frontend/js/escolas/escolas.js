@@ -1313,6 +1313,7 @@ Esta ação não pode ser desfeita.`)) return;
     }
 
     function prepararCampoEscolaNovaSolicitacao() {
+        if (window.SIGEE_NOVA_SOLICITACAO_CONTROLLER) return;
         const select = campo('novo-proc-escola');
         if (!select) return;
 
@@ -1416,6 +1417,9 @@ Esta ação não pode ser desfeita.`)) return;
     window.SIGEE_LIMPAR_ESTADO_NOVA_SOLICITACAO = limparEstadoNovaSolicitacaoDefinitivo;
 
     function abrirNovaSolicitacaoOficial() {
+        if (window.SIGEE_NOVA_SOLICITACAO_CONTROLLER && typeof window.SIGEE_NOVA_SOLICITACAO_CONTROLLER.abrir === 'function') {
+            return window.SIGEE_NOVA_SOLICITACAO_CONTROLLER.abrir();
+        }
         const modal = campo('modal-nova-solicitacao');
         if (!modal) return;
 
