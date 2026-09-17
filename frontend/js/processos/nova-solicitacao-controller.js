@@ -1,4 +1,4 @@
-/* SIGEE RC11.3.15 — Municipalização: ATIVA + acervo recolhido, somente Ensino Médio */
+/* SIGEE RC11.3.16 — Pesquisa preserva escolas bloqueadas; elegibilidade aplicada na seleção */
 (function () {
   'use strict';
 
@@ -408,9 +408,12 @@
     const contexto = contextoEscopo();
     const escolas = (Array.isArray(resultados) ? resultados : []).map(formatarEscola).filter((e) => {
       if (!e.id || !e.nome) return false;
-      // Pesquisa do NTE exibe todas as escolas do próprio território, inclusive bloqueadas.
+      // A pesquisa nunca deve esconder uma escola por situação/acervo.
+      // Elegibilidade é validada somente após a escola aparecer/ser selecionada.
+      // NTE continua restrito ao próprio território; MASTER/SEC visualizam o escopo global.
       if (contexto.tipo === 'NTE') return !contexto.nteId || Number(e.nte_id) === Number(contexto.nteId);
-      return validarPoliticaEscola(e, contexto).ok;
+      if (contexto.tipo === 'ESCOLA') return !contexto.escolaId || Number(e.id) === Number(contexto.escolaId);
+      return true;
     });
     if (!escolas.length) {
       lista.innerHTML = '<div class="p-3 text-red-600 font-bold">Nenhuma escola encontrada.</div>';
@@ -745,7 +748,7 @@
     window.abrirFormularioNovaSolicitacao = abrir;
     window.fecharModalNovaSolicitacao = fechar;
     window.handleSelecaoInstituicaoFluxoAutomatico = () => !!texto(campo('novo-proc-escola-id')?.value);
-    window.SIGEE_NOVA_SOLICITACAO_CONTROLLER = { abrir, fechar, limpar: resetarFormulario, selecionarEscola, validarPoliticaEscola, versao: 'RC11.3.15' };
+    window.SIGEE_NOVA_SOLICITACAO_CONTROLLER = { abrir, fechar, limpar: resetarFormulario, selecionarEscola, validarPoliticaEscola, versao: 'RC11.3.16' };
 
     // Defesa de autoridade: builds legados reaplicavam o autocomplete em timers tardios.
     // Reafirma o controlador canônico sem reconstruir o modal ou apagar dados digitados.
