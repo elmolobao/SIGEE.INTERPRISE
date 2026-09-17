@@ -1,4 +1,4 @@
-/* SIGEE RC11.3.15 — Municipalização: escola ATIVA com acervo recolhido = Ensino Médio sob guarda SEC */
+/* SIGEE RC11.3.16 — REMANEJADO equivale operacionalmente a NÃO RECOLHIDO */
 (function () {
   'use strict';
 
@@ -29,6 +29,9 @@
      incompleto sem transformar um status contraditório em autoridade. */
   function acervoCanonico(escola) {
     const e = formatar(escola);
+    // REMANEJADO nunca pode herdar um valor legado RECOLHIDO do campo `acervo`.
+    // Para abertura de solicitação, tem exatamente o mesmo peso de NÃO RECOLHIDO.
+    if (norm(e.status_acervo) === 'REMANEJADO' || norm(e.acervo) === 'REMANEJADO') return 'REMANEJADO';
     if (!placeholder(e.acervo)) return e.acervo;
     return e.status_acervo;
   }
@@ -101,7 +104,7 @@
   }
 
   window.SIGEE_ELEGIBILIDADE_ESCOLA = Object.freeze({
-    versao: 'RC11.3.15',
+    versao: 'RC11.3.16',
     formatar,
     normalizar: norm,
     acervoCanonico,
