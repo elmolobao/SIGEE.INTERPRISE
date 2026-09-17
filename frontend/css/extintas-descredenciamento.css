@@ -6,3 +6,12 @@
 
 .extd-catalogo-filtros{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:10px;margin:14px 0}.extd-catalogo-filtros select,.extd-catalogo-filtros input{border:1px solid #cbd5e1;border-radius:10px;padding:9px 10px;background:#fff;color:#17345b}.extd-card .extd-meta-alert{display:block;margin-top:7px;font-weight:700;color:#8a4b00}.extd-card .extd-meta-ok{display:block;margin-top:7px;font-weight:700;color:#126b3b}.extd-btn.warn{background:#fff7ed;border-color:#fdba74;color:#9a3412}@media(max-width:900px){.extd-catalogo-filtros{grid-template-columns:1fr 1fr}}@media(max-width:560px){.extd-catalogo-filtros{grid-template-columns:1fr}}
 .extd-custodia-kpis{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:10px;margin:14px 0}.extd-custodia-kpis article{border:1px solid #dbe4f0;border-radius:12px;padding:13px;background:#f8fafc}.extd-custodia-kpis small{display:block;font-size:10px;font-weight:900;color:#60708a}.extd-custodia-kpis strong{display:block;font-size:25px;line-height:1.15;color:#17345e;margin:4px 0}.extd-custodia-kpis span{font-size:10px;color:#718198}.extd-custodia-resumo{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 14px}.extd-custodia-resumo span{font-size:10px;background:#eef4fb;color:#244b7b;border-radius:999px;padding:6px 9px}.extd-table-wrap{overflow:auto;border:1px solid #e7edf5;border-radius:10px}.extd-dias{display:inline-grid;place-items:center;min-width:34px;padding:4px 7px;border-radius:999px;background:#eef4fb;font-weight:900}.extd-dias.alerta{background:#fff7ed;color:#9a3412}.extd-dias.critico{background:#fef2f2;color:#b91c1c}@media(max-width:800px){.extd-custodia-kpis{grid-template-columns:1fr 1fr}}@media(max-width:480px){.extd-custodia-kpis{grid-template-columns:1fr}}
+/* SIGEE 2026.09.17 — fluxo estadual integrado + correção modal remanejamento */
+#eca-remanejado-wrap{grid-column:1/-1;width:100%;min-width:0}
+#eca-remanejado-wrap>label{display:block;width:100%;margin:0 0 10px}
+#eca-remanejado-wrap input,#eca-remanejado-wrap textarea{display:block;width:100%;box-sizing:border-box;margin-top:5px}
+#eca-destino-resultados,#eca-destino-selecionado{width:100%;box-sizing:border-box}
+.extd-progress-duplo{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
+.extd-progress-duplo>span{padding:9px 10px;border-radius:9px;background:#f4f7fb;font-size:11px;font-weight:800}
+.extd-progress-duplo .ok{background:#ecfdf5;color:#166534}.extd-progress-duplo .pend{background:#fff7ed;color:#9a3412}
+@media(max-width:640px){.extd-progress-duplo{grid-template-columns:1fr}}
