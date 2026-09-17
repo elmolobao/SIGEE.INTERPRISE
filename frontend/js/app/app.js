@@ -4856,8 +4856,15 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
   }
   async function carregarDadosOperacionais(){
     const T = window.SIGEE_SUPABASE_TABELAS || SIGEE_SUPABASE_TABELAS;
+    // RC12 Fase 5: na arquitetura moderna, o bootstrap/login não baixa as bases
+    // estaduais de escolas e processos. Cada módulo consulta sua própria base sob
+    // demanda/paginação. Mantemos aqui apenas usuários (autenticação) e NTEs.
+    const moderna = window.__SIGEE_ARQUITETURA_DADOS_MODERNA__ === true;
     const [us, es, pr, nt] = await Promise.all([
-      carregarTabela(T.usuarios), carregarTabela(T.escolas), carregarTabela(T.processos), carregarTabela(T.ntes)
+      carregarTabela(T.usuarios),
+      moderna ? Promise.resolve([]) : carregarTabela(T.escolas),
+      moderna ? Promise.resolve([]) : carregarTabela(T.processos),
+      carregarTabela(T.ntes)
     ]);
     const so = [];
     if(us.length) usuariosDB = us.map(normalizarUsuario).filter(u=>u.email);
