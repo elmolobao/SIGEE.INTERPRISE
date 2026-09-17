@@ -72,6 +72,47 @@
 
   function autoridadeElegibilidade() { return window.SIGEE_ELEGIBILIDADE_ESCOLA || null; }
 
+
+  // RC11.3.21 — Transição progressiva do acervo.
+  // Movimentações novas prevalecem; REGISTRO_LEGADO mantém os campos atuais como fonte.
+  async function aplicarCustodiaAtual(escolas) {
+    const lista = Array.isArray(escolas) ? escolas : [escolas];
+    const validas = lista.filter(Boolean);
+    const ids = [...new Set(validas.map(e => Number(e.id || e.escola_id || 0)).filter(Boolean))];
+    if (!ids.length) return Array.isArray(escolas) ? validas : (validas[0] || escolas);
+    const client = clienteSupabase();
+    if (!client) return Array.isArray(escolas) ? validas : (validas[0] || escolas);
+    try {
+      const { data, error } = await client.from('vw_escolas_acervo_custodia_atual').select('*').in('escola_origem_id', ids);
+      if (error) throw error;
+      const mapa = new Map((data || []).map(x => [Number(x.escola_origem_id), x]));
+      const saida = validas.map(original => {
+        const c = mapa.get(Number(original.id || original.escola_id));
+        if (!c || normalizar(c.tipo_movimentacao) === 'REGISTRO_LEGADO') {
+          return { ...original, sigee_fonte_acervo: c ? 'LEGADO' : 'CADASTRO_ATUAL', custodia_atual: c || null };
+        }
+        const tipo = normalizar(c.custodia_tipo);
+        let status = original.status_acervo || original.acervo || '';
+        let local = c.local_atual_acervo || original.local_acervo || '';
+        if (tipo === 'INSTITUICAO') status = 'REMANEJADO';
+        else if (tipo === 'NTE' || tipo === 'EGBA') status = 'RECOLHIDO';
+        return {
+          ...original,
+          status_acervo: status,
+          acervo: status,
+          local_acervo: local,
+          sigee_fonte_acervo: 'CADEIA_CUSTODIA',
+          custodia_atual: c
+        };
+      });
+      return Array.isArray(escolas) ? saida : (saida[0] || escolas);
+    } catch (erro) {
+      // Compatibilidade operacional: falha da view nova nunca invalida o cadastro já existente.
+      console.warn('[SIGEE RC11.3.21] Custódia atual indisponível; usando cadastro existente:', erro);
+      return Array.isArray(escolas) ? validas : (validas[0] || escolas);
+    }
+  }
+
   function validarPoliticaEscola(escola, contexto = contextoEscopo()) {
     const autoridade = autoridadeElegibilidade();
     if (autoridade && typeof autoridade.validar === 'function') {
@@ -268,6 +309,8 @@
         resultados = data || [];
       }
 
+      if (token !== requisicaoAtual) return;
+      resultados = await aplicarCustodiaAtual(resultados);
       if (token !== requisicaoAtual) return;
       renderizarResultados(resultados);
     } catch (erro) {
@@ -478,7 +521,7 @@
     if (!politica.ok) {
       limparIdentidadeEscola();
       if (botao) { botao.disabled = true; botao.textContent = contextoEscopo().tipo === 'ESCOLA' ? 'Criar Solicitação' : 'Enviar para Desarquivamento'; }
-      exibirCadastroNaoPermitido(e, politica);
+      exibirCadastroNaoPermitido(escolaOficial, politica);
       return;
     }
 
@@ -583,10 +626,11 @@
           .select('id,cod_mec,nome_escola,nome,municipio,nte_id,nte,dependencia_adm,dependencia,situacao_funcional,situacao,status_acervo,acervo,local_acervo,ativo')
           .eq('id', contexto.escolaId).maybeSingle();
         if (error) throw error;
-        const politica = validarPoliticaEscola(data || {}, contexto);
-        if (!data || !politica.ok) throw new Error(politica.motivo || 'Escola vinculada não localizada.');
-        selecionarEscola(data);
-        modoVisualEscolaVinculada(true, data);
+        const atualizada = await aplicarCustodiaAtual(data);
+        const politica = validarPoliticaEscola(atualizada || {}, contexto);
+        if (!atualizada || !politica.ok) throw new Error(politica.motivo || 'Escola vinculada não localizada.');
+        selecionarEscola(atualizada);
+        modoVisualEscolaVinculada(true, atualizada);
       } catch (erro) {
         alert('Não foi possível validar a unidade escolar vinculada. ' + texto(erro?.message || erro));
         fechar();
@@ -654,7 +698,8 @@
           .maybeSingle();
         if (error) throw error;
         if (!data) return null;
-        const oficial = formatarEscola(data);
+        const enriquecida = await aplicarCustodiaAtual(data);
+        const oficial = formatarEscola(enriquecida);
         if (texto(oficial.id) !== id) return null;
         selecionarEscola(oficial);
         return oficial;
@@ -688,7 +733,7 @@
 
     const politica = validarPoliticaEscola(escolaOficial);
     if (!politica.ok) {
-      exibirCadastroNaoPermitido(e, politica);
+      exibirCadastroNaoPermitido(escolaOficial, politica);
       return false;
     }
 
@@ -810,7 +855,7 @@
     window.abrirFormularioNovaSolicitacao = abrir;
     window.fecharModalNovaSolicitacao = fechar;
     window.handleSelecaoInstituicaoFluxoAutomatico = () => !!texto(campo('novo-proc-escola-id')?.value);
-    window.SIGEE_NOVA_SOLICITACAO_CONTROLLER = { abrir, fechar, limpar: resetarFormulario, selecionarEscola, validarPoliticaEscola, versao: 'RC11.3.18' };
+    window.SIGEE_NOVA_SOLICITACAO_CONTROLLER = { abrir, fechar, limpar: resetarFormulario, selecionarEscola, validarPoliticaEscola, versao: 'RC11.3.21' };
 
     // Defesa de autoridade: builds legados reaplicavam o autocomplete em timers tardios.
     // Reafirma o controlador canônico sem reconstruir o modal ou apagar dados digitados.
