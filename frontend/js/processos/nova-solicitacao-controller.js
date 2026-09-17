@@ -1,4 +1,4 @@
-/* SIGEE RC11.3.17 — Pesquisa exibe situação/acervo e bloqueio no próprio resultado; validação reforçada na seleção */
+/* SIGEE RC11.3.18 — Modal contido na viewport, autocomplete flutuante estável e autoridade única */
 (function () {
   'use strict';
 
@@ -196,12 +196,14 @@
     input.readOnly = false;
     input.required = true;
     input.setAttribute('aria-autocomplete', 'list');
+    // O autocomplete deve flutuar sobre o formulário, sem aumentar a altura do modal.
+    select.parentNode.classList.add('sigee-nova-escola-field');
 
     let lista = campo('novo-proc-escola-lista-v23');
     if (!lista) {
       lista = document.createElement('div');
       lista.id = 'novo-proc-escola-lista-v23';
-      lista.className = 'hidden max-h-64 overflow-y-auto border border-gray-200 rounded-lg bg-white shadow-xl relative z-50';
+      lista.className = 'hidden border border-gray-200 rounded-lg bg-white shadow-xl';
       select.parentNode.insertBefore(lista, select);
     }
 
@@ -729,7 +731,39 @@
     }
   }
 
+  function garantirLayoutModal() {
+    if (campo('sigee-nova-solicitacao-layout-rc11318')) return;
+    const style = document.createElement('style');
+    style.id = 'sigee-nova-solicitacao-layout-rc11318';
+    style.textContent = `
+      #modal-nova-solicitacao { padding: 8px 16px !important; overflow: hidden !important; }
+      #modal-nova-solicitacao > div {
+        max-height: calc(100dvh - 16px) !important; margin: 0 auto !important;
+        display: flex !important; flex-direction: column !important; overflow: hidden !important;
+      }
+      #modal-nova-solicitacao > div > div:first-child { flex: 0 0 auto; }
+      #modal-nova-solicitacao form {
+        flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;
+        overscroll-behavior: contain; scrollbar-gutter: stable;
+      }
+      #modal-nova-solicitacao .sigee-nova-escola-field { position: relative; z-index: 30; }
+      #novo-proc-escola-lista-v23 {
+        position: absolute !important; left: 0; right: 0; top: calc(100% + 3px);
+        z-index: 1000 !important; max-height: min(260px, calc(100dvh - 310px));
+        overflow-y: auto !important; background: #fff;
+      }
+      #novo-proc-escola-lista-v23.hidden { display: none !important; }
+      #novo-proc-escola-lista-v23 button { min-height: 0; }
+      @media (max-height: 720px) {
+        #modal-nova-solicitacao form { padding-top: 12px !important; padding-bottom: 12px !important; }
+        #novo-proc-escola-lista-v23 { max-height: 190px; }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
   function instalar() {
+    garantirLayoutModal();
     form = document.querySelector('#modal-nova-solicitacao form');
     if (!form || form.dataset.sigeeNovaSolicitacaoController === '1') return;
 
@@ -748,7 +782,7 @@
     window.abrirFormularioNovaSolicitacao = abrir;
     window.fecharModalNovaSolicitacao = fechar;
     window.handleSelecaoInstituicaoFluxoAutomatico = () => !!texto(campo('novo-proc-escola-id')?.value);
-    window.SIGEE_NOVA_SOLICITACAO_CONTROLLER = { abrir, fechar, limpar: resetarFormulario, selecionarEscola, validarPoliticaEscola, versao: 'RC11.3.17' };
+    window.SIGEE_NOVA_SOLICITACAO_CONTROLLER = { abrir, fechar, limpar: resetarFormulario, selecionarEscola, validarPoliticaEscola, versao: 'RC11.3.18' };
 
     // Defesa de autoridade: builds legados reaplicavam o autocomplete em timers tardios.
     // Reafirma o controlador canônico sem reconstruir o modal ou apagar dados digitados.
