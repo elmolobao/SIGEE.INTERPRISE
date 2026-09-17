@@ -1,4 +1,4 @@
-/* SIGEE RC11.3.16 — REMANEJADO equivale operacionalmente a NÃO RECOLHIDO */
+/* SIGEE RC11.3.19 — REMANEJADO: local visível e mensagem específica */
 (function () {
   'use strict';
 
@@ -95,6 +95,7 @@
     const acervo = acervoCanonico(e);
     if (municipalizadaComAcervoMedio(e)) return { ok: true, codigo: 'MUNICIPALIZADA_MEDIO', acervoCanonico: acervo, somenteEnsinoMedio: true, municipalizada: true };
     if (!['EXTINTA','PARALISADA'].includes(situacao)) return { ok: false, codigo: 'SITUACAO_NAO_PERMITIDA', motivo: 'Somente escolas extintas/paralisadas com acervo recolhido ou escolas municipalizadas com acervo estadual parcial podem receber nova solicitação em Escolas Extintas.' };
+    if (norm(acervo) === 'REMANEJADO') return { ok: false, codigo: 'ACERVO_REMANEJADO', motivo: 'O acervo foi remanejado para a Unidade de Ensino informada.', acervoCanonico: acervo };
     if (!ehRecolhido(acervo)) return { ok: false, codigo: 'ACERVO_NAO_RECOLHIDO', motivo: `A escola está ${e.situacao || 'cadastrada'}, porém o acervo não está oficialmente Recolhido. A unidade permanece disponível no Controle de Extintas, mas não para Nova Solicitação.` };
     return { ok: true, codigo: situacao === 'PARALISADA' ? 'PARALISADA_RECOLHIDA' : 'EXTINTA_RECOLHIDA', acervoCanonico: acervo };
   }
@@ -104,7 +105,7 @@
   }
 
   window.SIGEE_ELEGIBILIDADE_ESCOLA = Object.freeze({
-    versao: 'RC11.3.16',
+    versao: 'RC11.3.19',
     formatar,
     normalizar: norm,
     acervoCanonico,
