@@ -148,12 +148,15 @@ function atoRequisitoOferta(r={}){
 }
 function requisitoOfertaAplicavel(r,catalogoSelecionado=[],ato='AUTORIZACAO'){
   const selecionados=(catalogoSelecionado||[]).filter(Boolean),ids=new Set(selecionados.map(o=>String(o.id))),rid=r?.oferta_catalogo_id;
-  if(rid!=null&&rid!=='')return ids.has(String(rid));
+  // RC12.0.10A.36.3.22: o tipo do ato é uma barreira obrigatória.
+  // Antes, requisitos vinculados diretamente a uma oferta (oferta_catalogo_id)
+  // retornavam true antes desta validação, permitindo RENOVACAO em AUTORIZACAO.
   const atoReq=atoRequisitoOferta(r),atoProc=upper(ato||'AUTORIZACAO');
   if(atoReq){
     if(atoProc==='RENOVACAO_RECONHECIMENTO'){if(!['RENOVACAO_RECONHECIMENTO','RENOVACAO','RECONHECIMENTO'].includes(atoReq))return false;}
     else if(atoReq!==atoProc)return false;
   }
+  if(rid!=null&&rid!==''&&!ids.has(String(rid)))return false;
   const etapaReq=chaveEtapaOferta(r);if(!etapaReq)return true;
   return selecionados.some(o=>chaveEtapaOferta(o)===etapaReq);
 }
