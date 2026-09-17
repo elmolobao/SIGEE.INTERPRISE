@@ -124,3 +124,15 @@
 
 /* RC12.0.10A.36.3.8 — referência SEI sempre à vista na inspeção regulatória */
 .leg-sei-ref{display:inline-flex;flex-direction:column;gap:2px;margin-top:8px;padding:7px 10px;border:1px solid #bfd3ee;border-radius:9px;background:#f4f8ff;color:#123d72}.leg-sei-ref small{font-size:10px;font-weight:800;letter-spacing:.06em}.leg-sei-ref strong{font-size:14px;letter-spacing:.02em}
+
+/* RC12.0.10A.36.3.23 — progresso regulatório sempre visível no prontuário */
+.leg-pront-body .leg-progress{
+  position:sticky;
+  top:126px;
+  z-index:2;
+  background:#fff;
+  box-shadow:0 4px 10px rgba(15,63,116,.06);
+}
+@media(max-width:680px){
+  .leg-pront-body .leg-progress{top:0;z-index:3}
+}
