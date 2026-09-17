@@ -587,7 +587,7 @@
       try {
         const { data, error } = await comTimeoutProntuario(cliente
           .from('historico_processos')
-          .select('*')
+          .select('id,processo_id,codigo_sigee,created_at,acao,etapa,usuario_nome,usuario_email,usuario_perfil,nte,observacao,detalhes,dados')
           .eq('processo_id', p.id)
           .order('created_at', { ascending: true }), 7000, 'Consulta do histórico');
         if (!error && Array.isArray(data)) eventos.push(...data);
