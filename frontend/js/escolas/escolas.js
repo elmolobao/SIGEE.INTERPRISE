@@ -137,26 +137,9 @@
       .filter(Boolean)
       .forEach(municipio => locais.push(municipio));
 
-    const client = supabaseClient();
-    if (client) {
-      try {
-        const { data, error } = await client
-          .from(tabelaEscolas())
-          .select('municipio')
-          .eq('nte_id', n)
-          .not('municipio', 'is', null)
-          .order('municipio', { ascending: true })
-          .limit(500);
-        if (!error && Array.isArray(data)) {
-          data.forEach(item => {
-            const municipio = texto(item.municipio);
-            if (municipio) locais.push(municipio);
-          });
-        }
-      } catch (err) {
-        console.warn('[SIGEE Escolas] Não foi possível carregar municípios do NTE:', err);
-      }
-    }
+    // RC8.6.3 — municípios vêm da matriz territorial oficial já carregada no cliente.
+    // Evita consultar centenas de escolas apenas para montar um seletor de municípios.
+    // O cache local permanece somente como compatibilidade com cadastros legados.
 
     return [...new Map(locais.map(nome => [normalizar(nome), nome.toUpperCase()])).values()]
       .sort((a,b) => a.localeCompare(b, 'pt-BR'));
