@@ -1,4 +1,4 @@
-/* SIGEE RC11.3.19 — REMANEJADO: local visível e mensagem específica */
+/* SIGEE RC11.3.21 — Elegibilidade híbrida: cadeia de custódia prevalece quando validada; legado permanece compatível */
 (function () {
   'use strict';
 
@@ -20,7 +20,10 @@
       acervo: texto(e.acervo),
       status_acervo: texto(e.status_acervo),
       ativoOriginal: e.ativo,
-      ativo: e.ativo !== false
+      ativo: e.ativo !== false,
+      local_acervo: texto(e.local_acervo),
+      sigee_fonte_acervo: texto(e.sigee_fonte_acervo),
+      custodia_atual: e.custodia_atual || null
     };
   }
 
@@ -105,7 +108,7 @@
   }
 
   window.SIGEE_ELEGIBILIDADE_ESCOLA = Object.freeze({
-    versao: 'RC11.3.19',
+    versao: 'RC11.3.21',
     formatar,
     normalizar: norm,
     acervoCanonico,
