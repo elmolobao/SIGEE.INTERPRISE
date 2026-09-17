@@ -1,4 +1,4 @@
-/* SIGEE RC11.3.16 — Pesquisa preserva escolas bloqueadas; elegibilidade aplicada na seleção */
+/* SIGEE RC11.3.17 — Pesquisa exibe situação/acervo e bloqueio no próprio resultado; validação reforçada na seleção */
 (function () {
   'use strict';
 
@@ -428,7 +428,7 @@
       btn.className = `block w-full text-left px-3 py-2 border-b border-gray-100 ${politica.ok ? 'hover:bg-blue-50 bg-white' : 'hover:bg-red-50 bg-red-50/40'}`;
       btn.innerHTML = `<div class="font-black text-blue-900"></div><div class="text-[10px] text-gray-600"></div><div class="text-[10px] font-black mt-1"></div>`;
       btn.children[0].textContent = escola.nome;
-      btn.children[1].textContent = `MEC: ${escola.cod_mec || '-'} | ${escola.municipio || '-'} | ${escola.nte || ''} | ${escola.situacao || '-'} | Acervo: ${escola.acervo || escola.status_acervo || '-'}`;
+      btn.children[1].textContent = `MEC: ${escola.cod_mec || '-'} | ${escola.municipio || '-'} | ${escola.nte || ''} | ${escola.situacao || '-'} | Acervo: ${escola.status_acervo || escola.acervo || '-'}`;
       btn.children[2].textContent = politica.ok ? '✓ Abertura permitida' : `🔒 Abertura bloqueada — ${politica.motivo}`;
       btn.children[2].className = `text-[10px] font-black mt-1 ${politica.ok ? 'text-emerald-700' : 'text-red-700'}`;
       btn.addEventListener('click', () => {
@@ -748,7 +748,7 @@
     window.abrirFormularioNovaSolicitacao = abrir;
     window.fecharModalNovaSolicitacao = fechar;
     window.handleSelecaoInstituicaoFluxoAutomatico = () => !!texto(campo('novo-proc-escola-id')?.value);
-    window.SIGEE_NOVA_SOLICITACAO_CONTROLLER = { abrir, fechar, limpar: resetarFormulario, selecionarEscola, validarPoliticaEscola, versao: 'RC11.3.16' };
+    window.SIGEE_NOVA_SOLICITACAO_CONTROLLER = { abrir, fechar, limpar: resetarFormulario, selecionarEscola, validarPoliticaEscola, versao: 'RC11.3.17' };
 
     // Defesa de autoridade: builds legados reaplicavam o autocomplete em timers tardios.
     // Reafirma o controlador canônico sem reconstruir o modal ou apagar dados digitados.
