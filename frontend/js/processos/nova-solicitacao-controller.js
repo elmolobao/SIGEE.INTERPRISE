@@ -428,11 +428,16 @@
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = `block w-full text-left px-3 py-2 border-b border-gray-100 ${politica.ok ? 'hover:bg-blue-50 bg-white' : 'hover:bg-red-50 bg-red-50/40'}`;
-      btn.innerHTML = `<div class="font-black text-blue-900"></div><div class="text-[10px] text-gray-600"></div><div class="text-[10px] font-black mt-1"></div>`;
+      const statusAcervo = escola.status_acervo || escola.acervo || '-';
+      const remanejado = normalizar(statusAcervo) === 'REMANEJADO' || politica.codigo === 'ACERVO_REMANEJADO';
+      btn.innerHTML = `<div class="font-black text-blue-900"></div><div class="text-[10px] text-gray-600"></div><div class="text-[10px] text-gray-700 mt-1"></div><div class="text-[10px] font-black mt-1"></div><div class="text-[10px] font-black mt-1"></div>`;
       btn.children[0].textContent = escola.nome;
-      btn.children[1].textContent = `MEC: ${escola.cod_mec || '-'} | ${escola.municipio || '-'} | ${escola.nte || ''} | ${escola.situacao || '-'} | Acervo: ${escola.status_acervo || escola.acervo || '-'}`;
-      btn.children[2].textContent = politica.ok ? '✓ Abertura permitida' : `🔒 Abertura bloqueada — ${politica.motivo}`;
-      btn.children[2].className = `text-[10px] font-black mt-1 ${politica.ok ? 'text-emerald-700' : 'text-red-700'}`;
+      btn.children[1].textContent = `MEC: ${escola.cod_mec || '-'} | ${escola.municipio || '-'} | ${escola.nte || ''} | ${escola.situacao || '-'} | Acervo: ${statusAcervo}`;
+      btn.children[2].textContent = `Local: ${escola.local_acervo || 'NÃO INFORMADO'}`;
+      btn.children[3].textContent = remanejado ? 'ASSINATURA 15 - ACERVO (ACERVO REMANEJADO)' : '';
+      btn.children[3].className = `text-[10px] font-black mt-1 ${remanejado ? 'text-amber-700' : 'hidden'}`;
+      btn.children[4].textContent = politica.ok ? '✓ Abertura permitida' : `🔒 Abertura bloqueada — ${politica.motivo}`;
+      btn.children[4].className = `text-[10px] font-black mt-1 ${politica.ok ? 'text-emerald-700' : 'text-red-700'}`;
       btn.addEventListener('click', () => {
         if (!politica.ok) return exibirCadastroNaoPermitido(escola, politica);
         selecionarEscola(escola);
