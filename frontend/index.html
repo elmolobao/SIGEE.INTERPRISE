@@ -441,6 +441,7 @@
 <div class="bg-white p-4 rounded-xl border shadow-xs flex flex-wrap items-center justify-between gap-4 sigee-modulo-cabecalho">
 <div class="flex items-center gap-3">
 <button class="bg-blue-900 text-white text-xs font-bold px-4 py-2.5 rounded-lg shadow-sm hover:bg-blue-950 transition cursor-pointer" onclick="abrirModalNovaEscola()">➕ Cadastrar Nova Escola</button>
+<button id="btn-regularizar-anexos-historicos" class="hidden bg-indigo-700 hover:bg-indigo-800 text-white text-xs font-bold px-4 py-2.5 rounded-lg shadow-sm cursor-pointer transition" onclick="abrirRegularizacaoAnexosHistoricosSIGEE()">🔗 Regularizar Sede/Anexo</button>
 <label class="hidden bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2.5 rounded-lg shadow-sm cursor-pointer transition" id="btn-importar-dados-master">
                             📥 Importar Dados (Excel)
                             <input accept=".xlsx, .xls, .csv" class="hidden" id="input-importar-excel" onchange="processarImportacaoOtimizada(event)" type="file"/>
