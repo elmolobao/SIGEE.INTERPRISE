@@ -364,6 +364,7 @@
     <button type="button" class="extd-tab" data-extd-tab="paralisadas">Escolas Paralisadas <span id="extd-count-paralisadas">0</span></button>
     <button type="button" class="extd-tab" data-extd-tab="descredenciamento">Escolas em Processo de Descredenciamento <span id="extd-count-descredenciamento">0</span></button>
     <button type="button" class="extd-tab" data-extd-tab="aguardando-publicacao">Aguardando Publicação <span id="extd-count-aguardando-publicacao">0</span></button>
+    <button type="button" class="extd-tab" data-extd-tab="catalogo">Todas as Escolas</button>
     <button type="button" class="extd-tab" data-extd-tab="extintas">Escolas Extintas <span id="extd-count-extintas">0</span></button>
     <button type="button" class="extd-tab" data-extd-tab="custodia">Custódia do Acervo <span id="extd-count-custodia">0</span></button>
   </div>
@@ -371,7 +372,7 @@
   <div data-extd-panel="paralisadas" class="hidden"><div id="extd-paralisadas-lista"></div></div>
   <div data-extd-panel="descredenciamento" class="hidden"><div id="extd-descredenciamento-lista"></div></div>
   <div data-extd-panel="aguardando-publicacao" class="hidden"><div id="extd-aguardando-publicacao-lista"></div></div>
-  <div data-extd-panel="extintas" class="hidden"><div class="extd-panel"><div class="extd-catalogo-head"><div><h3>Escolas Extintas</h3><p class="extd-help">Base operacional pós-publicação. Registros históricos já sinalizados como extintos permanecem disponíveis; novos ingressam após a consolidação do ato importado do Diário Oficial.</p></div><input id="extd-catalogo-busca" placeholder="Nome, Nº SIGEE, MEC/INEP ou município"></div><div class="extd-catalogo-filtros"><select id="extd-filtro-acervo"><option value="">Todos os acervos</option><option value="RECOLHIDO">Recolhido</option><option value="PARCIALMENTE RECOLHIDO">Parcialmente recolhido</option><option value="NÃO RECOLHIDO">Não recolhido</option><option value="REMANEJADO">Remanejado</option><option value="SEM REGISTRO">Sem registro</option></select><input id="extd-filtro-municipio" placeholder="Filtrar município"><input id="extd-filtro-nte" type="number" min="1" max="27" placeholder="NTE (Master/SEC)"></div><div id="extd-catalogo-lista"></div></div></div>
+  <div data-extd-panel="extintas" class="hidden"><div class="extd-panel"><div class="extd-catalogo-head"><div><h3 id="extd-catalogo-titulo">Escolas Extintas</h3><p id="extd-catalogo-ajuda" class="extd-help">Base operacional pós-publicação. Registros históricos já sinalizados como extintos permanecem disponíveis; novos ingressam após a consolidação do ato importado do Diário Oficial.</p></div><input id="extd-catalogo-busca" placeholder="Nome, Nº SIGEE, MEC/INEP ou município"></div><div class="extd-catalogo-filtros"><select id="extd-filtro-acervo"><option value="">Todos os acervos</option><option value="RECOLHIDO">Recolhido</option><option value="PARCIALMENTE RECOLHIDO">Parcialmente recolhido</option><option value="NÃO RECOLHIDO">Não recolhido</option><option value="REMANEJADO">Remanejado</option><option value="SEM REGISTRO">Sem registro</option></select><input id="extd-filtro-municipio" placeholder="Filtrar município"><input id="extd-filtro-nte" type="number" min="1" max="27" placeholder="NTE (Master/SEC)"></div><div id="extd-catalogo-lista"></div></div></div>
   <div data-extd-panel="custodia" class="hidden">
     <div class="extd-panel">
       <div class="extd-catalogo-head"><div><h3>Gestão Territorial da Custódia do Acervo</h3><p class="extd-help">Controle físico dos acervos sob custódia dos NTEs e aguardando encaminhamento à EGBA. Acervos remanejados para outra Unidade de Ensino não integram este estoque.</p></div><button type="button" class="extd-btn" id="extd-custodia-atualizar">Atualizar</button></div>
@@ -940,8 +941,8 @@
 <script src="js/escolas/importacao.js"></script>
 <script src="js/escolas/exportacao.js"></script>
 <script src="js/processos/fluxo-operacional.js"></script>
-<script src="js/extintas/extintas-descredenciamento.service.js?v=20260918.15.7.1"></script>
-<script src="js/extintas/extintas-descredenciamento.js?v=20260918.15.3"></script>
+<script src="js/extintas/extintas-descredenciamento.service.js?v=20260918.15.7.2"></script>
+<script src="js/extintas/extintas-descredenciamento.js?v=20260918.15.7.2"></script>
 <script src="js/core/stability-manager.js?v=RC4.3.1"></script>
 <script src="js/core/app-core.js"></script>
 <script src="js/components/WorkflowActionModal.js?v=RC10.8.9"></script>
