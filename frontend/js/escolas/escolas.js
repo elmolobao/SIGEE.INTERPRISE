@@ -345,7 +345,7 @@
     const inicio = (page - 1) * limit;
     let query = client
       .from(tabelaEscolas())
-      .select('id,cod_mec,nome_escola,nome,municipio,nte_id,nte,dependencia_adm,dependencia,situacao_funcional,situacao,status_acervo,acervo,local_acervo,ativo', { count: 'exact' });
+      .select('id,cod_mec,nome_escola,nome,municipio,nte_id,nte,dependencia_adm,dependencia,situacao_funcional,situacao,status_acervo,acervo,local_acervo,ativo,tipo_unidade,escola_sede_id,codigo_origem', { count: 'exact' });
     if (perfilAtual() !== 'MASTER') query = query.or('ativo.is.null,ativo.eq.true');
     query = aplicarFiltrosQuery(query, termo);
     query = query.order('nome_escola', { ascending: true, nullsFirst: false }).range(inicio, inicio + limit - 1);
@@ -501,7 +501,9 @@
       'escola-form-situacao',
       'escola-form-acervo',
       'escola-form-local',
-      'escola-form-local-outro'
+      'escola-form-local-outro',
+      'escola-form-tipo-unidade',
+      'escola-form-sede'
     ];
 
     const existente = document.getElementById('modal-cadastro-escola');
@@ -519,7 +521,7 @@
       <div class="bg-blue-900 text-white px-5 py-4 flex justify-between items-center"><h3 class="font-bold text-sm">🏫 Cadastrar/Editar Escola</h3><button onclick="fecharModalEscola()" class="text-white font-bold cursor-pointer">✕</button></div>
       <form onsubmit="salvarEscolaFormularioSIGEE(event)" class="p-5 space-y-3">
         <input type="hidden" id="escola-form-id">
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3"><div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">Código MEC</label><input id="escola-form-mec" class="w-full p-2 border rounded text-xs font-bold"></div><div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">Município</label><select id="escola-form-municipio" class="w-full p-2 border rounded text-xs font-bold uppercase bg-white"><option value="">SELECIONE O MUNICÍPIO</option></select><small id="escola-form-municipio-ajuda" class="block mt-1 text-[9px] text-gray-500"></small></div></div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3"><div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">Código MEC/INEP</label><input id="escola-form-mec" class="w-full p-2 border rounded text-xs font-bold" placeholder="Deixe em branco se não possuir"><small class="block mt-1 text-[9px] text-gray-500">Sem MEC/INEP: o Nº SIGEE será usado automaticamente como código sequencial.</small></div><div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">Município</label><select id="escola-form-municipio" class="w-full p-2 border rounded text-xs font-bold uppercase bg-white"><option value="">SELECIONE O MUNICÍPIO</option></select><small id="escola-form-municipio-ajuda" class="block mt-1 text-[9px] text-gray-500"></small></div></div>
         <div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">Nome da Escola</label><input id="escola-form-nome" class="w-full p-2 border rounded text-xs font-bold uppercase"></div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3"><div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">NTE</label><select id="escola-form-nte" class="w-full p-2 border rounded text-xs font-bold bg-white"></select><small id="escola-form-nte-ajuda" class="block mt-1 text-[9px] text-gray-500"></small></div><div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">Dependência Administrativa</label><select id="escola-form-dep" class="w-full p-2 border rounded text-xs font-bold bg-white">
 <option value="">SELECIONE</option>
@@ -530,6 +532,12 @@
 <option value="Conveniada">CONVENIADA</option>
 <option value="Municipalizada">MUNICIPALIZADA</option>
 </select></div></div>
+        <div id="escola-form-vinculo-estadual" class="hidden border border-blue-100 bg-blue-50/60 rounded-lg p-3 space-y-2">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">Tipo da unidade estadual</label><select id="escola-form-tipo-unidade" class="w-full p-2 border rounded text-xs font-bold bg-white"><option value="SEDE">SEDE</option><option value="ANEXO">ANEXO</option></select></div>
+            <div id="escola-form-sede-wrap" class="hidden"><label class="block text-xs font-bold text-gray-700 uppercase mb-1">Escola-sede *</label><select id="escola-form-sede" class="w-full p-2 border rounded text-xs font-bold bg-white"><option value="">SELECIONE A ESCOLA-SEDE</option></select><small class="block mt-1 text-[9px] text-gray-500">O anexo terá Nº SIGEE próprio e poderá compartilhar o MEC/INEP oficial da sede.</small></div>
+          </div>
+        </div>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
 <div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">Situação Funcional</label><select id="escola-form-situacao" class="w-full p-2 border rounded text-xs font-bold bg-white"><option value="">SELECIONE</option><option value="Ativa">ATIVA</option><option value="Extinta">EXTINTA</option><option value="Paralisada">PARALISADA</option><option value="Em processo">EM PROCESSO</option></select></div>
 <div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">Status do Acervo</label><select id="escola-form-acervo" class="w-full p-2 border rounded text-xs font-bold bg-white"><option value="">SELECIONE</option><option value="Recolhido">RECOLHIDO</option><option value="Parcialmente Recolhido">PARCIALMENTE RECOLHIDO</option><option value="Não recolhido">NÃO RECOLHIDO</option><option value="A recolher">A RECOLHER</option><option value="Aguardando Entrega">AGUARDANDO ENTREGA</option></select></div>
@@ -622,6 +630,45 @@
     return novo;
   }
 
+  async function carregarSedesEstaduais(selecionada = '') {
+    const select = document.getElementById('escola-form-sede');
+    if (!select) return;
+    const client = supabaseClient();
+    select.innerHTML = '<option value="">CARREGANDO ESCOLAS-SEDE...</option>';
+    if (!client) return;
+    const { data, error } = await client.from(tabelaEscolas())
+      .select('id,cod_mec,nome_escola,nome,municipio,nte_id,tipo_unidade,dependencia_adm,dependencia,ativo')
+      .or('dependencia_adm.ilike.%estadual%,dependencia.ilike.%estadual%')
+      .order('nome_escola', { ascending: true }).limit(5000);
+    if (error) { console.error(error); select.innerHTML='<option value="">NÃO FOI POSSÍVEL CARREGAR AS SEDES</option>'; return; }
+    const atualId = texto(document.getElementById('escola-form-id')?.value);
+    const itens=(data||[]).filter(e => texto(e.id)!==atualId && normalizar(e.tipo_unidade||'SEDE')!=='ANEXO' && e.ativo!==false);
+    select.innerHTML='<option value="">SELECIONE A ESCOLA-SEDE</option>'+itens.map(e => `<option value="${escapeHtml(e.id)}">${escapeHtml(escolaNome(e))} · ${escapeHtml(e.municipio||'')} · CÓD. ${escapeHtml(e.cod_mec||'-')} · SIGEE ${escapeHtml(e.id)}</option>`).join('');
+    if (selecionada) select.value=String(selecionada);
+  }
+  function atualizarVinculoEstadual(escola = null) {
+    const dep=document.getElementById('escola-form-dep');
+    const bloco=document.getElementById('escola-form-vinculo-estadual');
+    const tipo=document.getElementById('escola-form-tipo-unidade');
+    const wrap=document.getElementById('escola-form-sede-wrap');
+    const sede=document.getElementById('escola-form-sede');
+    if (!dep || !bloco || !tipo || !wrap || !sede) return;
+    const estadual=normalizar(dep.value)==='ESTADUAL';
+    bloco.classList.toggle('hidden',!estadual);
+    if (!estadual) { tipo.value='SEDE'; sede.value=''; wrap.classList.add('hidden'); return; }
+    const anexo=tipo.value==='ANEXO';
+    wrap.classList.toggle('hidden',!anexo);
+    sede.required=anexo;
+    if (anexo && sede.options.length<=1) carregarSedesEstaduais(escola?.escola_sede_id||'');
+  }
+  function instalarVinculoSedeAnexo(escola = null) {
+    const dep=document.getElementById('escola-form-dep');
+    const tipo=document.getElementById('escola-form-tipo-unidade');
+    if (dep && dep.dataset.sedeAnexo!=='1') { dep.dataset.sedeAnexo='1'; dep.addEventListener('change',()=>atualizarVinculoEstadual()); }
+    if (tipo && tipo.dataset.sedeAnexo!=='1') { tipo.dataset.sedeAnexo='1'; tipo.addEventListener('change',()=>atualizarVinculoEstadual()); }
+    atualizarVinculoEstadual(escola);
+  }
+
   function abrirNovaEscola() {
     if (!podeCadastrar()) return alert('Somente o perfil Master pode cadastrar escola.');
     garantirModalEscola();
@@ -652,6 +699,9 @@
     }
 
     setDisabled(['escola-form-mec','escola-form-nome','escola-form-dep'], false);
+    document.getElementById('escola-form-tipo-unidade').value = 'SEDE';
+    document.getElementById('escola-form-sede').value = '';
+    instalarVinculoSedeAnexo();
 
     const nteEl = document.getElementById('escola-form-nte');
     if (nteEl) {
@@ -728,6 +778,9 @@
     definir('escola-form-situacao', escolaSituacao(e) || 'Extinta');
     definir('escola-form-acervo', escolaAcervo(e) || 'Recolhido');
     configurarCampoOutroLocal(escolaLocal(e));
+    definir('escola-form-tipo-unidade', normalizar(e.tipo_unidade) === 'ANEXO' ? 'ANEXO' : 'SEDE');
+    instalarVinculoSedeAnexo(e);
+    if (normalizar(e.tipo_unidade) === 'ANEXO') carregarSedesEstaduais(e.escola_sede_id || '');
 
     setDisabled(
       ['escola-form-mec','escola-form-nome','escola-form-dep'],
@@ -776,6 +829,12 @@
       payload.nte = rotuloNteEscola(payload.nte_id);
       payload.dependencia_adm = texto(document.getElementById('escola-form-dep').value);
       payload.dependencia = payload.dependencia_adm;
+      if (normalizar(payload.dependencia_adm) === 'ESTADUAL') {
+        payload.tipo_unidade = texto(document.getElementById('escola-form-tipo-unidade')?.value || 'SEDE');
+        payload.escola_sede_id = payload.tipo_unidade === 'ANEXO' ? (Number(document.getElementById('escola-form-sede')?.value) || document.getElementById('escola-form-sede')?.value || null) : null;
+        if (payload.tipo_unidade === 'ANEXO' && !payload.escola_sede_id) return alert('Selecione a escola-sede do anexo.');
+      } else { payload.tipo_unidade = 'SEDE'; payload.escola_sede_id = null; }
+      payload.codigo_origem = texto(payload.cod_mec) ? 'MEC_INEP' : 'SIGEE_SEQUENCIAL';
 
       if (!payload.municipio || !payload.dependencia_adm) {
         return alert('Selecione Município e Dependência Administrativa.');
@@ -822,6 +881,13 @@
         const { data, error } = resposta;
         if (error) throw error;
         if (data && data[0]) Object.assign(payload, data[0]);
+        if (!existente && !texto(payload.cod_mec) && texto(payload.id)) {
+          payload.cod_mec = texto(payload.id);
+          payload.codigo_origem = 'SIGEE_SEQUENCIAL';
+          const atualizacao = await client.from(tabelaEscolas()).update({ cod_mec: payload.cod_mec, codigo_origem: payload.codigo_origem }).eq('id', payload.id).select().limit(1);
+          if (atualizacao.error) throw atualizacao.error;
+          if (atualizacao.data?.[0]) Object.assign(payload, atualizacao.data[0]);
+        }
       }
 
       if (!texto(payload.id)) {
