@@ -1,6 +1,6 @@
 /** SIGEE — Escolas Extintas / Descredenciamento e Acervo — 2026.09.15 */
 (function(w){'use strict';if(w.SIGEE_EXTINTAS_DESC_SERVICE)return;
-const C=()=>w.SIGEE_SUPABASE?.criarCliente?.()||w.SIGEE_SUPABASE_CLIENT||w.supabaseClient;
+const C=()=>w.SIGEE_SUPABASE?.criarCliente?.()||w.SIGEE_SUPABASE_CLIENT||w.supabaseClient;const PAGE_SIZE=25;function paginar(q,pagina=1,tamanho=PAGE_SIZE){pagina=Math.max(1,Number(pagina)||1);tamanho=Math.min(50,Math.max(1,Number(tamanho)||PAGE_SIZE));const de=(pagina-1)*tamanho;return q.range(de,de+tamanho-1);}
 const U=()=>w.SIGEE_SESSION?.getUser?.()||w.usuarioLogado||{};
 const norm=v=>String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().trim();
 const perfilBase=()=>norm(U().perfil);
