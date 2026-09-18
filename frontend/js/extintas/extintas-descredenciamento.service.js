@@ -11,6 +11,9 @@ const podeAnalisarAcervo=()=>['MASTER','SEC'].includes(perfilBase());
 const podeSolicitarAlteracaoAcervo=()=>!podeAnalisarAcervo();
 const nte=()=>{const modular=w.SIGEE_MODULOS?.nteNoModulo?.('ESCOLAS_EXTINTAS',U());return Number(modular||U().nte_id||String(U().nte||'').match(/\d{1,2}/)?.[0]||0)||null;};
 function qscope(q){return global()?q:(nte()?q.eq('nte_id',nte()):q.eq('nte_id',-1));}
+// Escopo territorial para consultas diretamente em escolas_sigee.
+// Mantem MASTER/SEC globais e nunca usa MEC/INEP como identidade ou filtro territorial.
+function qscopeEscola(q){return global()?q:(nte()?q.eq('nte_id',nte()):q.eq('nte_id',-1));}
 
 
 
