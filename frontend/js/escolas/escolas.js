@@ -1072,11 +1072,107 @@ Esta ação não pode ser desfeita.`)) return;
     window.__SIGEE_OBSERVER_PESQUISA_ESCOLA_INSTANCIA__ = observer;
   }
 
+
+  function garantirModalRegularizacaoAnexos() {
+    let modal = document.getElementById('modal-regularizacao-anexos-historicos');
+    if (modal) return modal;
+    modal = document.createElement('div');
+    modal.id = 'modal-regularizacao-anexos-historicos';
+    modal.className = 'hidden fixed inset-0 bg-blue-950/70 backdrop-blur-xs flex items-center justify-center p-4 z-[70]';
+    modal.innerHTML = `<div class="bg-white w-full max-w-4xl rounded-xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col">
+      <div class="bg-indigo-900 text-white px-5 py-4 flex justify-between items-start gap-4"><div><h3 class="font-bold text-sm">🔗 Regularização de Anexos Históricos</h3><p class="text-[10px] text-indigo-100 mt-1">Operação assistida. Nenhum cadastro é alterado automaticamente.</p></div><button type="button" id="btn-fechar-regularizacao-anexo" class="text-white font-bold">✕</button></div>
+      <div class="p-5 overflow-y-auto space-y-4">
+        <div class="border border-amber-200 bg-amber-50 rounded-lg p-3 text-[11px] text-amber-900"><b>Regra de segurança:</b> o registro selecionado como anexo mantém seu Nº SIGEE e todos os vínculos já existentes. Se a escola-sede não existir mais no catálogo, cadastre-a primeiro como <b>SEDE</b> e depois retorne a esta regularização.</div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">Cadastro histórico que representa o ANEXO *</label><input id="reg-anexo-busca" class="w-full p-2 border rounded text-xs mb-2" placeholder="Filtrar por nome, MEC ou Nº SIGEE"><select id="reg-anexo-id" size="8" class="w-full p-2 border rounded text-xs bg-white"></select><small class="block mt-1 text-[9px] text-gray-500">São priorizados registros estaduais cujo nome contém “ANEXO”, mas o Master pode localizar outros candidatos.</small></div>
+          <div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">Escola principal / SEDE *</label><input id="reg-sede-busca" class="w-full p-2 border rounded text-xs mb-2" placeholder="Filtrar por nome, MEC ou Nº SIGEE"><select id="reg-sede-id" size="8" class="w-full p-2 border rounded text-xs bg-white"></select><small class="block mt-1 text-[9px] text-gray-500">Somente registros estaduais que não estejam classificados como ANEXO.</small></div>
+        </div>
+        <div id="reg-vinculo-preview" class="hidden border border-indigo-100 bg-indigo-50 rounded-lg p-3 text-xs"></div>
+        <div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">Justificativa da regularização *</label><textarea id="reg-anexo-justificativa" rows="4" class="w-full p-3 border rounded text-xs resize-y" placeholder="Ex.: cadastro histórico passou a representar o Anexo X; sede restabelecida no cadastro SIGEE após conferência documental."></textarea></div>
+        <div class="flex justify-end gap-2 border-t pt-4"><button type="button" id="btn-cancelar-regularizacao-anexo" class="px-4 py-2 border rounded-lg text-xs font-semibold bg-gray-100">Cancelar</button><button type="button" id="btn-confirmar-regularizacao-anexo" class="bg-indigo-800 hover:bg-indigo-900 text-white font-bold px-5 py-2 rounded-lg text-xs shadow">Confirmar vínculo Sede/Anexo</button></div>
+      </div></div>`;
+    document.body.appendChild(modal);
+    modal.querySelector('#btn-fechar-regularizacao-anexo').onclick = fecharRegularizacaoAnexosHistoricosSIGEE;
+    modal.querySelector('#btn-cancelar-regularizacao-anexo').onclick = fecharRegularizacaoAnexosHistoricosSIGEE;
+    modal.querySelector('#btn-confirmar-regularizacao-anexo').onclick = confirmarRegularizacaoAnexoHistoricoSIGEE;
+    modal.querySelector('#reg-anexo-busca').addEventListener('input', () => preencherListasRegularizacao());
+    modal.querySelector('#reg-sede-busca').addEventListener('input', () => preencherListasRegularizacao());
+    modal.querySelector('#reg-anexo-id').addEventListener('change', atualizarPreviewRegularizacao);
+    modal.querySelector('#reg-sede-id').addEventListener('change', atualizarPreviewRegularizacao);
+    return modal;
+  }
+
+  let escolasRegularizacaoCache = [];
+  function ehEstadual(e) { return normalizar(e?.dependencia_adm || e?.dependencia).includes('ESTAD'); }
+  function matchRegularizacao(e, termo) {
+    const t = normalizar(termo);
+    if (!t) return true;
+    return [e.id,e.cod_mec,escolaNome(e),e.municipio].some(v => normalizar(v).includes(t));
+  }
+  function labelRegularizacao(e) {
+    const tipo = normalizar(e.tipo_unidade || 'SEDE') === 'ANEXO' ? 'ANEXO' : 'SEDE';
+    return `${escolaNome(e)} · ${e.municipio || '-'} · MEC ${e.cod_mec || '-'} · SIGEE ${e.id} · ${tipo}`;
+  }
+  function preencherListasRegularizacao() {
+    const aSel=document.getElementById('reg-anexo-id'), sSel=document.getElementById('reg-sede-id');
+    if (!aSel || !sSel) return;
+    const av=aSel.value, sv=sSel.value;
+    const ab=document.getElementById('reg-anexo-busca')?.value || '', sb=document.getElementById('reg-sede-busca')?.value || '';
+    const estaduais=escolasRegularizacaoCache.filter(e => ehEstadual(e) && e.ativo !== false);
+    const anexos=estaduais.filter(e => matchRegularizacao(e,ab)).sort((a,b) => {
+      const aa=normalizar(escolaNome(a)).includes('ANEXO') ? 0 : 1, bb=normalizar(escolaNome(b)).includes('ANEXO') ? 0 : 1;
+      return aa-bb || escolaNome(a).localeCompare(escolaNome(b),'pt-BR');
+    });
+    const sedes=estaduais.filter(e => normalizar(e.tipo_unidade || 'SEDE') !== 'ANEXO' && matchRegularizacao(e,sb)).sort((a,b)=>escolaNome(a).localeCompare(escolaNome(b),'pt-BR'));
+    aSel.innerHTML=anexos.map(e=>`<option value="${escapeHtml(e.id)}">${escapeHtml(labelRegularizacao(e))}</option>`).join('');
+    sSel.innerHTML=sedes.map(e=>`<option value="${escapeHtml(e.id)}">${escapeHtml(labelRegularizacao(e))}</option>`).join('');
+    if ([...aSel.options].some(o=>o.value===av)) aSel.value=av;
+    if ([...sSel.options].some(o=>o.value===sv)) sSel.value=sv;
+    atualizarPreviewRegularizacao();
+  }
+  function atualizarPreviewRegularizacao() {
+    const box=document.getElementById('reg-vinculo-preview'); if (!box) return;
+    const aid=document.getElementById('reg-anexo-id')?.value, sid=document.getElementById('reg-sede-id')?.value;
+    const a=escolasRegularizacaoCache.find(e=>texto(e.id)===texto(aid)), sede=escolasRegularizacaoCache.find(e=>texto(e.id)===texto(sid));
+    if (!a || !sede) { box.classList.add('hidden'); box.innerHTML=''; return; }
+    box.classList.remove('hidden');
+    box.innerHTML=`<b>Vínculo proposto</b><div class="mt-2"><b>SEDE:</b> ${escapeHtml(escolaNome(sede))} <span class="text-gray-500">(SIGEE ${escapeHtml(sede.id)} · MEC ${escapeHtml(sede.cod_mec||'-')})</span></div><div class="mt-1 pl-4">└ <b>ANEXO:</b> ${escapeHtml(escolaNome(a))} <span class="text-gray-500">(SIGEE ${escapeHtml(a.id)} · MEC ${escapeHtml(a.cod_mec||'-')})</span></div><div class="mt-2 text-[10px] text-indigo-800">O Nº SIGEE do anexo não será alterado. Processos, solicitações e acervo vinculados a esse ID permanecem preservados.</div>`;
+  }
+  async function abrirRegularizacaoAnexosHistoricosSIGEE() {
+    if (perfilAtual() !== 'MASTER') return alert('A regularização histórica Sede/Anexo é exclusiva do perfil Master.');
+    const modal=garantirModalRegularizacaoAnexos(); modal.classList.remove('hidden');
+    const client=supabaseClient();
+    if (!client) return alert('Conexão com o banco indisponível.');
+    const {data,error}=await client.from(tabelaEscolas()).select('id,cod_mec,nome_escola,nome,municipio,nte_id,nte,dependencia_adm,dependencia,ativo,tipo_unidade,escola_sede_id,codigo_origem').order('nome_escola',{ascending:true}).limit(5000);
+    if (error) { console.error(error); return alert('Não foi possível carregar os cadastros para regularização.'); }
+    escolasRegularizacaoCache=data||[]; preencherListasRegularizacao();
+  }
+  function fecharRegularizacaoAnexosHistoricosSIGEE() { document.getElementById('modal-regularizacao-anexos-historicos')?.classList.add('hidden'); }
+  async function confirmarRegularizacaoAnexoHistoricoSIGEE() {
+    if (perfilAtual() !== 'MASTER') return;
+    const aid=document.getElementById('reg-anexo-id')?.value, sid=document.getElementById('reg-sede-id')?.value;
+    const just=texto(document.getElementById('reg-anexo-justificativa')?.value);
+    if (!aid || !sid) return alert('Selecione o cadastro do anexo e a escola-sede.');
+    if (texto(aid)===texto(sid)) return alert('Uma escola não pode ser anexo de si própria.');
+    if (!just) return alert('Informe a justificativa da regularização.');
+    const a=escolasRegularizacaoCache.find(e=>texto(e.id)===texto(aid)), sede=escolasRegularizacaoCache.find(e=>texto(e.id)===texto(sid));
+    if (!confirm(`Confirmar a regularização?\n\nSEDE: ${escolaNome(sede)}\nANEXO: ${escolaNome(a)}\n\nO Nº SIGEE do anexo e seus vínculos serão preservados.`)) return;
+    const u=window.usuarioLogado || {};
+    const client=supabaseClient();
+    const {error}=await client.rpc('sigee_regularizar_anexo_historico',{p_anexo_id:Number(aid),p_sede_id:Number(sid),p_justificativa:just,p_usuario_nome:u.nome||u.name||null,p_usuario_email:u.email||null});
+    if (error) { console.error(error); return alert(`Não foi possível concluir a regularização: ${error.message || error}`); }
+    alert('Regularização Sede/Anexo concluída e registrada na auditoria.');
+    document.getElementById('reg-anexo-justificativa').value='';
+    fecharRegularizacaoAnexosHistoricosSIGEE(); paginaAtual=1; await renderizarLista();
+  }
+
   function aplicarModulo() {
     observarCamposPesquisaEscola();
     document.querySelectorAll('button[onclick*="abrirModalNovaEscola"], .btn-nova-escola').forEach(btn => {
       btn.classList.toggle('hidden', !podeCadastrar());
     });
+    const btnReg = document.getElementById('btn-regularizar-anexos-historicos');
+    if (btnReg) btnReg.classList.toggle('hidden', perfilAtual() !== 'MASTER');
     window.renderizarListaEscolasBufferMemoria = renderizarLista;
     window.filtrarPorBusca = filtrar;
     window.mudarPaginaEscola = mudarPagina;
@@ -1088,6 +1184,8 @@ Esta ação não pode ser desfeita.`)) return;
     window.fecharModalEscola = fecharModal;
     window.alterarStatusEscolaSIGEE = alterarStatusEscola;
     window.excluirEscolaDefinitivamenteSIGEE = excluirEscolaDefinitivamente;
+    window.abrirRegularizacaoAnexosHistoricosSIGEE = abrirRegularizacaoAnexosHistoricosSIGEE;
+    window.fecharRegularizacaoAnexosHistoricosSIGEE = fecharRegularizacaoAnexosHistoricosSIGEE;
     // RC4.5.15: o bloco legado não pode reassumir a Nova Solicitação.
     // A autoridade exclusiva é instalada pelo módulo reorganizado ao final deste arquivo.
   }
