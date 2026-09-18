@@ -489,6 +489,11 @@
   }
 
   async function processarLogin(usuario, token) {
+    if (perfilMaster(usuario)) {
+      usuarioPendenteExtintas = null;
+      removerPopup();
+      return;
+    }
     loginEmProcessamento = true;
     try {
       const resumo = await obterResumo(usuario, token);
@@ -550,7 +555,9 @@
     loginEmProcessamento = false;
     cienciaExtintasNesteLogin = false;
     removerPopup();
-    usuarioPendenteExtintas = podeModulo('ESCOLAS_EXTINTAS', usuario) ? usuario : null;
+    // MASTER possui visão gerencial e não recebe o popup obrigatório de ciência.
+    // O alerta permanece ativo para os demais perfis operacionais autorizados.
+    usuarioPendenteExtintas = (!perfilMaster(usuario) && podeModulo('ESCOLAS_EXTINTAS', usuario)) ? usuario : null;
   }
 
   function aoLogout() {
