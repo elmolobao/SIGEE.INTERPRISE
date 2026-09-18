@@ -192,14 +192,16 @@
       <form id="leg-form-novo-descredenciamento" class="leg-operacional-form hidden">
         <div class="leg-operacional-grid">
           <label class="span-2">Instituição<input id="leg-desc-inst-busca" type="search" autocomplete="off" placeholder="Digite nome, INEP, município ou COD SEC"><input id="leg-desc-instituicao-id" name="instituicao_id" type="hidden"><div id="leg-desc-inst-resultados" class="leg-search-results hidden"></div></label>
-          <label>Modalidade do descredenciamento<select name="subtipo" required><option value="VOLUNTARIO">Voluntário</option><option value="COMPULSORIO">Compulsório</option></select></label>
+          <label>Tipo de descredenciamento *<select id="leg-desc-objeto" name="objeto_descredenciamento" required><option value="">Selecione...</option><option value="INSTITUICAO">Instituição</option><option value="OFERTA_ENSINO">Oferta de Ensino</option></select></label>
+          <label id="leg-desc-modalidade-wrap" class="hidden">Modalidade / procedimento<select id="leg-desc-subtipo" name="subtipo"><option value="VOLUNTARIO">Voluntário</option><option value="COMPULSORIO">Compulsório</option></select><small id="leg-desc-modalidade-ajuda"></small></label>
+          <div id="leg-desc-ofertas-wrap" class="span-2 leg-oferta-config hidden"><div class="leg-oferta-config-head"><div><strong>Oferta(s) abrangida(s)</strong><span id="leg-desc-ofertas-ajuda">Selecione a instituição para carregar as ofertas.</span></div></div><div id="leg-desc-ofertas-lista" class="leg-oferta-catalogo"></div></div>
           <label>Processo SEI *<div class="leg-input-action"><input id="leg-desc-sei" name="numero_sei" required placeholder="00000.000000/0000-00"><button type="button" class="leg-btn" id="leg-desc-sei-teste">SEI de teste</button></div></label>
           <label>Data do protocolo *<input name="data_protocolo" type="date" required></label>
           <label>Prazo da etapa<input name="prazo_etapa" type="date"></label>
           <div class="span-2 leg-callout compact"><div><strong>Responsabilidades separadas</strong><p>A Legalização conduz o descredenciamento e seu checklist regulatório. O recolhimento do acervo não integra este checklist: após a conclusão do ato, a demanda é encaminhada para Escolas Extintas.</p></div></div>
           <label class="span-2">Fundamentação / observação<textarea name="observacao" rows="3" placeholder="Informe a motivação ou fundamento inicial do procedimento"></textarea></label>
         </div>
-        <div class="leg-operacional-actions"><span id="leg-desc-form-status">Selecione a instituição e informe o Processo SEI.</span><div><button type="button" class="leg-btn" id="leg-cancelar-descredenciamento">Cancelar</button><button type="submit" class="leg-btn primary">Abrir descredenciamento</button></div></div>
+        <div class="leg-operacional-actions"><span id="leg-desc-form-status">Selecione a instituição e informe o Processo SEI.</span><div><button type="button" class="leg-btn" id="leg-cancelar-descredenciamento">Cancelar</button><button type="submit" class="leg-btn primary" id="leg-desc-submit">Abrir descredenciamento</button></div></div>
       </form>
       <div class="leg-list" id="legalizacao-reg-descredenciamento"><div class="leg-empty"><strong>Aguardando carregamento...</strong></div></div></div></div>
     <div class="leg-reg-panel hidden" data-reg-panel="ofertas"><div class="leg-panel"><header class="leg-panel-head"><div><h2>Ofertas / Cursos</h2><p>Procedimentos próprios de autorização, renovação e reconhecimento, sempre vinculados ao cadastro da instituição.</p></div><div class="leg-filter-row"><button type="button" class="leg-btn primary" id="leg-nova-oferta-procedimento">+ Novo procedimento de oferta</button></div></header>
@@ -1016,8 +1018,8 @@ window.filtrarTabelaUsuariosSIGEE = function (termo) {
 <script src="js/agenda/agenda-procedimentos.js?v=5.1"></script>
 <script src="js/territorial/territorial-bootstrap.js?v=RC11.3.16"></script>
 
-<script src="js/legalizacao/legalizacao.service.js?v=RC12.0.10A.36.3.22"></script>
-<script src="js/legalizacao/legalizacao.js?v=RC12.0.10A.36.3.20"></script>
+<script src="js/legalizacao/legalizacao.service.js?v=RC12.0.10A.36.3.23"></script>
+<script src="js/legalizacao/legalizacao.js?v=RC12.0.10A.36.3.21"></script>
     <script src="js/core/autorizacao.js?v=RC12.0.10A.36.3.15"></script>
 <script src="js/analytics/dashboard.js?v=RC7.4.4-PERFORMANCE"></script>
 <script src="js/cio/cio-bootstrap.js?v=RC7.4.1"></script>
