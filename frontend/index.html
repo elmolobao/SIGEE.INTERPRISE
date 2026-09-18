@@ -188,7 +188,7 @@
         <label class="span-2">Descrição da alteração<textarea name="observacao" rows="3" required placeholder="Descreva a alteração solicitada"></textarea></label>
       </div><div class="leg-operacional-actions"><span id="leg-alt-form-status">Selecione a instituição e descreva a alteração.</span><div><button type="button" class="leg-btn" id="leg-cancelar-alteracao">Cancelar</button><button type="submit" class="leg-btn primary">Abrir procedimento</button></div></div></form>
       <div class="leg-list" id="legalizacao-reg-alteracao"><div class="leg-empty"><strong>Aguardando carregamento...</strong></div></div></div></div>
-    <div class="leg-reg-panel hidden" data-reg-panel="descredenciamento"><div class="leg-panel"><header class="leg-panel-head"><div><h2>Descredenciamento</h2><p>Procedimento regulatório da Legalização Escolar. O recolhimento do acervo é encaminhado posteriormente para Escolas Extintas.</p></div><div class="leg-filter-row"><button type="button" class="leg-btn primary" id="leg-novo-descredenciamento">+ Novo descredenciamento</button></div></header>
+    <div class="leg-reg-panel hidden" data-reg-panel="descredenciamento"><div class="leg-panel"><header class="leg-panel-head"><div><h2>Descredenciamento</h2><p>Procedimento regulatório da Legalização Escolar. O recolhimento do acervo aplicável ocorre antes da publicação e é coordenado por SEC/Master, com destino definido para o NTE responsável ou diretamente para a EGBA.</p></div><div class="leg-filter-row"><button type="button" class="leg-btn primary" id="leg-novo-descredenciamento">+ Novo descredenciamento</button></div></header>
       <form id="leg-form-novo-descredenciamento" class="leg-operacional-form hidden">
         <div class="leg-operacional-grid">
           <label class="span-2">Instituição<input id="leg-desc-inst-busca" type="search" autocomplete="off" placeholder="Digite nome, INEP, município ou COD SEC"><input id="leg-desc-instituicao-id" name="instituicao_id" type="hidden"><div id="leg-desc-inst-resultados" class="leg-search-results hidden"></div></label>
@@ -198,7 +198,7 @@
           <label>Processo SEI *<div class="leg-input-action"><input id="leg-desc-sei" name="numero_sei" required placeholder="00000.000000/0000-00"><button type="button" class="leg-btn" id="leg-desc-sei-teste">SEI de teste</button></div></label>
           <label>Data do protocolo *<input name="data_protocolo" type="date" required></label>
           <label>Prazo da etapa<input name="prazo_etapa" type="date"></label>
-          <div class="span-2 leg-callout compact"><div><strong>Responsabilidades separadas</strong><p>A Legalização conduz o descredenciamento e seu checklist regulatório. O recolhimento do acervo não integra este checklist: após a conclusão do ato, a demanda é encaminhada para Escolas Extintas.</p></div></div>
+          <div class="span-2 leg-callout compact"><div><strong>Responsabilidades separadas</strong><p>A Legalização conduz o descredenciamento e seu checklist regulatório. A Legalização conduz o checklist regulatório e SEC/Master coordena a coleta do acervo aplicável antes de liberar o processo para Aguardando Publicação. A consolidação da extinção ocorre somente com a importação e vinculação do ato do Diário Oficial.</p></div></div>
           <label class="span-2">Fundamentação / observação<textarea name="observacao" rows="3" placeholder="Informe a motivação ou fundamento inicial do procedimento"></textarea></label>
         </div>
         <div class="leg-operacional-actions"><span id="leg-desc-form-status">Selecione a instituição e informe o Processo SEI.</span><div><button type="button" class="leg-btn" id="leg-cancelar-descredenciamento">Cancelar</button><button type="submit" class="leg-btn primary" id="leg-desc-submit">Abrir descredenciamento</button></div></div>
@@ -363,15 +363,15 @@
     <button type="button" class="extd-tab active" data-extd-tab="procedimentos">Procedimentos <span id="extd-count-procedimentos">0</span></button>
     <button type="button" class="extd-tab" data-extd-tab="paralisadas">Escolas Paralisadas <span id="extd-count-paralisadas">0</span></button>
     <button type="button" class="extd-tab" data-extd-tab="descredenciamento">Escolas em Processo de Descredenciamento <span id="extd-count-descredenciamento">0</span></button>
-    <button type="button" class="extd-tab" data-extd-tab="catalogo">Catálogo de Escolas</button>
+    <button type="button" class="extd-tab" data-extd-tab="aguardando-publicacao">Aguardando Publicação <span id="extd-count-aguardando-publicacao">0</span></button>
+    <button type="button" class="extd-tab" data-extd-tab="extintas">Escolas Extintas <span id="extd-count-extintas">0</span></button>
     <button type="button" class="extd-tab" data-extd-tab="custodia">Custódia do Acervo <span id="extd-count-custodia">0</span></button>
   </div>
   <div data-extd-panel="procedimentos"><div id="extintas-desc-lista"></div></div>
   <div data-extd-panel="paralisadas" class="hidden"><div id="extd-paralisadas-lista"></div></div>
   <div data-extd-panel="descredenciamento" class="hidden"><div id="extd-descredenciamento-lista"></div></div>
-  <div data-extd-panel="catalogo" class="hidden">
-    <div class="extd-panel"><div class="extd-catalogo-head"><div><h3>Catálogo para atuação de Escolas Extintas</h3><p class="extd-help">Consulte instituições do território. Escolas ativas podem ser selecionadas para abertura de Suspeita de Extinção sem alterar sua situação funcional.</p></div><input id="extd-catalogo-busca" placeholder="Pesquisar escola ou código MEC"></div><div class="extd-catalogo-filtros"><select id="extd-filtro-situacao"><option value="">Todas as situações</option><option value="ATIVA">Ativa</option><option value="PARALISADA">Paralisada</option><option value="EXTINTA">Extinta</option><option value="EM PROCESSO">Em processo</option></select><select id="extd-filtro-acervo"><option value="">Todos os acervos</option><option value="RECOLHIDO">Recolhido</option><option value="PARCIALMENTE RECOLHIDO">Parcialmente recolhido</option><option value="NÃO RECOLHIDO">Não recolhido</option><option value="REMANEJADO">Remanejado</option><option value="A RECOLHER">A recolher</option><option value="AGUARDANDO ENTREGA">Aguardando entrega</option><option value="SEM REGISTRO">Sem registro</option></select><input id="extd-filtro-municipio" placeholder="Filtrar município"><input id="extd-filtro-nte" type="number" min="1" max="27" placeholder="NTE (Master/SEC)"></div><div id="extd-catalogo-lista"></div></div>
-  </div>
+  <div data-extd-panel="aguardando-publicacao" class="hidden"><div id="extd-aguardando-publicacao-lista"></div></div>
+  <div data-extd-panel="extintas" class="hidden"><div class="extd-panel"><div class="extd-catalogo-head"><div><h3>Escolas Extintas</h3><p class="extd-help">Base operacional pós-publicação. Registros históricos já sinalizados como extintos permanecem disponíveis; novos ingressam após a consolidação do ato importado do Diário Oficial.</p></div><input id="extd-catalogo-busca" placeholder="Nome, Nº SIGEE, MEC/INEP ou município"></div><div class="extd-catalogo-filtros"><select id="extd-filtro-acervo"><option value="">Todos os acervos</option><option value="RECOLHIDO">Recolhido</option><option value="PARCIALMENTE RECOLHIDO">Parcialmente recolhido</option><option value="NÃO RECOLHIDO">Não recolhido</option><option value="REMANEJADO">Remanejado</option><option value="SEM REGISTRO">Sem registro</option></select><input id="extd-filtro-municipio" placeholder="Filtrar município"><input id="extd-filtro-nte" type="number" min="1" max="27" placeholder="NTE (Master/SEC)"></div><div id="extd-catalogo-lista"></div></div></div>
   <div data-extd-panel="custodia" class="hidden">
     <div class="extd-panel">
       <div class="extd-catalogo-head"><div><h3>Gestão Territorial da Custódia do Acervo</h3><p class="extd-help">Controle físico dos acervos sob custódia dos NTEs e aguardando encaminhamento à EGBA. Acervos remanejados para outra Unidade de Ensino não integram este estoque.</p></div><button type="button" class="extd-btn" id="extd-custodia-atualizar">Atualizar</button></div>
@@ -940,8 +940,8 @@
 <script src="js/escolas/importacao.js"></script>
 <script src="js/escolas/exportacao.js"></script>
 <script src="js/processos/fluxo-operacional.js"></script>
-<script src="js/extintas/extintas-descredenciamento.service.js?v=20260918.8.0"></script>
-<script src="js/extintas/extintas-descredenciamento.js?v=20260918.8.0"></script>
+<script src="js/extintas/extintas-descredenciamento.service.js?v=20260918.9.0"></script>
+<script src="js/extintas/extintas-descredenciamento.js?v=20260918.9.0"></script>
 <script src="js/core/stability-manager.js?v=RC4.3.1"></script>
 <script src="js/core/app-core.js"></script>
 <script src="js/components/WorkflowActionModal.js?v=RC10.8.9"></script>
