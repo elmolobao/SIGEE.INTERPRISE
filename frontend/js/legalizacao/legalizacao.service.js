@@ -302,10 +302,10 @@ async function buscarUnidadesEnsinoPublicas(busca='',nteSelecionado=null){
   assertAccess();const c=client();if(!c)return[];const termo=clean(busca),territorial=nteId();
   const nteAlvo=territorial!=null&&territorial!==''?Number(territorial):Number(nteSelecionado||0);
   if(!nteAlvo)return[];
-  let q=c.from('escolas_sigee').select('id,cod_mec,nome_escola,nome,municipio,nte_id,dependencia_adm,tipo_unidade,ativo').eq('nte_id',nteAlvo).eq('ativo',true).or('tipo_unidade.is.null,tipo_unidade.neq.ANEXO').order('nome_escola',{ascending:true}).limit(100);
+  let q=c.from('escolas_sigee').select('id,cod_mec,nome_escola,nome,municipio,nte_id,dependencia_adm,tipo_unidade,escola_sede_id,ativo').eq('nte_id',nteAlvo).eq('ativo',true).is('escola_sede_id',null).order('nome_escola',{ascending:true}).limit(100);
   if(termo){const safe=termo.replace(/[,()]/g,' ');q=q.or(`nome_escola.ilike.%${safe}%,nome.ilike.%${safe}%,cod_mec.ilike.%${safe}%,municipio.ilike.%${safe}%`);}
   const {data,error}=await q;if(error)throw error;
-  return (data||[]).filter(x=>{const d=upper(x.dependencia_adm||'');return d.includes('ESTAD')&&!d.includes('PRIV')&&upper(x.tipo_unidade||'SEDE')!=='ANEXO'&&Number(x.nte_id)===nteAlvo;});
+  return (data||[]).filter(x=>{const d=upper(x.dependencia_adm||''),nome=upper(x.nome_escola||x.nome||'');return d.includes('ESTAD')&&!d.includes('PRIV')&&upper(x.tipo_unidade||'SEDE')!=='ANEXO'&&!x.escola_sede_id&&!/^ANEXO(?:\s|\-|$)/.test(nome)&&Number(x.nte_id)===nteAlvo;});
 }
 
 async function criarInstituicao(payload){
