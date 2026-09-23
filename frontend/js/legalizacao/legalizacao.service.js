@@ -298,13 +298,14 @@ async function listarHistoricoRegulatorio(){
   const instIds=[...new Set(lista.map(x=>x.instituicao_id).filter(Boolean))];let inst=[];if(instIds.length){const r=await c.from('legalizacao_instituicoes').select('id,nome_instituicao,nte_id').in('id',instIds);if(r.error)throw r.error;inst=r.data||[];}const im=new Map(inst.map(x=>[String(x.id),x]));return lista.map(x=>({...x,instituicao:im.get(String(x.instituicao_id))||null}));
 }
 
-async function buscarUnidadesEnsinoPublicas(busca=''){
-  assertAccess();const c=client();if(!c)return[];const termo=clean(busca);
-  let q=c.from('escolas_sigee').select('id,cod_mec,nome_escola,nome,municipio,nte_id,dependencia_adm,tipo_unidade,ativo').or('tipo_unidade.is.null,tipo_unidade.neq.ANEXO').eq('ativo',true).order('nome_escola',{ascending:true}).limit(80);
-  if(!master()&&nteId())q=q.eq('nte_id',nteId());
+async function buscarUnidadesEnsinoPublicas(busca='',nteSelecionado=null){
+  assertAccess();const c=client();if(!c)return[];const termo=clean(busca),territorial=nteId();
+  const nteAlvo=territorial!=null&&territorial!==''?Number(territorial):Number(nteSelecionado||0);
+  if(!nteAlvo)return[];
+  let q=c.from('escolas_sigee').select('id,cod_mec,nome_escola,nome,municipio,nte_id,dependencia_adm,tipo_unidade,ativo').eq('nte_id',nteAlvo).eq('ativo',true).or('tipo_unidade.is.null,tipo_unidade.neq.ANEXO').order('nome_escola',{ascending:true}).limit(100);
   if(termo){const safe=termo.replace(/[,()]/g,' ');q=q.or(`nome_escola.ilike.%${safe}%,nome.ilike.%${safe}%,cod_mec.ilike.%${safe}%,municipio.ilike.%${safe}%`);}
   const {data,error}=await q;if(error)throw error;
-  return (data||[]).filter(x=>{const d=upper(x.dependencia_adm||'');return !d.includes('PRIV');});
+  return (data||[]).filter(x=>{const d=upper(x.dependencia_adm||'');return d.includes('ESTAD')&&!d.includes('PRIV')&&upper(x.tipo_unidade||'SEDE')!=='ANEXO'&&Number(x.nte_id)===nteAlvo;});
 }
 
 async function criarInstituicao(payload){
@@ -312,7 +313,7 @@ async function criarInstituicao(payload){
   assertAccess();const c=client();if(!c)throw new Error('Cliente Supabase indisponível.');const n=master()?payload.nte_id:nteId();if(n==null||n==='')throw new Error('NTE obrigatório.');
   const categoria=upper(payload.categoria_unidade||'INSTITUICAO'),anexo=categoria==='ANEXO';
   const tipo=anexo?'PUBLICA':upper(payload.tipo_cadastro||'PUBLICA'),rede=tipo==='PRIVADA'?'PRIVADA':upper(payload.rede||'ESTADUAL');
-  let sede=null;if(anexo){const sedeId=Number(payload.escola_sede_id||0);if(!sedeId)throw new Error('Selecione a unidade de ensino existente à qual o anexo será vinculado.');const sr=await c.from('escolas_sigee').select('id,nome_escola,nome,cod_mec,municipio,nte_id,dependencia_adm,tipo_unidade,ativo').eq('id',sedeId).maybeSingle();if(sr.error)throw sr.error;sede=sr.data;if(!sede)throw new Error('Unidade de ensino vinculada não localizada.');if(upper(sede.tipo_unidade)==='ANEXO')throw new Error('Um anexo não pode ser vinculado a outro anexo.');if(upper(sede.dependencia_adm||'').includes('PRIV'))throw new Error('Anexo só pode ser vinculado a instituição pública.');if(sede.ativo===false)throw new Error('A unidade de ensino vinculada precisa estar ativa no cadastro.');}
+  let sede=null;if(anexo){const sedeId=Number(payload.escola_sede_id||0);if(!sedeId)throw new Error('Selecione a unidade de ensino existente à qual o anexo será vinculado.');const sr=await c.from('escolas_sigee').select('id,nome_escola,nome,cod_mec,municipio,nte_id,dependencia_adm,tipo_unidade,ativo').eq('id',sedeId).maybeSingle();if(sr.error)throw sr.error;sede=sr.data;if(!sede)throw new Error('Unidade de ensino vinculada não localizada.');if(upper(sede.tipo_unidade)==='ANEXO')throw new Error('Um anexo não pode ser vinculado a outro anexo.');const dep=upper(sede.dependencia_adm||'');if(!dep.includes('ESTAD')||dep.includes('PRIV'))throw new Error('Anexo só pode ser vinculado a instituição pública estadual.');if(sede.ativo===false)throw new Error('A unidade de ensino vinculada precisa estar ativa no cadastro.');if(Number(sede.nte_id)!==Number(n))throw new Error('O anexo só pode ser vinculado a uma unidade de ensino do mesmo NTE do cadastro.');if(nteId()!=null&&nteId()!==''&&Number(sede.nte_id)!==Number(nteId()))throw new Error('Usuário territorial só pode vincular anexos a escolas do seu próprio NTE.');}
   const registro={nte_id:Number(n),nome_instituicao:String(payload.nome_instituicao||'').trim(),tipo_cadastro:tipo,rede,tipo_unidade:anexo?'ANEXO':'SEDE',escola_sede_id:anexo?Number(sede.id):null,
     natureza:tipo==='PRIVADA'?'PRIVADA':(rede==='MUNICIPAL'?'PUBLICA_MUNICIPAL':'PUBLICA_ESTADUAL'),cod_sec:tipo==='PUBLICA'?clean(payload.cod_sec):null,cod_inep:clean(payload.cod_inep),cnpj:null,municipio:clean(payload.municipio),
     telefone:null,whatsapp:digits(payload.whatsapp,11),email:clean(payload.email),logradouro:clean(payload.logradouro),numero:clean(payload.numero),complemento:clean(payload.complemento),bairro:clean(payload.bairro),cep:digits(payload.cep,8),uf:'BA',
