@@ -365,7 +365,6 @@ async function excluirInstituicao(instituicaoId){
     const bloqueios=[];
     const checagens=[
       ['Anexo(s) vinculado(s)','escolas_sigee','escola_sede_id',escolaMestreId],
-      ['Processo(s) em Escolas Extintas','extintas_descredenciamentos','escola_id',escolaMestreId],
       ['Fluxo(s) estadual(is) em Escolas Extintas','extintas_estaduais_fluxo','escola_id',escolaMestreId]
     ];
     for(const [rotulo,tabela,coluna,valor] of checagens){
@@ -373,7 +372,59 @@ async function excluirInstituicao(instituicaoId){
       if(r.error&&!/relation|column|schema cache|does not exist/i.test(String(r.error.message||'')))throw r.error;
       if((r.count||0)>0)bloqueios.push(rotulo);
     }
+
+    // Suspeita cancelada por abertura indevida não é vínculo operacional impeditivo.
+    // Processos efetivos continuam bloqueando a exclusão.
+    const rp=await c.from('extintas_descredenciamentos')
+      .select('id,status,origem,tipo,etapa_atual')
+      .eq('escola_id',escolaMestreId);
+    if(rp.error&&!/relation|column|schema cache|does not exist/i.test(String(rp.error.message||'')))throw rp.error;
+    const processosExtintas=rp.data||[];
+    const canceladosErro=processosExtintas.filter(p=>
+      upper(p.status)==='CANCELADA_ERRO' &&
+      upper(p.origem)==='SUSPEITA_EXTINCAO' &&
+      upper(p.tipo)==='SUSPEITA'
+    );
+    const impeditivos=processosExtintas.filter(p=>!canceladosErro.some(x=>Number(x.id)===Number(p.id)));
+    if(impeditivos.length){
+      bloqueios.push('Processo(s) ativo(s)/histórico(s) em Escolas Extintas: '+impeditivos.map(p=>`#${p.id} ${p.status||p.etapa_atual||''}`).join(', '));
+    }
     if(bloqueios.length)throw new Error('Exclusão não permitida. O cadastro possui vínculo(s) que precisam ser preservados: '+bloqueios.join(', ')+'.');
+
+    // Se os únicos registros em Escolas Extintas forem suspeitas CANCELADA_ERRO,
+    // saneia esses registros técnicos para permitir a exclusão integral do cadastro.
+    // O evento continua auditável no logs_sigee, registrado antes da remoção.
+    if(canceladosErro.length){
+      const ids=canceladosErro.map(x=>Number(x.id)).filter(Boolean);
+      try{
+        const u=user();
+        await c.from('logs_sigee').insert({
+          usuario_id:currentUserId(),nome:u?.nome||null,email:u?.email||null,
+          acao:'Saneamento de suspeita cancelada por erro para exclusão cadastral.',
+          created_at:new Date().toISOString(),nte:String(inst.nte_id||''),perfil:u?.perfil||null,
+          detalhes:`Instituição ${inst.id} · Escola SIGEE ${escolaMestreId} · Suspeita(s) CANCELADA_ERRO removida(s): ${ids.join(', ')}.`,
+          modulo:'legalizacao',etapa:'CADASTRO',sessao_id:window.SIGEE_SESSAO_ID||null
+        });
+      }catch(_){}
+
+      const ar=await c.from('extintas_acervo_recolhimentos').select('id').in('chamado_id',ids);
+      if(ar.error&&!/relation|column|schema cache|does not exist/i.test(String(ar.error.message||'')))throw ar.error;
+      const recolhimentos=(ar.data||[]).map(x=>Number(x.id)).filter(Boolean);
+      if(recolhimentos.length){
+        const di=await c.from('extintas_acervo_itens').delete().in('recolhimento_id',recolhimentos);
+        if(di.error&&!/relation|column|schema cache|does not exist/i.test(String(di.error.message||'')))throw di.error;
+      }
+      for(const [tabela,coluna] of [
+        ['extintas_inspecoes','chamado_id'],
+        ['extintas_descredenciamento_historico','chamado_id'],
+        ['extintas_acervo_recolhimentos','chamado_id']
+      ]){
+        const dr=await c.from(tabela).delete().in(coluna,ids);
+        if(dr.error&&!/relation|column|schema cache|does not exist/i.test(String(dr.error.message||'')))throw dr.error;
+      }
+      const dp=await c.from('extintas_descredenciamentos').delete().in('id',ids);
+      if(dp.error)throw dp.error;
+    }
   }
 
   // Integridade regulatória absoluta: nenhum perfil, inclusive Master, pode excluir
