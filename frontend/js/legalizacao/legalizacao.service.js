@@ -357,106 +357,124 @@ async function excluirInstituicao(instituicaoId){
   assertAccess();
   if(!(master()||sec()))throw new Error('A exclusão de cadastro é exclusiva dos perfis MASTER e SEC.');
   const c=client();
+  const ignoravel=e=>/relation|column|schema cache|does not exist/i.test(String(e?.message||''));
   const {data:inst,error:ei}=await c.from('legalizacao_instituicoes').select('*').eq('id',instituicaoId).maybeSingle();
   if(ei)throw ei;
   if(!inst)throw new Error('Cadastro institucional não localizado.');
-  const escolaMestreId=Number(inst.escola_id||0)||null;
-  if(escolaMestreId){
-    const bloqueios=[];
-    const checagens=[
-      ['Anexo(s) vinculado(s)','escolas_sigee','escola_sede_id',escolaMestreId],
-      ['Fluxo(s) estadual(is) em Escolas Extintas','extintas_estaduais_fluxo','escola_id',escolaMestreId]
-    ];
-    for(const [rotulo,tabela,coluna,valor] of checagens){
-      const r=await c.from(tabela).select('id',{count:'exact',head:true}).eq(coluna,valor);
-      if(r.error&&!/relation|column|schema cache|does not exist/i.test(String(r.error.message||'')))throw r.error;
-      if((r.count||0)>0)bloqueios.push(rotulo);
-    }
 
-    // Suspeita cancelada por abertura indevida não é vínculo operacional impeditivo.
-    // Processos efetivos continuam bloqueando a exclusão.
+  const escolaMestreId=Number(inst.escola_id||0)||null;
+  let canceladosErro=[],movimentosHistoricos=[];
+
+  // PRÉ-VALIDAÇÃO COMPLETA: nada é excluído antes de classificar todos os vínculos.
+  const {count:atosPublicados,error:eAtos}=await c.from('legalizacao_atos_legais')
+    .select('id',{count:'exact',head:true}).eq('instituicao_id',inst.id);
+  if(eAtos&&!ignoravel(eAtos))throw eAtos;
+  if((atosPublicados||0)>0)throw new Error('Exclusão não permitida. Esta instituição possui ato(s) publicado(s) vinculado(s) ao prontuário.');
+
+  const {data:processos,error:eProc}=await c.from('legalizacao_processos').select('id,status,tipo').eq('instituicao_id',inst.id);
+  if(eProc&&!ignoravel(eProc))throw eProc;
+  if((processos||[]).length)throw new Error('Exclusão não permitida. Esta instituição possui processo(s) regulatório(s) vinculado(s).');
+
+  if(escolaMestreId){
+    const anex=await c.from('escolas_sigee').select('id',{count:'exact',head:true}).eq('escola_sede_id',escolaMestreId);
+    if(anex.error&&!ignoravel(anex.error))throw anex.error;
+    if((anex.count||0)>0)throw new Error(`Exclusão não permitida. Existem ${anex.count} anexo(s) vinculado(s) a esta instituição.`);
+
+    const fluxo=await c.from('extintas_estaduais_fluxo').select('id',{count:'exact',head:true}).eq('escola_id',escolaMestreId);
+    if(fluxo.error&&!ignoravel(fluxo.error))throw fluxo.error;
+    if((fluxo.count||0)>0)throw new Error('Exclusão não permitida. Existe fluxo estadual ativo vinculado a esta instituição.');
+
     const rp=await c.from('extintas_descredenciamentos')
-      .select('id,status,origem,tipo,etapa_atual')
-      .eq('escola_id',escolaMestreId);
-    if(rp.error&&!/relation|column|schema cache|does not exist/i.test(String(rp.error.message||'')))throw rp.error;
-    const processosExtintas=rp.data||[];
-    const canceladosErro=processosExtintas.filter(p=>
+      .select('id,status,origem,tipo,etapa_atual').eq('escola_id',escolaMestreId);
+    if(rp.error&&!ignoravel(rp.error))throw rp.error;
+    const ext=rp.data||[];
+    canceladosErro=ext.filter(p=>
       upper(p.status)==='CANCELADA_ERRO' &&
       upper(p.origem)==='SUSPEITA_EXTINCAO' &&
       upper(p.tipo)==='SUSPEITA'
     );
-    const impeditivos=processosExtintas.filter(p=>!canceladosErro.some(x=>Number(x.id)===Number(p.id)));
-    if(impeditivos.length){
-      bloqueios.push('Processo(s) ativo(s)/histórico(s) em Escolas Extintas: '+impeditivos.map(p=>`#${p.id} ${p.status||p.etapa_atual||''}`).join(', '));
-    }
-    if(bloqueios.length)throw new Error('Exclusão não permitida. O cadastro possui vínculo(s) que precisam ser preservados: '+bloqueios.join(', ')+'.');
+    const cancelIds=new Set(canceladosErro.map(x=>Number(x.id)));
+    const impeditivos=ext.filter(p=>!cancelIds.has(Number(p.id)));
+    if(impeditivos.length)throw new Error('Exclusão não permitida. Existe(m) processo(s) em Escolas Extintas que precisam ser preservados: '+
+      impeditivos.map(p=>`#${p.id} ${p.status||p.etapa_atual||''}`).join(', ')+'.');
 
-    // Se os únicos registros em Escolas Extintas forem suspeitas CANCELADA_ERRO,
-    // saneia esses registros técnicos para permitir a exclusão integral do cadastro.
-    // O evento continua auditável no logs_sigee, registrado antes da remoção.
-    if(canceladosErro.length){
-      const ids=canceladosErro.map(x=>Number(x.id)).filter(Boolean);
-      try{
-        const u=user();
-        await c.from('logs_sigee').insert({
-          usuario_id:currentUserId(),nome:u?.nome||null,email:u?.email||null,
-          acao:'Saneamento de suspeita cancelada por erro para exclusão cadastral.',
-          created_at:new Date().toISOString(),nte:String(inst.nte_id||''),perfil:u?.perfil||null,
-          detalhes:`Instituição ${inst.id} · Escola SIGEE ${escolaMestreId} · Suspeita(s) CANCELADA_ERRO removida(s): ${ids.join(', ')}.`,
-          modulo:'legalizacao',etapa:'CADASTRO',sessao_id:window.SIGEE_SESSAO_ID||null
-        });
-      }catch(_){}
-
-      const ar=await c.from('extintas_acervo_recolhimentos').select('id').in('chamado_id',ids);
-      if(ar.error&&!/relation|column|schema cache|does not exist/i.test(String(ar.error.message||'')))throw ar.error;
-      const recolhimentos=(ar.data||[]).map(x=>Number(x.id)).filter(Boolean);
-      if(recolhimentos.length){
-        const di=await c.from('extintas_acervo_itens').delete().in('recolhimento_id',recolhimentos);
-        if(di.error&&!/relation|column|schema cache|does not exist/i.test(String(di.error.message||'')))throw di.error;
-      }
-      for(const [tabela,coluna] of [
-        ['extintas_inspecoes','chamado_id'],
-        ['extintas_descredenciamento_historico','chamado_id'],
-        ['extintas_acervo_recolhimentos','chamado_id']
-      ]){
-        const dr=await c.from(tabela).delete().in(coluna,ids);
-        if(dr.error&&!/relation|column|schema cache|does not exist/i.test(String(dr.error.message||'')))throw dr.error;
-      }
-      const dp=await c.from('extintas_descredenciamentos').delete().in('id',ids);
-      if(dp.error)throw dp.error;
-    }
+    // Histórico imutável: não bloquear exclusão operacional, mas preservar escolas_sigee.
+    const mov=await c.from('escolas_acervo_movimentacoes')
+      .select('id,tipo_movimentacao,data_movimentacao').eq('escola_origem_id',escolaMestreId);
+    if(mov.error&&!ignoravel(mov.error))throw mov.error;
+    movimentosHistoricos=mov.data||[];
   }
 
-  // Integridade regulatória absoluta: nenhum perfil, inclusive Master, pode excluir
-  // uma instituição que já possua ato publicado incorporado ao prontuário.
-  const {count:atosPublicados,error:eAtos}=await c.from('legalizacao_atos_legais').select('id',{count:'exact',head:true}).eq('instituicao_id',inst.id);
-  if(eAtos&&!/relation|column|schema cache|does not exist/i.test(String(eAtos.message||'')))throw eAtos;
-  if((atosPublicados||0)>0)throw new Error('Exclusão não permitida. Esta instituição possui ato(s) publicado(s) vinculado(s) ao prontuário. Por integridade do histórico regulatório, o cadastro institucional não pode ser excluído.');
+  // Somente após a pré-validação, sanear a suspeita cancelada por erro.
+  if(canceladosErro.length){
+    const ids=canceladosErro.map(x=>Number(x.id)).filter(Boolean);
+    const ar=await c.from('extintas_acervo_recolhimentos').select('id').in('chamado_id',ids);
+    if(ar.error&&!ignoravel(ar.error))throw ar.error;
+    const rec=(ar.data||[]).map(x=>Number(x.id)).filter(Boolean);
+    if(rec.length){
+      const di=await c.from('extintas_acervo_itens').delete().in('recolhimento_id',rec);
+      if(di.error&&!ignoravel(di.error))throw di.error;
+    }
+    for(const [tabela,coluna] of [
+      ['extintas_inspecoes','chamado_id'],
+      ['extintas_descredenciamento_historico','chamado_id'],
+      ['extintas_acervo_recolhimentos','chamado_id']
+    ]){
+      const dr=await c.from(tabela).delete().in(coluna,ids);
+      if(dr.error&&!ignoravel(dr.error))throw dr.error;
+    }
+    const dp=await c.from('extintas_descredenciamentos').delete().in('id',ids);
+    if(dp.error)throw dp.error;
+  }
 
-  // Sem ato publicado, o Master pode remover um cadastro criado na Legalização.
-  // Os registros operacionais dependentes são eliminados antes da ficha principal
-  // para não deixar referências órfãs.
-  const {data:processos,error:eProc}=await c.from('legalizacao_processos').select('id').eq('instituicao_id',inst.id);
-  if(eProc&&!/relation|column|schema cache|does not exist/i.test(String(eProc.message||'')))throw eProc;
-  const pids=(processos||[]).map(x=>x.id).filter(Boolean);
-  if(pids.length)throw new Error('Exclusão não permitida. Esta instituição possui processo(s) regulatório(s) vinculado(s). Preserve o histórico em vez de excluir o cadastro.');
   const {data:inspecoes,error:eInsp}=await c.from('legalizacao_inspecoes').select('id').eq('instituicao_id',inst.id);
-  if(eInsp&&!/relation|column|schema cache|does not exist/i.test(String(eInsp.message||'')))throw eInsp;
+  if(eInsp&&!ignoravel(eInsp))throw eInsp;
   const iids=(inspecoes||[]).map(x=>x.id).filter(Boolean);
-  if(iids.length){const r=await c.from('legalizacao_inspecao_itens').delete().in('inspecao_id',iids);if(r.error&&!/relation|column|schema cache|does not exist/i.test(String(r.error.message||'')))throw r.error;}
+  if(iids.length){
+    const r=await c.from('legalizacao_inspecao_itens').delete().in('inspecao_id',iids);
+    if(r.error&&!ignoravel(r.error))throw r.error;
+  }
   for(const tabela of ['legalizacao_inspecoes','legalizacao_fiscalizacoes','legalizacao_handoff_acervo','legalizacao_ofertas','legalizacao_autorizacoes_carimbo','legalizacao_responsaveis','legalizacao_mantenedoras']){
     const r=await c.from(tabela).delete().eq('instituicao_id',inst.id);
-    if(r.error&&!/relation|column|schema cache|does not exist/i.test(String(r.error.message||'')))throw r.error;
+    if(r.error&&!ignoravel(r.error))throw r.error;
   }
-  const {error}=await c.from('legalizacao_instituicoes').delete().eq('id',inst.id);if(error)throw error;
-  if(escolaMestreId){
-    const er=await c.from('escolas_sigee').delete().eq('id',escolaMestreId);
-    if(er.error)throw new Error('O cadastro regulatório foi removido, mas o cadastro mestre possui vínculo protegido no banco e não pôde ser excluído: '+(er.error.message||er.error));
-  }
-  try{const u=user();await c.from('logs_sigee').insert({usuario_id:currentUserId(),nome:u?.nome||null,email:u?.email||null,acao:'Cadastro institucional excluído por MASTER/SEC.',created_at:new Date().toISOString(),nte:String(inst.nte_id||''),perfil:u?.perfil||null,detalhes:`Instituição ${inst.id} · ${inst.nome_instituicao} · Exclusão permitida após validação de inexistência de ato publicado.`,modulo:'legalizacao',etapa:'CADASTRO',sessao_id:window.SIGEE_SESSAO_ID||null});}catch(_){ }
-  resumoCache=null;return true;
-}
 
+  const {error}=await c.from('legalizacao_instituicoes').delete().eq('id',inst.id);
+  if(error)throw error;
+
+  // Exclusão física do cadastro mestre somente quando não existe trilha imutável de custódia.
+  // Se houver movimentação, a identidade mínima em escolas_sigee permanece para satisfazer a FK.
+  let exclusaoLogica=false;
+  if(escolaMestreId){
+    if(movimentosHistoricos.length){
+      exclusaoLogica=true;
+    }else{
+      const er=await c.from('escolas_sigee').delete().eq('id',escolaMestreId);
+      if(er.error){
+        // Segurança: uma FK não mapeada jamais deve provocar tentativa de apagar histórico.
+        exclusaoLogica=true;
+        console.warn('[Legalização] Cadastro mestre preservado por vínculo protegido:',er.error.message||er.error);
+      }
+    }
+  }
+
+  try{
+    const u=user();
+    await c.from('logs_sigee').insert({
+      usuario_id:currentUserId(),nome:u?.nome||null,email:u?.email||null,
+      acao:exclusaoLogica?'Cadastro operacional excluído; identidade histórica preservada.':'Cadastro institucional excluído por MASTER/SEC.',
+      created_at:new Date().toISOString(),nte:String(inst.nte_id||''),perfil:u?.perfil||null,
+      detalhes:`Instituição ${inst.id} · ${inst.nome_instituicao}`+
+        `${escolaMestreId?` · Escola SIGEE ${escolaMestreId}`:''}`+
+        `${canceladosErro.length?` · Suspeita CANCELADA_ERRO saneada: ${canceladosErro.map(x=>x.id).join(', ')}`:''}`+
+        `${movimentosHistoricos.length?` · ${movimentosHistoricos.length} movimentação(ões) histórica(s) de acervo preservada(s).`:''}`,
+      modulo:'legalizacao',etapa:'CADASTRO',sessao_id:window.SIGEE_SESSAO_ID||null
+    });
+  }catch(_){}
+
+  resumoCache=null;
+  return {ok:true,exclusao_logica:exclusaoLogica,escola_mestre_preservada:exclusaoLogica?escolaMestreId:null,movimentos_historicos_preservados:movimentosHistoricos.length};
+}
 async function confirmarCadastroMigrado(instituicaoId){
   assertAccess();const c=client(),inst=await oneScoped('legalizacao_instituicoes',instituicaoId);if(upper(inst.situacao_regulatoria)!=='A_CONFIRMAR')throw new Error('Este cadastro não está aguardando confirmação.');
   const registro={situacao_regulatoria:'EM_CADASTRO',atualizado_por_id:currentUserId(),updated_at:new Date().toISOString()};
