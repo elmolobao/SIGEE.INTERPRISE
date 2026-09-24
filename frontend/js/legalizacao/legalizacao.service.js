@@ -926,6 +926,11 @@ async function localizarInstituicoesParaVinculoAto(filtros={}){
   if(!out.length&&(tipo==='INEP'||tipo==='NOME')){
     const c=client();
     if(tipo==='INEP'){
+      // O código exibido como MEC/INEP nos cadastros legados vem de escolas_sigee.cod_mec.
+      // Consulta primeiro esse campo diretamente; a varredura normalizada abaixo permanece
+      // como compatibilidade para bases antigas com formatação/zeros à esquerda.
+      const {data:exatos,error:erroExatos}=await c.from('escolas_sigee').select('id,nome_escola,nome,municipio,nte_id,cod_mec').eq('cod_mec',alvo).limit(30);if(erroExatos)throw erroExatos;
+      for(const e of exatos||[]){if(municipio&&normalizarChaveDoe(e.municipio)!==municipio)continue;add({escola_id:e.id,nome_instituicao:e.nome_escola||e.nome,municipio:e.municipio,nte_id:e.nte_id,cod_inep:e.cod_mec,origem:'CADASTRO_MESTRE'});}
       for(let ini=0;ini<10000&&out.length<30;ini+=1000){
         const {data,error}=await c.from('escolas_sigee').select('id,nome_escola,nome,municipio,nte_id,cod_mec').order('id',{ascending:true}).range(ini,ini+999);if(error)throw error;
         for(const e of data||[]){if(digits(e.cod_mec,30)!==alvo)continue;if(municipio&&normalizarChaveDoe(e.municipio)!==municipio)continue;add({escola_id:e.id,nome_instituicao:e.nome_escola||e.nome,municipio:e.municipio,nte_id:e.nte_id,cod_inep:e.cod_mec,origem:'CADASTRO_MESTRE'});if(out.length>=30)break;}
