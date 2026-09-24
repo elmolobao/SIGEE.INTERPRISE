@@ -126,19 +126,29 @@ async function listarCustodiaNte(nteId){let q=C().from('vw_acervos_sob_custodia_
 async function enriquecerCustodiaInventario(itens=[]){
   const xs=Array.isArray(itens)?itens:[],ids=[...new Set(xs.map(x=>Number(x.escola_id||x.escola_origem_id||0)).filter(Boolean))];
   if(!ids.length)return xs;
-  const [ar,dr]=await Promise.all([
-    C().from('extintas_acervo_recolhimentos').select('id,escola_id,chamado_id,numero_sei,created_at,data_recolhimento,responsavel_entrega,documento_responsavel,contato_responsavel,organizacao_alfabetica,estado_conservacao,inconformidades,observacoes').in('escola_id',ids).order('created_at',{ascending:false}),
-    C().from('extintas_descredenciamentos').select('id,escola_id,numero_sei,created_at').in('escola_id',ids).order('created_at',{ascending:false})
-  ]);
-  if(ar.error)throw ar.error;if(dr.error)throw dr.error;
-  const acervosTodos=ar.data||[],recIds=[...new Set(acervosTodos.map(a=>Number(a.id)).filter(Boolean))];
+  const dr=await C().from('extintas_descredenciamentos').select('id,escola_id,numero_sei,created_at').in('escola_id',ids).order('created_at',{ascending:false});
+  if(dr.error)throw dr.error;
+  const chamadosIds=[...new Set((dr.data||[]).map(d=>Number(d.id)).filter(Boolean))];
+  // Inventários antigos do fluxo podem ter sido gravados apenas com chamado_id,
+  // antes de a escola ser materializada/vinculada em escolas_sigee. Por isso a
+  // custódia precisa localizar o recolhimento tanto por escola_id quanto pelo
+  // chamado do descredenciamento. Isso preserva o inventário original (caixas e
+  // composição) após a publicação, sem criar/copyar um segundo inventário.
+  let aq=C().from('extintas_acervo_recolhimentos').select('id,escola_id,chamado_id,numero_sei,created_at,data_recolhimento,responsavel_entrega,documento_responsavel,contato_responsavel,organizacao_alfabetica,estado_conservacao,inconformidades,observacoes');
+  const filtros=[`escola_id.in.(${ids.join(',')})`];
+  if(chamadosIds.length)filtros.push(`chamado_id.in.(${chamadosIds.join(',')})`);
+  aq=aq.or(filtros.join(',')).order('created_at',{ascending:false});
+  const ar=await aq;if(ar.error)throw ar.error;
+  const chamadoParaEscola=new Map((dr.data||[]).map(d=>[Number(d.id),Number(d.escola_id)]));
+  const acervosTodos=(ar.data||[]).map(a=>({...a,_escola_resolvida:Number(a.escola_id||0)||chamadoParaEscola.get(Number(a.chamado_id))||0}));
+  const recIds=[...new Set(acervosTodos.map(a=>Number(a.id)).filter(Boolean))];
   let inv=[];
   if(recIds.length){const ir=await C().from('extintas_acervo_itens').select('id,recolhimento_id,descricao,em_caixa,quantidade_caixas,ordem').in('recolhimento_id',recIds).order('ordem');if(ir.error)throw ir.error;inv=ir.data||[];}
   const porRec=new Map();
   for(const i of inv){const rid=Number(i.recolhimento_id);if(!porRec.has(rid))porRec.set(rid,[]);porRec.get(rid).push(i)}
   const totalRec=a=>(porRec.get(Number(a.id))||[]).reduce((n,i)=>n+(i.em_caixa?Number(i.quantidade_caixas||0):0),0);
   const chamados=new Map();for(const d of dr.data||[])if(!chamados.has(Number(d.escola_id)))chamados.set(Number(d.escola_id),d);
-  const porEscola=new Map();for(const a of acervosTodos){const eid=Number(a.escola_id);if(!porEscola.has(eid))porEscola.set(eid,[]);porEscola.get(eid).push(a)}
+  const porEscola=new Map();for(const a of acervosTodos){const eid=Number(a._escola_resolvida||a.escola_id||0);if(!porEscola.has(eid))porEscola.set(eid,[]);porEscola.get(eid).push(a)}
   return xs.map(x=>{
     const eid=Number(x.escola_id||x.escola_origem_id||0),ch=chamados.get(eid),candidatos=porEscola.get(eid)||[];
     // A consolidação do DOE pode criar um registro técnico novo e vazio. Para a custódia,
