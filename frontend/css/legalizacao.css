@@ -148,3 +148,30 @@
 .leg-desc-inline-checklist .leg-check-edit{grid-template-columns:minmax(155px,190px) minmax(260px,1fr) auto;gap:9px;align-items:center;padding-left:70px}
 .leg-desc-inline-checklist .leg-check-edit select,.leg-desc-inline-checklist .leg-check-edit input{min-height:34px;font-size:10px}
 @media(max-width:900px){.leg-desc-inline-checklist .leg-check-edit{grid-template-columns:1fr;padding-left:0}.leg-desc-inline-checklist .leg-check-edit .leg-btn{width:100%}}
+
+
+/* RC12.0.10A.36.3.16 — Descredenciamento: checklist em largura total e estado estável. */
+.leg-inst-card.leg-desc-card{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:center;
+  width:100%;
+}
+.leg-desc-card>.leg-inst-main{min-width:0}
+.leg-desc-card>.leg-inst-meta{justify-self:end;flex-wrap:wrap;justify-content:flex-end}
+.leg-desc-card>.leg-desc-inline-checklist{
+  grid-column:1 / -1;
+  width:100%;
+  min-width:0;
+  margin-top:12px;
+  padding-top:12px;
+  border-top:1px solid #eef2f7;
+}
+.leg-desc-inline-checklist details{width:100%}
+.leg-desc-inline-checklist .leg-checklist{width:100%}
+.leg-desc-inline-checklist .leg-checklist>section{width:100%}
+@media(max-width:900px){
+  .leg-inst-card.leg-desc-card{grid-template-columns:1fr}
+  .leg-desc-card>.leg-inst-meta{justify-self:stretch;justify-content:flex-start}
+  .leg-desc-card>.leg-desc-inline-checklist{grid-column:1}
+}
