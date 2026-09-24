@@ -24,30 +24,6 @@ function redeEstadual(i){const r=upper([i?.rede,i?.natureza,i?.dependencia_adm].
 function today(){return new Date().toISOString().slice(0,10);}
 function currentUserId(){return user()?.id??null;}
 let resumoCache=null,resumoCacheEm=0;const RESUMO_TTL=120000;
-let exclusoesLegalizacaoCache=null,exclusoesLegalizacaoCacheEm=0;const EXCLUSOES_TTL=30000;
-async function idsEscolasExcluidasLegalizacao(force=false){
-  if(!force&&exclusoesLegalizacaoCache&&Date.now()-exclusoesLegalizacaoCacheEm<EXCLUSOES_TTL)return exclusoesLegalizacaoCache;
-  const c=client(),{data,error}=await c.from('legalizacao_exclusoes_logicas').select('escola_id');
-  if(error){
-    if(/relation|schema cache|does not exist/i.test(String(error.message||'')))return new Set();
-    throw error;
-  }
-  exclusoesLegalizacaoCache=new Set((data||[]).map(x=>Number(x.escola_id)).filter(Boolean));
-  exclusoesLegalizacaoCacheEm=Date.now();return exclusoesLegalizacaoCache;
-}
-async function marcarExclusaoLogicaLegalizacao(escolaId,instituicaoId,motivo){
-  const id=Number(escolaId);if(!id)return;
-  const c=client(),u=user();
-  const {error}=await c.from('legalizacao_exclusoes_logicas').upsert({
-    escola_id:id,instituicao_id_origem:Number(instituicaoId)||null,
-    motivo:motivo||'EXCLUSAO_CADASTRAL',excluido_por_id:currentUserId(),
-    excluido_por_nome:u?.nome||null,excluido_por_perfil:u?.perfil||null,
-    excluido_em:new Date().toISOString()
-  },{onConflict:'escola_id'});
-  if(error)throw error;
-  exclusoesLegalizacaoCache=null;
-}
-
 const escolaCache=new Map();
 function depPrivada(v){const d=upper(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'');return d.includes('PARTICULAR')||d.includes('PRIVAD');}
 function escolaParaInstituicao(escola,extensao=null){const dep=escola?.dependencia_adm||escola?.dependencia||'',priv=depPrivada(dep),tipoExt=upper(extensao?.tipo_cadastro),redeExt=upper(extensao?.rede);return {...(extensao||{}),id:extensao?.id||null,prontuario_id:extensao?.id||null,escola_id:escola?.id,nte_id:extensao?.nte_id??escola?.nte_id,nome_instituicao:extensao?.nome_instituicao||escola?.nome_escola||escola?.nome,cod_inep:extensao?.cod_inep||escola?.cod_mec,municipio:extensao?.municipio||escola?.municipio,tipo_cadastro:tipoExt|| (priv?'PRIVADA':'PUBLICA'),rede:redeExt||(priv?'PRIVADA':(upper(dep).includes('MUNICIPAL')?'MUNICIPAL':(upper(dep).includes('FEDERAL')?'FEDERAL':'ESTADUAL'))),natureza:extensao?.natureza||(priv?'PRIVADA':`PUBLICA_${upper(dep)||'NAO_CLASSIFICADA'}`),dependencia_adm:dep,situacao_funcional:escola?.situacao_funcional||escola?.situacao||null,tipo_unidade:escola?.tipo_unidade||extensao?.tipo_unidade||'SEDE',escola_sede_id:escola?.escola_sede_id??extensao?.escola_sede_id??null,situacao_regulatoria:extensao?.situacao_regulatoria||'A_CONFERIR',prontuario_habilitado:true,dados_importados_status:extensao?.dados_importados_status||'A_CONFERIR',origem:extensao?.origem||'CATALOGO_SIGEE'};}
@@ -63,22 +39,10 @@ function aplicarFiltrosCatalogo(q,filtros={}){
   return q;
 }
 async function contarFonteInstituicoes(tabela,filtros={},somenteNovas=false){
-  const c=client();let q=c.from(tabela).select('*',{count:'exact',head:true});
-  if(somenteNovas)q=q.is('escola_id',null);
-  else{
-    const excluidas=await idsEscolasExcluidasLegalizacao();
-    if(excluidas.size)q=q.not('escola_id','in',`(${[...excluidas].join(',')})`);
-  }
-  q=aplicarFiltrosCatalogo(scoped(q),filtros);const {count,error}=await q;if(error)throw error;return Number(count||0);
+  const c=client();let q=c.from(tabela).select('*',{count:'exact',head:true});if(somenteNovas)q=q.is('escola_id',null);q=aplicarFiltrosCatalogo(scoped(q),filtros);const {count,error}=await q;if(error)throw error;return Number(count||0);
 }
 async function buscarFaixaInstituicoes(tabela,filtros={},inicio=0,fim=49,somenteNovas=false){
-  if(fim<inicio)return[];const c=client();let q=c.from(tabela).select('*').order('nome_instituicao',{ascending:true});
-  if(somenteNovas)q=q.is('escola_id',null);
-  else{
-    const excluidas=await idsEscolasExcluidasLegalizacao();
-    if(excluidas.size)q=q.not('escola_id','in',`(${[...excluidas].join(',')})`);
-  }
-  q=aplicarFiltrosCatalogo(scoped(q),filtros);const {data,error}=await q.range(inicio,fim);if(error)throw error;return(data||[]).map(x=>somenteNovas?{...x,prontuario_id:x.id,origem:x.origem||'CADASTRO_LEGALIZACAO'}:x);
+  if(fim<inicio)return[];const c=client();let q=c.from(tabela).select('*').order('nome_instituicao',{ascending:true});if(somenteNovas)q=q.is('escola_id',null);q=aplicarFiltrosCatalogo(scoped(q),filtros);const {data,error}=await q.range(inicio,fim);if(error)throw error;return(data||[]).map(x=>somenteNovas?{...x,prontuario_id:x.id,origem:x.origem||'CADASTRO_LEGALIZACAO'}:x);
 }
 async function consultarInstituicoes(filtros={}){
   assertAccess();const c=client();if(!c)throw new Error('Cliente Supabase indisponível.');
@@ -393,130 +357,52 @@ async function excluirInstituicao(instituicaoId){
   assertAccess();
   if(!(master()||sec()))throw new Error('A exclusão de cadastro é exclusiva dos perfis MASTER e SEC.');
   const c=client();
-  const ignoravel=e=>/relation|column|schema cache|does not exist/i.test(String(e?.message||''));
   const {data:inst,error:ei}=await c.from('legalizacao_instituicoes').select('*').eq('id',instituicaoId).maybeSingle();
   if(ei)throw ei;
   if(!inst)throw new Error('Cadastro institucional não localizado.');
-
   const escolaMestreId=Number(inst.escola_id||0)||null;
-  let canceladosErro=[],movimentosHistoricos=[];
-
-  // PRÉ-VALIDAÇÃO COMPLETA: nada é excluído antes de classificar todos os vínculos.
-  const {count:atosPublicados,error:eAtos}=await c.from('legalizacao_atos_legais')
-    .select('id',{count:'exact',head:true}).eq('instituicao_id',inst.id);
-  if(eAtos&&!ignoravel(eAtos))throw eAtos;
-  if((atosPublicados||0)>0)throw new Error('Exclusão não permitida. Esta instituição possui ato(s) publicado(s) vinculado(s) ao prontuário.');
-
-  const {data:processos,error:eProc}=await c.from('legalizacao_processos').select('id,status,tipo').eq('instituicao_id',inst.id);
-  if(eProc&&!ignoravel(eProc))throw eProc;
-  if((processos||[]).length)throw new Error('Exclusão não permitida. Esta instituição possui processo(s) regulatório(s) vinculado(s).');
-
   if(escolaMestreId){
-    const anex=await c.from('escolas_sigee').select('id',{count:'exact',head:true}).eq('escola_sede_id',escolaMestreId);
-    if(anex.error&&!ignoravel(anex.error))throw anex.error;
-    if((anex.count||0)>0)throw new Error(`Exclusão não permitida. Existem ${anex.count} anexo(s) vinculado(s) a esta instituição.`);
-
-    const fluxo=await c.from('extintas_estaduais_fluxo').select('id',{count:'exact',head:true}).eq('escola_id',escolaMestreId);
-    if(fluxo.error&&!ignoravel(fluxo.error))throw fluxo.error;
-    if((fluxo.count||0)>0)throw new Error('Exclusão não permitida. Existe fluxo estadual ativo vinculado a esta instituição.');
-
-    const rp=await c.from('extintas_descredenciamentos')
-      .select('id,status,origem,tipo,etapa_atual').eq('escola_id',escolaMestreId);
-    if(rp.error&&!ignoravel(rp.error))throw rp.error;
-    const ext=rp.data||[];
-    canceladosErro=ext.filter(p=>
-      upper(p.status)==='CANCELADA_ERRO' &&
-      upper(p.origem)==='SUSPEITA_EXTINCAO' &&
-      upper(p.tipo)==='SUSPEITA'
-    );
-    const cancelIds=new Set(canceladosErro.map(x=>Number(x.id)));
-    const impeditivos=ext.filter(p=>!cancelIds.has(Number(p.id)));
-    if(impeditivos.length)throw new Error('Exclusão não permitida. Existe(m) processo(s) em Escolas Extintas que precisam ser preservados: '+
-      impeditivos.map(p=>`#${p.id} ${p.status||p.etapa_atual||''}`).join(', ')+'.');
-
-    // Histórico imutável: não bloquear exclusão operacional, mas preservar escolas_sigee.
-    const mov=await c.from('escolas_acervo_movimentacoes')
-      .select('id,tipo_movimentacao,data_movimentacao').eq('escola_origem_id',escolaMestreId);
-    if(mov.error&&!ignoravel(mov.error))throw mov.error;
-    movimentosHistoricos=mov.data||[];
+    const bloqueios=[];
+    const checagens=[
+      ['Anexo(s) vinculado(s)','escolas_sigee','escola_sede_id',escolaMestreId],
+      ['Processo(s) em Escolas Extintas','extintas_descredenciamentos','escola_id',escolaMestreId],
+      ['Fluxo(s) estadual(is) em Escolas Extintas','extintas_estaduais_fluxo','escola_id',escolaMestreId]
+    ];
+    for(const [rotulo,tabela,coluna,valor] of checagens){
+      const r=await c.from(tabela).select('id',{count:'exact',head:true}).eq(coluna,valor);
+      if(r.error&&!/relation|column|schema cache|does not exist/i.test(String(r.error.message||'')))throw r.error;
+      if((r.count||0)>0)bloqueios.push(rotulo);
+    }
+    if(bloqueios.length)throw new Error('Exclusão não permitida. O cadastro possui vínculo(s) que precisam ser preservados: '+bloqueios.join(', ')+'.');
   }
 
-  // Somente após a pré-validação, sanear a suspeita cancelada por erro.
-  if(canceladosErro.length){
-    const ids=canceladosErro.map(x=>Number(x.id)).filter(Boolean);
-    const ar=await c.from('extintas_acervo_recolhimentos').select('id').in('chamado_id',ids);
-    if(ar.error&&!ignoravel(ar.error))throw ar.error;
-    const rec=(ar.data||[]).map(x=>Number(x.id)).filter(Boolean);
-    if(rec.length){
-      const di=await c.from('extintas_acervo_itens').delete().in('recolhimento_id',rec);
-      if(di.error&&!ignoravel(di.error))throw di.error;
-    }
-    for(const [tabela,coluna] of [
-      ['extintas_inspecoes','chamado_id'],
-      ['extintas_descredenciamento_historico','chamado_id'],
-      ['extintas_acervo_recolhimentos','chamado_id']
-    ]){
-      const dr=await c.from(tabela).delete().in(coluna,ids);
-      if(dr.error&&!ignoravel(dr.error))throw dr.error;
-    }
-    const dp=await c.from('extintas_descredenciamentos').delete().in('id',ids);
-    if(dp.error)throw dp.error;
-  }
+  // Integridade regulatória absoluta: nenhum perfil, inclusive Master, pode excluir
+  // uma instituição que já possua ato publicado incorporado ao prontuário.
+  const {count:atosPublicados,error:eAtos}=await c.from('legalizacao_atos_legais').select('id',{count:'exact',head:true}).eq('instituicao_id',inst.id);
+  if(eAtos&&!/relation|column|schema cache|does not exist/i.test(String(eAtos.message||'')))throw eAtos;
+  if((atosPublicados||0)>0)throw new Error('Exclusão não permitida. Esta instituição possui ato(s) publicado(s) vinculado(s) ao prontuário. Por integridade do histórico regulatório, o cadastro institucional não pode ser excluído.');
 
+  // Sem ato publicado, o Master pode remover um cadastro criado na Legalização.
+  // Os registros operacionais dependentes são eliminados antes da ficha principal
+  // para não deixar referências órfãs.
+  const {data:processos,error:eProc}=await c.from('legalizacao_processos').select('id').eq('instituicao_id',inst.id);
+  if(eProc&&!/relation|column|schema cache|does not exist/i.test(String(eProc.message||'')))throw eProc;
+  const pids=(processos||[]).map(x=>x.id).filter(Boolean);
+  if(pids.length)throw new Error('Exclusão não permitida. Esta instituição possui processo(s) regulatório(s) vinculado(s). Preserve o histórico em vez de excluir o cadastro.');
   const {data:inspecoes,error:eInsp}=await c.from('legalizacao_inspecoes').select('id').eq('instituicao_id',inst.id);
-  if(eInsp&&!ignoravel(eInsp))throw eInsp;
+  if(eInsp&&!/relation|column|schema cache|does not exist/i.test(String(eInsp.message||'')))throw eInsp;
   const iids=(inspecoes||[]).map(x=>x.id).filter(Boolean);
-  if(iids.length){
-    const r=await c.from('legalizacao_inspecao_itens').delete().in('inspecao_id',iids);
-    if(r.error&&!ignoravel(r.error))throw r.error;
-  }
+  if(iids.length){const r=await c.from('legalizacao_inspecao_itens').delete().in('inspecao_id',iids);if(r.error&&!/relation|column|schema cache|does not exist/i.test(String(r.error.message||'')))throw r.error;}
   for(const tabela of ['legalizacao_inspecoes','legalizacao_fiscalizacoes','legalizacao_handoff_acervo','legalizacao_ofertas','legalizacao_autorizacoes_carimbo','legalizacao_responsaveis','legalizacao_mantenedoras']){
     const r=await c.from(tabela).delete().eq('instituicao_id',inst.id);
-    if(r.error&&!ignoravel(r.error))throw r.error;
+    if(r.error&&!/relation|column|schema cache|does not exist/i.test(String(r.error.message||'')))throw r.error;
   }
-
-  const {error}=await c.from('legalizacao_instituicoes').delete().eq('id',inst.id);
-  if(error)throw error;
-
-  // Exclusão física do cadastro mestre somente quando não existe trilha imutável de custódia.
-  // Se houver movimentação, a identidade mínima em escolas_sigee permanece para satisfazer a FK.
-  let exclusaoLogica=false;
+  const {error}=await c.from('legalizacao_instituicoes').delete().eq('id',inst.id);if(error)throw error;
   if(escolaMestreId){
-    if(movimentosHistoricos.length){
-      exclusaoLogica=true;
-      await marcarExclusaoLogicaLegalizacao(escolaMestreId,inst.id,'HISTORICO_ACERVO_IMUTAVEL');
-    }else{
-      const er=await c.from('escolas_sigee').delete().eq('id',escolaMestreId);
-      if(er.error){
-        // Segurança: uma FK não mapeada jamais deve provocar tentativa de apagar histórico.
-        exclusaoLogica=true;
-        await marcarExclusaoLogicaLegalizacao(escolaMestreId,inst.id,'VINCULO_HISTORICO_PROTEGIDO');
-        console.warn('[Legalização] Cadastro mestre preservado por vínculo protegido:',er.error.message||er.error);
-      }
-    }
+    const er=await c.from('escolas_sigee').delete().eq('id',escolaMestreId);
+    if(er.error)throw new Error('O cadastro regulatório foi removido, mas o cadastro mestre possui vínculo protegido no banco e não pôde ser excluído: '+(er.error.message||er.error));
   }
-
-  try{
-    const u=user();
-    await c.from('logs_sigee').insert({
-      usuario_id:currentUserId(),nome:u?.nome||null,email:u?.email||null,
-      acao:exclusaoLogica?'Cadastro operacional excluído; identidade histórica preservada.':'Cadastro institucional excluído por MASTER/SEC.',
-      created_at:new Date().toISOString(),nte:String(inst.nte_id||''),perfil:u?.perfil||null,
-      detalhes:`Instituição ${inst.id} · ${inst.nome_instituicao}`+
-        `${escolaMestreId?` · Escola SIGEE ${escolaMestreId}`:''}`+
-        `${canceladosErro.length?` · Suspeita CANCELADA_ERRO saneada: ${canceladosErro.map(x=>x.id).join(', ')}`:''}`+
-        `${movimentosHistoricos.length?` · ${movimentosHistoricos.length} movimentação(ões) histórica(s) de acervo preservada(s).`:''}`,
-      modulo:'legalizacao',etapa:'CADASTRO',sessao_id:window.SIGEE_SESSAO_ID||null
-    });
-  }catch(_){}
-
-  resumoCache=null;
-  return {ok:true,exclusao_logica:exclusaoLogica,escola_mestre_preservada:exclusaoLogica?escolaMestreId:null,movimentos_historicos_preservados:movimentosHistoricos.length};
-}
-async function excluirLogicamenteEscolaLegalizacao(escolaId,motivo='HISTORICO_PROTEGIDO'){
-  assertAccess();if(!(master()||sec()))throw new Error('Operação exclusiva de MASTER/SEC.');
-  const escola=await obterEscolaMestre(escolaId);if(!escola)throw new Error('Escola não localizada.');
-  await marcarExclusaoLogicaLegalizacao(escolaId,null,motivo);
+  try{const u=user();await c.from('logs_sigee').insert({usuario_id:currentUserId(),nome:u?.nome||null,email:u?.email||null,acao:'Cadastro institucional excluído por MASTER/SEC.',created_at:new Date().toISOString(),nte:String(inst.nte_id||''),perfil:u?.perfil||null,detalhes:`Instituição ${inst.id} · ${inst.nome_instituicao} · Exclusão permitida após validação de inexistência de ato publicado.`,modulo:'legalizacao',etapa:'CADASTRO',sessao_id:window.SIGEE_SESSAO_ID||null});}catch(_){ }
   resumoCache=null;return true;
 }
 
@@ -526,14 +412,28 @@ async function confirmarCadastroMigrado(instituicaoId){
   const {data,error}=await c.from('legalizacao_instituicoes').update(registro).eq('id',inst.id).select('*').single();if(error)throw error;resumoCache=null;return data;
 }
 async function habilitarProntuario(escolaId,opts={}){
-  assertAccess();const excluidas=await idsEscolasExcluidasLegalizacao();
-  if(excluidas.has(Number(escolaId)))throw new Error('Este cadastro foi excluído da Legalização por MASTER/SEC e permanece apenas como identidade histórica protegida.');
-  const c=client(),escola=await obterEscolaMestre(escolaId);if(!escola)throw new Error('Escola não localizada no cadastro mestre do SIGEE.');const escopoGlobalDoe=opts?.globalDoe&&podeGerirDoe();if(!escopoGlobalDoe&&!master()&&Number(escola.nte_id)!==Number(nteId()))throw new Error('Escola fora da sua abrangência.');
+  assertAccess();const c=client(),escola=await obterEscolaMestre(escolaId);if(!escola)throw new Error('Escola não localizada no cadastro mestre do SIGEE.');const escopoGlobalDoe=opts?.globalDoe&&podeGerirDoe();if(!escopoGlobalDoe&&!master()&&Number(escola.nte_id)!==Number(nteId()))throw new Error('Escola fora da sua abrangência.');
   const {data:exist,error:ee}=await c.from('legalizacao_instituicoes').select('*').eq('escola_id',escola.id).order('id',{ascending:false}).limit(1);if(ee)throw ee;let ext=(exist||[])[0]||null;
   if(ext){if(['A_CONFIRMAR','NAO_HABILITADO'].includes(upper(ext.situacao_regulatoria))){const {data,error}=await c.from('legalizacao_instituicoes').update({situacao_regulatoria:'A_CONFERIR',dados_importados_status:'A_CONFERIR',atualizado_por_id:currentUserId(),updated_at:new Date().toISOString()}).eq('id',ext.id).select('*').single();if(error)throw error;ext=data;}resumoCache=null;return escolaParaInstituicao(escola,ext);}
   const priv=depPrivada(escola.dependencia_adm||escola.dependencia),dep=upper(escola.dependencia_adm||escola.dependencia);
   const registro={escola_id:escola.id,nte_id:escola.nte_id,nome_instituicao:escola.nome_escola||escola.nome,tipo_cadastro:priv?'PRIVADA':'PUBLICA',rede:priv?'PRIVADA':(dep.includes('MUNIC')?'MUNICIPAL':(dep.includes('FEDERAL')?'FEDERAL':'ESTADUAL')),natureza:priv?'PRIVADA':(dep.includes('MUNIC')?'PUBLICA_MUNICIPAL':(dep.includes('FEDERAL')?'PUBLICA_FEDERAL':'PUBLICA_ESTADUAL')),cod_inep:clean(escola.cod_mec),municipio:clean(escola.municipio),situacao_regulatoria:'A_CONFERIR',dados_importados_status:'A_CONFERIR',origem:'CATALOGO_SIGEE',legado_sigee:true,criado_por_id:currentUserId(),atualizado_por_id:currentUserId()};
   const {data,error}=await c.from('legalizacao_instituicoes').insert(registro).select('*').single();if(error)throw error;resumoCache=null;resumoCache=null;return escolaParaInstituicao(escola,data);
+}
+async function relacaoMatrizAnexoInstituicao(inst){
+  const c=client(),escolaId=Number(inst?.escola_id||0);
+  if(!escolaId)return{eh_anexo:false,unidade_responsavel:null,anexos_vinculados:[]};
+  const er=await c.from('escolas_sigee').select('id,nome_escola,nome,cod_mec,municipio,nte_id,tipo_unidade,escola_sede_id,situacao_funcional,situacao,status_acervo,acervo').eq('id',escolaId).maybeSingle();
+  if(er.error)throw er.error;const e=er.data;
+  if(!e)return{eh_anexo:false,unidade_responsavel:null,anexos_vinculados:[]};
+  const eh=upper(e.tipo_unidade)==='ANEXO'||Number(e.escola_sede_id||0)>0;
+  if(eh){
+    const sr=await c.from('escolas_sigee').select('id,nome_escola,nome,cod_mec,municipio,nte_id,situacao_funcional,situacao,status_acervo,acervo').eq('id',Number(e.escola_sede_id)).maybeSingle();
+    if(sr.error)throw sr.error;
+    return{eh_anexo:true,unidade_responsavel:sr.data||null,anexos_vinculados:[]};
+  }
+  const ar=await c.from('escolas_sigee').select('id,nome_escola,nome,cod_mec,municipio,nte_id,situacao_funcional,situacao,status_acervo,acervo').eq('escola_sede_id',escolaId).order('nome_escola',{ascending:true});
+  if(ar.error)throw ar.error;
+  return{eh_anexo:false,unidade_responsavel:null,anexos_vinculados:ar.data||[]};
 }
 async function obterProntuario(instituicaoId){
   const c=client(),instituicao=await oneScoped('legalizacao_instituicoes',instituicaoId);
@@ -580,7 +480,8 @@ async function obterProntuario(instituicaoId){
     r=await c.from('legalizacao_oferta_requisitos_processo').select('*').eq('processo_id',cred.id).order('id',{ascending:true});if(r.error)throw r.error;const ori=r.data||[],rids=[...new Set(ori.map(x=>x.requisito_catalogo_id).filter(Boolean))];let rc=[];if(rids.length){r=await c.from('legalizacao_oferta_requisitos_catalogo').select('*').in('id',rids).order('ordem',{ascending:true});if(r.error)throw r.error;rc=r.data||[];}const rm=new Map(rc.map(x=>[String(x.id),x]));ofertaChecklist=ori.map(x=>({...x,catalogo:rm.get(String(x.requisito_catalogo_id))||null})).filter(x=>x.catalogo&&requisitoOfertaAplicavel(x.catalogo,oc,'AUTORIZACAO')).sort((a,b)=>(a.catalogo?.ordem||0)-(b.catalogo?.ordem||0));
   }
   if(descredenciamento){checklistDescredenciamento=await garantirChecklistDescredenciamento(descredenciamento);}
-  return {instituicao,mantenedoras,responsaveis,carimbos,ofertas,processos,fiscalizacoes,inspecoes,handoffs,atosLegais,irregularidades,credenciamento:cred,checklist,credOfertas,ofertaChecklist,descredenciamento,checklistDescredenciamento};
+  const relacao_matriz_anexo=await relacaoMatrizAnexoInstituicao(instituicao);
+  return {relacao_matriz_anexo,instituicao,mantenedoras,responsaveis,carimbos,ofertas,processos,fiscalizacoes,inspecoes,handoffs,atosLegais,irregularidades,credenciamento:cred,checklist,credOfertas,ofertaChecklist,descredenciamento,checklistDescredenciamento};
 }
 async function historicoProcesso(processoId,tipo,descricao,meta=null){const c=client();const {error}=await c.from('legalizacao_processos_historico').insert({processo_id:processoId,tipo,descricao,meta,usuario_id:currentUserId()});if(error)throw error;}
 async function iniciarCredenciamento(instituicaoId,payload={}){
@@ -1015,5 +916,5 @@ async function integrarAtosIdentificados(importacaoIds=[]){
   return{integrados,falhas:erros.length,erros};
 }
 async function listarAtosInstituicao(instituicaoId){assertAccess();const inst=await oneScoped('legalizacao_instituicoes',instituicaoId),c=client();const {data,error}=await c.from('legalizacao_atos_legais').select('id,ato,tipo_ato,numero_ato,data_publicacao,numero_processo,vigencia_inicio,vigencia_fim,vigencia_origem,detalhe,fonte,situacao_registro,created_at').eq('instituicao_id',inst.id).order('data_publicacao',{ascending:false}).limit(300);if(error)throw error;return data||[];}
-window.SIGEE_LEGALIZACAO_SERVICE=Object.freeze({listarInstituicoes,consultarInstituicoes,contarInstituicoes,resumo,listarBasePendenciasRegulatorias,listarNtes,listarInspecoesGerais,listarInspecoesRegulatorias,listarAcompanhamentosIrregularidade,obterAcompanhamentoIrregularidade,listarProcedimentosRegularizacaoIrregularidade,sugerirProcedimentosRegularizacaoIrregularidade,criarProcedimentoRegularizacaoIrregularidade,podeConcluirRegularizacaoIrregularidade,garantirChecklistIrregularidade,atualizarChecklistIrregularidade,registrarSeiRegularizacaoIrregularidade,iniciarAcompanhamentoIrregularidade,registrarAcaoIrregularidade,registrarRegularizacaoIrregularidade,listarEnquadramentos,iniciarEnquadramento,listarHistoricoRegulatorio,listarProcessosRegulatorios,listarAlteracoesCadastrais,iniciarAlteracaoCadastral,registrarProcessoSeiAlteracao,listarDescredenciamentosRegulatorios,listarOfertasAtivasDescredenciamento,garantirChecklistDescredenciamento,encaminharDescredenciamentoParaExtintas,listarOfertasRegulatorias,listarProcessosOfertaRegulatorios,listarCatalogoOfertas,iniciarProcedimentoOferta,adicionarOfertasCredenciamento,atualizarRequisitoOferta,listarCarimbosRegulatorios,listarAtosHistoricosControle,buscarUnidadesEnsinoPublicas,criarInstituicao,atualizarInstituicao,excluirInstituicao,excluirLogicamenteEscolaLegalizacao,confirmarCadastroMigrado,habilitarProntuario,obterProntuario,obterProntuarioPorEscola,iniciarCredenciamento,iniciarDescredenciamento,registrarProcessoSeiCredenciamento,registrarProcessoSeiOferta,atualizarChecklist,emitirDiligencia,retomarAnalise,prepararInspecao,agendarInspecao,reagendarInspecao,corrigirDataInspecaoRealizada,atualizarItemInspecao,registrarRealizacaoInspecao,concluirInspecao,concluirAnaliseFinal,registrarPublicacao,concluirCredenciamento,listarProcedimentosAguardandoPublicacao,listarBaseIdentificacaoDoe,importarAtosLote,listarAtosImportados,obterAtoImportado,resumoImportacaoAtos,localizarInstituicoesParaVinculoAto,vincularAtoImportado,rejeitarAtoImportado,confirmarAtoImportado,integrarAtosIdentificados,listarAtosInstituicao,ehMaster:master,nteId});
+window.SIGEE_LEGALIZACAO_SERVICE=Object.freeze({listarInstituicoes,consultarInstituicoes,contarInstituicoes,resumo,listarBasePendenciasRegulatorias,listarNtes,listarInspecoesGerais,listarInspecoesRegulatorias,listarAcompanhamentosIrregularidade,obterAcompanhamentoIrregularidade,listarProcedimentosRegularizacaoIrregularidade,sugerirProcedimentosRegularizacaoIrregularidade,criarProcedimentoRegularizacaoIrregularidade,podeConcluirRegularizacaoIrregularidade,garantirChecklistIrregularidade,atualizarChecklistIrregularidade,registrarSeiRegularizacaoIrregularidade,iniciarAcompanhamentoIrregularidade,registrarAcaoIrregularidade,registrarRegularizacaoIrregularidade,listarEnquadramentos,iniciarEnquadramento,listarHistoricoRegulatorio,listarProcessosRegulatorios,listarAlteracoesCadastrais,iniciarAlteracaoCadastral,registrarProcessoSeiAlteracao,listarDescredenciamentosRegulatorios,listarOfertasAtivasDescredenciamento,garantirChecklistDescredenciamento,encaminharDescredenciamentoParaExtintas,listarOfertasRegulatorias,listarProcessosOfertaRegulatorios,listarCatalogoOfertas,iniciarProcedimentoOferta,adicionarOfertasCredenciamento,atualizarRequisitoOferta,listarCarimbosRegulatorios,listarAtosHistoricosControle,buscarUnidadesEnsinoPublicas,criarInstituicao,atualizarInstituicao,excluirInstituicao,confirmarCadastroMigrado,habilitarProntuario,obterProntuario,obterProntuarioPorEscola,iniciarCredenciamento,iniciarDescredenciamento,registrarProcessoSeiCredenciamento,registrarProcessoSeiOferta,atualizarChecklist,emitirDiligencia,retomarAnalise,prepararInspecao,agendarInspecao,reagendarInspecao,corrigirDataInspecaoRealizada,atualizarItemInspecao,registrarRealizacaoInspecao,concluirInspecao,concluirAnaliseFinal,registrarPublicacao,concluirCredenciamento,listarProcedimentosAguardandoPublicacao,listarBaseIdentificacaoDoe,importarAtosLote,listarAtosImportados,obterAtoImportado,resumoImportacaoAtos,localizarInstituicoesParaVinculoAto,vincularAtoImportado,rejeitarAtoImportado,confirmarAtoImportado,integrarAtosIdentificados,listarAtosInstituicao,ehMaster:master,nteId});
 })(window);
