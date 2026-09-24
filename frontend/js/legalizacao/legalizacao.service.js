@@ -959,6 +959,31 @@ async function vincularAtoImportado(importacaoId,referencia={}){
 async function rejeitarAtoImportado(importacaoId,motivo){assertAccess();if(!podeGerirDoe())throw new Error('A rejeição de atos é autorizada apenas para os perfis Master e SEC.');const id=Number(importacaoId),just=clean(motivo);if(!id)throw new Error('Publicação inválida.');if(!just||just.length<5)throw new Error('Informe o motivo da rejeição.');const c=client(),{data:r,error:er}=await c.from('legalizacao_atos_importacao').select('*').eq('id',id).single();if(er)throw er;const st=upper(r.status_match);if(st==='CONFIRMADO')throw new Error('Uma publicação já confirmada não pode ser rejeitada.');if(st==='REJEITADO')return r;const now=new Date().toISOString(),uid=currentUserId(),auditoria=`\n\n[REJEIÇÃO DOE] ${now} · usuário ${uid??'não identificado'} · motivo: ${just}`;const {data,error}=await c.from('legalizacao_atos_importacao').update({status_match:'REJEITADO',detalhe:`${r.detalhe||''}${auditoria}`.trim()}).eq('id',id).select('*').single();if(error)throw error;return data;}
 function anoIso(v){const m=String(v||'').match(/^(20\d{2})-/);return m?Number(m[1]):null;}
 function normalizarOfertaAto(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replaceAll('_',' ');}
+async function consolidarDescredenciamentoPublicado(inst,r,escolaLegada){
+  const tipo=normalizarOfertaAto([r.tipo_ato,r.ato,r.detalhe].filter(Boolean).join(' '));
+  if(!tipo.includes('DESCREDENCIAMENTO')||!escolaLegada)return{aplicado:false};
+  const c=client(),now=new Date().toISOString(),uid=currentUserId(),u=user()||{};
+  // A publicação é o evento final: encerra o chamado de Extintas ligado à mesma escola/processo.
+  const {data:chs,error:ech}=await c.from('extintas_descredenciamentos').select('id,escola_id,nte_id,legalizacao_processo_id,status,etapa_atual,numero_sei').eq('escola_id',Number(escolaLegada)).neq('status','CANCELADA_ERRO').order('updated_at',{ascending:false}).limit(20);
+  if(ech)throw new Error(`Falha ao localizar o fluxo de Escolas Extintas: ${ech.message||ech}`);
+  const sei=clean(r.numero_processo),chamados=(chs||[]).filter(x=>['AGUARDANDO_PUBLICACAO','PUBLICACAO_DESCREDENCIAMENTO'].includes(upper(x.etapa_atual))||upper(x.status)==='AGUARDANDO_PUBLICACAO'||(sei&&clean(x.numero_sei)===sei));
+  for(const ch of chamados){
+    const {error}=await c.from('extintas_descredenciamentos').update({status:'CONCLUIDO',etapa_atual:'ENCERRADO',updated_at:now}).eq('id',ch.id);if(error)throw error;
+    try{await c.from('extintas_descredenciamento_historico').insert({chamado_id:Number(ch.id),evento:'ATO_PUBLICADO_FLUXO_ENCERRADO',descricao:`Ato de descredenciamento publicado no DOE em ${clean(r.data_publicacao)||'data confirmada'}. Fluxo encerrado e escola consolidada como EXTINTA.`,usuario_id:String(uid||''),usuario_nome:u.nome||u.name||u.email||''});}catch(_){ }
+  }
+  // Consolida a situação no catálogo mestre.
+  const {error:ee}=await c.from('escolas_sigee').update({situacao_funcional:'EXTINTA',situacao:'EXTINTA',status_acervo:'RECOLHIDO',acervo:'RECOLHIDO',local_acervo:'NTE'}).eq('id',Number(escolaLegada));if(ee)throw new Error(`Falha ao consolidar a escola como EXTINTA: ${ee.message||ee}`);
+  // A custódia inicial pós-publicação é o NTE. A RPC preserva o histórico e a custódia poderá ser alterada depois.
+  try{
+    const atual=await c.from('vw_escolas_acervo_custodia_atual').select('custodia_tipo,custodia_nte_id').eq('escola_origem_id',Number(escolaLegada)).maybeSingle();
+    if(atual.error)throw atual.error;
+    if(upper(atual.data?.custodia_tipo)!=='NTE'){
+      const rr=await c.rpc('sigee_regularizar_custodia_historica',{p_escola_origem_id:Number(escolaLegada),p_destino_tipo:'NTE',p_usuario_id:String(uid||''),p_usuario_nome:u.nome||u.name||u.email||'',p_usuario_email:String(u.email||'').toLowerCase()||null,p_observacao:`Custódia NTE consolidada automaticamente após publicação do ato de descredenciamento no DOE${r.data_publicacao?' em '+r.data_publicacao:''}.`});
+      if(rr.error)throw rr.error;
+    }
+  }catch(e){throw new Error(`A escola foi publicada, mas a custódia do acervo não pôde ser consolidada no NTE: ${e.message||e}`);}
+  return{aplicado:true,chamadosEncerrados:chamados.length};
+}
 async function aplicarEfeitoRegulatorioAtoConfirmado(inst,r,escolaLegada){
   const c=client(),tipo=normalizarOfertaAto([r.tipo_ato,r.ato,r.detalhe].filter(Boolean).join(' ')),now=new Date().toISOString();
   let situacao=null;if(tipo.includes('DESCREDENCIAMENTO'))situacao='EXTINTA';else if(tipo.includes('CREDENCIAMENTO')||tipo.includes('RECREDENCIAMENTO')||tipo.includes('RENOVACAO CREDENCIAMENTO'))situacao='CREDENCIADA';
@@ -988,6 +1013,7 @@ async function confirmarAtoImportado(importacaoId,escolaId=null,ajustes={}){
   // O efeito regulatório é parte da confirmação. Ele é aplicado antes de encerrar a ocorrência,
   // permitindo repetir com segurança uma confirmação antiga que tenha ficado parcialmente processada.
   await aplicarEfeitoRegulatorioAtoConfirmado(inst,r,escolaLegada);
+  await consolidarDescredenciamentoPublicado(inst,r,escolaLegada);
   if(r.endereco_extraido&&!inst.endereco_importado){const {error:ee}=await c.from('legalizacao_instituicoes').update({endereco_importado:r.endereco_extraido,endereco_importado_fonte:r.arquivo_origem,dados_importados_status:'A_CONFERIR',updated_at:now}).eq('id',inst.id);if(ee)avisos.push('O endereço importado não pôde ser atualizado.');}
   // Encontro DOE x procedimento: prioriza SEI; sem SEI exato, procura a fila Aguardando Publicação da mesma instituição e cruza a natureza do ato.
   try{
