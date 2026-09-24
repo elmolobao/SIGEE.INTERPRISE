@@ -482,13 +482,28 @@ async function obterProntuario(instituicaoId){
   if(descredenciamento){checklistDescredenciamento=await garantirChecklistDescredenciamento(descredenciamento);}
   const relacao_matriz_anexo=await relacaoMatrizAnexoInstituicao(instituicao);
   let acervo_atual=null;
-  const escolaId=Number(instituicao.escola_id||0);
+  let escolaId=Number(instituicao.escola_id||0);
+  if(!escolaId&&instituicao.cod_inep){
+    const cod=digits(instituicao.cod_inep,30);
+    if(cod){
+      const rr=await c.from('escolas_sigee').select('id').eq('cod_mec',cod).limit(1).maybeSingle();
+      if(!rr.error&&rr.data?.id)escolaId=Number(rr.data.id);
+    }
+  }
   if(escolaId){
     const [er,cr]=await Promise.all([
-      c.from('escolas_sigee').select('id,status_acervo,acervo,local_acervo').eq('id',escolaId).maybeSingle(),
+      c.from('escolas_sigee').select('id,status_acervo,acervo,local_acervo,nte_id').eq('id',escolaId).maybeSingle(),
       c.from('vw_escolas_acervo_custodia_atual').select('escola_origem_id,custodia_tipo,custodia_nte_id,custodia_escola_id,local_atual_acervo,destino_descricao,data_movimentacao').eq('escola_origem_id',escolaId).maybeSingle()
     ]);
-    if(!er.error||!cr.error)acervo_atual={...(er.data||{}),custodia:cr.error?null:(cr.data||null)};
+    if(!er.error||!cr.error){
+      const escola=er.data||{},custodia=cr.error?null:(cr.data||null),tipo=upper(custodia?.custodia_tipo||'');
+      let localEfetivo='';
+      if(tipo==='NTE')localEfetivo=`NTE ${custodia?.custodia_nte_id||escola.nte_id||instituicao.nte_id||'—'}`;
+      else if(tipo==='EGBA')localEfetivo='EGBA';
+      else if(tipo==='INSTITUICAO')localEfetivo=clean(custodia?.destino_descricao||custodia?.local_atual_acervo)||'Outra Unidade de Ensino';
+      else localEfetivo=clean(custodia?.local_atual_acervo||escola.local_acervo);
+      acervo_atual={...escola,local_acervo_informado:localEfetivo||null,custodia};
+    }
   }
   return {relacao_matriz_anexo,instituicao,mantenedoras,responsaveis,carimbos,ofertas,processos,fiscalizacoes,inspecoes,handoffs,atosLegais,irregularidades,acervo_atual,credenciamento:cred,checklist,credOfertas,ofertaChecklist,descredenciamento,checklistDescredenciamento};
 }
