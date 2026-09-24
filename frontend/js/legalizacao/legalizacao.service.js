@@ -525,7 +525,14 @@ async function obterProntuario(instituicaoId){
       else if(tipo==='EGBA')localEfetivo='EGBA';
       else if(tipo==='INSTITUICAO')localEfetivo=clean(custodia?.destino_descricao||custodia?.local_atual_acervo)||'Outra Unidade de Ensino';
       else localEfetivo=clean(custodia?.local_atual_acervo||escola.local_acervo);
-      acervo_atual={...escola,local_acervo_informado:localEfetivo||null,custodia};
+      let chamado=null,recolhimento=null,itensAcervo=[],movimentacoesAcervo=[];
+      const ch=await c.from('extintas_descredenciamentos').select('*').eq('escola_id',escolaId).neq('status','CANCELADA_ERRO').order('created_at',{ascending:false}).limit(1);if(!ch.error)chamado=ch.data?.[0]||null;
+      if(chamado?.id){const ar=await c.from('extintas_acervo_recolhimentos').select('*').eq('chamado_id',chamado.id).order('created_at',{ascending:false}).limit(1);if(!ar.error)recolhimento=ar.data?.[0]||null;}
+      if(!recolhimento){const ar=await c.from('extintas_acervo_recolhimentos').select('*').eq('escola_id',escolaId).order('created_at',{ascending:false}).limit(1);if(!ar.error)recolhimento=ar.data?.[0]||null;}
+      if(recolhimento?.id){const ir=await c.from('extintas_acervo_itens').select('*').eq('recolhimento_id',recolhimento.id).order('ordem',{ascending:true});if(!ir.error)itensAcervo=ir.data||[];}
+      const mr=await c.from('escolas_acervo_movimentacoes').select('*').eq('escola_origem_id',escolaId).order('data_movimentacao',{ascending:false}).order('id',{ascending:false});if(!mr.error)movimentacoesAcervo=mr.data||[];
+      const temQuantitativo=itensAcervo.some(x=>x.em_caixa!==false&&x.quantidade_caixas!==null&&x.quantidade_caixas!==undefined),quantidadeTotal=temQuantitativo?itensAcervo.reduce((n,x)=>n+(x.em_caixa===false?0:Number(x.quantidade_caixas||0)),0):null;
+      acervo_atual={...escola,local_acervo_informado:localEfetivo||null,custodia,chamado,recolhimento,itens:itensAcervo,movimentacoes:movimentacoesAcervo,quantidade_total:quantidadeTotal};
     }
   }
   return {relacao_matriz_anexo,instituicao,mantenedoras,responsaveis,carimbos,ofertas,processos,fiscalizacoes,inspecoes,handoffs,atosLegais,irregularidades,acervo_atual,credenciamento:cred,checklist,credOfertas,ofertaChecklist,descredenciamento,checklistDescredenciamento};
