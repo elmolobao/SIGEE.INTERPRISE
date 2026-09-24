@@ -449,35 +449,20 @@ function ensureDescredChecklistModal(){let m=$('#modal-legalizacao-desc-checklis
 function abrirChecklistDescredenciamento(x){const m=ensureDescredChecklistModal(),body=m.querySelector('[data-desc-modal-body]'),sub=m.querySelector('[data-desc-modal-subtitle]'),itens=x?.checklist||[],rs=resumoChecklist(itens),nome=x?.instituicao?.nome_instituicao||'Instituição';sub.textContent=`${nome} · ${upper(x?.subtipo)==='COMPULSORIO'?'Descredenciamento compulsório':'Descredenciamento voluntário'} · SEI ${x?.numero_sei||'—'}`;body.innerHTML=`<div class="leg-progress leg-desc-modal-progress"><div><strong>${rs.pct}%</strong><span>${rs.ok} de ${rs.total} itens concluídos</span></div><div class="leg-progress-track"><i style="width:${rs.pct}%"></i></div><small>${rs.pend} item(ns) pendente(s)</small></div>${itens.length?`<div class="leg-checklist"><section><p class="leg-help">Este checklist trata somente do ato regulatório. O recolhimento e tratamento do acervo permanecem sob responsabilidade de Escolas Extintas.</p>${itens.map(renderChecklistItem).join('')}</section></div>`:`<div class="leg-empty compact danger"><strong>Checklist não localizado.</strong><span>${esc(x?.checklist_erro||'Atualize a tela para o SIGEE gerar os itens obrigatórios deste procedimento.')}</span></div>`}`;bindChecklistInline(body);m.classList.remove('hidden');}
 function situacaoExtintasDescredenciamento(x){
   if(!x?.extintas_chamado_id)return null;
-  const st=upper(x.extintas_status),et=upper(x.extintas_etapa);
-  const mapaEtapa={
-    RECEBIMENTO:'Aguardando recebimento por Escolas Extintas',
-    TRIAGEM:'Em análise por Escolas Extintas',
-    ANALISE:'Em análise por Escolas Extintas',
-    INSPECAO:'Inspeção / localização em andamento',
-    RECOLHIMENTO:'Acervo em processo de recolhimento',
-    REMANEJAMENTO:'Acervo em processo de remanejamento',
-    REMANEJAMENTO_PESSOAL:'Providências de Escolas Extintas em andamento',
-    DESCREDENCIAMENTO_COMPULSORIO:'Instrução complementar em Escolas Extintas',
-    ENCAMINHAMENTO_MP:'Encaminhamento ao Ministério Público',
-    ACOMPANHAMENTO:'Em acompanhamento por Escolas Extintas',
-    AGUARDANDO_PUBLICACAO:'Aguardando publicação do ato',
-    PUBLICACAO:'Aguardando publicação do ato',
-    ENCERRADO:'Providências de Escolas Extintas concluídas'
-  };
-  const mapaStatus={
-    PENDENTE:'Aguardando tratamento por Escolas Extintas',
-    EM_ANDAMENTO:'Em tratativa por Escolas Extintas',
-    AGUARDANDO_INSPECAO:'Aguardando inspeção / localização',
-    EM_RECOLHIMENTO:'Acervo em processo de recolhimento',
-    AGUARDANDO_SEI_COMPULSORIO:'Aguardando instrução complementar',
-    AGUARDANDO_MP:'Aguardando encaminhamento ao Ministério Público',
-    ENCAMINHADO_MP:'Em acompanhamento após encaminhamento ao MP',
-    AGUARDANDO_PUBLICACAO:'Aguardando publicação do ato',
-    CONCLUIDO:'Providências de Escolas Extintas concluídas',
-    PUBLICADO:'Ato publicado · fluxo encerrado',
-    ENCERRADO:'Fluxo encerrado'
-  };
+  const st=upper(x.extintas_status),et=upper(x.extintas_etapa),ac=upper(x.extintas_acervo_situacao),fase=upper(x.extintas_acervo_fase);
+  const publicado=['ATO_PUBLICADO','DESCREDENCIAMENTO_CONCLUIDO'].includes(upper(x.etapa_atual))||['PUBLICADO','ARQUIVADO'].includes(upper(x.status));
+  if(publicado)return 'Ato publicado · fluxo encerrado';
+  if(['CONCLUIDO','RECOLHIDO','FINALIZADO'].includes(ac)){
+    const destino=x.extintas_acervo_unidade||x.extintas_acervo_local;
+    return `Acervo recolhido${destino?' · '+destino:''} · aguardando publicação do ato`;
+  }
+  if(['PARCIAL','PARCIALMENTE_RECOLHIDO'].includes(ac))return 'Acervo parcialmente recolhido · providências em andamento';
+  if(ac==='REMANEJADO')return 'Acervo remanejado · aguardando publicação do ato';
+  if(fase==='RECOLHIMENTO')return 'Recolhimento do acervo em andamento';
+  if(fase==='VISITA_PREVENTIVA')return 'Visita preventiva para tratamento do acervo';
+  if(fase==='ORIENTACAO')return 'Orientação para recolhimento do acervo';
+  const mapaEtapa={RECEBIMENTO:'Aguardando recebimento por Escolas Extintas',TRIAGEM:'Em análise por Escolas Extintas',ANALISE:'Em análise por Escolas Extintas',INSPECAO:'Inspeção / localização em andamento',RECOLHIMENTO:'Acervo em processo de recolhimento',REMANEJAMENTO:'Acervo em processo de remanejamento',REMANEJAMENTO_PESSOAL:'Providências de Escolas Extintas em andamento',DESCREDENCIAMENTO_COMPULSORIO:'Instrução complementar em Escolas Extintas',ENCAMINHAMENTO_MP:'Encaminhamento ao Ministério Público',ACOMPANHAMENTO:'Em acompanhamento por Escolas Extintas',AGUARDANDO_PUBLICACAO:'Aguardando publicação do ato',PUBLICACAO:'Aguardando publicação do ato',ENCERRADO:'Providências de Escolas Extintas concluídas'};
+  const mapaStatus={PENDENTE:'Aguardando tratamento por Escolas Extintas',EM_ANDAMENTO:'Em tratativa por Escolas Extintas',AGUARDANDO_INSPECAO:'Aguardando inspeção / localização',EM_RECOLHIMENTO:'Acervo em processo de recolhimento',AGUARDANDO_SEI_COMPULSORIO:'Aguardando instrução complementar',AGUARDANDO_MP:'Aguardando encaminhamento ao Ministério Público',ENCAMINHADO_MP:'Em acompanhamento após encaminhamento ao MP',AGUARDANDO_PUBLICACAO:'Aguardando publicação do ato',CONCLUIDO:'Providências de Escolas Extintas concluídas',PUBLICADO:'Ato publicado · fluxo encerrado',ENCERRADO:'Fluxo encerrado'};
   return mapaEtapa[et]||mapaStatus[st]||String(x.extintas_etapa||x.extintas_status||'Chamado aberto nas Escolas Extintas').replaceAll('_',' ');
 }
 function renderRegDescredenciamentos(lista){const host=$('#legalizacao-reg-descredenciamento');if(!host)return;const html=lista.length?lista.map(x=>{const itens=x.checklist||[],rs=resumoChecklist(itens),concluido=['CONCLUIDO','PUBLICADO','ARQUIVADO'].includes(upper(x.status))||['ATO_PUBLICADO','DESCREDENCIAMENTO_CONCLUIDO'].includes(upper(x.etapa_atual)),encaminhado=!!x.extintas_chamado_id,bloquearChecklist=concluido&&encaminhado,situacaoExtintas=situacaoExtintasDescredenciamento(x);return `<article class="leg-inst-card leg-desc-card ${concluido?'is-concluido':'is-ativo'}"><div class="leg-inst-main"><div class="leg-inst-icon">📕</div><div class="leg-desc-ident"><div class="leg-desc-title-row"><h3>${esc(x.instituicao?.nome_instituicao||'Instituição')}</h3><span class="leg-badge ${statusClass(x.status)}">${concluido&&encaminhado?'LEGALIZAÇÃO CONCLUÍDA':esc(x.status||'—')}</span></div><p>Descredenciamento ${upper(x.subtipo)==='COMPULSORIO'?'compulsório':'voluntário'} · SEI ${esc(x.numero_sei||'—')}</p><small>${esc(etapaProcessoLabel(x.etapa_atual))} · protocolo ${fmtDate(x.data_protocolo)}</small>${situacaoExtintas?`<div class="leg-desc-extintas-status"><strong>Escolas Extintas:</strong> <span>${esc(situacaoExtintas)}</span></div>`:''}<div class="leg-proc-meta">${prazoMetaProcesso(x)}</div></div></div><div class="leg-desc-summary"><div class="leg-desc-progress-compact"><strong>${rs.pct}%</strong><span>${rs.ok}/${rs.total} itens</span><div class="leg-progress-track"><i style="width:${rs.pct}%"></i></div></div><div class="leg-inst-meta">${x.instituicao_id?`${bloquearChecklist?'<button class="leg-link" disabled title="A etapa da Legalização foi concluída e o processo está sob acompanhamento de Escolas Extintas.">Checklist concluído</button>':`<button class="leg-link" data-desc-checklist-id="${esc(x.id)}">Abrir checklist</button>`}<button class="leg-link" data-reg-prontuario="${esc(x.instituicao_id)}">Abrir prontuário</button>${rs.pct===100?(encaminhado?`<button class="leg-link" disabled title="Processo vinculado ao fluxo de Escolas Extintas">Vinculado às Escolas Extintas</button>`:`<button class="leg-link" data-enc-extintas="${esc(x.id)}">Encaminhar recolhimento às Escolas Extintas</button>`):''}`:''}</div></div></article>`;}).join(''):'<div class="leg-empty compact"><strong>Nenhum descredenciamento operacional registrado.</strong><span>Abra um procedimento voluntário ou compulsório. O Processo SEI é obrigatório desde o início.</span></div>';host.innerHTML=`<div class="leg-subcard"><h4>Descredenciamentos em acompanhamento</h4><p class="leg-help">A Legalização Escolar conduz o ato regulatório. Após o encaminhamento, o andamento de Escolas Extintas é refletido aqui até a publicação e o encerramento do fluxo.</p><div class="leg-desc-list">${html}</div></div>`;bindRegProntuarios(host);host.querySelectorAll('[data-desc-checklist-id]').forEach(b=>b.addEventListener('click',()=>{const x=lista.find(v=>String(v.id)===String(b.dataset.descChecklistId));if(x)abrirChecklistDescredenciamento(x);}));host.querySelectorAll('[data-enc-extintas]').forEach(b=>b.addEventListener('click',async()=>{try{b.disabled=true;b.textContent='Encaminhando…';await window.SIGEE_LEGALIZACAO_SERVICE.encaminharDescredenciamentoParaExtintas(Number(b.dataset.encExtintas));regTabsCarregadas.delete('descredenciamento');await carregarRegulatorio('descredenciamento',true);}catch(e){b.disabled=false;b.textContent='Encaminhar recolhimento às Escolas Extintas';alert(e.message||e);}}));}
