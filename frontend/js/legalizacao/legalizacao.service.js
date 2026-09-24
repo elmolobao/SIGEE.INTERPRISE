@@ -756,7 +756,30 @@ async function listarBaseIdentificacaoDoe(){
   for(let i=0;i<ids.length;i+=300){const {data,error}=await c.from('legalizacao_mantenedoras').select('instituicao_id,cnpj,razao_social').in('instituicao_id',ids.slice(i,i+300));if(error)throw error;for(const m of data||[]){const alvo=porInstituicao.get(Number(m.instituicao_id));if(alvo&&digits(m.cnpj,14))alvo.mantenedora_cnpjs.push(digits(m.cnpj,14));}}
   return [...mapa.values()];
 }
-async function importarAtosLote(rows=[]){assertAccess();if(!podeGerirDoe())throw new Error('A importação de atos é autorizada apenas para os perfis Master e SEC.');if(!Array.isArray(rows)||!rows.length)return[];if(rows.length>200)throw new Error('Cada lote pode conter no máximo 200 registros.');const c=client();const {data,error}=await c.from('legalizacao_atos_importacao').insert(rows).select('id,status_match,escola_id,instituicao_id');if(error)throw error;return data||[];}
+async function importarAtosLote(rows=[]){
+  assertAccess();if(!podeGerirDoe())throw new Error('A importação de atos é autorizada apenas para os perfis Master e SEC.');
+  if(!Array.isArray(rows)||!rows.length)return[];
+  if(rows.length>200)throw new Error('Cada lote pode conter no máximo 200 registros.');
+  const c=client();
+  // A tabela possui validações/gatilhos de identificação relativamente custosos. Um INSERT
+  // grande faz todo o trabalho compartilhar o mesmo statement_timeout do PostgreSQL. Quando
+  // isso ocorrer, divide-se o lote progressivamente: cada suboperação recebe uma nova janela
+  // de execução sem alterar a identificação dos atos nem o lote_id da edição do DOE.
+  const inserir=async parte=>{
+    const {data,error}=await c.from('legalizacao_atos_importacao').insert(parte).select('id,status_match,escola_id,instituicao_id');
+    if(!error)return data||[];
+    const msg=String(error?.message||error||'');
+    const timeout=/statement timeout|canceling statement due to statement timeout/i.test(msg);
+    if(timeout&&parte.length>1){
+      const meio=Math.ceil(parte.length/2);
+      const a=await inserir(parte.slice(0,meio));
+      const b=await inserir(parte.slice(meio));
+      return [...a,...b];
+    }
+    throw error;
+  };
+  return inserir(rows);
+}
 async function listarAtosImportados(status=''){
   assertAccess();if(!podeGerirDoe())throw new Error('A conferência de importações é autorizada apenas para os perfis Master e SEC.');
   const c=client(),campos='id,lote_id,arquivo_origem,linha_origem,nte_numero,municipio,escola_nome,ato,tipo_ato,numero_publicacao,data_publicacao,numero_processo,vigencia_inicio,vigencia_fim,vigencia_origem,status_match,escola_id,instituicao_id,cnpj_extraido,detalhe,endereco_extraido,created_at,confirmado_em,confirmado_por_id',st=upper(status);
