@@ -101,7 +101,86 @@ async function garantirItens(acervoId){const ex=await C().from('extintas_acervo_
 async function salvarItem(id,p){if(!['COMPLETO','INCOMPLETO','NAO_ENTREGUE','COM_AVARIA'].includes(String(p.condicao||'')))throw new Error('Condição documental inválida.');const r=await C().from('extintas_acervo_itens').update({condicao:p.condicao||null,em_caixa:p.em_caixa!==false,quantidade_caixas:p.em_caixa===false?null:Number(p.quantidade_caixas||0),observacao:p.observacao||null,updated_at:new Date().toISOString()}).eq('id',id);if(r.error)throw r.error;}
 async function adicionarItem(recolhimento_id,p){const r=await C().from('extintas_acervo_itens').insert({recolhimento_id,descricao:p.descricao,obrigatorio:false,condicao:p.condicao||'COMPLETO',em_caixa:p.em_caixa===true,quantidade_caixas:p.em_caixa?Number(p.quantidade_caixas||0):null,observacao:p.observacao||null,ordem:1000}).select('*').single();if(r.error)throw r.error;return r.data;}
 async function salvarAcervo(id,p){const payload={situacao:p.situacao||'EM_RECOLHIMENTO',data_recolhimento:p.data_recolhimento||null,local_guarda:p.local_guarda||null,termo_referencia:p.termo_referencia||null,observacoes:p.observacoes||null,updated_at:new Date().toISOString()};['responsavel_entrega','documento_responsavel','contato_responsavel','unidade_recebedora','organizacao_alfabetica','estado_conservacao','inconformidades','fase_atual','interlocutor_nome','interlocutor_whatsapp','interlocutor_vinculo','interlocutor_observacoes'].forEach(k=>{if(Object.prototype.hasOwnProperty.call(p,k))payload[k]=p[k]||null});const r=await C().from('extintas_acervo_recolhimentos').update(payload).eq('id',id);if(r.error)throw r.error;}
-async function concluirAcervo(chamadoId,destino='NTE'){const ch=await chamadoNoEscopo(chamadoId);const er=await C().from('escolas_sigee').select('*').eq('id',Number(ch.escola_id)).single();if(er.error)throw er.error;const resp=await responsabilidadeAcervo(er.data);if(resp.naoAplicavel)throw new Error('Este anexo possui matriz ativa responsável universal pelo acervo. Não existe recolhimento independente para concluir.');const u=U(),dest=norm(destino||'NTE');if(!['NTE','EGBA','REMANEJADO'].includes(dest))throw new Error('Selecione NTE, EGBA ou REMANEJADO como destino do recolhimento.');let retorno=null;if(dest==='EGBA'){const r=await C().rpc('sigee_extintas_concluir_recolhimento_egba',{p_chamado_id:Number(chamadoId),p_usuario_id:String(u.id||''),p_usuario_nome:u.nome||u.name||u.email||'',p_usuario_email:String(u.email||'').toLowerCase()||null});if(r.error)throw r.error;retorno=r.data;}else if(dest==='NTE'){const r=await C().rpc('sigee_extintas_concluir_recolhimento',{p_chamado_id:chamadoId,p_usuario_id:String(u.id||''),p_usuario_nome:u.nome||u.name||u.email||''});if(r.error)throw r.error;retorno=r.data;}const agora=new Date().toISOString();const atual=await C().from('extintas_acervo_recolhimentos').select('data_recolhimento').eq('chamado_id',Number(chamadoId)).maybeSingle();if(atual.error)throw atual.error;const ar=await C().from('extintas_acervo_recolhimentos').update({situacao:'RECOLHIDO',fase_atual:'CONCLUIDO',data_recolhimento:atual.data?.data_recolhimento||agora.slice(0,10),updated_at:agora}).eq('chamado_id',Number(chamadoId));if(ar.error)throw ar.error;const cr=await C().from('extintas_descredenciamentos').update({status:'AGUARDANDO_PUBLICACAO',etapa_atual:'AGUARDANDO_PUBLICACAO',atualizado_por_id:String(u.id||''),updated_at:agora}).eq('id',Number(chamadoId));if(cr.error)throw cr.error;if(ch.legalizacao_processo_id){const lr=await C().from('legalizacao_processos').update({status:'EM_ANDAMENTO',etapa_atual:'AGUARDANDO_PUBLICACAO',atualizado_por_id:String(u.id||''),updated_at:agora}).eq('id',Number(ch.legalizacao_processo_id));if(lr.error)throw lr.error;}const h=await C().from('extintas_descredenciamento_historico').insert({chamado_id:Number(chamadoId),evento:'ACERVO_RECOLHIDO_AGUARDANDO_PUBLICACAO',descricao:'Recolhimento do acervo concluído. Procedimento encaminhado automaticamente para Aguardando Publicação.',usuario_id:String(u.id||''),usuario_nome:u.nome||u.name||u.email||''});if(h.error)throw h.error;return retorno;}
+async function concluirAcervo(chamadoId,destino='NTE'){
+  const ch=await chamadoNoEscopo(chamadoId),u=U(),dest=norm(destino||'NTE');
+  if(!['NTE','EGBA','REMANEJADO'].includes(dest))throw new Error('Selecione NTE, EGBA ou REMANEJADO como destino do recolhimento.');
+
+  // Cadastros migrados/oriundos da Legalização podem não possuir todos os vínculos
+  // históricos esperados pelas RPCs antigas. A conclusão desta etapa não deve ser
+  // bloqueada por esses dados retroativos: valida-se a matriz somente quando a escola
+  // operacional existir em escolas_sigee.
+  let escola=null;
+  if(Number(ch.escola_id)){
+    const er=await C().from('escolas_sigee').select('*').eq('id',Number(ch.escola_id)).maybeSingle();
+    if(er.error)throw er.error;
+    escola=er.data||null;
+  }
+  if(escola){
+    const resp=await responsabilidadeAcervo(escola);
+    if(resp.naoAplicavel)throw new Error('Este anexo possui matriz ativa responsável universal pelo acervo. Não existe recolhimento independente para concluir.');
+  }
+
+  // Não usa as RPCs legadas de conclusão aqui. Elas pressupõem cardinalidade/vínculos
+  // do fluxo antigo e, em registros migrados, podem retornar PGRST116
+  // ("Cannot coerce the result to a single JSON object"). A conclusão passa a usar
+  // o próprio chamado como chave canônica e operações idempotentes.
+  const agora=new Date().toISOString();
+  const acq=await C().from('extintas_acervo_recolhimentos')
+    .select('id,data_recolhimento,local_guarda')
+    .eq('chamado_id',Number(chamadoId))
+    .order('id',{ascending:false})
+    .limit(1);
+  if(acq.error)throw acq.error;
+  const acervo=acq.data?.[0]||null;
+  if(!acervo)throw new Error('Registro de recolhimento não localizado para este procedimento.');
+
+  const localGuarda=dest==='REMANEJADO'?(acervo.local_guarda||'REMANEJADO'):dest;
+  const ar=await C().from('extintas_acervo_recolhimentos').update({
+    situacao:dest==='REMANEJADO'?'REMANEJADO':'RECOLHIDO',
+    fase_atual:'CONCLUIDO',
+    local_guarda:localGuarda,
+    data_recolhimento:acervo.data_recolhimento||agora.slice(0,10),
+    updated_at:agora
+  }).eq('id',Number(acervo.id));
+  if(ar.error)throw ar.error;
+
+  const cr=await C().from('extintas_descredenciamentos').update({
+    status:'AGUARDANDO_PUBLICACAO',etapa_atual:'AGUARDANDO_PUBLICACAO',
+    atualizado_por_id:String(u.id||''),updated_at:agora
+  }).eq('id',Number(chamadoId));
+  if(cr.error)throw cr.error;
+
+  if(ch.legalizacao_processo_id){
+    const lr=await C().from('legalizacao_processos').update({
+      status:'EM_ANDAMENTO',etapa_atual:'AGUARDANDO_PUBLICACAO',
+      atualizado_por_id:String(u.id||''),updated_at:agora
+    }).eq('id',Number(ch.legalizacao_processo_id));
+    if(lr.error)throw lr.error;
+  }
+
+  // Mantém o catálogo operacional coerente quando houver registro correspondente,
+  // sem torná-lo requisito para cadastros migrados.
+  if(escola){
+    const ep={status_acervo:dest==='REMANEJADO'?'REMANEJADO':'RECOLHIDO',acervo:dest==='REMANEJADO'?'REMANEJADO':'RECOLHIDO',local_acervo:localGuarda};
+    const eu=await C().from('escolas_sigee').update(ep).eq('id',Number(escola.id));
+    if(eu.error)throw eu.error;
+  }
+
+  // Evita duplicar o evento se o usuário repetir a ação após uma resposta interrompida.
+  const hx=await C().from('extintas_descredenciamento_historico')
+    .select('id').eq('chamado_id',Number(chamadoId))
+    .eq('evento','ACERVO_RECOLHIDO_AGUARDANDO_PUBLICACAO').limit(1);
+  if(hx.error)throw hx.error;
+  if(!hx.data?.length){
+    const h=await C().from('extintas_descredenciamento_historico').insert({
+      chamado_id:Number(chamadoId),evento:'ACERVO_RECOLHIDO_AGUARDANDO_PUBLICACAO',
+      descricao:'Recolhimento do acervo concluído. Procedimento encaminhado automaticamente para Aguardando Publicação.',
+      usuario_id:String(u.id||''),usuario_nome:u.nome||u.name||u.email||''
+    });
+    if(h.error)throw h.error;
+  }
+  return {ok:true,status:'AGUARDANDO_PUBLICACAO',destino:dest};
+}
 async function cancelarSuspeitaErro(chamadoId,motivo){
   if(!podeEditarCatalogo())throw new Error('Somente os perfis MASTER/SEC podem cancelar uma suspeita aberta por engano.');
   const texto=String(motivo||'').trim();if(texto.length<5)throw new Error('Informe o motivo do cancelamento da suspeita.');
