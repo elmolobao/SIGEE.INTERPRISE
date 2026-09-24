@@ -24,6 +24,30 @@ function redeEstadual(i){const r=upper([i?.rede,i?.natureza,i?.dependencia_adm].
 function today(){return new Date().toISOString().slice(0,10);}
 function currentUserId(){return user()?.id??null;}
 let resumoCache=null,resumoCacheEm=0;const RESUMO_TTL=120000;
+let exclusoesLegalizacaoCache=null,exclusoesLegalizacaoCacheEm=0;const EXCLUSOES_TTL=30000;
+async function idsEscolasExcluidasLegalizacao(force=false){
+  if(!force&&exclusoesLegalizacaoCache&&Date.now()-exclusoesLegalizacaoCacheEm<EXCLUSOES_TTL)return exclusoesLegalizacaoCache;
+  const c=client(),{data,error}=await c.from('legalizacao_exclusoes_logicas').select('escola_id');
+  if(error){
+    if(/relation|schema cache|does not exist/i.test(String(error.message||'')))return new Set();
+    throw error;
+  }
+  exclusoesLegalizacaoCache=new Set((data||[]).map(x=>Number(x.escola_id)).filter(Boolean));
+  exclusoesLegalizacaoCacheEm=Date.now();return exclusoesLegalizacaoCache;
+}
+async function marcarExclusaoLogicaLegalizacao(escolaId,instituicaoId,motivo){
+  const id=Number(escolaId);if(!id)return;
+  const c=client(),u=user();
+  const {error}=await c.from('legalizacao_exclusoes_logicas').upsert({
+    escola_id:id,instituicao_id_origem:Number(instituicaoId)||null,
+    motivo:motivo||'EXCLUSAO_CADASTRAL',excluido_por_id:currentUserId(),
+    excluido_por_nome:u?.nome||null,excluido_por_perfil:u?.perfil||null,
+    excluido_em:new Date().toISOString()
+  },{onConflict:'escola_id'});
+  if(error)throw error;
+  exclusoesLegalizacaoCache=null;
+}
+
 const escolaCache=new Map();
 function depPrivada(v){const d=upper(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'');return d.includes('PARTICULAR')||d.includes('PRIVAD');}
 function escolaParaInstituicao(escola,extensao=null){const dep=escola?.dependencia_adm||escola?.dependencia||'',priv=depPrivada(dep),tipoExt=upper(extensao?.tipo_cadastro),redeExt=upper(extensao?.rede);return {...(extensao||{}),id:extensao?.id||null,prontuario_id:extensao?.id||null,escola_id:escola?.id,nte_id:extensao?.nte_id??escola?.nte_id,nome_instituicao:extensao?.nome_instituicao||escola?.nome_escola||escola?.nome,cod_inep:extensao?.cod_inep||escola?.cod_mec,municipio:extensao?.municipio||escola?.municipio,tipo_cadastro:tipoExt|| (priv?'PRIVADA':'PUBLICA'),rede:redeExt||(priv?'PRIVADA':(upper(dep).includes('MUNICIPAL')?'MUNICIPAL':(upper(dep).includes('FEDERAL')?'FEDERAL':'ESTADUAL'))),natureza:extensao?.natureza||(priv?'PRIVADA':`PUBLICA_${upper(dep)||'NAO_CLASSIFICADA'}`),dependencia_adm:dep,situacao_funcional:escola?.situacao_funcional||escola?.situacao||null,tipo_unidade:escola?.tipo_unidade||extensao?.tipo_unidade||'SEDE',escola_sede_id:escola?.escola_sede_id??extensao?.escola_sede_id??null,situacao_regulatoria:extensao?.situacao_regulatoria||'A_CONFERIR',prontuario_habilitado:true,dados_importados_status:extensao?.dados_importados_status||'A_CONFERIR',origem:extensao?.origem||'CATALOGO_SIGEE'};}
@@ -39,10 +63,22 @@ function aplicarFiltrosCatalogo(q,filtros={}){
   return q;
 }
 async function contarFonteInstituicoes(tabela,filtros={},somenteNovas=false){
-  const c=client();let q=c.from(tabela).select('*',{count:'exact',head:true});if(somenteNovas)q=q.is('escola_id',null);q=aplicarFiltrosCatalogo(scoped(q),filtros);const {count,error}=await q;if(error)throw error;return Number(count||0);
+  const c=client();let q=c.from(tabela).select('*',{count:'exact',head:true});
+  if(somenteNovas)q=q.is('escola_id',null);
+  else{
+    const excluidas=await idsEscolasExcluidasLegalizacao();
+    if(excluidas.size)q=q.not('escola_id','in',`(${[...excluidas].join(',')})`);
+  }
+  q=aplicarFiltrosCatalogo(scoped(q),filtros);const {count,error}=await q;if(error)throw error;return Number(count||0);
 }
 async function buscarFaixaInstituicoes(tabela,filtros={},inicio=0,fim=49,somenteNovas=false){
-  if(fim<inicio)return[];const c=client();let q=c.from(tabela).select('*').order('nome_instituicao',{ascending:true});if(somenteNovas)q=q.is('escola_id',null);q=aplicarFiltrosCatalogo(scoped(q),filtros);const {data,error}=await q.range(inicio,fim);if(error)throw error;return(data||[]).map(x=>somenteNovas?{...x,prontuario_id:x.id,origem:x.origem||'CADASTRO_LEGALIZACAO'}:x);
+  if(fim<inicio)return[];const c=client();let q=c.from(tabela).select('*').order('nome_instituicao',{ascending:true});
+  if(somenteNovas)q=q.is('escola_id',null);
+  else{
+    const excluidas=await idsEscolasExcluidasLegalizacao();
+    if(excluidas.size)q=q.not('escola_id','in',`(${[...excluidas].join(',')})`);
+  }
+  q=aplicarFiltrosCatalogo(scoped(q),filtros);const {data,error}=await q.range(inicio,fim);if(error)throw error;return(data||[]).map(x=>somenteNovas?{...x,prontuario_id:x.id,origem:x.origem||'CADASTRO_LEGALIZACAO'}:x);
 }
 async function consultarInstituicoes(filtros={}){
   assertAccess();const c=client();if(!c)throw new Error('Cliente Supabase indisponível.');
@@ -448,11 +484,13 @@ async function excluirInstituicao(instituicaoId){
   if(escolaMestreId){
     if(movimentosHistoricos.length){
       exclusaoLogica=true;
+      await marcarExclusaoLogicaLegalizacao(escolaMestreId,inst.id,'HISTORICO_ACERVO_IMUTAVEL');
     }else{
       const er=await c.from('escolas_sigee').delete().eq('id',escolaMestreId);
       if(er.error){
         // Segurança: uma FK não mapeada jamais deve provocar tentativa de apagar histórico.
         exclusaoLogica=true;
+        await marcarExclusaoLogicaLegalizacao(escolaMestreId,inst.id,'VINCULO_HISTORICO_PROTEGIDO');
         console.warn('[Legalização] Cadastro mestre preservado por vínculo protegido:',er.error.message||er.error);
       }
     }
@@ -475,13 +513,22 @@ async function excluirInstituicao(instituicaoId){
   resumoCache=null;
   return {ok:true,exclusao_logica:exclusaoLogica,escola_mestre_preservada:exclusaoLogica?escolaMestreId:null,movimentos_historicos_preservados:movimentosHistoricos.length};
 }
+async function excluirLogicamenteEscolaLegalizacao(escolaId,motivo='HISTORICO_PROTEGIDO'){
+  assertAccess();if(!(master()||sec()))throw new Error('Operação exclusiva de MASTER/SEC.');
+  const escola=await obterEscolaMestre(escolaId);if(!escola)throw new Error('Escola não localizada.');
+  await marcarExclusaoLogicaLegalizacao(escolaId,null,motivo);
+  resumoCache=null;return true;
+}
+
 async function confirmarCadastroMigrado(instituicaoId){
   assertAccess();const c=client(),inst=await oneScoped('legalizacao_instituicoes',instituicaoId);if(upper(inst.situacao_regulatoria)!=='A_CONFIRMAR')throw new Error('Este cadastro não está aguardando confirmação.');
   const registro={situacao_regulatoria:'EM_CADASTRO',atualizado_por_id:currentUserId(),updated_at:new Date().toISOString()};
   const {data,error}=await c.from('legalizacao_instituicoes').update(registro).eq('id',inst.id).select('*').single();if(error)throw error;resumoCache=null;return data;
 }
 async function habilitarProntuario(escolaId,opts={}){
-  assertAccess();const c=client(),escola=await obterEscolaMestre(escolaId);if(!escola)throw new Error('Escola não localizada no cadastro mestre do SIGEE.');const escopoGlobalDoe=opts?.globalDoe&&podeGerirDoe();if(!escopoGlobalDoe&&!master()&&Number(escola.nte_id)!==Number(nteId()))throw new Error('Escola fora da sua abrangência.');
+  assertAccess();const excluidas=await idsEscolasExcluidasLegalizacao();
+  if(excluidas.has(Number(escolaId)))throw new Error('Este cadastro foi excluído da Legalização por MASTER/SEC e permanece apenas como identidade histórica protegida.');
+  const c=client(),escola=await obterEscolaMestre(escolaId);if(!escola)throw new Error('Escola não localizada no cadastro mestre do SIGEE.');const escopoGlobalDoe=opts?.globalDoe&&podeGerirDoe();if(!escopoGlobalDoe&&!master()&&Number(escola.nte_id)!==Number(nteId()))throw new Error('Escola fora da sua abrangência.');
   const {data:exist,error:ee}=await c.from('legalizacao_instituicoes').select('*').eq('escola_id',escola.id).order('id',{ascending:false}).limit(1);if(ee)throw ee;let ext=(exist||[])[0]||null;
   if(ext){if(['A_CONFIRMAR','NAO_HABILITADO'].includes(upper(ext.situacao_regulatoria))){const {data,error}=await c.from('legalizacao_instituicoes').update({situacao_regulatoria:'A_CONFERIR',dados_importados_status:'A_CONFERIR',atualizado_por_id:currentUserId(),updated_at:new Date().toISOString()}).eq('id',ext.id).select('*').single();if(error)throw error;ext=data;}resumoCache=null;return escolaParaInstituicao(escola,ext);}
   const priv=depPrivada(escola.dependencia_adm||escola.dependencia),dep=upper(escola.dependencia_adm||escola.dependencia);
@@ -968,5 +1015,5 @@ async function integrarAtosIdentificados(importacaoIds=[]){
   return{integrados,falhas:erros.length,erros};
 }
 async function listarAtosInstituicao(instituicaoId){assertAccess();const inst=await oneScoped('legalizacao_instituicoes',instituicaoId),c=client();const {data,error}=await c.from('legalizacao_atos_legais').select('id,ato,tipo_ato,numero_ato,data_publicacao,numero_processo,vigencia_inicio,vigencia_fim,vigencia_origem,detalhe,fonte,situacao_registro,created_at').eq('instituicao_id',inst.id).order('data_publicacao',{ascending:false}).limit(300);if(error)throw error;return data||[];}
-window.SIGEE_LEGALIZACAO_SERVICE=Object.freeze({listarInstituicoes,consultarInstituicoes,contarInstituicoes,resumo,listarBasePendenciasRegulatorias,listarNtes,listarInspecoesGerais,listarInspecoesRegulatorias,listarAcompanhamentosIrregularidade,obterAcompanhamentoIrregularidade,listarProcedimentosRegularizacaoIrregularidade,sugerirProcedimentosRegularizacaoIrregularidade,criarProcedimentoRegularizacaoIrregularidade,podeConcluirRegularizacaoIrregularidade,garantirChecklistIrregularidade,atualizarChecklistIrregularidade,registrarSeiRegularizacaoIrregularidade,iniciarAcompanhamentoIrregularidade,registrarAcaoIrregularidade,registrarRegularizacaoIrregularidade,listarEnquadramentos,iniciarEnquadramento,listarHistoricoRegulatorio,listarProcessosRegulatorios,listarAlteracoesCadastrais,iniciarAlteracaoCadastral,registrarProcessoSeiAlteracao,listarDescredenciamentosRegulatorios,listarOfertasAtivasDescredenciamento,garantirChecklistDescredenciamento,encaminharDescredenciamentoParaExtintas,listarOfertasRegulatorias,listarProcessosOfertaRegulatorios,listarCatalogoOfertas,iniciarProcedimentoOferta,adicionarOfertasCredenciamento,atualizarRequisitoOferta,listarCarimbosRegulatorios,listarAtosHistoricosControle,buscarUnidadesEnsinoPublicas,criarInstituicao,atualizarInstituicao,excluirInstituicao,confirmarCadastroMigrado,habilitarProntuario,obterProntuario,obterProntuarioPorEscola,iniciarCredenciamento,iniciarDescredenciamento,registrarProcessoSeiCredenciamento,registrarProcessoSeiOferta,atualizarChecklist,emitirDiligencia,retomarAnalise,prepararInspecao,agendarInspecao,reagendarInspecao,corrigirDataInspecaoRealizada,atualizarItemInspecao,registrarRealizacaoInspecao,concluirInspecao,concluirAnaliseFinal,registrarPublicacao,concluirCredenciamento,listarProcedimentosAguardandoPublicacao,listarBaseIdentificacaoDoe,importarAtosLote,listarAtosImportados,obterAtoImportado,resumoImportacaoAtos,localizarInstituicoesParaVinculoAto,vincularAtoImportado,rejeitarAtoImportado,confirmarAtoImportado,integrarAtosIdentificados,listarAtosInstituicao,ehMaster:master,nteId});
+window.SIGEE_LEGALIZACAO_SERVICE=Object.freeze({listarInstituicoes,consultarInstituicoes,contarInstituicoes,resumo,listarBasePendenciasRegulatorias,listarNtes,listarInspecoesGerais,listarInspecoesRegulatorias,listarAcompanhamentosIrregularidade,obterAcompanhamentoIrregularidade,listarProcedimentosRegularizacaoIrregularidade,sugerirProcedimentosRegularizacaoIrregularidade,criarProcedimentoRegularizacaoIrregularidade,podeConcluirRegularizacaoIrregularidade,garantirChecklistIrregularidade,atualizarChecklistIrregularidade,registrarSeiRegularizacaoIrregularidade,iniciarAcompanhamentoIrregularidade,registrarAcaoIrregularidade,registrarRegularizacaoIrregularidade,listarEnquadramentos,iniciarEnquadramento,listarHistoricoRegulatorio,listarProcessosRegulatorios,listarAlteracoesCadastrais,iniciarAlteracaoCadastral,registrarProcessoSeiAlteracao,listarDescredenciamentosRegulatorios,listarOfertasAtivasDescredenciamento,garantirChecklistDescredenciamento,encaminharDescredenciamentoParaExtintas,listarOfertasRegulatorias,listarProcessosOfertaRegulatorios,listarCatalogoOfertas,iniciarProcedimentoOferta,adicionarOfertasCredenciamento,atualizarRequisitoOferta,listarCarimbosRegulatorios,listarAtosHistoricosControle,buscarUnidadesEnsinoPublicas,criarInstituicao,atualizarInstituicao,excluirInstituicao,excluirLogicamenteEscolaLegalizacao,confirmarCadastroMigrado,habilitarProntuario,obterProntuario,obterProntuarioPorEscola,iniciarCredenciamento,iniciarDescredenciamento,registrarProcessoSeiCredenciamento,registrarProcessoSeiOferta,atualizarChecklist,emitirDiligencia,retomarAnalise,prepararInspecao,agendarInspecao,reagendarInspecao,corrigirDataInspecaoRealizada,atualizarItemInspecao,registrarRealizacaoInspecao,concluirInspecao,concluirAnaliseFinal,registrarPublicacao,concluirCredenciamento,listarProcedimentosAguardandoPublicacao,listarBaseIdentificacaoDoe,importarAtosLote,listarAtosImportados,obterAtoImportado,resumoImportacaoAtos,localizarInstituicoesParaVinculoAto,vincularAtoImportado,rejeitarAtoImportado,confirmarAtoImportado,integrarAtosIdentificados,listarAtosInstituicao,ehMaster:master,nteId});
 })(window);
