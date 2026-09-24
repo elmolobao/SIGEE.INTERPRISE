@@ -481,7 +481,16 @@ async function obterProntuario(instituicaoId){
   }
   if(descredenciamento){checklistDescredenciamento=await garantirChecklistDescredenciamento(descredenciamento);}
   const relacao_matriz_anexo=await relacaoMatrizAnexoInstituicao(instituicao);
-  return {relacao_matriz_anexo,instituicao,mantenedoras,responsaveis,carimbos,ofertas,processos,fiscalizacoes,inspecoes,handoffs,atosLegais,irregularidades,credenciamento:cred,checklist,credOfertas,ofertaChecklist,descredenciamento,checklistDescredenciamento};
+  let acervo_atual=null;
+  const escolaId=Number(instituicao.escola_id||0);
+  if(escolaId){
+    const [er,cr]=await Promise.all([
+      c.from('escolas_sigee').select('id,status_acervo,acervo,local_acervo').eq('id',escolaId).maybeSingle(),
+      c.from('vw_escolas_acervo_custodia_atual').select('escola_origem_id,custodia_tipo,custodia_nte_id,custodia_escola_id,local_atual_acervo,destino_descricao,data_movimentacao').eq('escola_origem_id',escolaId).maybeSingle()
+    ]);
+    if(!er.error||!cr.error)acervo_atual={...(er.data||{}),custodia:cr.error?null:(cr.data||null)};
+  }
+  return {relacao_matriz_anexo,instituicao,mantenedoras,responsaveis,carimbos,ofertas,processos,fiscalizacoes,inspecoes,handoffs,atosLegais,irregularidades,acervo_atual,credenciamento:cred,checklist,credOfertas,ofertaChecklist,descredenciamento,checklistDescredenciamento};
 }
 async function historicoProcesso(processoId,tipo,descricao,meta=null){const c=client();const {error}=await c.from('legalizacao_processos_historico').insert({processo_id:processoId,tipo,descricao,meta,usuario_id:currentUserId()});if(error)throw error;}
 async function iniciarCredenciamento(instituicaoId,payload={}){
