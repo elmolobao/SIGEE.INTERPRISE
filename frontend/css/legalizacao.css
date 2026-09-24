@@ -136,3 +136,15 @@
 @media(max-width:680px){
   .leg-pront-body .leg-progress{top:0;z-index:3}
 }
+
+/* Descredenciamento: checklist operacional com leitura ampliada. */
+.leg-desc-inline-checklist details>summary{padding:10px 2px;font-weight:800;color:#173a63;cursor:pointer}
+.leg-desc-inline-checklist .leg-checklist>section{overflow:visible}
+.leg-desc-inline-checklist .leg-check-item{grid-template-columns:minmax(0,1fr);gap:10px;align-items:stretch;padding:13px 14px}
+.leg-desc-inline-checklist .leg-check-desc{align-items:flex-start;gap:12px}
+.leg-desc-inline-checklist .leg-check-desc>b{min-width:58px;padding-top:2px}
+.leg-desc-inline-checklist .leg-check-desc strong{font-size:11px;line-height:1.45}
+.leg-desc-inline-checklist .leg-check-desc span{font-size:9px;line-height:1.35}
+.leg-desc-inline-checklist .leg-check-edit{grid-template-columns:minmax(155px,190px) minmax(260px,1fr) auto;gap:9px;align-items:center;padding-left:70px}
+.leg-desc-inline-checklist .leg-check-edit select,.leg-desc-inline-checklist .leg-check-edit input{min-height:34px;font-size:10px}
+@media(max-width:900px){.leg-desc-inline-checklist .leg-check-edit{grid-template-columns:1fr;padding-left:0}.leg-desc-inline-checklist .leg-check-edit .leg-btn{width:100%}}
