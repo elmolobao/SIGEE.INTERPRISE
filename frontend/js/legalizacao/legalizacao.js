@@ -4,7 +4,7 @@
 if(window.__SIGEE_LEGALIZACAO_RC1210A21__)return;window.__SIGEE_LEGALIZACAO_RC1210A21__=true;
 const MOD='LEGALIZACAO',$=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const CENTRAL_PENDENCIAS_ATIVA=false; // Mantida em código para retomada futura, sem consultas massivas enquanto desativada.
-let prontuarioAtual=null;let prontuarioModoOperacional=false,paginaVisao=1,paginaInstituicoes=1,paginaPendencias=1,kpisCarregados=false,pendenciasCache=null,atosControleCache=null;
+let prontuarioAtual=null;let prontuarioModoOperacional=false,paginaVisao=1,paginaInstituicoes=1,paginaPendencias=1,kpisCarregados=false,pendenciasCache=null,atosControleCache=null,regInspecoes=[];
 const regTabsCarregadas=new Set();
 const lotesDoeAbertos=new Set();
 // Mantém o estado de expansão dos checklists de descredenciamento entre recargas/rerenders.
@@ -449,6 +449,7 @@ function renderRegDescredenciamentos(lista){const host=$('#legalizacao-reg-descr
 function bindChecklistInline(host){host?.querySelectorAll('[data-check-save]').forEach(btn=>btn.addEventListener('click',async()=>{const r=btn.closest('[data-check-id]'),status=r?.querySelector('[data-check-status]')?.value,observacao=r?.querySelector('[data-check-obs]')?.value||'';if(!r)return;const details=r.closest('details[data-desc-details]');const descId=String(details?.dataset.descDetails||'');if(descId)descredChecklistsAbertos.add(descId);btn.disabled=true;const anterior=btn.textContent;btn.textContent='...';try{await window.SIGEE_LEGALIZACAO_SERVICE.atualizarChecklist(r.dataset.checkId,{status,observacao});regTabsCarregadas.delete('descredenciamento');await carregarRegulatorio('descredenciamento',true);}catch(err){alert('Falha ao salvar item: '+(err.message||err));}finally{btn.disabled=false;btn.textContent=anterior;}}));}
 
 function renderRegInspecoes(lista=[]){
+  regInspecoes=Array.isArray(lista)?lista:[];
   const host=$('#legalizacao-reg-inspecoes');if(!host)return;
   if(!lista.length){host.innerHTML='<div class="leg-empty compact"><strong>Nenhuma inspeção regulatória em andamento.</strong><span>Quando um checklist de credenciamento, autorização ou renovação exigir verificação in loco, a inspeção aparecerá aqui automaticamente.</span></div>';return;}
   host.innerHTML=lista.map(x=>{
