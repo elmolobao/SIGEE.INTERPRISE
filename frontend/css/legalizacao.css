@@ -186,3 +186,13 @@
 .leg-endereco-opcao:hover{border-color:#8fb2d9;background:#f5f9fe}.leg-endereco-opcao span{font-size:12px;color:#64748b}
 .leg-endereco-loading,.leg-endereco-vazio{padding:10px 2px;color:#64748b;font-size:13px}
 @media(max-width:720px){.leg-endereco-inteligente-head{align-items:stretch;flex-direction:column}.leg-endereco-inteligente-head .leg-btn{width:100%}}
+
+/* 2026-09-24 — Descredenciamento compacto + checklist em janela. */
+.leg-desc-list{display:grid;gap:10px;margin-top:12px}
+.leg-inst-card.leg-desc-card{display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,auto);gap:18px;align-items:center;padding:14px 16px;border:1px solid #e2e8f0;border-radius:12px;background:#fff}
+.leg-inst-card.leg-desc-card:last-child{border-bottom:1px solid #e2e8f0}
+.leg-desc-card.is-concluido{background:#fbfefc;border-color:#dcefe3}
+.leg-desc-ident{min-width:0}.leg-desc-title-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.leg-desc-title-row h3{min-width:0}
+.leg-desc-summary{display:flex;align-items:center;justify-content:flex-end;gap:14px;flex-wrap:wrap}.leg-desc-progress-compact{display:grid;grid-template-columns:auto auto;column-gap:8px;row-gap:4px;align-items:center;min-width:170px}.leg-desc-progress-compact strong{font-size:15px;color:#0b2f68}.leg-desc-progress-compact span{font-size:10px;color:#64748b}.leg-desc-progress-compact .leg-progress-track{grid-column:1/-1;margin:0;height:6px}
+.leg-desc-card>.leg-inst-meta{justify-self:auto}.leg-desc-checklist-modal-card{width:min(1180px,calc(100vw - 36px));max-height:92vh;display:flex;flex-direction:column}.leg-desc-checklist-modal-body{padding:18px 22px;overflow:auto;min-height:0}.leg-desc-checklist-modal-card>footer{border-top:1px solid #e5e7eb;padding:12px 22px}.leg-desc-modal-progress{margin-bottom:16px}.leg-desc-checklist-modal-body .leg-checklist{width:100%}.leg-desc-checklist-modal-body .leg-checklist>section{width:100%}
+@media(max-width:900px){.leg-inst-card.leg-desc-card{grid-template-columns:1fr}.leg-desc-summary{justify-content:flex-start}.leg-desc-progress-compact{width:100%}.leg-desc-checklist-modal-card{width:calc(100vw - 20px);max-height:94vh}}
