@@ -201,3 +201,9 @@
 .leg-desc-extintas-status{margin-top:7px;display:flex;gap:5px;align-items:center;flex-wrap:wrap;font-size:12px;color:#475569}
 .leg-desc-extintas-status strong{color:#0f3f75}
 .leg-desc-card .leg-link:disabled{cursor:not-allowed;opacity:.58;background:#f1f5f9;color:#64748b;border-color:#cbd5e1}
+
+/* RC12 — prontuário: visão consolidada do acervo */
+.leg-acervo-table{border:1px solid #dbe6f2;border-radius:12px;overflow:hidden;margin-top:10px}
+.leg-acervo-row{display:grid;grid-template-columns:minmax(260px,2fr) minmax(130px,.8fr) minmax(80px,.45fr) minmax(220px,1.4fr);gap:12px;align-items:center;padding:11px 14px;border-top:1px solid #e7eef6}
+.leg-acervo-row:first-child{border-top:0}.leg-acervo-row.head{background:#edf5fb;color:#0b315e;font-size:12px;text-transform:uppercase}.leg-acervo-row span{min-width:0}.leg-acervo-row small{display:block;margin-top:3px;color:#6c7d91}.leg-acervo-total{display:flex;justify-content:flex-end;gap:18px;padding:12px 14px;background:#f8fbfe;border-top:1px solid #dbe6f2}.leg-acervo-observacao{white-space:pre-wrap;line-height:1.55;padding:12px 14px;border:1px solid #e2eaf3;border-radius:10px;background:#fbfdff;margin-top:8px}
+@media(max-width:900px){.leg-acervo-row{grid-template-columns:1fr 1fr}.leg-acervo-row.head{display:none}.leg-acervo-row span:nth-child(3)::before{content:'Caixas: ';font-weight:700}.leg-acervo-row span:nth-child(4)::before{content:'Observação: ';font-weight:700}}
