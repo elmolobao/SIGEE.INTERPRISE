@@ -367,7 +367,7 @@ async function agendarAtividade(chamadoId,p){
   return r.data;
 }
 async function registrarMarcoRecolhimento(chamadoId,evento,descricao){
-  await chamadoNoEscopo(chamadoId);const ev=norm(evento),permitidos=['ACERVO_INVENTARIO_SALVO','ACERVO_DADOS_RECOLHIMENTO_SALVOS'];
+  await chamadoNoEscopo(chamadoId);const ev=norm(evento),permitidos=['ACERVO_INVENTARIO_SALVO','ACERVO_INVENTARIO_CONCLUIDO','ACERVO_DADOS_RECOLHIMENTO_SALVOS','ACERVO_DADOS_RECOLHIMENTO_CONCLUIDOS'];
   if(!permitidos.includes(ev))throw new Error('Marco de recolhimento inválido.');
   const u=U();const h=await C().from('extintas_descredenciamento_historico').insert({chamado_id:Number(chamadoId),evento:ev,descricao:String(descricao||''),usuario_id:String(u.id||''),usuario_nome:u.nome||u.name||u.email||''});if(h.error)throw h.error;return true;
 }
