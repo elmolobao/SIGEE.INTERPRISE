@@ -28,3 +28,9 @@
 
 /* Fluxo profissional de coleta NTE → EGBA */
 .extd-coleta-steps{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:12px 0 18px}.extd-coleta-step{padding:8px 12px;border:1px solid #d5dfef;border-radius:999px;font-weight:700;background:#f5f8fc;color:#53657e}.extd-coleta-step.active{background:#e8f0ff;border-color:#7da5ee;color:#0b4fbd}.extd-coleta-step.done{background:#e9f8ef;border-color:#9ed9b4;color:#087333}.extd-coleta-arrow{color:#8a99ad;font-weight:700}.extd-disabled-section{opacity:.62}.extd-success{border-color:#a9dfbd;background:#f3fbf6}.extd-check{display:flex!important;align-items:center;gap:9px;margin:12px 0}.extd-check input{width:auto!important}.extd-panel textarea{min-height:72px;resize:vertical}
+
+/* 2026-09-25 — modais operacionais: viewport completo sem sobreposição do rodapé */
+.extd-modal{z-index:2147483000;box-sizing:border-box;padding:18px 18px 32px;overflow:hidden}
+.extd-modal>div{box-sizing:border-box;max-height:calc(100vh - 50px);overflow-y:auto;overscroll-behavior:contain;padding-bottom:34px}
+.extd-subetapa-modal>div{max-height:calc(100vh - 50px)}
+@media(max-height:700px){.extd-modal{place-items:start center;padding-top:12px}.extd-modal>div{max-height:calc(100vh - 24px)}}
