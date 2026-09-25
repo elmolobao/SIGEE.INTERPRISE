@@ -86,13 +86,16 @@ async function garantirChecklistDescredenciamento(processo){
   assertAccess();if(!processo?.id)return[];const c=client();
   const {data:exist,error:ee}=await c.from('legalizacao_checklist_processo').select('*').eq('processo_id',processo.id).order('id',{ascending:true});if(ee)throw ee;
   let itens=exist||[];
-  if(!itens.length){
-    const subtipo=upper(processo.subtipo);
-    const {data:catalogo,error:ec}=await c.from('legalizacao_checklist_catalogo').select('*').eq('tipo_processo','DESCREDENCIAMENTO').eq('ativo',true).or(`subtipo_aplicavel.is.null,subtipo_aplicavel.eq.${subtipo}`).order('ordem',{ascending:true});if(ec)throw ec;
-    if((catalogo||[]).length){
-      const rows=(catalogo||[]).map(x=>({processo_id:processo.id,catalogo_id:x.id,status:'NAO_APRESENTADO'}));
-      const {data:criados,error:ei}=await c.from('legalizacao_checklist_processo').insert(rows).select('*');if(ei)throw ei;itens=criados||[];
-    }
+  // Sincroniza o checklist do processo com o catálogo ativo. Assim, novos requisitos
+  // regulatórios (ex.: DESC-07 - baixa do CNPJ) também entram em processos já abertos.
+  const subtipo=upper(processo.subtipo);
+  const {data:catalogo,error:ec}=await c.from('legalizacao_checklist_catalogo').select('*').eq('tipo_processo','DESCREDENCIAMENTO').eq('ativo',true).or(`subtipo_aplicavel.is.null,subtipo_aplicavel.eq.${subtipo}`).order('ordem',{ascending:true});if(ec)throw ec;
+  const existentes=new Set(itens.map(x=>String(x.catalogo_id)));
+  const faltantes=(catalogo||[]).filter(x=>!existentes.has(String(x.id)));
+  if(faltantes.length){
+    const rows=faltantes.map(x=>({processo_id:processo.id,catalogo_id:x.id,status:'NAO_APRESENTADO'}));
+    const {data:criados,error:ei}=await c.from('legalizacao_checklist_processo').insert(rows).select('*');if(ei)throw ei;
+    itens=[...itens,...(criados||[])];
   }
   const ids=[...new Set(itens.map(x=>x.catalogo_id).filter(Boolean))];let cats=[];
   if(ids.length){const r=await c.from('legalizacao_checklist_catalogo').select('*').in('id',ids).order('ordem',{ascending:true});if(r.error)throw r.error;cats=r.data||[];}
@@ -125,6 +128,13 @@ async function iniciarDescredenciamento(instituicaoId,payload={}){
 }
 async function encaminharDescredenciamentoParaExtintas(processoId){
   assertAccess();const c=client(),uid=currentUserId();if(uid==null)throw new Error('Usuário da sessão não identificado.');
+  const {data:proc,error:ep}=await c.from('legalizacao_processos').select('*').eq('id',Number(processoId)).single();if(ep)throw ep;
+  const itens=await garantirChecklistDescredenciamento(proc);
+  const pendentes=itens.filter(x=>x.catalogo?.obrigatorio!==false&&!['APRESENTADO','CONFORME','NAO_SE_APLICA'].includes(upper(x.status)));
+  if(pendentes.length)throw new Error(`Ainda existem ${pendentes.length} item(ns) obrigatório(s) pendente(s) no checklist de descredenciamento.`);
+  const baixa=itens.find(x=>upper(x.catalogo?.codigo_item)==='DESC-07');
+  if(!baixa)throw new Error('O requisito DESC-07 — baixa do CNPJ ainda não está disponível no catálogo regulatório. Atualize a parametrização antes do encaminhamento.');
+  if(upper(baixa.status)==='NAO_SE_APLICA'&&!clean(baixa.observacao))throw new Error('Informe a justificativa para marcar a baixa do CNPJ como Não se aplica.');
   const {data,error}=await c.rpc('sigee_extintas_receber_descredenciamento',{p_processo_id:Number(processoId),p_usuario_id:String(uid)});
   if(error){const msg=String(error?.message||error||'');if(/could not find the function|sigee_extintas_receber_descredenciamento/i.test(msg))throw new Error('Instale o SQL de integração com Escolas Extintas antes de encaminhar o processo.');throw error;}
   return Array.isArray(data)?data[0]:data;
@@ -633,6 +643,7 @@ async function atualizarChecklist(itemId,payload={}){
   assertOperacaoNte();
   assertAccess();const c=client(),status=upper(payload.status);const valid=['NAO_APRESENTADO','APRESENTADO','EM_ANALISE','CONFORME','NAO_CONFORME','NAO_SE_APLICA'];if(!valid.includes(status))throw new Error('Situação de checklist inválida.');
   const {data:ant,error:ea}=await c.from('legalizacao_checklist_processo').select('*').eq('id',itemId).single();if(ea)throw ea;const {data:proc,error:eproc}=await c.from('legalizacao_processos').select('id,nte_id').eq('id',ant.processo_id).single();if(eproc)throw eproc;if(!master()&&Number(proc.nte_id)!==Number(nteId()))throw new Error('Item fora da sua abrangência.');
+  if(status==='NAO_SE_APLICA'){const {data:cat}=await c.from('legalizacao_checklist_catalogo').select('codigo_item').eq('id',ant.catalogo_id).maybeSingle();if(upper(cat?.codigo_item)==='DESC-07'&&!clean(payload.observacao))throw new Error('Para a baixa do CNPJ, informe a justificativa quando a situação for Não se aplica.');}
   const registro={status,observacao:clean(payload.observacao),analisado_por_id:currentUserId(),analisado_em:new Date().toISOString()};const {data,error}=await c.from('legalizacao_checklist_processo').update(registro).eq('id',itemId).select('*').single();if(error)throw error;
   const {error:eh}=await c.from('legalizacao_checklist_historico').insert({checklist_item_id:itemId,processo_id:ant.processo_id,status_anterior:ant.status,status_novo:status,observacao:clean(payload.observacao),usuario_id:currentUserId()});if(eh)throw eh;await tentarAvancoAutomaticoInspecao(ant.processo_id);return data;
 }
