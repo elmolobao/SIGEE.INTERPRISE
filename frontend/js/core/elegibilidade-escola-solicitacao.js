@@ -1,4 +1,4 @@
-/* SIGEE RC11.3.21 — Elegibilidade híbrida: cadeia de custódia prevalece quando validada; legado permanece compatível */
+/* SIGEE RC11.3.22 — Extinta/paralisada com acervo recolhido permanece elegível para solicitação acadêmica */
 (function () {
   'use strict';
 
@@ -82,9 +82,9 @@
     const escolaId = Number(c.escolaId || c.escola_id || 0) || null;
 
     if (!e.id || !e.nome) return { ok: false, codigo: 'ESCOLA_INVALIDA', motivo: 'Registro de escola incompleto.' };
-    if (e.ativoOriginal === false) return { ok: false, codigo: 'ESCOLA_DESABILITADA', motivo: 'A escola está desabilitada no catálogo.' };
 
     if (tipo === 'ESCOLA') {
+      if (e.ativoOriginal === false) return { ok: false, codigo: 'ESCOLA_DESABILITADA', motivo: 'A escola está desabilitada no catálogo.' };
       if (!escolaId || Number(e.id) !== escolaId) return { ok: false, codigo: 'OUTRA_ESCOLA', motivo: 'Esta conta só pode abrir processos para a própria unidade escolar.' };
       if (norm(e.dependencia) !== 'ESTADUAL' || norm(e.situacao) !== 'ATIVA') return { ok: false, codigo: 'UNIDADE_ESCOLAR_INAPTA', motivo: 'A unidade vinculada precisa permanecer Estadual e Ativa.' };
       return { ok: true, codigo: 'ESCOLA_ATIVA', acervoCanonico: acervoCanonico(e) };
@@ -97,7 +97,10 @@
     const situacao = norm(e.situacao);
     const acervo = acervoCanonico(e);
     if (municipalizadaComAcervoMedio(e)) return { ok: true, codigo: 'MUNICIPALIZADA_MEDIO', acervoCanonico: acervo, somenteEnsinoMedio: true, municipalizada: true };
-    if (!['EXTINTA','PARALISADA'].includes(situacao)) return { ok: false, codigo: 'SITUACAO_NAO_PERMITIDA', motivo: 'Somente escolas extintas/paralisadas com acervo recolhido ou escolas municipalizadas com acervo estadual parcial podem receber nova solicitação em Escolas Extintas.' };
+    if (!['EXTINTA','PARALISADA'].includes(situacao)) {
+      if (e.ativoOriginal === false) return { ok: false, codigo: 'ESCOLA_DESABILITADA', motivo: 'A escola está desabilitada no catálogo.' };
+      return { ok: false, codigo: 'SITUACAO_NAO_PERMITIDA', motivo: 'Somente escolas extintas/paralisadas com acervo recolhido ou escolas municipalizadas com acervo estadual parcial podem receber nova solicitação em Escolas Extintas.' };
+    }
     if (norm(acervo) === 'REMANEJADO') return { ok: false, codigo: 'ACERVO_REMANEJADO', motivo: 'O acervo foi remanejado para a Unidade de Ensino informada.', acervoCanonico: acervo };
     if (!ehRecolhido(acervo)) return { ok: false, codigo: 'ACERVO_NAO_RECOLHIDO', motivo: `A escola está ${e.situacao || 'cadastrada'}, porém o acervo não está oficialmente Recolhido. A unidade permanece disponível no Controle de Extintas, mas não para Nova Solicitação.` };
     return { ok: true, codigo: situacao === 'PARALISADA' ? 'PARALISADA_RECOLHIDA' : 'EXTINTA_RECOLHIDA', acervoCanonico: acervo };
@@ -108,7 +111,7 @@
   }
 
   window.SIGEE_ELEGIBILIDADE_ESCOLA = Object.freeze({
-    versao: 'RC11.3.21',
+    versao: 'RC11.3.22',
     formatar,
     normalizar: norm,
     acervoCanonico,
