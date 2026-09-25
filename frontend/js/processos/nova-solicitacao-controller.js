@@ -130,8 +130,13 @@
     const ac=normalizar(acervoCanonico);
     const municipalizada=(sit==='MUNICIPALIZADA'&&['PARCIALMENTE RECOLHIDO','RECOLHIDO PARCIALMENTE','PARCIAL','RECOLHIDO'].includes(ac)) || (sit==='ATIVA'&&ac==='RECOLHIDO');
     if(municipalizada) return {ok:true,codigo:'MUNICIPALIZADA_MEDIO',somenteEnsinoMedio:true,municipalizada:true};
-    if(!['EXTINTA','PARALISADA'].includes(sit)||!ehRecolhido(acervoCanonico)) return {ok:false,motivo:'A unidade não possui acervo elegível para Nova Solicitação em Escolas Extintas.'};
-    if(escola.ativo===false)return {ok:false,motivo:'A escola está desabilitada no catálogo.'};
+    if(!['EXTINTA','PARALISADA'].includes(sit)||!ehRecolhido(acervoCanonico)) {
+      if(escola.ativo===false)return {ok:false,motivo:'A escola está desabilitada no catálogo.'};
+      return {ok:false,motivo:'A unidade não possui acervo elegível para Nova Solicitação em Escolas Extintas.'};
+    }
+    // Escola extinta/paralisada com acervo oficialmente recolhido permanece apta
+    // a receber solicitações acadêmicas, mesmo quando o cadastro operacional foi
+    // desativado após o encerramento regulatório da instituição.
     return {ok:true};
   }
 
