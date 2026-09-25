@@ -27,6 +27,24 @@ async function carregar(){const host=$('#extintas-desc-lista');if(!host)return;h
 function statusEscola(e){const sit=String(e.situacao_funcional||e.situacao||'—'),ac=String(e.acervo||e.status_acervo||'—');return `${sit} · Acervo: ${ac}`;}
 async function abrirSuspeitaEscola(escola){const op=await service().unidadeOperacional(escola),alvo=op.operacional,aviso=op.anexo?`<div class="extd-panel"><b>Anexo sem autonomia operacional</b><p>O procedimento será registrado na unidade responsável: ${esc(alvo.nome_escola||alvo.nome)} · NTE ${esc(alvo.nte_id||'—')}.</p></div>`:'';const m=modal(`${aviso}<h2>Abrir Suspeita de Extinção</h2><div class="extd-panel"><b>${esc(escola.nome_escola||escola.nome)}</b><p>${esc(escola.municipio||'')} · NTE ${esc(escola.nte_id||'—')} · ${esc(statusEscola(escola))}</p></div><div class="extd-form"><label class="full">Motivo da suspeita<textarea id="ex-motivo" rows="3" placeholder="Descreva os indícios de que a instituição deixou de funcionar."></textarea></label><label class="full">Fonte / evidência inicial<input id="ex-fonte" placeholder="Denúncia, diligência, comunicação, devolução de correspondência..."></label></div><div class="extd-actions"><button class="extd-btn" data-close>Cancelar</button><button class="extd-btn primary" id="ex-salvar">Abrir suspeita e preparar inspeção</button></div>`);m.querySelector('[data-close]').onclick=fechar;m.querySelector('#ex-salvar').onclick=async()=>{try{const motivo=m.querySelector('#ex-motivo').value;if(!motivo.trim())throw new Error('Informe o motivo da suspeita.');await service().abrirSuspeita({escola_id:Number(escola.id),motivo,fonte:m.querySelector('#ex-fonte').value});fechar();ativarPainel('procedimentos');await carregar()}catch(e){alert(e.message||e)}}}
 function acervoNorm(e){const v=String(e.acervo||e.status_acervo||'').trim();return v||'SEM REGISTRO';}
+function localSolicitacaoAcervo(q){
+  try{
+    const ds=q?.dados_solicitados||{},status=norm(ds.status_acervo||'');
+    if(status==='REMANEJADO'){
+      const dest=q?.destino_solicitado;
+      if(dest){const nome=dest.nome_escola||dest.nome||('Escola SIGEE '+dest.id),mec=dest.cod_mec?` · MEC ${dest.cod_mec}`:'';return `${nome}${mec}`;}
+      return ds.destino_escola_id?`Instituição SIGEE ${ds.destino_escola_id}`:'Instituição de destino não identificada';
+    }
+    if(status==='RECOLHIDO'){
+      const local=norm(ds.local_acervo||'');
+      if(local==='EGBA')return 'EGBA';
+      if(local==='NTE')return `NTE ${q?.nte_id||q?.escola?.nte_id||'responsável'}`;
+      return ds.local_acervo||'Local não informado';
+    }
+    if(status==='NÃO RECOLHIDO'||status==='NAO RECOLHIDO')return 'Sem custodiante físico';
+    return ds.local_acervo||'Não informado';
+  }catch(_){return 'Não informado';}
+}
 function ativoProcedimento(p){return !['CONCLUIDO','ENCERRADO','SUSPEITA_NAO_CONFIRMADA','CANCELADO'].includes(String(p.status||'').toUpperCase());}
 async function solicitarAlteracaoAcervoUI(escola){
   let atual=null;try{atual=await service().custodiaAtual(escola.id)}catch(_){}let destino=null,timer=null;
