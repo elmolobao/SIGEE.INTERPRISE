@@ -115,20 +115,27 @@ const pHistorico=painelPorTitulo('Histórico do chamado');
 const etapaAtual=!faseRecolhimento?'ORIENTACAO':(!programado?'PROGRAMACAO':(!inventarioSalvo?'INVENTARIO':'RECOLHIMENTO'));
 const ordem={ORIENTACAO:0,PROGRAMACAO:1,INVENTARIO:2,RECOLHIMENTO:3,HISTORICO:4};
 const liberada=et=>et==='HISTORICO'||ordem[et]<=ordem[etapaAtual];
-const mostrarEtapa=et=>{
-  [pProgram,pFluxo,pInvent,pDados,pHistorico].filter(Boolean).forEach(x=>x.style.display='none');
-  if(et==='PROGRAMACAO'){if(pProgram)pProgram.style.display='';if(pFluxo)pFluxo.style.display='';}
-  if(et==='INVENTARIO'&&pInvent)pInvent.style.display='';
-  if(et==='RECOLHIMENTO'&&pDados)pDados.style.display='';
-  if(et==='HISTORICO'&&pHistorico)pHistorico.style.display='';
-  nav?.querySelectorAll('[data-etapa]').forEach(b=>b.classList.toggle('primary',b.dataset.etapa===et));
+// As subetapas do recolhimento NÃO são renderizadas dentro do modal principal.
+// Cada botão abre uma janela operacional própria; ao fechar, retorna ao chamado.
+const paineisEtapa={PROGRAMACAO:[pProgram,pFluxo].filter(Boolean),INVENTARIO:[pInvent].filter(Boolean),RECOLHIMENTO:[pDados].filter(Boolean),HISTORICO:[pHistorico].filter(Boolean)};
+Object.values(paineisEtapa).flat().forEach(x=>x.style.display='none');
+const abrirEtapaJanela=et=>{
+  if(!liberada(et))return;
+  const xs=paineisEtapa[et]||[];if(!xs.length)return;
+  const principal=m.querySelector(':scope > div');
+  const marcadores=xs.map(x=>{const ph=d.createComment('extd-etapa');x.parentNode.insertBefore(ph,x);return [x,ph]});
+  const sub=d.createElement('div');sub.className='extd-modal extd-subetapa-modal';
+  const titulo=et==='PROGRAMACAO'?'Programação do recolhimento':et==='INVENTARIO'?'Inventário e diagnóstico do acervo':et==='RECOLHIMENTO'?'Recolhimento / Termo eletrônico':'Histórico do procedimento';
+  const box=d.createElement('div');box.innerHTML=`<div class="extd-section-head"><div><h2>${titulo}</h2><p class="extd-help">Etapa vinculada ao mesmo procedimento. Feche para retornar ao chamado.</p></div><button type="button" class="extd-btn" data-voltar-etapa>← Voltar ao chamado</button></div>`;
+  sub.appendChild(box);xs.forEach(x=>{x.style.display='';box.appendChild(x)});d.body.appendChild(sub);if(principal)principal.style.visibility='hidden';
+  const voltar=()=>{marcadores.forEach(([x,ph])=>{x.style.display='none';ph.parentNode?.insertBefore(x,ph);ph.remove()});sub.remove();if(principal)principal.style.visibility='visible'};
+  box.querySelector('[data-voltar-etapa]').onclick=voltar;sub.addEventListener('click',e=>{if(e.target===sub)voltar()});
 };
 let nav=null;
 if(faseRecolhimento){
-  nav=document.createElement('div');nav.className='extd-panel';nav.innerHTML=`<div class="extd-section-head"><div><b>Etapas do recolhimento</b><p class="extd-help">Uma etapa operacional por vez. As anteriores permanecem disponíveis para consulta.</p></div><span class="extd-progress-pill">${etapaAtual==='PROGRAMACAO'?'Programação':etapaAtual==='INVENTARIO'?'Inventário':'Recolhimento / Termo'}</span></div><div class="extd-actions"><button class="extd-btn" data-etapa="PROGRAMACAO">1. Programação ${programado?'✓':''}</button><button class="extd-btn" data-etapa="INVENTARIO" ${liberada('INVENTARIO')?'':'disabled'}>2. Inventário ${inventarioSalvo?'✓':''}</button><button class="extd-btn" data-etapa="RECOLHIMENTO" ${liberada('RECOLHIMENTO')?'':'disabled'}>3. Recolhimento / Termo ${dadosSalvos?'✓':''}</button><button class="extd-btn" data-etapa="HISTORICO">Histórico</button></div>`;
+  nav=document.createElement('div');nav.className='extd-panel';nav.innerHTML=`<div class="extd-section-head"><div><b>Etapas do recolhimento</b><p class="extd-help">Cada etapa abre em uma janela própria. As etapas seguintes são liberadas somente após a conclusão da anterior.</p></div><span class="extd-progress-pill">${etapaAtual==='PROGRAMACAO'?'Programação':etapaAtual==='INVENTARIO'?'Inventário':'Recolhimento / Termo'}</span></div><div class="extd-actions"><button class="extd-btn" data-etapa="PROGRAMACAO">1. Programação ${programado?'✓':''}</button><button class="extd-btn" data-etapa="INVENTARIO" ${liberada('INVENTARIO')?'':'disabled'}>2. Inventário ${inventarioSalvo?'✓':''}</button><button class="extd-btn" data-etapa="RECOLHIMENTO" ${liberada('RECOLHIMENTO')?'':'disabled'}>3. Recolhimento / Termo ${dadosSalvos?'✓':''}</button><button class="extd-btn" data-etapa="HISTORICO">Histórico</button></div>`;
   const ancora=pProgram||pFluxo||pInvent||pDados;if(ancora)ancora.before(nav);
-  nav.querySelectorAll('[data-etapa]').forEach(b=>b.onclick=()=>{if(!b.disabled)mostrarEtapa(b.dataset.etapa)});
-  mostrarEtapa(etapaAtual);
+  nav.querySelectorAll('[data-etapa]').forEach(b=>b.onclick=()=>{if(!b.disabled)abrirEtapaJanela(b.dataset.etapa)});
 }else{
   [pProgram,pInvent,pDados].filter(Boolean).forEach(x=>x.style.display='none');
 }
