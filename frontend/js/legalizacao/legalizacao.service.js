@@ -873,8 +873,20 @@ async function localizarInstituicoesParaVinculoAto(filtros={}){
   assertAccess();if(!podeGerirDoe())throw new Error('A localização de instituições para atos do DOE é autorizada apenas para os perfis Master e SEC.');
   const tipo=upper(filtros.tipo||'NOME'),valor=clean(filtros.valor),municipio=normalizarChaveDoe(filtros.municipio||'');if(!valor)throw new Error('Informe um valor para pesquisa.');
   const alvo=tipo==='CNPJ'?digits(valor,14):(tipo==='INEP'||tipo==='SEC'?digits(valor,30):normalizarChaveDoe(valor));
-  const base=await listarBaseIdentificacaoDoe(),out=[],seen=new Set();
-  const add=x=>{const iid=Number(x.prontuario_id||x.id)||null,eid=Number(x.escola_id)||null,k=iid?`I:${iid}`:(eid?`E:${eid}`:null);if(!k||seen.has(k))return;seen.add(k);out.push({instituicao_id:iid,prontuario_id:iid,escola_id:eid,nome_instituicao:x.nome_instituicao||x.nome_escola||x.nome||null,municipio:x.municipio||null,nte_id:x.nte_id||null,cod_inep:x.cod_inep||x.cod_mec||null,cod_sec:x.cod_sec||null,cnpj:x.cnpj||null,cnpj_mantenedora:(x.mantenedora_cnpjs||[])[0]||null,origem:x.origem||x._origem_vinculo||null});};
+  const base=await listarBaseIdentificacaoDoe(),out=[],seen=new Set(),c=client();
+  const add=x=>{const iid=Number(x.prontuario_id||x.instituicao_id||((x._origem_vinculo||x.origem)==='CADASTRO_MESTRE'?null:x.id))||null,eid=Number(x.escola_id||((x._origem_vinculo||x.origem)==='CADASTRO_MESTRE'?x.id:null))||null,k=iid?`I:${iid}`:(eid?`E:${eid}`:null);if(!k||seen.has(k))return;seen.add(k);out.push({instituicao_id:iid,prontuario_id:iid,escola_id:eid,nome_instituicao:x.nome_instituicao||x.nome_escola||x.nome||null,municipio:x.municipio||null,nte_id:x.nte_id||null,cod_inep:x.cod_inep||x.cod_mec||null,cod_sec:x.cod_sec||null,cnpj:x.cnpj||null,cnpj_mantenedora:(x.mantenedora_cnpjs||[])[0]||x.cnpj_mantenedora||null,origem:x.origem||x._origem_vinculo||null});};
+  // DOE precisa localizar também instituições extintas, paralisadas e ainda sem prontuário de Legalização.
+  // Por isso os identificadores oficiais consultam primeiro as tabelas cadastrais diretamente, sem filtro de situação.
+  if(tipo==='INEP'){
+    const variantes=[valor,alvo].filter((v,i,a)=>v&&a.indexOf(v)===i);
+    for(const v of variantes){const {data,error}=await c.from('escolas_sigee').select('id,nome_escola,nome,municipio,nte_id,cod_mec').eq('cod_mec',v).limit(30);if(error)throw error;for(const e of data||[]){if(!municipio||normalizarChaveDoe(e.municipio)===municipio)add({...e,escola_id:e.id,origem:'CADASTRO_MESTRE'});}}
+    if(!out.length){for(let ini=0;ini<10000&&out.length<30;ini+=1000){const {data,error}=await c.from('escolas_sigee').select('id,nome_escola,nome,municipio,nte_id,cod_mec').order('id',{ascending:true}).range(ini,ini+999);if(error)throw error;for(const e of data||[]){if(digits(e.cod_mec,30)===alvo&&(!municipio||normalizarChaveDoe(e.municipio)===municipio))add({...e,escola_id:e.id,origem:'CADASTRO_MESTRE'});}if((data||[]).length<1000)break;}}
+  }else if(tipo==='CNPJ'&&alvo.length===14){
+    const {data:di,error:ei}=await c.from('legalizacao_instituicoes').select('id,escola_id,nte_id,nome_instituicao,cod_inep,cod_sec,cnpj,municipio').limit(5000);if(ei)throw ei;for(const x of di||[]){if(digits(x.cnpj,14)===alvo&&(!municipio||normalizarChaveDoe(x.municipio)===municipio))add(x);}
+    const {data:dm,error:em}=await c.from('legalizacao_mantenedoras').select('instituicao_id,cnpj').limit(5000);if(em)throw em;const ids=[...new Set((dm||[]).filter(x=>digits(x.cnpj,14)===alvo).map(x=>Number(x.instituicao_id)).filter(Boolean))];if(ids.length){const {data:ii,error:ie}=await c.from('legalizacao_instituicoes').select('id,escola_id,nte_id,nome_instituicao,cod_inep,cod_sec,cnpj,municipio').in('id',ids);if(ie)throw ie;for(const x of ii||[]){if(!municipio||normalizarChaveDoe(x.municipio)===municipio)add({...x,cnpj_mantenedora:valor});}}
+  }else if(tipo==='SEC'){
+    const {data,error}=await c.from('legalizacao_instituicoes').select('id,escola_id,nte_id,nome_instituicao,cod_inep,cod_sec,cnpj,municipio').limit(5000);if(error)throw error;for(const x of data||[]){if(digits(x.cod_sec,30)===alvo&&(!municipio||normalizarChaveDoe(x.municipio)===municipio))add(x);}
+  }
   for(const x of base||[]){
     if(municipio&&normalizarChaveDoe(x.municipio)!==municipio)continue;
     let ok=false;
@@ -888,7 +900,6 @@ async function localizarInstituicoesParaVinculoAto(filtros={}){
   // Para MEC/INEP a comparação é feita após normalização para dígitos. Isso cobre
   // códigos armazenados como texto/número, com zeros à esquerda ou formatação legada.
   if(!out.length&&(tipo==='INEP'||tipo==='NOME')){
-    const c=client();
     if(tipo==='INEP'){
       for(let ini=0;ini<10000&&out.length<30;ini+=1000){
         const {data,error}=await c.from('escolas_sigee').select('id,nome_escola,nome,municipio,nte_id,cod_mec').order('id',{ascending:true}).range(ini,ini+999);if(error)throw error;
