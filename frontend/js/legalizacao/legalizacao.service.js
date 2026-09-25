@@ -116,7 +116,7 @@ async function iniciarDescredenciamento(instituicaoId,payload={}){
   assertAccess();const c=client(),inst=await oneScoped('legalizacao_instituicoes',instituicaoId),objeto=upper(payload.objeto_descredenciamento),sei=clean(payload.numero_sei),dataProtocolo=clean(payload.data_protocolo);
   if(!['INSTITUICAO','OFERTA_ENSINO'].includes(objeto))throw new Error('Selecione se o descredenciamento é da instituição ou de oferta de ensino.');if(!sei)throw new Error('O Processo SEI é obrigatório no início do descredenciamento.');if(!dataProtocolo)throw new Error('Informe a data de protocolo do Processo SEI.');
   const rede=upper([inst.rede,inst.tipo_cadastro,inst.dependencia_administrativa].filter(Boolean).join(' ')),estadual=/ESTADUAL|PUBLICA ESTADUAL|PÚBLICA ESTADUAL/.test(rede);
-  let subtipo=upper(payload.subtipo);if(objeto==='INSTITUICAO'&&estadual)subtipo='ESTADUAL';if(objeto==='INSTITUICAO'&&!estadual&&!['VOLUNTARIO','COMPULSORIO'].includes(subtipo))throw new Error('Selecione descredenciamento voluntário ou compulsório.');if(objeto==='OFERTA_ENSINO')subtipo='RETIRADA_OFERTA';
+  let subtipo=upper(payload.subtipo);if(objeto==='INSTITUICAO'&&estadual)subtipo='ESTADUAL';if(objeto==='INSTITUICAO'&&!estadual&&subtipo!=='VOLUNTARIO')throw new Error('A Legalização Escolar executa somente descredenciamento voluntário. O descredenciamento compulsório é competência de Escolas Extintas após inspeção.');if(objeto==='OFERTA_ENSINO')subtipo='RETIRADA_OFERTA';
   const {data:exist,error:ee}=await c.from('legalizacao_processos').select('id,status,objeto_descredenciamento').eq('instituicao_id',inst.id).eq('tipo','DESCREDENCIAMENTO').limit(50);if(ee)throw ee;
   if(objeto==='INSTITUICAO'&&(exist||[]).some(x=>!['CONCLUIDO','ARQUIVADO','CANCELADO'].includes(upper(x.status))&&upper(x.objeto_descredenciamento||'INSTITUICAO')==='INSTITUICAO'))throw new Error('Já existe descredenciamento institucional ativo para esta instituição.');
   const ofertas=await listarOfertasAtivasDescredenciamento(inst.id),selecionadas=objeto==='INSTITUICAO'?ofertas:ofertas.filter(x=>String(x.id)===String(payload.oferta_id));if(objeto==='OFERTA_ENSINO'&&!selecionadas.length)throw new Error('Selecione uma oferta de ensino ativa para descredenciar.');
@@ -124,7 +124,7 @@ async function iniciarDescredenciamento(instituicaoId,payload={}){
   if(selecionadas.length){const snaps=selecionadas.map(o=>({processo_id:p.id,instituicao_id:inst.id,oferta_id:o.id,etapa_modalidade:o.etapa_modalidade||null,curso_tecnico:o.curso_tecnico||null,eixo_tecnologico:o.eixo_tecnologico||null,situacao_na_abertura:o.situacao||null,abrangencia:objeto==='INSTITUICAO'?'EXTINCAO_INSTITUCIONAL':'RETIRADA_OFERTA'}));const rs=await c.from('legalizacao_descredenciamento_ofertas').insert(snaps);if(rs.error)throw rs.error;}
   const filtroChecklist=objeto==='INSTITUICAO'?(estadual?'ESTADUAL':subtipo):'RETIRADA_OFERTA';const {data:catalogo,error:ec}=await c.from('legalizacao_checklist_catalogo').select('*').eq('tipo_processo','DESCREDENCIAMENTO').eq('ativo',true).or(`subtipo_aplicavel.is.null,subtipo_aplicavel.eq.${filtroChecklist}`).order('ordem',{ascending:true});if(ec)throw ec;if((catalogo||[]).length){const rows=catalogo.map(x=>({processo_id:p.id,catalogo_id:x.id,status:'NAO_APRESENTADO'}));const {error:er}=await c.from('legalizacao_checklist_processo').insert(rows);if(er)throw er;}
   if(objeto==='INSTITUICAO')await c.from('legalizacao_instituicoes').update({situacao_regulatoria:estadual?'EM_PARALISACAO':'EM_DESCREDENCIAMENTO',atualizado_por_id:currentUserId(),updated_at:new Date().toISOString()}).eq('id',inst.id);
-  const desc=objeto==='INSTITUICAO'?(estadual?'Pedido de paralisação estadual iniciado.':`Descredenciamento institucional ${subtipo==='VOLUNTARIO'?'voluntário':'compulsório'} iniciado.`):'Descredenciamento de oferta de ensino iniciado.';await historicoProcesso(p.id,'ABERTURA_DESCREDENCIAMENTO',desc,{numero_sei:sei,data_protocolo:dataProtocolo,objeto,ofertas:selecionadas.map(x=>x.id)});resumoCache=null;return {...p,ofertas_abrangidas:selecionadas};
+  const desc=objeto==='INSTITUICAO'?(estadual?'Pedido de paralisação estadual iniciado.':'Descredenciamento institucional voluntário iniciado.'):'Descredenciamento de oferta de ensino iniciado.';await historicoProcesso(p.id,'ABERTURA_DESCREDENCIAMENTO',desc,{numero_sei:sei,data_protocolo:dataProtocolo,objeto,ofertas:selecionadas.map(x=>x.id)});resumoCache=null;return {...p,ofertas_abrangidas:selecionadas};
 }
 async function encaminharDescredenciamentoParaExtintas(processoId){
   assertAccess();const c=client(),uid=currentUserId();if(uid==null)throw new Error('Usuário da sessão não identificado.');
@@ -135,6 +135,23 @@ async function encaminharDescredenciamentoParaExtintas(processoId){
   const baixa=itens.find(x=>upper(x.catalogo?.codigo_item)==='DESC-07');
   if(!baixa)throw new Error('O requisito DESC-07 — baixa do CNPJ ainda não está disponível no catálogo regulatório. Atualize a parametrização antes do encaminhamento.');
   if(upper(baixa.status)==='NAO_SE_APLICA'&&!clean(baixa.observacao))throw new Error('Informe a justificativa para marcar a baixa do CNPJ como Não se aplica.');
+  // Se o voluntário nasceu de uma inspeção de suspeita em Escolas Extintas,
+  // o mesmo chamado retorna ao setor para o tratamento do acervo. Não criamos
+  // um segundo procedimento paralelo.
+  const ir=await c.from('legalizacao_instituicoes').select('id,escola_id').eq('id',Number(proc.instituicao_id)).maybeSingle();
+  if(ir.error)throw ir.error;
+  if(ir.data?.escola_id){
+    const ex=await c.from('extintas_descredenciamentos').select('*').eq('escola_id',Number(ir.data.escola_id)).eq('status','ENCAMINHADO_LEGALIZACAO').order('updated_at',{ascending:false}).limit(1);
+    if(ex.error)throw ex.error;
+    if(ex.data?.length){
+      const chamado=ex.data[0],agora=new Date().toISOString();
+      const ur=await c.from('extintas_descredenciamentos').update({origem:'LEGALIZACAO',tipo:'VOLUNTARIO',legalizacao_processo_id:Number(processoId),numero_sei:proc.numero_sei,status:'EM_ANDAMENTO',etapa_atual:'RECEBIMENTO',atualizado_por_id:String(uid),updated_at:agora}).eq('id',Number(chamado.id)).select('*').single();
+      if(ur.error)throw ur.error;
+      await c.from('extintas_acervo_recolhimentos').update({fase_atual:'ORIENTACAO',updated_at:agora}).eq('chamado_id',Number(chamado.id));
+      await c.from('extintas_descredenciamento_historico').insert({chamado_id:Number(chamado.id),evento:'RETORNO_DA_LEGALIZACAO_PARA_ACERVO',descricao:`Descredenciamento voluntário instruído na Legalização. Processo SEI ${proc.numero_sei||'—'} retornou a Escolas Extintas para tratamento do acervo.`,usuario_id:String(uid),usuario_nome:user()?.nome||user()?.name||user()?.email||''});
+      return ur.data;
+    }
+  }
   const {data,error}=await c.rpc('sigee_extintas_receber_descredenciamento',{p_processo_id:Number(processoId),p_usuario_id:String(uid)});
   if(error){const msg=String(error?.message||error||'');if(/could not find the function|sigee_extintas_receber_descredenciamento/i.test(msg))throw new Error('Instale o SQL de integração com Escolas Extintas antes de encaminhar o processo.');throw error;}
   return Array.isArray(data)?data[0]:data;
