@@ -394,10 +394,23 @@ async function excluirInstituicao(instituicaoId){
   // Sem ato publicado, o Master pode remover um cadastro criado na Legalização.
   // Os registros operacionais dependentes são eliminados antes da ficha principal
   // para não deixar referências órfãs.
-  const {data:processos,error:eProc}=await c.from('legalizacao_processos').select('id').eq('instituicao_id',inst.id);
+  const {data:processos,error:eProc}=await c.from('legalizacao_processos').select('id,tipo,subtipo,status,etapa_atual,numero_sei').eq('instituicao_id',inst.id);
   if(eProc&&!/relation|column|schema cache|does not exist/i.test(String(eProc.message||'')))throw eProc;
-  const pids=(processos||[]).map(x=>x.id).filter(Boolean);
-  if(pids.length)throw new Error('Exclusão não permitida. Esta instituição possui processo(s) regulatório(s) vinculado(s). Preserve o histórico em vez de excluir o cadastro.');
+  const processosReg=processos||[],ativos=processosReg.filter(x=>upper(x.status)!=='CANCELADO'),cancelados=processosReg.filter(x=>upper(x.status)==='CANCELADO');
+  if(ativos.length)throw new Error('Exclusão não permitida. Esta instituição ainda possui processo(s) regulatório(s) não cancelado(s). Preserve o histórico regulatório ou encerre/cancele os procedimentos cabíveis antes de excluir o cadastro.');
+  // Processo CANCELADO não representa vínculo operacional ativo e não bloqueia a exclusão do cadastro.
+  // Antes da remoção física, registra-se no log a referência mínima do cancelamento para rastreabilidade.
+  if(cancelados.length){
+    try{const u=user();await c.from('logs_sigee').insert({usuario_id:currentUserId(),nome:u?.nome||null,email:u?.email||null,acao:'Cadastro institucional excluído após cancelamento dos procedimentos regulatórios.',created_at:new Date().toISOString(),nte:String(inst.nte_id||''),perfil:u?.perfil||null,detalhes:`Instituição ${inst.id} · ${inst.nome_instituicao} · Procedimentos cancelados preservados em log antes da exclusão: ${cancelados.map(x=>`${x.id}/${x.tipo||''}/${x.numero_sei||'SEM SEI'}`).join('; ')}`,modulo:'legalizacao',etapa:'CADASTRO',sessao_id:window.SIGEE_SESSAO_ID||null});}catch(_){ }
+    const pidsCancelados=cancelados.map(x=>x.id).filter(Boolean);
+    // Limpa somente dependências dos processos CANCELADOS; nenhum processo ativo/concluído é tocado.
+    for(const [tabela,coluna] of [['legalizacao_oferta_requisitos_processo','processo_id'],['legalizacao_checklist_historico','processo_id'],['legalizacao_checklist_processo','processo_id'],['legalizacao_processos_ofertas','processo_id'],['legalizacao_descredenciamento_ofertas','processo_id'],['legalizacao_processos_historico','processo_id']]){
+      const r=await c.from(tabela).delete().in(coluna,pidsCancelados);
+      if(r.error&&!/relation|column|schema cache|does not exist/i.test(String(r.error.message||'')))throw r.error;
+    }
+    const rp=await c.from('legalizacao_processos').delete().in('id',pidsCancelados);
+    if(rp.error)throw rp.error;
+  }
   const {data:inspecoes,error:eInsp}=await c.from('legalizacao_inspecoes').select('id').eq('instituicao_id',inst.id);
   if(eInsp&&!/relation|column|schema cache|does not exist/i.test(String(eInsp.message||'')))throw eInsp;
   const iids=(inspecoes||[]).map(x=>x.id).filter(Boolean);
