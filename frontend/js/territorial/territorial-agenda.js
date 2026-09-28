@@ -56,14 +56,14 @@ function calendarioMes(dados){const y=referencia.getFullYear(),m=referencia.getM
 function calendarioSemana(dados){const d=inicioDia(referencia),ini=new Date(d);ini.setDate(d.getDate()-((d.getDay()+6)%7));return `<div class="gt-cal-semana">${Array.from({length:7},(_,i)=>{const x=new Date(ini);x.setDate(ini.getDate()+i);const ev=dados.filter(e=>mesmoDia(e.inicio,x));return `<section class="${mesmoDia(x,new Date())?'hoje':''}"><header><b>${x.toLocaleDateString('pt-BR',{weekday:'short'})}</b><span>${x.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})}</span></header><div>${ev.length?ev.map(eventoChip).join(''):'<small>Sem atividades</small>'}</div></section>`;}).join('')}</div>`;}
 function calendarioDia(dados){const ev=dados.filter(e=>mesmoDia(e.inicio,referencia));return `<div class="gt-cal-dia-visao">${ev.length?ev.map(e=>`<article class="gt-cal-dia-evento gt-cal-${dominio(e).toLowerCase()}"><time>${new Date(e.inicio).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</time><div><b>${esc(e.titulo)}</b><span>${esc(dominioLabel(dominio(e)))} • ${esc(TIPOS[e.tipo]||e.tipo)} • ${esc(ntesResumo(e.ntes))}</span>${e.local?`<small>${esc(e.local)}</small>`:''}</div>${badge(e.situacao)}</article>`).join(''):'<div class="gt-empty">Nenhuma atividade nesta data.</div>'}</div>`;}
 function renderCalendario(root){const box=root.querySelector('#gt-agenda-calendario');if(!box)return;const dados=dadosFiltrados(root);root.querySelector('#gta-periodo').textContent=tituloPeriodo();box.innerHTML=visao==='MES'?calendarioMes(dados):visao==='SEMANA'?calendarioSemana(dados):visao==='DIA'?calendarioDia(dados):lista({dominio:root.querySelector('#gt-agenda-filtro-dominio')?.value,tipo:root.querySelector('#gt-agenda-filtro-tipo')?.value,status:root.querySelector('#gt-agenda-filtro-status')?.value,nte:root.querySelector('#gt-agenda-filtro-nte')?.value});box.querySelectorAll('[data-cal-evento]').forEach(b=>b.addEventListener('click',()=>modalDetalhe(eventos.find(x=>String(x.id)===String(b.dataset.calEvento)))));bindAcoes(box);}
-function modalDetalhe(e){if(!e)return;document.getElementById('gt-agenda-detalhe')?.remove();const m=document.createElement('div');m.id='gt-agenda-detalhe';m.className='gt-modal-backdrop';m.innerHTML=`<div class="gt-modal gt-agenda-detail"><header><div><span>${esc(dominioLabel(dominio(e)))}</span><h2>${esc(e.titulo)}</h2><p>${esc(TIPOS[e.tipo]||e.tipo)} • ${esc(fmtData(e.inicio))}</p></div><button data-fechar>×</button></header><div class="gt-modal-body"><div class="gt-agenda-detail-grid"><div><b>Situação</b>${badge(e.situacao)}</div><div><b>NTE</b><span>${esc(ntesResumo(e.ntes))}</span></div><div><b>Local</b><span>${esc(e.local||'—')}</span></div><div><b>SEI</b><span>${esc(e.numero_sei||'—')}</span></div><div><b>Responsável</b><span>${esc(e.tecnico_nome||e.criado_por_nome||'—')}</span></div><div><b>Período</b><span>${esc(fmtData(e.inicio))} — ${esc(fmtData(e.fim))}</span></div></div>${e.objetivo?`<p><b>Objetivo:</b> ${esc(e.objetivo)}</p>`:''}${e.observacoes?`<p><b>Observações:</b> ${esc(e.observacoes)}</p>`:''}</div><footer><button data-fechar>Fechar</button></footer></div>`;document.body.appendChild(m);m.querySelectorAll('[data-fechar]').forEach(b=>b.onclick=()=>m.remove());m.onclick=x=>{if(x.target===m)m.remove();};}
+function modalDetalhe(e){if(!e)return;document.getElementById('gt-agenda-detalhe')?.remove();const m=document.createElement('div');m.id='gt-agenda-detalhe';m.className='gt-modal-backdrop';m.innerHTML=`<div class="gt-modal gt-agenda-detail"><header><div><span>${esc(dominioLabel(dominio(e)))}</span><h2>${esc(e.titulo)}</h2><p>${esc(TIPOS[e.tipo]||e.tipo)} • ${esc(fmtData(e.inicio))}</p></div><button data-fechar>×</button></header><div class="gt-modal-body"><div class="gt-agenda-detail-grid"><div><b>Situação</b>${badge(e.situacao)}</div><div><b>NTE</b><span>${esc(ntesResumo(e.ntes))}</span></div><div><b>Local</b><span>${esc(e.local||'—')}</span></div><div><b>SEI</b><span>${esc(e.numero_sei||'—')}</span></div><div><b>Responsável</b><span>${esc(e.tecnico_nome||e.criado_por_nome||'—')}</span></div><div><b>Período</b><span>${esc(fmtData(e.inicio))} — ${esc(fmtData(e.fim))}</span></div></div>${e.objetivo?`<p><b>Objetivo:</b> ${esc(e.objetivo)}</p>`:''}${e.observacoes?`<p><b>Observações:</b> ${esc(e.observacoes)}</p>`:''}</div><footer>${service()?.master?.()?`<button type="button" class="gt-primary" data-editar-detalhe="${e.id}">Editar atividade</button>`:''}<button data-fechar>Fechar</button></footer></div>`;document.body.appendChild(m);m.querySelectorAll('[data-fechar]').forEach(b=>b.onclick=()=>m.remove());m.querySelector('[data-editar-detalhe]')?.addEventListener('click',()=>{m.remove();modal(e);});m.onclick=x=>{if(x.target===m)m.remove();};}
 
 function bindLista(root){
  const aplicar=()=>renderCalendario(root);
  ['#gt-agenda-filtro-dominio','#gt-agenda-filtro-tipo','#gt-agenda-filtro-status','#gt-agenda-filtro-nte'].forEach(s=>root.querySelector(s)?.addEventListener('change',aplicar));
  root.querySelector('#gt-agenda-nova')?.addEventListener('click',()=>modal());
  root.querySelectorAll('[data-visao]').forEach(b=>b.addEventListener('click',()=>{visao=b.dataset.visao;root.querySelectorAll('[data-visao]').forEach(x=>x.classList.toggle('ativo',x.dataset.visao===visao));renderCalendario(root);}));
- root.querySelector('#gta-hoje')?.addEventListener('click',()=>{referencia=new Date();renderCalendario(root);});
+ root.querySelector('#gta-hoje')?.addEventListener('click',()=>{const jaHoje=mesmoDia(referencia,new Date());referencia=new Date();renderCalendario(root);atualizarIndicadorHoje(root);if(jaHoje&&atividadesHoje().length)modalAlertaHoje(true);});
  const mover=n=>{if(visao==='MES')referencia.setMonth(referencia.getMonth()+n);else if(visao==='SEMANA')referencia.setDate(referencia.getDate()+7*n);else referencia.setDate(referencia.getDate()+n);renderCalendario(root);};
  root.querySelector('#gta-anterior')?.addEventListener('click',()=>mover(-1));root.querySelector('#gta-proximo')?.addEventListener('click',()=>mover(1));renderCalendario(root);
 }
@@ -73,10 +73,36 @@ function bindAcoes(root){
  root.querySelectorAll('[data-ciencias]').forEach(b=>b.addEventListener('click',()=>modalCiencias(eventos.find(x=>String(x.id)===String(b.dataset.ciencias)))));
 }
 
+function atividadesHoje(){
+ const hoje=new Date();
+ return eventos.filter(e=>mesmoDia(e.inicio,hoje)&&!['CANCELADO','REALIZADO'].includes(String(e.situacao||'').toUpperCase())).sort((a,b)=>new Date(a.inicio)-new Date(b.inicio));
+}
+function chaveAlertaHoje(){const d=new Date();const p=n=>String(n).padStart(2,'0');return `sigee:gt-agenda-alerta:${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;}
+function alertaAdiado(){try{return Number(sessionStorage.getItem(chaveAlertaHoje()+':adiado')||0)>Date.now();}catch(_){return false;}}
+function marcarAlertaVisto(){try{sessionStorage.setItem(chaveAlertaHoje(),String(Date.now()));}catch(_){}}
+function alertaJaVisto(){try{return !!sessionStorage.getItem(chaveAlertaHoje());}catch(_){return false;}}
+function atualizarIndicadorHoje(root){
+ const btn=root?.querySelector('#gta-hoje');if(!btn)return;const qtd=atividadesHoje().length;
+ btn.classList.toggle('gt-hoje-com-alerta',qtd>0);btn.dataset.alertas=qtd?String(qtd):'';
+ btn.title=qtd?`${qtd} atividade(s) agendada(s) para hoje`:'Ir para hoje';
+}
+function modalAlertaHoje(forcar=false){
+ const hoje=atividadesHoje();if(!hoje.length)return;
+ if(!forcar&&(alertaJaVisto()||alertaAdiado()))return;
+ document.getElementById('gt-agenda-alerta-hoje')?.remove();marcarAlertaVisto();
+ const m=document.createElement('div');m.id='gt-agenda-alerta-hoje';m.className='gt-modal-backdrop';
+ m.innerHTML=`<div class="gt-modal gt-agenda-alerta-hoje" role="dialog" aria-modal="true" aria-labelledby="gt-alerta-hoje-titulo"><header><div><span>🔔 AGENDA INSTITUCIONAL</span><h2 id="gt-alerta-hoje-titulo">${hoje.length===1?'Atividade agendada para hoje':`${hoje.length} atividades agendadas para hoje`}</h2><p>${new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'})}</p></div><button type="button" data-fechar aria-label="Fechar">×</button></header><div class="gt-modal-body"><div class="gt-alerta-hoje-lista">${hoje.map(e=>`<article><time>${new Date(e.inicio).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</time><div><strong>${esc(e.titulo)}</strong><span>${esc(dominioLabel(dominio(e)))} • ${esc(TIPOS[e.tipo]||e.tipo)}</span><small>${esc(ntesResumo(e.ntes))}${e.local?' • '+esc(e.local):''}</small></div><button type="button" data-ver-hoje="${e.id}">Ver atividade</button></article>`).join('')}</div></div><footer><button type="button" data-lembrar>Lembrar mais tarde</button><button type="button" class="gt-primary" data-fechar>Fechar</button></footer></div>`;
+ document.body.appendChild(m);
+ m.querySelectorAll('[data-fechar]').forEach(b=>b.addEventListener('click',()=>m.remove()));
+ m.querySelector('[data-lembrar]')?.addEventListener('click',()=>{try{sessionStorage.removeItem(chaveAlertaHoje());sessionStorage.setItem(chaveAlertaHoje()+':adiado',String(Date.now()+60*60*1000));}catch(_){}m.remove();});
+ m.querySelectorAll('[data-ver-hoje]').forEach(b=>b.addEventListener('click',()=>{const ev=eventos.find(x=>String(x.id)===String(b.dataset.verHoje));m.remove();modalDetalhe(ev);}));
+ m.addEventListener('click',e=>{if(e.target===m)m.remove();});
+}
+
 async function carregar(root){
  root=root||document.querySelector('#gt-conteudo');if(!root)return;
  const area=root.querySelector('#gt-agenda-corpo');if(area)area.innerHTML='<div class="gt-empty">Carregando agenda institucional...</div>';
- try{eventos=await service().listar();ciencias=service()?.master?.()?await service().listarCiencias(eventos.map(e=>e.id)):[];render(root);}catch(e){eventos=[];ciencias=[];render(root,e);}
+ try{eventos=await service().listar();ciencias=service()?.master?.()?await service().listarCiencias(eventos.map(e=>e.id)):[];render(root);atualizarIndicadorHoje(root);setTimeout(()=>modalAlertaHoje(false),80);}catch(e){eventos=[];ciencias=[];render(root,e);}
 }
 function render(root,erro){
  root=root||document.querySelector('#gt-conteudo');if(!root)return;
@@ -122,6 +148,6 @@ function modal(ev={}){
  m.querySelector('#gta-salvar').addEventListener('click',async()=>{const btn=m.querySelector('#gta-salvar');try{btn.disabled=true;btn.textContent='Salvando...';const ini=m.querySelector('#gta-inicio').value,fim=m.querySelector('#gta-fim').value;if(!ini)throw new Error('Informe o início da atividade.');if(fim&&new Date(fim)<new Date(ini))throw new Error('A data final não pode ser anterior ao início.');const payload={id:ev.id||null,titulo:m.querySelector('#gta-titulo').value,tipo:m.querySelector('#gta-tipo').value,situacao:m.querySelector('#gta-status').value,inicio:new Date(ini).toISOString(),fim:new Date(fim||ini).toISOString(),modalidade:m.querySelector('#gta-modalidade').value,prioridade:m.querySelector('#gta-prioridade').value,local:m.querySelector('#gta-local').value,motivo:m.querySelector('#gta-motivo').value,objetivo:m.querySelector('#gta-objetivo').value,pauta:m.querySelector('#gta-pauta').value,observacoes:m.querySelector('#gta-observacoes').value,comunicar_ntes:m.querySelector('#gta-comunicar').checked,ntes:checks().filter(x=>x.checked).map(x=>Number(x.value))};await service().salvar(payload);m.remove();await carregar(document.querySelector('#gt-conteudo'));}catch(e){alert(e.message||e);btn.disabled=false;btn.textContent='Salvar atividade';}});
 }
 
-window.SIGEE_TERRITORIAL_AGENDA=Object.freeze({render,carregar,modal,versao:'GT-05.0'});
+window.SIGEE_TERRITORIAL_AGENDA=Object.freeze({render,carregar,modal,versao:'GT-05.1'});
 document.addEventListener('sigee:gt-agenda-atualizada',()=>{const box=document.querySelector('#gt-agenda-calendario');if(box)carregar(document.querySelector('#gt-conteudo'));});
 })(window,document);
