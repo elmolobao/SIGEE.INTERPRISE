@@ -437,7 +437,24 @@ function renderRegInspecoes(lista=[]){
 }
 function bindRegInspecoes(host){
   const svc=window.SIGEE_LEGALIZACAO_SERVICE;
-  host?.querySelectorAll('[data-reg-checklist-details]').forEach(details=>details.addEventListener('toggle',()=>{const label=details.querySelector('.leg-checklist-toggle-label');if(label)label.textContent=details.open?'Checklist aberto':'Abrir checklist';document.body.classList.toggle('leg-checklist-modal-open',!!host.querySelector('[data-reg-checklist-details][open]'));}));
+  host?.querySelectorAll('[data-reg-checklist-details]').forEach(details=>details.addEventListener('toggle',()=>{
+    const label=details.querySelector('.leg-checklist-toggle-label');
+    if(label)label.textContent=details.open?'Checklist aberto':'Abrir checklist';
+    if(details.open){
+      if(!details.__legPortalPlaceholder){
+        const ph=document.createComment('sigee-checklist-inspecao');
+        details.parentNode?.insertBefore(ph,details);
+        details.__legPortalPlaceholder=ph;
+      }
+      if(details.parentNode!==document.body)document.body.appendChild(details);
+      document.body.classList.add('leg-checklist-modal-open');
+    }else{
+      const ph=details.__legPortalPlaceholder;
+      if(ph?.parentNode){ph.parentNode.insertBefore(details,ph);ph.remove();}
+      details.__legPortalPlaceholder=null;
+      document.body.classList.toggle('leg-checklist-modal-open',!!document.querySelector('[data-reg-checklist-details][open]'));
+    }
+  }));
   host?.querySelectorAll('[data-reg-fechar-checklist]').forEach(btn=>btn.addEventListener('click',()=>{const d=btn.closest('[data-reg-checklist-details]');if(d)d.open=false;}));
   host?.querySelectorAll('[data-reg-agendar]').forEach(btn=>btn.addEventListener('click',async()=>{const r=btn.closest('[data-reg-inspecao-id]'),d=r?.querySelector('[data-reg-inspecao-data]')?.value;if(!d){alert('Informe a data da inspeção.');return;}btn.disabled=true;try{await svc.agendarInspecao(r.dataset.regInspecaoId,d);await carregarRegulatorio('inspecao',true);}catch(err){alert(err.message||err);btn.disabled=false;}}));
   host?.querySelectorAll('[data-reg-reagendar]').forEach(btn=>btn.addEventListener('click',()=>{const r=btn.closest('[data-reg-inspecao-id]'),form=r?.querySelector('[data-reg-reagendamento-form]');if(form){form.classList.remove('hidden');btn.classList.add('hidden');}}));
