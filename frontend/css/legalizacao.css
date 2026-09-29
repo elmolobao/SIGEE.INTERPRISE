@@ -407,3 +407,29 @@ html body > details.leg-inspecao-checklist-details[open] .leg-relatorio-box {
     padding: 14px 12px 8px !important;
   }
 }
+
+
+/* M1.10.9 — Alteração Cadastral: checklist no mesmo padrão modal da Inspeção */
+html body > details.leg-alt-checklist-modal[open] .leg-checklist-details-body{
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  overscroll-behavior:contain;
+  padding:0 22px 30px!important;
+}
+html body > details.leg-alt-checklist-modal[open] .leg-inspecao-sticky{
+  position:sticky!important;
+  top:0!important;
+  z-index:5!important;
+  background:#fff!important;
+  padding:0 0 12px!important;
+}
+html body > details.leg-alt-checklist-modal[open] .leg-inspecao-modal-head{
+  margin:0 -22px 10px!important;
+  padding:18px 22px 12px!important;
+  background:#fff!important;
+}
+html body > details.leg-alt-checklist-modal[open] .leg-checklist{
+  padding-bottom:24px!important;
+}
+.leg-alt-card > .leg-alt-checklist-modal{display:none;}
+.leg-alt-sei-box{align-self:start;}
