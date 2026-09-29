@@ -617,83 +617,86 @@ function bindProntuarioOfertas(){const btn=$('#leg-adicionar-oferta-cred'),form=
 function preencherMunicipiosMantenedoraCredenciamento(nte,selecionado=''){const sel=$('#leg-cred-mantenedora-municipio');if(!sel)return;const lista=municipiosDoNte(nte),atual=String(selecionado||'').trim();sel.innerHTML='<option value="">Selecione o município</option>'+lista.map(x=>`<option value="${esc(x.municipio)}" ${String(x.municipio)===atual?'selected':''}>${esc(x.municipio)}</option>`).join('');sel.disabled=!lista.length;if(!lista.length)sel.innerHTML='<option value="">Nenhum município disponível para o NTE</option>'; }
 function fecharFormCredenciamento(){const f=$('#leg-form-novo-credenciamento');if(!f)return;f.classList.add('hidden');f.reset();const hid=$('#leg-cred-instituicao-id');if(hid)hid.value='';const ms=$('#leg-cred-mantenedora-municipio');if(ms){ms.innerHTML='<option value="">Selecione primeiro a instituição</option>';ms.disabled=true;}const r=$('#leg-cred-inst-resultados');if(r){r.innerHTML='';r.classList.add('hidden');}const st=$('#leg-cred-form-status');if(st)st.textContent='Selecione a instituição e informe o Processo SEI.';}
 async function abrirFormCredenciamento(){const f=$('#leg-form-novo-credenciamento');if(!f)return;f.classList.remove('hidden');$('#leg-cred-inst-busca')?.focus();}
+let legAltChecklistDelegado=false;
+function bindAlteracaoChecklistPadrao(){
+  if(legAltChecklistDelegado)return;legAltChecklistDelegado=true;
+  document.addEventListener('click',async e=>{
+    const abrir=e.target.closest('[data-alt-abrir-checklist]');
+    if(abrir){
+      e.preventDefault();
+      const id=String(abrir.dataset.altAbrirChecklist||''),d=document.querySelector(`[data-alt-checklist-details="${CSS.escape(id)}"]`);
+      if(!d)return;
+      d.open=true;document.body.classList.add('leg-checklist-modal-open');return;
+    }
+    const fechar=e.target.closest('[data-alt-fechar-checklist]');
+    if(fechar){
+      e.preventDefault();
+      const d=fechar.closest('[data-alt-checklist-details]');if(d)d.open=false;
+      document.body.classList.toggle('leg-checklist-modal-open',!!document.querySelector('[data-alt-checklist-details][open]'));return;
+    }
+    const salvar=e.target.closest('[data-alt-checklist-details] [data-check-save]');
+    if(salvar){
+      e.preventDefault();
+      const r=salvar.closest('[data-check-id]'),d=salvar.closest('[data-alt-checklist-details]');if(!r||!d)return;
+      const original=salvar.textContent,scroll=d.querySelector('.leg-checklist-details-body')?.scrollTop||0;
+      salvar.disabled=true;salvar.textContent='Salvando…';
+      try{
+        await window.SIGEE_LEGALIZACAO_SERVICE.atualizarChecklist(r.dataset.checkId,{status:r.querySelector('[data-check-status]')?.value,observacao:r.querySelector('[data-check-obs]')?.value||''});
+        const rows=[...d.querySelectorAll('[data-check-id]')],total=rows.length,
+          ok=rows.filter(x=>['APRESENTADO','CONFORME','NAO_SE_APLICA'].includes(upper(x.querySelector('[data-check-status]')?.value))).length,
+          pct=total?Math.round(ok*100/total):0,pend=Math.max(0,total-ok),p=d.querySelector('[data-alt-checklist-progress]');
+        if(p){p.querySelector('strong').textContent=pct+'%';p.querySelector('span').textContent=`${ok} de ${total} itens concluídos`;p.querySelector('.leg-progress-track i').style.width=pct+'%';p.querySelector('small').textContent=`${pend} item(ns) pendente(s)`;}
+        const trigger=document.querySelector(`[data-alt-abrir-checklist="${CSS.escape(String(d.dataset.altChecklistDetails))}"]`);
+        if(trigger)trigger.textContent=`Checklist · ${ok}/${total}`;
+        const sei=d.querySelector('[data-alt-sei-area]');if(sei)sei.classList.toggle('leg-disabled-section',ok<total);
+        salvar.textContent='Salvo';setTimeout(()=>{if(salvar.isConnected){salvar.textContent=original;salvar.disabled=false;}},600);
+        requestAnimationFrame(()=>{const body=d.querySelector('.leg-checklist-details-body');if(body)body.scrollTop=scroll;});
+      }catch(err){alert('Falha ao salvar item: '+(err.message||err));salvar.textContent=original;salvar.disabled=false;}
+      return;
+    }
+    const reg=e.target.closest('[data-alt-registrar-sei]');
+    if(reg){
+      e.preventDefault();
+      const d=reg.closest('[data-alt-checklist-details]'),numero_sei=d?.querySelector('[data-alt-sei]')?.value,data_protocolo=d?.querySelector('[data-alt-data]')?.value;
+      const rows=[...(d?.querySelectorAll('[data-check-id]')||[])],ok=rows.filter(x=>['APRESENTADO','CONFORME','NAO_SE_APLICA'].includes(upper(x.querySelector('[data-check-status]')?.value))).length;
+      if(rows.length&&ok<rows.length){alert('Conclua os itens obrigatórios do checklist antes de registrar o Processo SEI.');return;}
+      reg.disabled=true;
+      try{
+        const p=await window.SIGEE_LEGALIZACAO_SERVICE.registrarProcessoSeiAlteracao(reg.dataset.altRegistrarSei,{numero_sei,data_protocolo});
+        d.open=false;document.body.classList.remove('leg-checklist-modal-open');regTabsCarregadas.delete('alteracao');await carregarRegulatorio('alteracao',true);
+        alert(upper(p.subtipo)==='ENDERECO'?'Processo SEI registrado. A inspeção no novo endereço foi liberada.':'Processo SEI registrado. Procedimento encaminhado para Aguardando Publicação.');
+      }catch(err){alert('Não foi possível registrar o SEI: '+(err.message||err));}finally{reg.disabled=false;}
+    }
+  });
+}
 function renderRegAlteracoes(lista){
-  const host=$('#legalizacao-reg-alteracao');if(!host)return;
+  const host=$('#legalizacao-reg-alteracao');if(!host)return;bindAlteracaoChecklistPadrao();
   host.innerHTML=lista.length?lista.map(x=>{
     const subt=upper(x.subtipo),endereco=subt==='ENDERECO',itens=x.checklist||[],rs=resumoChecklist(itens),dados=x.dados_alteracao||{},
       rotulo={ENDERECO:'Mudança de endereço',DENOMINACAO:'Mudança de denominação',MANTENEDORA:'Mudança de mantenedor'}[subt]||subt,
       resumo=subt==='DENOMINACAO'?`${esc(dados.denominacao_anterior||x.instituicao?.nome_instituicao||'—')} → ${esc(dados.denominacao_nova||'—')}`:
         subt==='MANTENEDORA'?`${esc(dados.mantenedora_razao_social_anterior||'Mantenedora atual')} → ${esc(dados.mantenedora_razao_social_nova||'—')}`:
         [dados.logradouro_novo,dados.numero_novo,dados.municipio_novo].filter(Boolean).map(esc).join(', '),
-      tituloChecklist=`Checklist documental — ${rotulo}`,
-      checklist=`<details class="leg-inspecao-checklist-details leg-alt-checklist-modal" data-alt-checklist-details="${esc(x.id)}">
-        <summary><span>Abrir checklist</span><small>${rs.ok} de ${rs.total} · ${rs.pct}%</small></summary>
-        <div class="leg-checklist-details-body">
-          <div class="leg-inspecao-sticky">
-            <div class="leg-inspecao-modal-head">
-              <div><small>ALTERAÇÃO CADASTRAL</small><strong>${esc(tituloChecklist)}</strong><span>${esc(x.instituicao?.nome_instituicao||'Instituição')} · ${esc(rotulo)}</span></div>
-              <button type="button" class="leg-btn" data-alt-fechar-checklist>Fechar</button>
-            </div>
-            <div class="leg-progress" data-alt-checklist-progress>
-              <div><strong>${rs.pct}%</strong><span>${rs.ok} de ${rs.total} itens concluídos</span></div>
-              <div class="leg-progress-track"><i style="width:${rs.pct}%"></i></div>
-              <small>${rs.pend} item(ns) pendente(s)</small>
-            </div>
-          </div>
-          <div class="leg-checklist"><section>
-            <p class="leg-help">${endereco?'Conclua a documentação. Após o registro do Processo SEI, o procedimento seguirá para inspeção no novo endereço.':'Conclua a documentação. Após o registro do Processo SEI, o procedimento seguirá para Aguardando Publicação, sem inspeção.'}</p>
-            ${itens.map(renderChecklistItem).join('')}
-          </section></div>
-        </div>
-      </details>`;
+      sei=x.numero_sei?`<div class="leg-callout compact"><div><strong>Processo SEI ${esc(x.numero_sei)}</strong><p>${endereco?'Procedimento segue para inspeção no novo endereço.':'Procedimento segue para publicação do ato.'}</p></div></div>`:
+        `<section class="leg-checklist-sei ${rs.ok<rs.total?'leg-disabled-section':''}" data-alt-sei-area>
+          <div class="leg-oferta-config-head"><div><strong>Processo SEI</strong><span>Disponível após a conclusão dos itens obrigatórios do checklist.</span></div></div>
+          <div class="leg-operacional-grid"><label>Processo SEI *<input data-alt-sei placeholder="00000.000000/0000-00"></label><label>Data do protocolo *<input data-alt-data type="date"></label></div>
+          <button type="button" class="leg-btn primary" data-alt-registrar-sei="${esc(x.id)}">Registrar SEI e avançar</button>
+        </section>`;
     return `<article class="leg-inst-card leg-alt-card" data-alt-processo="${esc(x.id)}">
       <div class="leg-inst-main"><div class="leg-inst-icon">✎</div><div><h3>${esc(x.instituicao?.nome_instituicao||'Instituição')}</h3><p>${esc(rotulo)} · NTE ${esc(x.nte_id||x.instituicao?.nte_id||'—')}</p><small>${resumo||'Alteração cadastrada'} · ${x.numero_sei?'SEI '+esc(x.numero_sei):'SEI aguardando conclusão do checklist'}</small></div></div>
       <div class="leg-inst-meta"><span class="leg-badge info">${esc(x.etapa_atual||x.status||'EM ANDAMENTO')}</span><button type="button" class="leg-link" data-alt-abrir-checklist="${esc(x.id)}">Checklist · ${rs.ok}/${rs.total}</button><button type="button" class="leg-link" data-alt-prontuario="${esc(x.instituicao_id)}">Abrir prontuário</button></div>
-      <div class="leg-subcard span-2 leg-alt-sei-box"><h4>Processo SEI</h4><p class="leg-help">O Processo SEI é registrado após a conclusão documental.</p>
-      ${!x.numero_sei?`<div class="leg-operacional-grid"><label>Processo SEI *<input data-alt-sei placeholder="00000.000000/0000-00"></label><label>Data do protocolo *<input data-alt-data type="date"></label></div><button type="button" class="leg-btn primary" data-alt-registrar-sei="${esc(x.id)}">Registrar SEI e avançar</button>`:`<div class="leg-callout compact"><div><strong>Processo SEI ${esc(x.numero_sei)}</strong><p>${endereco?'Aguardando/seguindo o rito de inspeção do novo endereço.':'Documentação instruída; procedimento segue para publicação do ato.'}</p></div></div>`}</div>
-      ${checklist}
+      <details class="leg-inspecao-checklist-details leg-alt-checklist-modal" data-alt-checklist-details="${esc(x.id)}">
+        <summary>Abrir checklist</summary>
+        <div class="leg-checklist-details-body">
+          <div class="leg-inspecao-sticky"><div class="leg-inspecao-modal-head"><div><small>ALTERAÇÃO CADASTRAL</small><strong>Checklist documental — ${esc(rotulo)}</strong><span>${esc(x.instituicao?.nome_instituicao||'Instituição')} · ${esc(rotulo)}</span></div><button type="button" class="leg-btn" data-alt-fechar-checklist>Fechar</button></div>
+          <div class="leg-progress" data-alt-checklist-progress><div><strong>${rs.pct}%</strong><span>${rs.ok} de ${rs.total} itens concluídos</span></div><div class="leg-progress-track"><i style="width:${rs.pct}%"></i></div><small>${rs.pend} item(ns) pendente(s)</small></div></div>
+          <div class="leg-checklist"><section><p class="leg-help">${endereco?'Conclua a documentação. Após o Processo SEI, o procedimento seguirá para inspeção no novo endereço.':'Conclua a documentação. Após o Processo SEI, o procedimento seguirá para Aguardando Publicação, sem inspeção.'}</p>${itens.map(renderChecklistItem).join('')}</section>${sei}</div>
+        </div>
+      </details>
     </article>`;
   }).join(''):'<div class="leg-empty"><strong>Nenhuma alteração cadastral operacional registrada.</strong><span>As mudanças formais serão acompanhadas nesta área.</span></div>';
-
   host.querySelectorAll('[data-alt-prontuario]').forEach(b=>b.addEventListener('click',()=>abrirProntuario(b.dataset.altProntuario)));
-
-  const fecharModal=d=>{
-    if(!d)return;
-    d.open=false;
-    const ph=d.__altPortalPlaceholder;
-    if(ph?.parentNode){ph.parentNode.insertBefore(d,ph);ph.remove();}
-    d.__altPortalPlaceholder=null;
-    document.body.classList.toggle('leg-checklist-modal-open',!!document.querySelector('body > details.leg-inspecao-checklist-details[open]'));
-  };
-  host.querySelectorAll('[data-alt-abrir-checklist]').forEach(b=>b.addEventListener('click',()=>{
-    const d=host.querySelector(`[data-alt-checklist-details="${CSS.escape(String(b.dataset.altAbrirChecklist))}"]`);
-    if(!d)return;
-    if(d.parentElement!==document.body){
-      const ph=document.createComment('sigee-checklist-alteracao');
-      d.parentNode.insertBefore(ph,d);d.__altPortalPlaceholder=ph;document.body.appendChild(d);
-    }
-    d.open=true;document.body.classList.add('leg-checklist-modal-open');
-  }));
-  document.querySelectorAll('body > [data-alt-checklist-details] [data-alt-fechar-checklist]').forEach(b=>b.addEventListener('click',()=>fecharModal(b.closest('[data-alt-checklist-details]'))));
-
-  document.querySelectorAll('body > [data-alt-checklist-details] [data-check-save]').forEach(btn=>btn.addEventListener('click',async()=>{
-    const r=btn.closest('[data-check-id]'),details=btn.closest('[data-alt-checklist-details]');
-    btn.disabled=true;const original=btn.textContent;btn.textContent='Salvando…';
-    try{
-      await window.SIGEE_LEGALIZACAO_SERVICE.atualizarChecklist(r.dataset.checkId,{status:r.querySelector('[data-check-status]').value,observacao:r.querySelector('[data-check-obs]').value});
-      const rows=[...details.querySelectorAll('[data-check-id]')],total=rows.length,
-        ok=rows.filter(x=>['APRESENTADO','CONFORME','NAO_SE_APLICA'].includes(upper(x.querySelector('[data-check-status]')?.value))).length,
-        pct=total?Math.round(ok*100/total):0,pend=Math.max(0,total-ok),p=details.querySelector('[data-alt-checklist-progress]');
-      if(p){p.querySelector('strong').textContent=pct+'%';p.querySelector('span').textContent=`${ok} de ${total} itens concluídos`;p.querySelector('.leg-progress-track i').style.width=pct+'%';p.querySelector('small').textContent=`${pend} item(ns) pendente(s)`;}
-      const id=details.dataset.altChecklistDetails,trigger=document.querySelector(`[data-alt-abrir-checklist="${CSS.escape(String(id))}"]`);if(trigger)trigger.textContent=`Checklist · ${ok}/${total}`;
-      btn.textContent='Salvo';setTimeout(()=>{if(btn.isConnected){btn.textContent=original;btn.disabled=false;}},650);
-    }catch(err){alert('Falha ao salvar item: '+(err.message||err));btn.textContent=original;btn.disabled=false;}
-  }));
-
-  host.querySelectorAll('[data-alt-registrar-sei]').forEach(btn=>btn.addEventListener('click',async()=>{
-    const card=btn.closest('[data-alt-processo]'),numero_sei=card.querySelector('[data-alt-sei]')?.value,data_protocolo=card.querySelector('[data-alt-data]')?.value;
-    btn.disabled=true;try{const p=await window.SIGEE_LEGALIZACAO_SERVICE.registrarProcessoSeiAlteracao(btn.dataset.altRegistrarSei,{numero_sei,data_protocolo});regTabsCarregadas.delete('alteracao');await carregarRegulatorio('alteracao',true);alert(upper(p.subtipo)==='ENDERECO'?'Processo SEI registrado. A inspeção no novo endereço foi liberada.':'Processo SEI registrado. Procedimento encaminhado para Aguardando Publicação.');}catch(err){alert('Não foi possível registrar o SEI: '+(err.message||err));}finally{btn.disabled=false;}
-  }));
 }
 function configurarNovoCredenciamento(){const abrirBtn=$('#leg-novo-credenciamento'),cancelar=$('#leg-cancelar-credenciamento'),form=$('#leg-form-novo-credenciamento'),busca=$('#leg-cred-inst-busca'),resultados=$('#leg-cred-inst-resultados'),hid=$('#leg-cred-instituicao-id'),status=$('#leg-cred-form-status');if(abrirBtn&&!abrirBtn.dataset.bound){abrirBtn.dataset.bound='1';abrirBtn.addEventListener('click',()=>{form?.classList.contains('hidden')?abrirFormCredenciamento():fecharFormCredenciamento();});}if(cancelar&&!cancelar.dataset.bound){cancelar.dataset.bound='1';cancelar.addEventListener('click',fecharFormCredenciamento);}let timer=0;if(busca&&!busca.dataset.bound){busca.dataset.bound='1';busca.addEventListener('input',()=>{if(hid)hid.value='';clearTimeout(timer);const q=busca.value.trim();if(q.length<3){resultados?.classList.add('hidden');return;}timer=setTimeout(async()=>{try{if(status)status.textContent='Localizando instituições…';const r=await window.SIGEE_LEGALIZACAO_SERVICE.consultarInstituicoes({busca:q,page:1,pageSize:12});const itens=deduplicarInstituicoes(r.items||[]);if(!resultados)return;resultados.innerHTML=itens.length?itens.map(i=>`<button type="button" data-cred-inst="${esc(i.prontuario_id||i.id)}" data-cred-nome="${esc(i.nome_instituicao||'')}" data-cred-nte="${esc(i.nte_id||'')}"><strong>${esc(i.nome_instituicao||'Instituição')}</strong><small>${esc(i.municipio||'Município não informado')} · NTE ${esc(i.nte_id||'—')}${i.cod_inep?` · INEP ${esc(i.cod_inep)}`:''}</small></button>`).join(''):'<div class="leg-empty compact"><strong>Nenhuma instituição localizada.</strong></div>';resultados.classList.remove('hidden');resultados.querySelectorAll('[data-cred-inst]').forEach(b=>b.addEventListener('click',()=>{if(hid)hid.value=b.dataset.credInst;busca.value=b.dataset.credNome||'';preencherMunicipiosMantenedoraCredenciamento(b.dataset.credNte||'');resultados.classList.add('hidden');if(status)status.textContent='Instituição selecionada. O procedimento iniciará pelo checklist documental.';}));}catch(err){if(status)status.textContent='Falha ao localizar instituição: '+(err.message||err);}},300);});}if(form&&!form.dataset.bound){form.dataset.bound='1';form.addEventListener('submit',async e=>{e.preventDefault();const fd=new FormData(form),payload=Object.fromEntries(fd.entries());const iid=Number(payload.instituicao_id);if(!iid){alert('Selecione uma instituição na lista de resultados.');return;}const btn=form.querySelector('[type="submit"]');btn.disabled=true;if(status)status.textContent='Abrindo procedimento regulatório…';try{await window.SIGEE_LEGALIZACAO_SERVICE.iniciarCredenciamento(iid,payload);fecharFormCredenciamento();regTabsCarregadas.delete('credenciamento');atosControleCache=null;await carregarRegulatorio('credenciamento',true);await carregar(paginaVisao,true,true);if(confirm('Procedimento aberto com sucesso. Deseja abrir o prontuário da instituição?'))await abrirProntuario(iid);}catch(err){if(status)status.textContent='Não foi possível abrir o procedimento.';alert('Não foi possível iniciar o procedimento: '+(err.message||err));}finally{btn.disabled=false;}});}}
 function fecharFormOferta(){const f=$('#leg-form-nova-oferta');if(!f)return;f.classList.add('hidden');f.reset();const hid=$('#leg-oferta-instituicao-id');if(hid)hid.value='';const r=$('#leg-oferta-inst-resultados');if(r){r.innerHTML='';r.classList.add('hidden');}const st=$('#leg-oferta-form-status');if(st)st.textContent='Selecione a instituição, o procedimento e ao menos uma oferta.';}
