@@ -625,3 +625,12 @@ function abrir(areaInicial='visao'){if(!allowed()){alert('Seu usuário não poss
 function init(){$('#btn-legalizacao-nova')?.addEventListener('click',localizarNoCatalogo);$('#leg-nova-instituicao')?.addEventListener('click',abrirNova);$('#btn-legalizacao-atualizar')?.addEventListener('click',()=>{carregar(paginaVisao,true,true);const area=$$('.leg-area').find(x=>!x.classList.contains('hidden'))?.dataset.area;if(area&&area!=='visao'){if(area==='pendencias'){if(CENTRAL_PENDENCIAS_ATIVA)carregarPendenciasRegulatorias(true);}else if(area==='regulatorio')carregarRegulatorio(null,true);else carregarAreaEspecial(area);}});let timer=0;$('#legalizacao-busca')?.addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(()=>carregar(1,false),350);});$('#legalizacao-tipo')?.addEventListener('change',()=>carregar(1,false));let t2=0;$('#legalizacao-inst-busca')?.addEventListener('input',()=>{clearTimeout(t2);t2=setTimeout(()=>carregarInstituicoesArea(1),350);});$('#legalizacao-inst-tipo')?.addEventListener('change',()=>carregarInstituicoesArea(1));$('#legalizacao-inst-situacao')?.addEventListener('change',()=>carregarInstituicoesArea(1));['#leg-pend-nte','#leg-pend-municipio','#leg-pend-rede','#leg-pend-situacao','#leg-pend-nivel','#leg-pend-tipo'].forEach(sel=>$(sel)?.addEventListener('change',()=>{paginaPendencias=1;renderPendenciasRegulatorias();}));let tp=0;$('#leg-pend-busca')?.addEventListener('input',()=>{clearTimeout(tp);tp=setTimeout(()=>{paginaPendencias=1;renderPendenciasRegulatorias();},250);});bindRegTabs();configurarNovoCredenciamento();configurarNovoProcedimentoOferta();configurarNovaAlteracao();configurarNovoDescredenciamento();configurarInspecoesExcepcionais();configurarImportacaoAtos();}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();window.SIGEE_LEGALIZACAO=Object.freeze({abrir,carregar,abrirNova,abrirProntuario,switchArea,carregarRegulatorio});
 })(window,document);
+
+/* SIGEE · carregamento isolado do domínio Diário Oficial. */
+(function(){
+  if(window.SIGEE_LEGALIZACAO_DOE||document.querySelector('script[data-sigee-doe-module]'))return;
+  const s=document.createElement('script');
+  s.src='js/legalizacao/diario-oficial/diario-oficial.service.js?v=20260929-estavel1';
+  s.dataset.sigeeDoeModule='1';
+  document.head.appendChild(s);
+})();
