@@ -512,6 +512,18 @@ async function carregarAtosImportados(){
   }
 }
 
+async function listarFilaAguardandoPublicacao(){
+  const svc=window.SIGEE_LEGALIZACAO_SERVICE;if(!svc)return[];
+  const [base,alteracoes]=await Promise.all([
+    svc.listarProcedimentosAguardandoPublicacao?svc.listarProcedimentosAguardandoPublicacao():[],
+    svc.listarAlteracoesCadastrais?svc.listarAlteracoesCadastrais():[]
+  ]);
+  const mapa=new Map();
+  [...(base||[]),...(alteracoes||[])].forEach(p=>{
+    if(upper(p.etapa_atual)==='AGUARDANDO_PUBLICACAO'&&upper(p.status)!=='CONCLUIDO')mapa.set(String(p.id),p);
+  });
+  return [...mapa.values()].sort((a,b)=>String(b.updated_at||'').localeCompare(String(a.updated_at||'')));
+}
 async function carregarContadoresRegulatorios(){
   const svc=window.SIGEE_LEGALIZACAO_SERVICE;if(!svc)return;
   const encerrado=p=>processoEncerrado(p);
@@ -521,9 +533,9 @@ async function carregarContadoresRegulatorios(){
     ['ofertas',async()=>{const l=await svc.listarProcessosOfertaRegulatorios();return (l||[]).filter(p=>!encerrado(p)).length;}],
     ['inspecao',async()=>{const l=await svc.listarInspecoesRegulatorias();return (l||[]).filter(x=>!['CONCLUIDA','CANCELADA'].includes(upper(x.status))&&!encerrado(x.processo)&&!['AGUARDANDO_PUBLICACAO','PUBLICADO','CREDENCIAMENTO_CONCLUIDO'].includes(upper(x.processo?.etapa_atual))).length;}],
     ['carimbos',async()=>{const l=await svc.listarCarimbosRegulatorios();return (l||[]).length;}],
-    ['alteracao',async()=>{const l=await svc.listarAlteracoesCadastrais();return (l||[]).filter(p=>!encerrado(p)).length;}],
+    ['alteracao',async()=>{const l=await svc.listarAlteracoesCadastrais();return (l||[]).filter(p=>!encerrado(p)&&upper(p.etapa_atual)!=='AGUARDANDO_PUBLICACAO').length;}],
     ['descredenciamento',async()=>{const l=await svc.listarDescredenciamentosRegulatorios();return (l||[]).filter(p=>!encerrado(p)).length;}],
-    ['aguardandopublicacao',async()=>{const l=svc.listarProcedimentosAguardandoPublicacao?await svc.listarProcedimentosAguardandoPublicacao():[];return (l||[]).filter(p=>upper(p.etapa_atual)==='AGUARDANDO_PUBLICACAO'&&!encerrado(p)).length;}],
+    ['aguardandopublicacao',async()=>{const l=await listarFilaAguardandoPublicacao();return (l||[]).filter(p=>!encerrado(p)).length;}],
     ['atoslegais',async()=>{if(!podeGerirDoe()||!svc.resumoImportacaoAtos)return 0;const r=await svc.resumoImportacaoAtos();return Number(r?.total||0);}],
   ];
   await Promise.all(tarefas.map(async([tab,fn])=>{try{setRegCount(tab,await fn());}catch(e){console.warn('[Legalização] contador automático indisponível:',tab,e?.message||e);}}));
@@ -531,7 +543,7 @@ async function carregarContadoresRegulatorios(){
 async function carregarRegulatorio(tab=null,force=false){
   const svc=window.SIGEE_LEGALIZACAO_SERVICE;
   tab=tab||$$('[data-reg-tab].active')[0]?.dataset.regTab||'credenciamento';
-  if(tab==='atos'){await carregarAtosImportados();return;}if(tab==='aguardandopublicacao'){const host=$('#legalizacao-reg-aguardando-publicacao');if(!host)return;host.innerHTML='<div class="leg-loading">Carregando procedimentos aguardando publicação…</div>';try{const processos=svc.listarProcedimentosAguardandoPublicacao?await svc.listarProcedimentosAguardandoPublicacao():await svc.listarProcessosRegulatorios();const pendentes=(processos||[]).filter(p=>upper(p.etapa_atual)==='AGUARDANDO_PUBLICACAO'&&upper(p.status)!=='CONCLUIDO');setRegCount('aguardandopublicacao',pendentes.length);host.innerHTML=pendentes.length?`<div class="leg-subcard"><h4>Aguardando publicação no Diário Oficial</h4><p class="leg-help">Esta fila recebe os procedimentos com providências regulatórias e requisito de acervo aplicável concluídos. A extinção/descredenciamento somente se consolida após importar, conferir e vincular a publicação do Diário Oficial ao processo.</p><div class="leg-simple-list">${pendentes.map(p=>`<article><div><strong>${esc(p.instituicao?.nome_instituicao||'Instituição')}</strong><span>${esc(subtipoProcessoLabel(p))}</span><small>Processo SEI ${esc(p.numero_sei||'—')} · aguardando DOE</small></div><span class="leg-badge info">AGUARDANDO PUBLICAÇÃO</span></article>`).join('')}</div></div>`:'<div class="leg-empty compact"><strong>Nenhum procedimento aguardando publicação.</strong><span>Após a confirmação do DOE, o procedimento é encerrado e deixa automaticamente esta área.</span></div>';}catch(err){host.innerHTML=`<div class="leg-empty danger"><strong>Falha ao carregar Aguardando Publicação.</strong><span>${esc(err.message||err)}</span></div>`;}return;}if(tab==='atoslegais'){if(podeGerirDoe())await carregarAtosImportados();return;}
+  if(tab==='atos'){await carregarAtosImportados();return;}if(tab==='aguardandopublicacao'){const host=$('#legalizacao-reg-aguardando-publicacao');if(!host)return;host.innerHTML='<div class="leg-loading">Carregando procedimentos aguardando publicação…</div>';try{const processos=await listarFilaAguardandoPublicacao();const pendentes=(processos||[]).filter(p=>upper(p.etapa_atual)==='AGUARDANDO_PUBLICACAO'&&upper(p.status)!=='CONCLUIDO');setRegCount('aguardandopublicacao',pendentes.length);host.innerHTML=pendentes.length?`<div class="leg-subcard"><h4>Aguardando publicação no Diário Oficial</h4><p class="leg-help">Esta fila recebe os procedimentos com providências regulatórias e requisito de acervo aplicável concluídos. A extinção/descredenciamento somente se consolida após importar, conferir e vincular a publicação do Diário Oficial ao processo.</p><div class="leg-simple-list">${pendentes.map(p=>`<article><div><strong>${esc(p.instituicao?.nome_instituicao||'Instituição')}</strong><span>${esc(subtipoProcessoLabel(p))}</span><small>Processo SEI ${esc(p.numero_sei||'—')} · aguardando DOE</small></div><span class="leg-badge info">AGUARDANDO PUBLICAÇÃO</span></article>`).join('')}</div></div>`:'<div class="leg-empty compact"><strong>Nenhum procedimento aguardando publicação.</strong><span>Após a confirmação do DOE, o procedimento é encerrado e deixa automaticamente esta área.</span></div>';}catch(err){host.innerHTML=`<div class="leg-empty danger"><strong>Falha ao carregar Aguardando Publicação.</strong><span>${esc(err.message||err)}</span></div>`;}return;}if(tab==='atoslegais'){if(podeGerirDoe())await carregarAtosImportados();return;}
   if(force){regTabsCarregadas.delete(tab);atosControleCache=null;}
   if(regTabsCarregadas.has(tab)&&!force)return;
   const hosts={credenciamento:'#legalizacao-reg-processos',ofertas:'#legalizacao-reg-ofertas',inspecao:'#legalizacao-reg-inspecoes',carimbos:'#legalizacao-reg-carimbos',alteracao:'#legalizacao-reg-alteracao',descredenciamento:'#legalizacao-reg-descredenciamento'};
@@ -577,7 +589,8 @@ async function carregarRegulatorio(tab=null,force=false){
     }else if(tab==='alteracao'){
       if(typeof svc.listarAlteracoesCadastrais!=='function')throw new Error('Serviço de Alteração Cadastral indisponível.');
       const lista=await svc.listarAlteracoesCadastrais();
-      renderRegAlteracoes(lista||[]);setRegCount('alteracao',(lista||[]).filter(p=>!processoEncerrado(p)).length);
+      const ativas=(lista||[]).filter(p=>!processoEncerrado(p)&&upper(p.etapa_atual)!=='AGUARDANDO_PUBLICACAO');
+      renderRegAlteracoes(ativas);setRegCount('alteracao',ativas.length);
     }else if(tab==='descredenciamento'){
       if(typeof svc.listarDescredenciamentosRegulatorios!=='function')throw new Error('Serviço de Descredenciamento indisponível.');
       const lista=await svc.listarDescredenciamentosRegulatorios();
@@ -673,7 +686,7 @@ function bindAlteracaoChecklistPadrao(){
       reg.disabled=true;
       try{
         const p=await window.SIGEE_LEGALIZACAO_SERVICE.registrarProcessoSeiAlteracao(reg.dataset.altRegistrarSei,{numero_sei,data_protocolo});
-        d.open=false;const ph=d.__altPortalPlaceholder;if(ph?.parentNode){ph.parentNode.insertBefore(d,ph);ph.remove();}d.__altPortalPlaceholder=null;document.body.classList.remove('leg-checklist-modal-open');regTabsCarregadas.delete('alteracao');await carregarRegulatorio('alteracao',true);
+        d.open=false;const ph=d.__altPortalPlaceholder;if(ph?.parentNode){ph.parentNode.insertBefore(d,ph);ph.remove();}d.__altPortalPlaceholder=null;document.body.classList.remove('leg-checklist-modal-open');regTabsCarregadas.delete('alteracao');regTabsCarregadas.delete('aguardandopublicacao');await carregarRegulatorio('alteracao',true);await carregarContadoresRegulatorios();
         alert(upper(p.subtipo)==='ENDERECO'?'Processo SEI registrado. A inspeção no novo endereço foi liberada.':'Processo SEI registrado. Procedimento encaminhado para Aguardando Publicação.');
       }catch(err){alert('Não foi possível registrar o SEI: '+(err.message||err));}finally{reg.disabled=false;}
     }
