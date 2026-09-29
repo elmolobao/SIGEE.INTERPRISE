@@ -626,13 +626,23 @@ function bindAlteracaoChecklistPadrao(){
       e.preventDefault();
       const id=String(abrir.dataset.altAbrirChecklist||''),d=document.querySelector(`[data-alt-checklist-details="${CSS.escape(id)}"]`);
       if(!d)return;
+      if(d.parentElement!==document.body){
+        const ph=document.createComment('sigee-alt-checklist-placeholder');
+        d.parentNode.insertBefore(ph,d);d.__altPortalPlaceholder=ph;document.body.appendChild(d);
+      }
       d.open=true;document.body.classList.add('leg-checklist-modal-open');return;
     }
     const fechar=e.target.closest('[data-alt-fechar-checklist]');
     if(fechar){
       e.preventDefault();
-      const d=fechar.closest('[data-alt-checklist-details]');if(d)d.open=false;
-      document.body.classList.toggle('leg-checklist-modal-open',!!document.querySelector('[data-alt-checklist-details][open]'));return;
+      const d=fechar.closest('[data-alt-checklist-details]');
+      if(d){
+        d.open=false;
+        const ph=d.__altPortalPlaceholder;
+        if(ph?.parentNode){ph.parentNode.insertBefore(d,ph);ph.remove();}
+        d.__altPortalPlaceholder=null;
+      }
+      document.body.classList.toggle('leg-checklist-modal-open',!!document.querySelector('body > [data-alt-checklist-details][open]'));return;
     }
     const salvar=e.target.closest('[data-alt-checklist-details] [data-check-save]');
     if(salvar){
@@ -663,7 +673,7 @@ function bindAlteracaoChecklistPadrao(){
       reg.disabled=true;
       try{
         const p=await window.SIGEE_LEGALIZACAO_SERVICE.registrarProcessoSeiAlteracao(reg.dataset.altRegistrarSei,{numero_sei,data_protocolo});
-        d.open=false;document.body.classList.remove('leg-checklist-modal-open');regTabsCarregadas.delete('alteracao');await carregarRegulatorio('alteracao',true);
+        d.open=false;const ph=d.__altPortalPlaceholder;if(ph?.parentNode){ph.parentNode.insertBefore(d,ph);ph.remove();}d.__altPortalPlaceholder=null;document.body.classList.remove('leg-checklist-modal-open');regTabsCarregadas.delete('alteracao');await carregarRegulatorio('alteracao',true);
         alert(upper(p.subtipo)==='ENDERECO'?'Processo SEI registrado. A inspeção no novo endereço foi liberada.':'Processo SEI registrado. Procedimento encaminhado para Aguardando Publicação.');
       }catch(err){alert('Não foi possível registrar o SEI: '+(err.message||err));}finally{reg.disabled=false;}
     }
