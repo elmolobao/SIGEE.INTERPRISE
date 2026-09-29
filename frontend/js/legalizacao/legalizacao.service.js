@@ -61,10 +61,17 @@ async function buscarInstituicoesAlteracao(busca,limite=12){
   const max=Math.min(30,Math.max(5,intOrNull(limite)||12)),saida=[];
   try{const r=await consultarInstituicoes({busca:termo,page:1,pageSize:max});saida.push(...(r.items||[]).map(x=>({...x,precisa_habilitar:false})));}catch(err){console.warn('[Legalização] consulta do catálogo regulatório falhou:',err?.message||err);}
   if(saida.length>=max)return saida.slice(0,max);
-  const c=client(),b=termo.replace(/[,()]/g,' '),dig=digits(termo,20);let q=c.from('escolas_sigee').select('id,cod_mec,nome_escola,nome,municipio,nte_id,dependencia_adm,dependencia,situacao_funcional,situacao,tipo_unidade,escola_sede_id').limit(max*2);
-  if(!master()&&!sec()){const n=nteId();q=n!=null?q.eq('nte_id',n):q.eq('nte_id',-1);}
-  q=dig&&dig.length>=4?q.or(`cod_mec.ilike.%${dig}%,nome_escola.ilike.%${b}%,nome.ilike.%${b}%`):q.or(`nome_escola.ilike.%${b}%,nome.ilike.%${b}%,municipio.ilike.%${b}%`);
-  const {data,error}=await q.order('nome_escola',{ascending:true});if(error)throw error;
+  const c=client(),b=termo.replace(/[,()]/g,' '),dig=digits(termo,20),campos='id,cod_mec,nome_escola,nome,municipio,nte_id,dependencia_adm,dependencia,situacao_funcional,situacao,tipo_unidade,escola_sede_id';let data=[];
+  const escopo=q=>{if(!master()&&!sec()){const n=nteId();return n!=null?q.eq('nte_id',n):q.eq('nte_id',-1);}return q;};
+  // Código MEC/INEP numérico: busca exata primeiro. Evita ILIKE em coluna que pode ser numérica no schema.
+  if(dig&&dig.length>=4){
+    let q=escopo(c.from('escolas_sigee').select(campos).eq('cod_mec',dig).limit(max*2));
+    const r=await q.order('nome_escola',{ascending:true});if(r.error)throw r.error;data=r.data||[];
+  }
+  if(!data.length){
+    let q=escopo(c.from('escolas_sigee').select(campos).or(`nome_escola.ilike.%${b}%,nome.ilike.%${b}%,municipio.ilike.%${b}%`).limit(max*2));
+    const r=await q.order('nome_escola',{ascending:true});if(r.error)throw r.error;data=r.data||[];
+  }
   const chaves=new Set(saida.flatMap(x=>[x.escola_id?`E:${x.escola_id}`:null,x.cod_inep?`C:${String(x.cod_inep).replace(/\D/g,'')}`:null].filter(Boolean)));
   for(const e of data||[]){const ck=`C:${String(e.cod_mec||'').replace(/\D/g,'')}`,ek=`E:${e.id}`;if(chaves.has(ek)||(e.cod_mec&&chaves.has(ck)))continue;const x=escolaParaInstituicao(e,null);x.precisa_habilitar=true;x.prontuario_id=null;saida.push(x);chaves.add(ek);if(e.cod_mec)chaves.add(ck);if(saida.length>=max)break;}
   return saida.slice(0,max);

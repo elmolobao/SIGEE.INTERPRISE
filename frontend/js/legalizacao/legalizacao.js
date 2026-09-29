@@ -498,7 +498,12 @@ async function carregarAtosImportados(){
     const statusConsulta=filtro||'';
     const lista=await svc.listarAtosImportados(statusConsulta);
     const resumo=resumoListaDoe(lista||[]);
-    setRegCount('atoslegais',(lista||[]).length);
+    // M1.10.7: a lista visual é paginada (máx. 6000 no carregamento padrão).
+    // O contador da aba deve refletir o total exato da tabela, não o tamanho da lista carregada.
+    try{
+      const totalDoe=await svc.resumoImportacaoAtos();
+      setRegCount('atoslegais',Number(totalDoe?.total||0));
+    }catch(_){ /* mantém o contador exato já carregado por carregarContadoresRegulatorios */ }
     renderAtosImportados(lista||[],resumo,filtro);
   }catch(err){
     console.error('[SIGEE][DOE] Falha ao carregar atos importados:',err);
