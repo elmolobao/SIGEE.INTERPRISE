@@ -448,6 +448,64 @@ function bindRegInspecoes(host){
   host?.querySelectorAll('[data-reg-concluir-inspecao]').forEach(btn=>btn.addEventListener('click',async()=>{const r=btn.closest('[data-reg-inspecao-id]'),resultado=r.querySelector('[data-reg-resultado-global]')?.value,parecer=r.querySelector('[data-reg-relatorio-tecnico]')?.value?.trim();if(!resultado||!parecer){alert('Informe a conclusão técnica e o parecer final.');return;}if(!confirm('Concluir a inspeção e avançar o procedimento?'))return;btn.disabled=true;try{await svc.concluirInspecao(r.dataset.regInspecaoId,{resultado_global:resultado,relatorio_tecnico:parecer});await carregarRegulatorio('inspecao',true);}catch(err){alert(err.message||err);btn.disabled=false;}}));
 }
 
+async function abrirDescarteLoteDoe(itens,dataDoe){
+  const pendentes=(itens||[]).filter(x=>!['CONFIRMADO','REJEITADO'].includes(upper(x.status_match)));
+  if(!pendentes.length){alert('Este Diário não possui atos pendentes para descarte.');return;}
+  const label=dataDoe&&dataDoe!=='SEM_DATA'?fmtDate(dataDoe):'data não identificada';
+  const motivo=prompt(`Informe a justificativa para descartar os ${pendentes.length} ato(s) pendente(s) do Diário Oficial de ${label}:`,'Importação de teste / ocorrências não regulatórias.');
+  if(motivo===null)return;
+  const justificativa=String(motivo||'').trim();
+  if(justificativa.length<5){alert('Informe uma justificativa com pelo menos 5 caracteres.');return;}
+  if(!confirm(`Descartar ${pendentes.length} ato(s) pendente(s) deste Diário? Atos já confirmados não serão alterados.`))return;
+  const svc=window.SIGEE_LEGALIZACAO_SERVICE;
+  if(!svc?.rejeitarAtoImportado)throw new Error('Serviço de rejeição de atos não disponível.');
+  const progresso=criarProgressoDoe({titulo:'Descartando atos do Diário Oficial',mensagem:`Preparando descarte de ${pendentes.length} ocorrência(s)…`});
+  let ok=0,falhas=[];
+  for(let i=0;i<pendentes.length;i++){
+    const ato=pendentes[i];progresso.update({etapa:'DESCARTANDO',atual:i+1,total:pendentes.length,mensagem:`Descartando ato ${ato.numero_publicacao||ato.id}…`});
+    try{await svc.rejeitarAtoImportado(ato.id,`DESCARTE DE LOTE: ${justificativa}`);ok++;}
+    catch(err){falhas.push(`${ato.numero_publicacao||ato.id}: ${err.message||err}`);}
+  }
+  await carregarAtosImportados();
+  if(falhas.length){progresso.error(`Descarte parcial: ${ok} concluído(s) e ${falhas.length} falha(s).`);setTimeout(()=>{progresso.close();alert(`Descarte concluído parcialmente: ${ok} ato(s) descartado(s) e ${falhas.length} falha(s).\n\n${falhas.slice(0,5).join('\n')}`);},850);}else{progresso.success(`${ok} ato(s) descartado(s).`);setTimeout(()=>progresso.close(),700);}
+}
+async function carregarAtosImportados(){
+  if(!podeGerirDoe())return;
+  const host=$('#legalizacao-reg-atos');
+  if(host)host.innerHTML='<div class="leg-loading">Carregando Diários importados…</div>';
+  try{
+    const filtro=$('#leg-atos-status')?.value||'';
+    const svc=window.SIGEE_LEGALIZACAO_SERVICE;
+    if(!svc?.listarAtosImportados)throw new Error('Serviço de consulta dos atos importados não disponível.');
+    if(!window.__SIGEE_DOE_PASSIVO_CONSOLIDADO__&&svc.consolidarPassivoHistoricoDoe){window.__SIGEE_DOE_PASSIVO_CONSOLIDADO__=true;try{await svc.consolidarPassivoHistoricoDoe();}catch(e){window.__SIGEE_DOE_PASSIVO_CONSOLIDADO__=false;console.warn('[DOE] consolidação conservadora do passivo histórico não concluída',e);}}
+    const statusConsulta=filtro||'';
+    const lista=await svc.listarAtosImportados(statusConsulta);
+    const resumo=resumoListaDoe(lista||[]);
+    setRegCount('atoslegais',(lista||[]).length);
+    renderAtosImportados(lista||[],resumo,filtro);
+  }catch(err){
+    console.error('[SIGEE][DOE] Falha ao carregar atos importados:',err);
+    if(host)host.innerHTML=`<div class="leg-empty danger"><strong>Falha ao consultar importações.</strong><span>${esc(err.message||err)}</span><button type="button" class="leg-btn" data-doe-tentar-novamente>Tentar novamente</button></div>`;
+    host?.querySelector('[data-doe-tentar-novamente]')?.addEventListener('click',carregarAtosImportados);
+  }
+}
+
+async function carregarContadoresRegulatorios(){
+  const svc=window.SIGEE_LEGALIZACAO_SERVICE;if(!svc)return;
+  const encerrado=p=>processoEncerrado(p);
+  const etapasPosteriores=new Set(['AGUARDANDO_INSPECAO','INSPECAO','ANALISE_FINAL','AGUARDANDO_PUBLICACAO','PUBLICADO','CREDENCIAMENTO_CONCLUIDO']);
+  const tarefas=[
+    ['credenciamento',async()=>{const l=await svc.listarProcessosRegulatorios();return (l||[]).filter(p=>!encerrado(p)&&!etapasPosteriores.has(upper(p.etapa_atual))).length;}],
+    ['ofertas',async()=>{const l=await svc.listarProcessosOfertaRegulatorios();return (l||[]).filter(p=>!encerrado(p)).length;}],
+    ['inspecao',async()=>{const l=await svc.listarInspecoesRegulatorias();return (l||[]).filter(x=>!['CONCLUIDA','CANCELADA'].includes(upper(x.status))&&!encerrado(x.processo)&&!['AGUARDANDO_PUBLICACAO','PUBLICADO','CREDENCIAMENTO_CONCLUIDO'].includes(upper(x.processo?.etapa_atual))).length;}],
+    ['carimbos',async()=>{const l=await svc.listarCarimbosRegulatorios();return (l||[]).length;}],
+    ['alteracao',async()=>{const l=await svc.listarAlteracoesCadastrais();return (l||[]).filter(p=>!encerrado(p)).length;}],
+    ['descredenciamento',async()=>{const l=await svc.listarDescredenciamentosRegulatorios();return (l||[]).filter(p=>!encerrado(p)).length;}],
+    ['aguardandopublicacao',async()=>{const l=svc.listarProcedimentosAguardandoPublicacao?await svc.listarProcedimentosAguardandoPublicacao():[];return (l||[]).filter(p=>upper(p.etapa_atual)==='AGUARDANDO_PUBLICACAO'&&!encerrado(p)).length;}],
+    ['atoslegais',async()=>{if(!podeGerirDoe()||!svc.resumoImportacaoAtos)return 0;const r=await svc.resumoImportacaoAtos();return Number(r?.total||0);}],
+  ];
+  await Promise.all(tarefas.map(async([tab,fn])=>{try{setRegCount(tab,await fn());}catch(e){console.warn('[Legalização] contador automático indisponível:',tab,e?.message||e);}}));
+}
 async function carregarRegulatorio(tab=null,force=false){
   const svc=window.SIGEE_LEGALIZACAO_SERVICE;
   tab=tab||$$('[data-reg-tab].active')[0]?.dataset.regTab||'credenciamento';
