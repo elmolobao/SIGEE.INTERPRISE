@@ -855,14 +855,14 @@ async function listarAtosImportados(status=''){
     if(st==='ATIVAS')for(const x of lote){const k=clean(x.lote_id)||`LEGADO:${clean(x.arquivo_origem)||String(x.id)}`;if(!lotes.has(k))lotes.set(k,x.created_at||'');}
     if(st==='ATIVAS'&&lotes.size>=alvosLote)break;if(lote.length<pagina)break;offset+=pagina;
   }
-  if(st!=='ATIVAS')return acumulado;
+  if(st!=='ATIVAS')return reconciliarVinculosFortesDoe(acumulado);
   const selecionados=[...lotes.entries()].sort((a,b)=>String(b[1]).localeCompare(String(a[1]))).slice(0,alvosLote).map(x=>x[0]);
   const idsLote=selecionados.filter(k=>!String(k).startsWith('LEGADO:'));
   const legados=new Set(selecionados.filter(k=>String(k).startsWith('LEGADO:')));
   const resultado=[];
   for(let i=0;i<idsLote.length;i+=20){const parte=idsLote.slice(i,i+20);const {data,error}=await c.from('legalizacao_atos_importacao').select(campos).in('lote_id',parte).order('id',{ascending:false}).limit(5000);if(error)throw error;resultado.push(...(data||[]));}
   if(legados.size)resultado.push(...acumulado.filter(x=>legados.has(`LEGADO:${clean(x.arquivo_origem)||String(x.id)}`)));
-  const vistos=new Set();return resultado.filter(x=>{if(vistos.has(x.id))return false;vistos.add(x.id);return true;});
+  const vistos=new Set(),unicos=resultado.filter(x=>{if(vistos.has(x.id))return false;vistos.add(x.id);return true;});return reconciliarVinculosFortesDoe(unicos);
 }
 async function obterAtoImportado(importacaoId){assertAccess();if(!podeGerirDoe())throw new Error('A conferência de importações é autorizada apenas para os perfis Master e SEC.');const id=Number(importacaoId);if(!id)throw new Error('Publicação inválida.');const c=client(),{data,error}=await c.from('legalizacao_atos_importacao').select('*').eq('id',id).maybeSingle();if(error)throw error;if(!data)throw new Error('Publicação importada não encontrada.');return data;}
 async function consolidarPassivoHistoricoDoe(){
@@ -905,24 +905,76 @@ async function buscarCandidatosVinculoDoeDireto(r){
   }
   return achados;
 }
+async function resolverInstituicaoDoePorSei(numeroSei){
+  const sei=clean(numeroSei);if(!sei)return null;
+  const c=client();
+  const {data:ps,error}=await c.from('legalizacao_processos').select('id,instituicao_id,numero_sei').eq('numero_sei',sei).limit(50);
+  if(error)throw error;
+  const ids=[...new Set((ps||[]).map(x=>Number(x.instituicao_id)).filter(Boolean))];
+  if(ids.length!==1)return null;
+  const inst=await oneScoped('legalizacao_instituicoes',ids[0],{globalDoe:true});
+  return inst||null;
+}
+async function reconciliarVinculosFortesDoe(rows=[]){
+  const lista=rows||[],comSei=lista.filter(x=>clean(x.numero_processo));
+  if(!comSei.length)return lista;
+  const c=client(),seis=[...new Set(comSei.map(x=>clean(x.numero_processo)).filter(Boolean))];
+  const mapa=new Map();
+  for(let i=0;i<seis.length;i+=100){
+    const {data,error}=await c.from('legalizacao_processos').select('id,instituicao_id,numero_sei').in('numero_sei',seis.slice(i,i+100)).limit(1000);
+    if(error)throw error;
+    for(const p of data||[]){const k=clean(p.numero_sei);if(!mapa.has(k))mapa.set(k,new Set());if(p.instituicao_id)mapa.get(k).add(Number(p.instituicao_id));}
+  }
+  const ids=[...new Set([...mapa.values()].flatMap(set=>set.size===1?[...set]:[]))];
+  const instMap=new Map();
+  for(let i=0;i<ids.length;i+=200){
+    const {data,error}=await c.from('legalizacao_instituicoes').select('id,escola_id,nte_id,nome_instituicao,municipio,cod_inep,cnpj').in('id',ids.slice(i,i+200));
+    if(error)throw error;for(const x of data||[])instMap.set(Number(x.id),x);
+  }
+  const reparos=[];
+  for(const r of lista){
+    const set=mapa.get(clean(r.numero_processo));if(!set||set.size!==1)continue;
+    const iid=[...set][0],inst=instMap.get(iid);if(!inst)continue;
+    const eid=Number(inst.escola_id)||null;
+    if(Number(r.instituicao_id)!==iid||Number(r.escola_id||0)!==Number(eid||0)||String(r.escola_nome||'')!==String(inst.nome_instituicao||'')){
+      reparos.push({id:Number(r.id),iid,eid,nome:inst.nome_instituicao||r.escola_nome,nte:Number(inst.nte_id)||null,municipio:inst.municipio||r.municipio});
+      r.instituicao_id=iid;r.escola_id=eid;r.escola_nome=inst.nome_instituicao||r.escola_nome;r.nte_numero=Number(inst.nte_id)||r.nte_numero;r.municipio=inst.municipio||r.municipio;
+      if(upper(r.status_match)==='AMBIGUO')r.status_match='PENDENTE_CONFERENCIA';
+    }
+  }
+  for(const x of reparos){
+    const {error}=await c.from('legalizacao_atos_importacao').update({instituicao_id:x.iid,escola_id:x.eid,escola_nome:x.nome,nte_numero:x.nte,municipio:x.municipio,status_match:'PENDENTE_CONFERENCIA'}).eq('id',x.id);
+    if(error)throw error;
+  }
+  return lista;
+}
 async function reconciliarVinculoAtoImportado(r){
-  const iid=Number(r?.instituicao_id)||null,eid=Number(r?.escola_id)||null;
-  if(iid)return oneScoped('legalizacao_instituicoes',iid,{globalDoe:true});
-  if(eid)return habilitarProntuario(eid,{globalDoe:true});
-  const c=client(),cnpj=digits(r?.cnpj_extraido,14),nome=normalizarChaveDoe(r?.escola_nome),municipio=normalizarChaveDoe(r?.municipio);
+  const c=client(),porSei=await resolverInstituicaoDoePorSei(r?.numero_processo);
+  if(porSei?.id){
+    const escolaLegada=Number(porSei.escola_id)||null;
+    const {error}=await c.from('legalizacao_atos_importacao').update({instituicao_id:porSei.id,escola_id:escolaLegada,escola_nome:porSei.nome_instituicao,nte_numero:Number(porSei.nte_id)||null,municipio:porSei.municipio||null,status_match:'PENDENTE_CONFERENCIA'}).eq('id',r.id);
+    if(error)throw error;return porSei;
+  }
+  const iid=Number(r?.instituicao_id)||null,eid=Number(r?.escola_id)||null,strong=/CNPJ exato|INEP\/MEC exato|COD SEC exato/i.test(String(r?.detalhe||''));
+  if(iid&&strong)return oneScoped('legalizacao_instituicoes',iid,{globalDoe:true});
+  if(eid&&strong)return habilitarProntuario(eid,{globalDoe:true});
+  // Nome, município e NTE não são identidade cadastral. Vínculos antigos baseados apenas
+  // nesses dados precisam ser novamente conferidos, pois escolas homônimas são válidas.
+  if((iid||eid)&&!strong){r={...r,instituicao_id:null,escola_id:null};}
+
+  const cnpj=digits(r?.cnpj_extraido,14),nome=normalizarChaveDoe(r?.escola_nome),municipio=normalizarChaveDoe(r?.municipio);
   let candidatos=[];
   // Primeiro usa a mesma base consolidada empregada pelo parser do DOE.
   try{
     const base=await listarBaseIdentificacaoDoe();
     if(cnpj.length===14)candidatos=base.filter(x=>{const cs=[digits(x.cnpj,14),...(x.mantenedora_cnpjs||[]).map(v=>digits(v,14))].filter(Boolean);return cs.includes(cnpj);});
-    if(!candidatos.length&&nome)candidatos=base.filter(x=>normalizarChaveDoe(x.nome_instituicao)===nome&&(!municipio||normalizarChaveDoe(x.municipio)===municipio));
   }catch(e){console.warn('[SIGEE DOE] Falha na base consolidada durante reconciliação; usando busca direta.',e);}
   // Registros antigos podem ter sido importados antes de o vínculo interno ser persistido.
   // Nesse cenário, consulta diretamente prontuários, mantenedoras e cadastro mestre.
-  if(!candidatos.length)candidatos=await buscarCandidatosVinculoDoeDireto(r);
+  if(!candidatos.length&&cnpj.length===14)candidatos=(await buscarCandidatosVinculoDoeDireto({...r,escola_nome:null})).filter(x=>String(x._origem_vinculo||'').includes('cnpj'));
   const unicos=[],chaves=new Set();
   for(const x of candidatos){const pi=Number(x.prontuario_id||x.instituicao_id||x.id)||null,pe=Number(x.escola_id)||null,k=pi?`I:${pi}`:(pe?`E:${pe}`:null);if(k&&!chaves.has(k)){chaves.add(k);unicos.push({...x,prontuario_id:pi,escola_id:pe});}}
-  if(!unicos.length)throw new Error('Vincule uma instituição antes de confirmar o ato. O SIGEE consultou CNPJ, mantenedora, nome/município e cadastro mestre, mas não encontrou vínculo inequívoco.');
+  if(!unicos.length)throw new Error('Vincule uma instituição antes de confirmar o ato. O SIGEE não encontrou identificador forte inequívoco (Processo SEI, CNPJ, MEC/INEP ou Código SEC). Selecione manualmente a instituição correta; nome, município e NTE não vinculam automaticamente.');
   if(unicos.length!==1)throw new Error(`A vinculação automática encontrou ${unicos.length} cadastros compatíveis. Selecione a instituição correta antes de confirmar.`);
   const alvo=unicos[0];let inst=null;
   if(Number(alvo.prontuario_id))inst=await oneScoped('legalizacao_instituicoes',Number(alvo.prontuario_id),{globalDoe:true});
