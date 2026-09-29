@@ -433,3 +433,12 @@ html body > details.leg-alt-checklist-modal[open] .leg-checklist{
 }
 .leg-alt-card > .leg-alt-checklist-modal{display:none;}
 .leg-alt-sei-box{align-self:start;}
+
+/* M1.10.11 — padrão único de procedimento/checklist */
+.leg-alt-card{grid-template-columns:minmax(0,1fr) auto!important;align-items:center!important;}
+.leg-alt-card > .leg-alt-checklist-modal{display:none!important;}
+.leg-checklist-sei{margin-top:20px;padding:18px;border:1px solid #dbe6f3;border-radius:14px;background:#fff;}
+.leg-disabled-section{opacity:.58;pointer-events:none;filter:grayscale(.08);}
+html body > details.leg-alt-checklist-modal[open]{display:flex!important;}
+html body > details.leg-alt-checklist-modal[open] > summary{display:none!important;}
+html body > details.leg-alt-checklist-modal[open] .leg-checklist-details-body{width:100%!important;}
