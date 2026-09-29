@@ -83,7 +83,7 @@ async function listarProcessosRegulatorios(){
 
 
 async function cancelarCredenciamento(processoId,justificativa=''){
-  assertAccess();const motivo=clean(justificativa);if(motivo.length<5)throw new Error('Informe uma justificativa para o cancelamento.');
+  assertAccess();if(!master()&&!sec())throw new Error('O cancelamento de credenciamento é exclusivo dos perfis SEC e Master.');const motivo=clean(justificativa);if(motivo.length<5)throw new Error('Informe uma justificativa para o cancelamento.');
   const c=client();let q=c.from('legalizacao_processos').select('*').eq('id',processoId).eq('tipo','CREDENCIAMENTO');q=scoped(q);const {data:p,error}=await q.maybeSingle();if(error)throw error;if(!p)throw new Error('Credenciamento não localizado na sua abrangência.');
   if(['CONCLUIDO','ARQUIVADO','CANCELADO','PUBLICADO'].includes(upper(p.status)))throw new Error('Este procedimento já está encerrado e não pode ser cancelado.');
   const now=new Date().toISOString();const {data,error:e}=await c.from('legalizacao_processos').update({status:'CANCELADO',etapa_atual:'CANCELADO',observacao:[clean(p.observacao),`CANCELAMENTO: ${motivo}`].filter(Boolean).join(' | '),atualizado_por_id:currentUserId(),updated_at:now}).eq('id',p.id).select('*').single();if(e)throw e;
@@ -204,7 +204,7 @@ async function adicionarOfertasCredenciamento(processoId,payload={}){
 }
 async function atualizarRequisitoOferta(itemId,payload={}){
   assertOperacaoNte();
-  assertAccess();const c=client(),status=upper(payload.status),valid=['NAO_APRESENTADO','APRESENTADO','EM_ANALISE','CONFORME','NAO_CONFORME','NAO_SE_APLICA'];if(!valid.includes(status))throw new Error('Situação de requisito inválida.');const {data:ant,error:ea}=await c.from('legalizacao_oferta_requisitos_processo').select('*').eq('id',itemId).single();if(ea)throw ea;const {data:p,error:ep}=await c.from('legalizacao_processos').select('id,nte_id').eq('id',ant.processo_id).single();if(ep)throw ep;if(!master()&&Number(p.nte_id)!==Number(nteId()))throw new Error('Item fora da sua abrangência.');const {data,error}=await c.from('legalizacao_oferta_requisitos_processo').update({status,observacao:clean(payload.observacao),analisado_por_id:currentUserId(),analisado_em:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('id',itemId).select('*').single();if(error)throw error;return data;
+  assertAccess();const c=client(),status=upper(payload.status),valid=['NAO_APRESENTADO','APRESENTADO','EM_ANALISE','CONFORME','NAO_CONFORME','NAO_SE_APLICA'];if(!valid.includes(status))throw new Error('Situação de requisito inválida.');const {data:ant,error:ea}=await c.from('legalizacao_oferta_requisitos_processo').select('*').eq('id',itemId).single();if(ea)throw ea;const {data:p,error:ep}=await c.from('legalizacao_processos').select('id,nte_id,etapa_atual').eq('id',ant.processo_id).single();if(ep)throw ep;if(!master()&&Number(p.nte_id)!==Number(nteId()))throw new Error('Item fora da sua abrangência.');if(!master()&&!sec()&&['AGUARDANDO_INSPECAO','INSPECAO','ANALISE_FINAL','AGUARDANDO_PUBLICACAO','PUBLICADO','CREDENCIAMENTO_CONCLUIDO'].includes(upper(p.etapa_atual)))throw new Error('A etapa anterior está concluída e bloqueada para edição.');const {data,error}=await c.from('legalizacao_oferta_requisitos_processo').update({status,observacao:clean(payload.observacao),analisado_por_id:currentUserId(),analisado_em:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('id',itemId).select('*').single();if(error)throw error;await tentarAvancoAutomaticoInspecao(ant.processo_id);return data;
 }
 async function listarProcessosOfertaRegulatorios(){
   assertAccess();const c=client();let q=c.from('legalizacao_processos').select('*').in('tipo',['AUTORIZACAO','RENOVACAO']).order('updated_at',{ascending:false}).limit(500);q=scoped(q);const {data,error}=await q;if(error)throw error;const lista=data||[],pids=lista.map(x=>x.id),iids=[...new Set(lista.map(x=>x.instituicao_id).filter(Boolean))];let vinc=[],inst=[],cat=[],req=[];
@@ -569,7 +569,7 @@ async function registrarProcessoSeiCredenciamento(processoId,payload={}){
 
   const dataProtocolo=clean(payload.data_protocolo)||today(),now=new Date().toISOString();
   const {data,error}=await c.from('legalizacao_processos').update({numero_sei:sei,data_protocolo:dataProtocolo,etapa_atual:'ANALISE_DOCUMENTAL',status:'EM_ANDAMENTO',atualizado_por_id:currentUserId(),updated_at:now}).eq('id',p.id).select('*').single();if(error)throw error;
-  await historicoProcesso(p.id,'PROCESSO_SEI_REGISTRADO','Documentação encaminhada e Processo SEI registrado pelo NTE.',{numero_sei:sei,data_protocolo:dataProtocolo});return data;
+  await historicoProcesso(p.id,'PROCESSO_SEI_REGISTRADO','Documentação encaminhada e Processo SEI registrado pelo NTE.',{numero_sei:sei,data_protocolo:dataProtocolo});await tentarAvancoAutomaticoInspecao(p.id);return data;
 }
 
 async function registrarProcessoSeiOferta(processoId,payload={}){
@@ -583,9 +583,9 @@ async function registrarProcessoSeiOferta(processoId,payload={}){
 async function atualizarChecklist(itemId,payload={}){
   assertOperacaoNte();
   assertAccess();const c=client(),status=upper(payload.status);const valid=['NAO_APRESENTADO','APRESENTADO','EM_ANALISE','CONFORME','NAO_CONFORME','NAO_SE_APLICA'];if(!valid.includes(status))throw new Error('Situação de checklist inválida.');
-  const {data:ant,error:ea}=await c.from('legalizacao_checklist_processo').select('*').eq('id',itemId).single();if(ea)throw ea;const {data:proc,error:eproc}=await c.from('legalizacao_processos').select('id,nte_id').eq('id',ant.processo_id).single();if(eproc)throw eproc;if(!master()&&Number(proc.nte_id)!==Number(nteId()))throw new Error('Item fora da sua abrangência.');
+  const {data:ant,error:ea}=await c.from('legalizacao_checklist_processo').select('*').eq('id',itemId).single();if(ea)throw ea;const {data:proc,error:eproc}=await c.from('legalizacao_processos').select('id,nte_id,etapa_atual').eq('id',ant.processo_id).single();if(eproc)throw eproc;if(!master()&&Number(proc.nte_id)!==Number(nteId()))throw new Error('Item fora da sua abrangência.');if(!master()&&!sec()&&['AGUARDANDO_INSPECAO','INSPECAO','ANALISE_FINAL','AGUARDANDO_PUBLICACAO','PUBLICADO','CREDENCIAMENTO_CONCLUIDO'].includes(upper(proc.etapa_atual)))throw new Error('A etapa de Credenciamento já foi concluída e está bloqueada para edição. O procedimento tramita agora na etapa seguinte.');
   const registro={status,observacao:clean(payload.observacao),analisado_por_id:currentUserId(),analisado_em:new Date().toISOString()};const {data,error}=await c.from('legalizacao_checklist_processo').update(registro).eq('id',itemId).select('*').single();if(error)throw error;
-  const {error:eh}=await c.from('legalizacao_checklist_historico').insert({checklist_item_id:itemId,processo_id:ant.processo_id,status_anterior:ant.status,status_novo:status,observacao:clean(payload.observacao),usuario_id:currentUserId()});if(eh)throw eh;return data;
+  const {error:eh}=await c.from('legalizacao_checklist_historico').insert({checklist_item_id:itemId,processo_id:ant.processo_id,status_anterior:ant.status,status_novo:status,observacao:clean(payload.observacao),usuario_id:currentUserId()});if(eh)throw eh;await tentarAvancoAutomaticoInspecao(ant.processo_id);return data;
 }
 async function tentarAvancoAutomaticoInspecao(processoId){
   const c=client();const {data:p,error}=await c.from('legalizacao_processos').select('*').eq('id',processoId).single();if(error||!p||!clean(p.numero_sei))return null;
