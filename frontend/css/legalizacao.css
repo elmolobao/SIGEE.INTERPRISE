@@ -310,4 +310,100 @@ body.leg-checklist-modal-open{overflow:hidden!important;}
   .leg-inspecao-checklist-details[open] .leg-inspecao-sticky{margin:0 -12px 12px!important;padding:0 12px 10px!important;}
   .leg-inspecao-checklist-details[open] .leg-inspecao-modal-head{margin:0 -12px 8px!important;padding:14px 12px 8px!important;}
 }
-\n\n/* M1.07 — checklist portado para o BODY: elimina stacking context do módulo e usa toda a tela. */\nbody> .leg-inspecao-checklist-details[open]{\n  position:fixed!important;\n  top:10px!important;\n  right:18px!important;\n  bottom:10px!important;\n  left:18px!important;\n  inset:auto!important;\n  width:auto!important;\n  max-width:none!important;\n  max-height:none!important;\n  z-index:2147483000!important;\n  overflow-x:hidden!important;\n  overflow-y:auto!important;\n  background:#fff!important;\n  border-radius:16px!important;\n  box-shadow:0 0 0 100vmax rgba(15,23,42,.58),0 24px 80px rgba(15,35,65,.30)!important;\n}\nbody> .leg-inspecao-checklist-details[open]>.leg-checklist-details-body{\n  min-height:100%!important;\n  padding-bottom:56px!important;\n}\nbody> .leg-inspecao-checklist-details[open] .leg-inspecao-sticky{top:0!important;}\n@media(max-width:620px){\n  body> .leg-inspecao-checklist-details[open]{top:4px!important;right:4px!important;bottom:4px!important;left:4px!important;}\n}\n
+
+
+/* M1.08 — contrato definitivo do modal de checklist.
+   IMPORTANTE: este bloco usa quebras de linha CSS reais e substitui os remendos anteriores. */
+html body.leg-checklist-modal-open {
+  overflow: hidden !important;
+}
+html body > details.leg-inspecao-checklist-details[open] {
+  display: block !important;
+  position: fixed !important;
+  top: 12px !important;
+  right: 18px !important;
+  bottom: 12px !important;
+  left: 18px !important;
+  inset: 12px 18px 12px 18px !important;
+  width: auto !important;
+  height: auto !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 1px solid #d7e1ef !important;
+  border-radius: 16px !important;
+  background: #fff !important;
+  overflow: hidden !important;
+  z-index: 2147483000 !important;
+  box-shadow: 0 0 0 100vmax rgba(15,23,42,.58), 0 24px 80px rgba(15,35,65,.30) !important;
+  box-sizing: border-box !important;
+  transform: none !important;
+}
+html body > details.leg-inspecao-checklist-details[open] > summary {
+  display: none !important;
+}
+html body > details.leg-inspecao-checklist-details[open] > .leg-checklist-details-body {
+  display: block !important;
+  position: absolute !important;
+  inset: 0 !important;
+  width: auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 22px 72px !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  background: #fff !important;
+  box-sizing: border-box !important;
+  scroll-padding-top: 150px;
+  scroll-padding-bottom: 72px;
+}
+html body > details.leg-inspecao-checklist-details[open] .leg-inspecao-sticky {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 20 !important;
+  margin: 0 -22px 16px !important;
+  padding: 0 22px 12px !important;
+  background: #fff !important;
+  border-bottom: 1px solid #e5edf6 !important;
+  box-shadow: 0 4px 12px rgba(15,35,65,.06) !important;
+}
+html body > details.leg-inspecao-checklist-details[open] .leg-inspecao-modal-head {
+  position: static !important;
+  margin: 0 -22px 8px !important;
+  padding: 16px 22px 10px !important;
+  border-bottom: 0 !important;
+  box-shadow: none !important;
+}
+html body > details.leg-inspecao-checklist-details[open] .leg-inspecao-sticky .leg-progress {
+  position: static !important;
+  margin: 0 !important;
+}
+html body > details.leg-inspecao-checklist-details[open] .leg-inspecao-itens {
+  padding-bottom: 24px !important;
+}
+html body > details.leg-inspecao-checklist-details[open] .leg-relatorio-box {
+  margin-bottom: 24px !important;
+}
+@media (max-width: 620px) {
+  html body > details.leg-inspecao-checklist-details[open] {
+    inset: 4px !important;
+    border-radius: 10px !important;
+  }
+  html body > details.leg-inspecao-checklist-details[open] > .leg-checklist-details-body {
+    padding: 0 12px 56px !important;
+  }
+  html body > details.leg-inspecao-checklist-details[open] .leg-inspecao-sticky {
+    margin: 0 -12px 12px !important;
+    padding: 0 12px 10px !important;
+  }
+  html body > details.leg-inspecao-checklist-details[open] .leg-inspecao-modal-head {
+    margin: 0 -12px 8px !important;
+    padding: 14px 12px 8px !important;
+  }
+}
