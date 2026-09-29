@@ -165,10 +165,7 @@ function criarBotao(item, classeExtra=''){
     const badge=document.createElement('span');badge.className='sigee-menu-alerta hidden';badge.dataset.apoioAlerta='true';badge.setAttribute('aria-hidden','true');botao.appendChild(badge);
   }
   botao.addEventListener('click', () => {
-    navegarPara(item.rota, { manual:true });
-    if(item.rota==='legalizacao' && item.area){
-      setTimeout(()=>window.SIGEE_LEGALIZACAO?.switchArea?.(item.area), 25);
-    }
+    navegarPara(item.rota, { manual:true, area:item.area||null });
   });
   return botao;
 }
@@ -693,7 +690,7 @@ function navegarPara(rota, opcoes={}){
   }
 
   if (rota === 'legalizacao') {
-    if(window.SIGEE_LEGALIZACAO?.abrir) return window.SIGEE_LEGALIZACAO.abrir();
+    if(window.SIGEE_LEGALIZACAO?.abrir) return window.SIGEE_LEGALIZACAO.abrir(opcoes.area||'visao');
     alert('O módulo Legalização Escolar ainda não concluiu o carregamento.');
     return false;
   }
