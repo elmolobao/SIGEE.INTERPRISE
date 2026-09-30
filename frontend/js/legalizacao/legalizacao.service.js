@@ -986,7 +986,7 @@ async function listarAtosImportados(status=''){
     if(st==='ATIVAS')for(const x of lote){const k=clean(x.lote_id)||`LEGADO:${clean(x.arquivo_origem)||String(x.id)}`;if(!lotes.has(k))lotes.set(k,x.created_at||'');}
     if(st==='ATIVAS'&&lotes.size>=alvosLote)break;if(lote.length<pagina)break;offset+=pagina;
   }
-  if(st!=='ATIVAS')return reconciliarVinculosFortesDoe(acumulado);
+  if(st!=='ATIVAS'){const reconciliados=await reconciliarVinculosFortesDoe(acumulado);if(!st){await sanearReferenciasNormativasPendentes(reconciliados);await consolidarPareceresNaFilaDoe(reconciliados);return reconciliados.filter(x=>!['REJEITADO','DUPLICADO'].includes(upper(x.status_match)));}return reconciliados;}
   const selecionados=[...lotes.entries()].sort((a,b)=>String(b[1]).localeCompare(String(a[1]))).slice(0,alvosLote).map(x=>x[0]);
   const idsLote=selecionados.filter(k=>!String(k).startsWith('LEGADO:'));
   const legados=new Set(selecionados.filter(k=>String(k).startsWith('LEGADO:')));
