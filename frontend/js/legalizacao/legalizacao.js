@@ -264,7 +264,16 @@ function segmentarPublicacoesDoe(paginas){
     const rxNte=/PORTARIA\s+(?:N(?:O|RO|º|°)?\.?\s*)?([0-9]{1,5}\s*\/\s*20\d{2})\s*[-–—]?\s*NTE\s*-?\s*\d{1,2}\b/g;
     while((m=rxNte.exec(norm)))add(m.index,'PORTARIA',m[1].replace(/\s/g,''));
     const rxCee=/(RESOLUCAO|PARECER)\s+(?:CEE(?:\/BA)?\s*)?(?:N(?:O|RO|º|°)?\.?\s*)?([0-9]{1,6}(?:\s*\/\s*20\d{2})?)/g;
-    while((m=rxCee.exec(norm)))add(m.index,m[1],m[2].replace(/\s/g,''));
+    while((m=rxCee.exec(norm))){
+      // RC7: não segmenta como nova publicação uma Resolução/Parecer apenas citado
+      // como fundamento dentro do corpo de outro ato. Cabeçalhos reais normalmente
+      // iniciam linha/bloco; referências vêm precedidas por expressões de remissão.
+      const antes=norm.slice(Math.max(0,m.index-180),m.index);
+      const mesmaLinha=antes.slice(antes.lastIndexOf('\n')+1);
+      const remissao=/\b(NOS TERMOS (?:DA|DO)|CONFORME|COM BASE (?:NA|NO)|DE ACORDO COM|ATRIBUICOES[^\n]{0,120}(?:CONFERE|PREVISTAS)|REGIDA PELA|DISPOSTO (?:NA|NO)|REFERIDA (?:NA|NO)|ALTERA(?:DA)? PELA)\s*$/.test(mesmaLinha)||/\b(ATRIBUICOES[^\n]{0,140}|NOS TERMOS[^\n]{0,100}|CONFORME[^\n]{0,100})$/.test(mesmaLinha);
+      if(remissao)continue;
+      add(m.index,m[1],m[2].replace(/\s/g,''));
+    }
 
     // DOE/EGBA também publica vários atos sob um único cabeçalho, por exemplo:
     // "PORTARIAS DE 03 DE SETEMBRO DE 2026 ... NTE-20" e, em seguida,

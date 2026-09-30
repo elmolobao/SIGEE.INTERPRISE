@@ -917,6 +917,26 @@ async function importarAtosLote(rows=[]){
   };
   return inserir(rows);
 }
+function ehReferenciaNormativaImportada(r){
+  const especie=upper(r?.ato),n=normalizarChaveDoe([r?.detalhe,r?.tipo_ato].filter(Boolean).join(' '));
+  if(!['RESOLUCAO','PARECER'].includes(especie))return false;
+  const comando=/\b(RESOLVE|DEFERIR|INDEFERIR|CREDENCIAR|RECREDENCIAR|AUTORIZAR|RENOVAR|DESCREDENCIAR|HOMOLOGAR|APROVAR)\b/.test(n);
+  if(comando)return false;
+  // Fragmentos como “Resolução CEE nº 26/2016, solicitando credenciamento...”
+  // são referências/fundamentação do processo, não uma concessão à instituição.
+  return /\b(SOLICITANDO|NOS TERMOS|CONFORME|COM BASE|ATRIBUICOES|DISPOSTO|REFERIDA|REGIDA)\b/.test(n);
+}
+async function sanearReferenciasNormativasPendentes(rows=[]){
+  const refs=(rows||[]).filter(r=>['IDENTIFICADO','PENDENTE_CONFERENCIA','AMBIGUO'].includes(upper(r.status_match))&&ehReferenciaNormativaImportada(r));
+  if(!refs.length)return rows||[];
+  const c=client(),now=new Date().toISOString();
+  for(const r of refs){
+    const nota=`[SANEAMENTO DOE RC7] ${now} · referência normativa/fundamentação detectada; não constitui ato regulatório individual da instituição.`;
+    const {error}=await c.from('legalizacao_atos_importacao').update({status_match:'REJEITADO',detalhe:`${r.detalhe||''}\n\n${nota}`.trim()}).eq('id',r.id);
+    if(error)throw error;r.status_match='REJEITADO';r.detalhe=`${r.detalhe||''}\n\n${nota}`.trim();
+  }
+  return rows||[];
+}
 async function listarAtosImportados(status=''){
   assertAccess();if(!podeGerirDoe())throw new Error('A conferência de importações é autorizada apenas para os perfis Master e SEC.');
   const c=client(),campos='id,lote_id,arquivo_origem,linha_origem,nte_numero,municipio,escola_nome,ato,tipo_ato,numero_publicacao,data_publicacao,numero_processo,vigencia_inicio,vigencia_fim,vigencia_origem,status_match,escola_id,instituicao_id,cnpj_extraido,detalhe,endereco_extraido,created_at,confirmado_em,confirmado_por_id',st=upper(status);
@@ -935,7 +955,7 @@ async function listarAtosImportados(status=''){
   const resultado=[];
   for(let i=0;i<idsLote.length;i+=20){const parte=idsLote.slice(i,i+20);const {data,error}=await c.from('legalizacao_atos_importacao').select(campos).in('lote_id',parte).order('id',{ascending:false}).limit(5000);if(error)throw error;resultado.push(...(data||[]));}
   if(legados.size)resultado.push(...acumulado.filter(x=>legados.has(`LEGADO:${clean(x.arquivo_origem)||String(x.id)}`)));
-  const vistos=new Set(),unicos=resultado.filter(x=>{if(vistos.has(x.id))return false;vistos.add(x.id);return true;});return reconciliarVinculosFortesDoe(unicos);
+  const vistos=new Set(),unicos=resultado.filter(x=>{if(vistos.has(x.id))return false;vistos.add(x.id);return true;});const reconciliados=await reconciliarVinculosFortesDoe(unicos);await sanearReferenciasNormativasPendentes(reconciliados);return reconciliados.filter(x=>upper(x.status_match)!=='REJEITADO');
 }
 async function obterAtoImportado(importacaoId){assertAccess();if(!podeGerirDoe())throw new Error('A conferência de importações é autorizada apenas para os perfis Master e SEC.');const id=Number(importacaoId);if(!id)throw new Error('Publicação inválida.');const c=client(),{data,error}=await c.from('legalizacao_atos_importacao').select('*').eq('id',id).maybeSingle();if(error)throw error;if(!data)throw new Error('Publicação importada não encontrada.');return data;}
 async function consolidarPassivoHistoricoDoe(){
@@ -1166,7 +1186,7 @@ async function confirmarAtoImportado(importacaoId,escolaId=null,ajustes={}){
   const c=client(),id=Number(importacaoId);if(!id)throw new Error('Publicação inválida.');
   const {data:r0,error:er}=await c.from('legalizacao_atos_importacao').select('*').eq('id',id).single();if(er)throw er;
   const estado=upper(r0.status_match);if(estado==='REJEITADO')throw new Error('Esta publicação foi rejeitada e não pode ser confirmada sem nova análise.');
-  const correcoes=limparAjustesAtoImportado(ajustes),r={...r0,...correcoes};const iid=Number(r.instituicao_id)||null,eid=Number(escolaId||r.escola_id)||null;let inst=null;
+  const correcoes=limparAjustesAtoImportado(ajustes),r={...r0,...correcoes};if(ehReferenciaNormativaImportada(r))throw new Error('Esta ocorrência é uma referência normativa/fundamentação citada no ato principal e não deve ser confirmada como ato regulatório da instituição.');const iid=Number(r.instituicao_id)||null,eid=Number(escolaId||r.escola_id)||null;let inst=null;
   if(iid){inst=await oneScoped('legalizacao_instituicoes',iid,{globalDoe:true});}else if(eid){inst=await habilitarProntuario(eid,{globalDoe:true});}else{inst=await reconciliarVinculoAtoImportado(r);}
   if(!inst?.id)throw new Error('Vincule uma instituição antes de confirmar o ato.');
   const escolaLegada=Number(inst.escola_id||eid)||null,now=new Date().toISOString(),avisos=[];
@@ -1191,9 +1211,11 @@ async function confirmarAtoImportado(importacaoId,escolaId=null,ajustes={}){
       avisos.push(`${idsDuplicados.length} registro(s) anterior(es) da mesma publicação foram substituídos pela classificação confirmada.`);
     }
   }
-  // O efeito regulatório é parte da confirmação. Ele é aplicado antes de encerrar a ocorrência,
-  // permitindo repetir com segurança uma confirmação antiga que tenha ficado parcialmente processada.
-  await aplicarEfeitoRegulatorioAtoConfirmado(inst,r,escolaLegada);
+  // Parecer integra a cadeia documental e pode carregar a decisão de mérito para a
+  // Resolução vinculada, mas não produz sozinho credenciamento/autorização no cadastro.
+  // O efeito constitutivo é aplicado pelo ato normativo final (Resolução/Portaria).
+  if(upper(r.ato)!=='PARECER')await aplicarEfeitoRegulatorioAtoConfirmado(inst,r,escolaLegada);
+  else avisos.push('Parecer registrado como fundamento da cadeia decisória, sem produzir efeito autorizativo autônomo.');
   if(r.endereco_extraido&&!inst.endereco_importado){const {error:ee}=await c.from('legalizacao_instituicoes').update({endereco_importado:r.endereco_extraido,endereco_importado_fonte:r.arquivo_origem,dados_importados_status:'A_CONFERIR',updated_at:now}).eq('id',inst.id);if(ee)avisos.push('O endereço importado não pôde ser atualizado.');}
   // Encontro DOE x procedimento: prioriza SEI; sem SEI exato, procura a fila Aguardando Publicação da mesma instituição e cruza a natureza do ato.
   try{
