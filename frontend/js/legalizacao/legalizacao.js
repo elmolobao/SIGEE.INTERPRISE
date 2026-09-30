@@ -414,7 +414,40 @@ function segmentarPublicacoesDoe(paginas){
   return saida;
 }
 function extrairAtoDoContexto(texto,tipoFallback=''){const docs=extrairDocumentosDoe(texto);return{ato:docs.especie||tipoFallback||'ATO LEGAL',numero:docs.numero,...docs};}
-function textoPdfPorColunasDoe(items,larguraPagina){const validos=(items||[]).filter(i=>String(i.str||'').trim()).map((i,ordem)=>({texto:String(i.str||'').trim(),x:Number(i.transform?.[4])||0,y:Number(i.transform?.[5])||0,w:Number(i.width)||0,ordem}));if(!validos.length)return'';const largura=Number(larguraPagina)||Math.max(...validos.map(i=>i.x+i.w),1),corte=largura*0.50;const montar=lista=>{const ordenada=[...lista].sort((a,b)=>Math.abs(b.y-a.y)>2.5?b.y-a.y:a.x-b.x||a.ordem-b.ordem),linhas=[];for(const it of ordenada){let linha=linhas.find(l=>Math.abs(l.y-it.y)<=2.5);if(!linha){linha={y:it.y,itens:[]};linhas.push(linha);}linha.itens.push(it);}return linhas.sort((a,b)=>b.y-a.y).map(l=>l.itens.sort((a,b)=>a.x-b.x||a.ordem-b.ordem).map(i=>i.texto).join(' ')).join('\n');};const esquerda=validos.filter(i=>i.x<corte),direita=validos.filter(i=>i.x>=corte);if(!esquerda.length||!direita.length)return montar(validos).replace(/\s*\n\s*/g,'\n').trim();return `${montar(esquerda)}\n${montar(direita)}`.replace(/\s*\n\s*/g,'\n').trim();}
+function textoPdfPorColunasDoe(items,larguraPagina){
+  const validos=(items||[]).filter(i=>String(i.str||'').trim()).map((i,ordem)=>({texto:String(i.str||'').trim(),x:Number(i.transform?.[4])||0,y:Number(i.transform?.[5])||0,w:Number(i.width)||0,ordem}));
+  if(!validos.length)return'';
+  const largura=Number(larguraPagina)||Math.max(...validos.map(i=>i.x+i.w),1);
+  // RC18: primeiro reconstrói as linhas físicas. Um fragmento jamais muda de coluna
+  // apenas porque seu X inicial ficou depois de 50% da página.
+  const linhas=[];
+  for(const it of [...validos].sort((a,b)=>Math.abs(b.y-a.y)>2.5?b.y-a.y:a.x-b.x||a.ordem-b.ordem)){
+    let linha=linhas.find(l=>Math.abs(l.y-it.y)<=2.5);
+    if(!linha){linha={y:it.y,itens:[]};linhas.push(linha);}
+    linha.itens.push(it);
+  }
+  const fisicas=linhas.sort((a,b)=>b.y-a.y).map(l=>{
+    const its=l.itens.sort((a,b)=>a.x-b.x||a.ordem-b.ordem);
+    return {y:l.y,x0:Math.min(...its.map(i=>i.x)),x1:Math.max(...its.map(i=>i.x+i.w)),texto:its.map(i=>i.texto).join(' ').replace(/\s+/g,' ').trim()};
+  });
+  // Só considera duas colunas quando há um corredor central consistente e várias
+  // linhas independentes em ambos os lados. Linhas que atravessam o centro ficam inteiras.
+  const centro=largura*.50,margem=Math.max(18,largura*.035);
+  const esq=fisicas.filter(l=>l.x1<centro-margem),dir=fisicas.filter(l=>l.x0>centro+margem),atravessa=fisicas.filter(l=>!(l.x1<centro-margem)&&!(l.x0>centro+margem));
+  const duasColunas=esq.length>=4&&dir.length>=4&&(esq.length+dir.length)>=Math.max(8,fisicas.length*.55);
+  if(!duasColunas)return fisicas.map(l=>l.texto).join('\n').trim();
+  // Blocos que atravessam o centro (títulos/atos de largura total) preservam a ordem Y;
+  // entre eles, as linhas realmente isoladas são lidas esquerda -> direita.
+  const saida=[];let pendE=[],pendD=[];
+  const flush=()=>{if(pendE.length)saida.push(...pendE.map(l=>l.texto));if(pendD.length)saida.push(...pendD.map(l=>l.texto));pendE=[];pendD=[];};
+  for(const l of fisicas){
+    if(l.x1<centro-margem)pendE.push(l);
+    else if(l.x0>centro+margem)pendD.push(l);
+    else {flush();saida.push(l.texto);}
+  }
+  flush();
+  return saida.join('\n').trim();
+}
 async function extrairPaginasPdfDoe(file,onProgress){if(!window.pdfjsLib?.getDocument)throw new Error('Leitor de PDF indisponível. Atualize a página e tente novamente.');window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';const data=new Uint8Array(await file.arrayBuffer()),pdf=await window.pdfjsLib.getDocument({data}).promise,paginas=[];for(let n=1;n<=pdf.numPages;n++){const pg=await pdf.getPage(n),tc=await pg.getTextContent(),viewport=pg.getViewport({scale:1}),texto=textoPdfPorColunasDoe(tc.items||[],viewport.width);paginas.push({pagina:n,texto,normalizado:normalizarBuscaDoe(texto)});if(onProgress)onProgress(n,pdf.numPages);if(n%8===0)await new Promise(r=>setTimeout(r,0));}if(!paginas.some(x=>x.texto.length>30))throw new Error('O PDF não possui texto pesquisável. Se o Diário Oficial estiver digitalizado como imagem, será necessária uma etapa de OCR antes da importação.');return paginas;}
 function prepararBaseDoe(base){return (base||[]).map(x=>({...x,_nome:normalizarBuscaDoe(x.nome_instituicao),_municipio:normalizarTextoDoe(x.municipio),_inep:somenteDigitosDoe(x.cod_inep),_sec:somenteDigitosDoe(x.cod_sec),_cnpj:somenteDigitosDoe(x.cnpj),_mcnpj:(x.mantenedora_cnpjs||[]).map(somenteDigitosDoe).filter(Boolean)}));}
 function contextoDaInstituicaoDoe(texto,inst){const raw=String(texto||''),rawNorm=semAcento(raw),alvos=[inst?.nome_instituicao,inst?.cod_inep,inst?.cod_sec,inst?.cnpj,...(inst?.mantenedora_cnpjs||[])].filter(Boolean);let pos=-1;for(const alvo of alvos){const chave=semAcento(String(alvo));if(!chave)continue;const p=rawNorm.indexOf(chave);if(p>=0){pos=p;break;}}if(pos<0)return raw.slice(0,2600);return raw.slice(Math.max(0,pos-1000),Math.min(raw.length,pos+1800));}
