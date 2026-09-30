@@ -937,6 +937,44 @@ async function sanearReferenciasNormativasPendentes(rows=[]){
   }
   return rows||[];
 }
+function paginaDoeImportada(r){
+  const n=Number(r?.linha_origem);if(!Number.isFinite(n)||n<=0)return null;
+  return n>=100000?Math.floor(n/100000):(n>100?Math.floor(n/100):null);
+}
+function nomeInstituicaoDoeLimpo(v){
+  return clean(String(v||'').replace(/\s+O\s+CONSELHO\s+ESTADUAL\s+DE\s+EDUCA[CÇ][AÃ]O[\s\S]*$/i,'').replace(/\s+O\s+CONSELHO[\s\S]*$/i,'')).trim();
+}
+function tipoBaseCadeiaDoe(v){return upper(v).replace(/^(?:INDEFERIMENTO_|DEFERIMENTO_PARCIAL_)+/,'');}
+async function consolidarPareceresNaFilaDoe(rows=[]){
+  const lista=rows||[],ativos=new Set(['IDENTIFICADO','PENDENTE_CONFERENCIA','AMBIGUO']);
+  const pareceres=lista.filter(x=>upper(x.ato)==='PARECER'&&ativos.has(upper(x.status_match))),resolucoes=lista.filter(x=>upper(x.ato)==='RESOLUCAO'&&ativos.has(upper(x.status_match)));
+  if(!pareceres.length||!resolucoes.length)return lista;
+  const usados=new Set(),c=client(),agora=new Date().toISOString();
+  for(const r of resolucoes){
+    const pg=paginaDoeImportada(r),lote=clean(r.lote_id),data=String(r.data_publicacao||'').slice(0,10),linha=Number(r.linha_origem)||0,base=tipoBaseCadeiaDoe(r.tipo_ato);
+    let candidatos=pareceres.filter(p=>!usados.has(p.id)&&(!lote||!p.lote_id||clean(p.lote_id)===lote)&&(!data||!p.data_publicacao||String(p.data_publicacao).slice(0,10)===data)&&(pg==null||paginaDoeImportada(p)===pg));
+    const comp=candidatos.filter(p=>tipoBaseCadeiaDoe(p.tipo_ato)===base);if(comp.length)candidatos=comp;
+    candidatos.sort((a,b)=>Math.abs(linha-(Number(a.linha_origem)||0))-Math.abs(linha-(Number(b.linha_origem)||0)));
+    const p=candidatos[0];if(!p)continue;
+    const dist=Math.abs(linha-(Number(p.linha_origem)||0));if(pg==null&&dist>600)continue;
+    // Na publicação do CEE o Parecer e a Resolução são partes da mesma decisão. A Resolução
+    // é o registro conferível; o Parecer enriquece identidade, processo, fundamentação e decisão.
+    usados.add(p.id);
+    const nomeR=nomeInstituicaoDoeLimpo(r.escola_nome),nomeP=nomeInstituicaoDoeLimpo(p.escola_nome),pValido=nomeP&&!/^Institui[cç][aã]o n[aã]o identificada/i.test(nomeP);
+    const nome=pValido?nomeP:nomeR;
+    const iid=Number(r.instituicao_id)||Number(p.instituicao_id)||null,eid=Number(r.escola_id)||Number(p.escola_id)||null;
+    const proc=clean(r.numero_processo)||clean(p.numero_processo)||null,cnpj=clean(r.cnpj_extraido)||clean(p.cnpj_extraido)||null;
+    const decisaoNeg=/\bINDEFER/i.test(String(p.tipo_ato||''))||/\bINDEFERIR\b/i.test(String(p.detalhe||''));
+    const tipo=decisaoNeg&&!/^INDEFERIMENTO_/i.test(String(r.tipo_ato||''))?`INDEFERIMENTO_${tipoBaseCadeiaDoe(r.tipo_ato||p.tipo_ato||'ATO_REGULATORIO')}`:r.tipo_ato;
+    const detalheBase=String(r.detalhe||'').replace(/\s+O\s+CONSELHO\s+ESTADUAL\s+DE\s+EDUCA[CÇ][AÃ]O[\s\S]*$/i,'').trim();
+    const marcador='[PARECER VINCULADO]';const detalhe=detalheBase.includes(marcador)?detalheBase:`${detalheBase}\n\n${marcador} Parecer CEE nº ${p.numero_publicacao||'—'}${proc?` · Processo ${proc}`:''}.\n${String(p.detalhe||'').trim()}`.trim();
+    const upd={escola_nome:nome||r.escola_nome,instituicao_id:iid,escola_id:eid,numero_processo:proc,cnpj_extraido:cnpj,tipo_ato:tipo,detalhe};
+    const {error:er}=await c.from('legalizacao_atos_importacao').update(upd).eq('id',r.id);if(er)throw er;Object.assign(r,upd);
+    const nota=`[CONSOLIDAÇÃO DOE RC9] ${agora} · Parecer ${p.numero_publicacao||''} incorporado à Resolução ${r.numero_publicacao||''}; Resolução mantida como ato principal da publicação.`;
+    const {error:ep}=await c.from('legalizacao_atos_importacao').update({status_match:'DUPLICADO',detalhe:`${p.detalhe||''}\n\n${nota}`.trim()}).eq('id',p.id);if(ep)throw ep;p.status_match='DUPLICADO';
+  }
+  return lista;
+}
 async function listarAtosImportados(status=''){
   assertAccess();if(!podeGerirDoe())throw new Error('A conferência de importações é autorizada apenas para os perfis Master e SEC.');
   const c=client(),campos='id,lote_id,arquivo_origem,linha_origem,nte_numero,municipio,escola_nome,ato,tipo_ato,numero_publicacao,data_publicacao,numero_processo,vigencia_inicio,vigencia_fim,vigencia_origem,status_match,escola_id,instituicao_id,cnpj_extraido,detalhe,endereco_extraido,created_at,confirmado_em,confirmado_por_id',st=upper(status);
@@ -955,7 +993,7 @@ async function listarAtosImportados(status=''){
   const resultado=[];
   for(let i=0;i<idsLote.length;i+=20){const parte=idsLote.slice(i,i+20);const {data,error}=await c.from('legalizacao_atos_importacao').select(campos).in('lote_id',parte).order('id',{ascending:false}).limit(5000);if(error)throw error;resultado.push(...(data||[]));}
   if(legados.size)resultado.push(...acumulado.filter(x=>legados.has(`LEGADO:${clean(x.arquivo_origem)||String(x.id)}`)));
-  const vistos=new Set(),unicos=resultado.filter(x=>{if(vistos.has(x.id))return false;vistos.add(x.id);return true;});const reconciliados=await reconciliarVinculosFortesDoe(unicos);await sanearReferenciasNormativasPendentes(reconciliados);return reconciliados.filter(x=>upper(x.status_match)!=='REJEITADO');
+  const vistos=new Set(),unicos=resultado.filter(x=>{if(vistos.has(x.id))return false;vistos.add(x.id);return true;});const reconciliados=await reconciliarVinculosFortesDoe(unicos);await sanearReferenciasNormativasPendentes(reconciliados);await consolidarPareceresNaFilaDoe(reconciliados);return reconciliados.filter(x=>!['REJEITADO','DUPLICADO'].includes(upper(x.status_match)));
 }
 async function obterAtoImportado(importacaoId){assertAccess();if(!podeGerirDoe())throw new Error('A conferência de importações é autorizada apenas para os perfis Master e SEC.');const id=Number(importacaoId);if(!id)throw new Error('Publicação inválida.');const c=client(),{data,error}=await c.from('legalizacao_atos_importacao').select('*').eq('id',id).maybeSingle();if(error)throw error;if(!data)throw new Error('Publicação importada não encontrada.');return data;}
 async function consolidarPassivoHistoricoDoe(){
