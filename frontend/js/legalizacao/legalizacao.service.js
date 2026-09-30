@@ -898,6 +898,45 @@ async function importarAtosLote(rows=[]){
   // vigente. Registros automáticos/pendentes anteriores são substituídos; confirmações e
   // rejeições manuais permanecem preservadas para auditoria.
   await prepararReprocessamentoDoeNaoFinalizado(rows);
+
+  // RC15: reimportar o mesmo DOE também pode reparar a evidência documental de um ato
+  // já CONFIRMADO. A decisão humana, o vínculo institucional e o status são imutáveis;
+  // atualizamos somente os campos documentais extraídos da mesma espécie+número+data.
+  // Assim a Resolução 303/2026 pode receber o Art. 3º/Art. 4º completos sem criar
+  // duplicidade nem exigir desfazer a confirmação existente.
+  const datas=[...new Set(rows.map(x=>String(x.data_publicacao||'').slice(0,10)).filter(x=>/^\d{4}-\d{2}-\d{2}$/.test(x)))];
+  const confirmados=[];
+  for(const dataDoe of datas){
+    const {data,error}=await c.from('legalizacao_atos_importacao')
+      .select('id,status_match,ato,numero_publicacao,data_publicacao,instituicao_id,escola_id,escola_nome,nte_numero,municipio')
+      .eq('data_publicacao',dataDoe).eq('status_match','CONFIRMADO').limit(10000);
+    if(error)throw error;confirmados.push(...(data||[]));
+  }
+  const normNum=v=>upper(String(v||'').replace(/\s+/g,''));
+  const chaveDoc=x=>`${upper(x?.ato)}|${normNum(x?.numero_publicacao)}|${String(x?.data_publicacao||'').slice(0,10)}`;
+  const confirmadosPorChave=new Map(confirmados.map(x=>[chaveDoc(x),x]));
+  const restantes=[];
+  const reparados=[];
+  for(const row of rows){
+    const existente=confirmadosPorChave.get(chaveDoc(row));
+    if(!existente){restantes.push(row);continue;}
+    const upd={
+      detalhe:row.detalhe||null,
+      arquivo_origem:row.arquivo_origem||null,
+      linha_origem:row.linha_origem||null,
+      numero_processo:row.numero_processo||null,
+      cnpj_extraido:row.cnpj_extraido||null,
+      endereco_extraido:row.endereco_extraido||null,
+      vigencia_inicio:row.vigencia_inicio||null,
+      vigencia_fim:row.vigencia_fim||null,
+      vigencia_origem:row.vigencia_origem||null
+    };
+    const {error}=await c.from('legalizacao_atos_importacao').update(upd).eq('id',existente.id).eq('status_match','CONFIRMADO');
+    if(error)throw error;
+    reparados.push({...existente,...upd,status_match:'CONFIRMADO'});
+  }
+  rows=restantes;
+  if(!rows.length){atosControleCache=null;resumoCache=null;return reparados;}
   // A tabela possui validações/gatilhos de identificação relativamente custosos. Um INSERT
   // grande faz todo o trabalho compartilhar o mesmo statement_timeout do PostgreSQL. Quando
   // isso ocorrer, divide-se o lote progressivamente: cada suboperação recebe uma nova janela
@@ -915,7 +954,7 @@ async function importarAtosLote(rows=[]){
     }
     throw error;
   };
-  return inserir(rows);
+  return [...reparados,...await inserir(rows)];
 }
 function ehReferenciaNormativaImportada(r){
   const especie=upper(r?.ato),n=normalizarChaveDoe([r?.detalhe,r?.tipo_ato].filter(Boolean).join(' '));

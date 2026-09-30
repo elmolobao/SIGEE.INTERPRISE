@@ -324,10 +324,30 @@ function segmentarPublicacoesDoe(paginas){
     for(let i=0;i<inicios.length;i++){
       const a=inicios[i],proximoAto=inicios[i+1]?.idx??texto.length;
       let fim=proximoAto;
-      const depois=texto.slice(a.idx,proximoAto);
+
+      // RC15: a EGBA fornece um envelope editorial explícito para cada publicação:
+      // <#E.G.B#...> ... <#E.G.B#.../>. Para RESOLUÇÃO, esse envelope tem
+      // precedência sobre qualquer aparente novo cabeçalho encontrado dentro do corpo.
+      // Isso impede que referências normativas internas (ex.: Art. 3º "com base na
+      // Resolução CEE nº 26/2016") sejam tratadas como início de outro ato.
+      const antesAto=texto.slice(0,a.idx);
+      const aberturas=[...antesAto.matchAll(/<#E\.G\.B#([^>\/]+)>/ig)];
+      const abertura=aberturas.length?aberturas[aberturas.length-1]:null;
+      let fimEnvelopeEgba=null;
+      if(abertura){
+        const idEgba=String(abertura[1]||'').replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+        const aposAto=texto.slice(a.idx);
+        const fechaMesmo=new RegExp(`<#E\\.G\\.B#${idEgba}\\/>`,'i').exec(aposAto);
+        if(fechaMesmo)fimEnvelopeEgba=a.idx+fechaMesmo.index+fechaMesmo[0].length;
+      }
+      if(upper(a.especie)==='RESOLUCAO'&&fimEnvelopeEgba){
+        fim=fimEnvelopeEgba;
+      }
+
+      const depois=texto.slice(a.idx,fim);
       const fechamento=depois.match(/<#E\.G\.B#[^>]*\/>/i);
       if(fechamento&&fechamento.index>30)fim=Math.min(fim,a.idx+fechamento.index+fechamento[0].length);
-      else{
+      else if(!(upper(a.especie)==='RESOLUCAO'&&fimEnvelopeEgba)){
         const proximoCabecalho=semAcento(depois.slice(40)).search(/(?:^|\n)\s*(?:EDITAL\s+DE\s+CONCLUINTES|AVISO\s+DE|RESUMO\s+DO|RESUMO\s+DE|RESULTADO\s+DE\s+LICITACAO|ADJUDICACAO|HOMOLOGACAO|APOSTILA|DESPACHO)\b/im);
         if(proximoCabecalho>=0)fim=Math.min(fim,a.idx+40+proximoCabecalho);
       }
