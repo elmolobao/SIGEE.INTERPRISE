@@ -933,6 +933,12 @@ async function importarAtosLote(rows=[]){
     };
     const {error}=await c.from('legalizacao_atos_importacao').update(upd).eq('id',existente.id).eq('status_match','CONFIRMADO');
     if(error)throw error;
+    // RC16: o prontuário mantém uma cópia documental em legalizacao_atos_legais.
+    // Sincroniza a mesma evidência reparada pelo importacao_id, sem alterar vínculo,
+    // decisão, espécie, número, status de confirmação ou autoria da conferência.
+    const atoUpd={detalhe:upd.detalhe,numero_processo:upd.numero_processo,vigencia_inicio:upd.vigencia_inicio,vigencia_fim:upd.vigencia_fim,vigencia_origem:upd.vigencia_origem};
+    const {error:errorAto}=await c.from('legalizacao_atos_legais').update(atoUpd).eq('importacao_id',existente.id).eq('situacao_registro','CONFIRMADO');
+    if(errorAto)throw errorAto;
     reparados.push({...existente,...upd,status_match:'CONFIRMADO'});
   }
   rows=restantes;

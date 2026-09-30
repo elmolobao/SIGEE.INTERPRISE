@@ -289,9 +289,15 @@ function segmentarPublicacoesDoe(paginas){
       // RC7: não segmenta como nova publicação uma Resolução/Parecer apenas citado
       // como fundamento dentro do corpo de outro ato. Cabeçalhos reais normalmente
       // iniciam linha/bloco; referências vêm precedidas por expressões de remissão.
-      const antes=norm.slice(Math.max(0,m.index-180),m.index);
+      const antes=norm.slice(Math.max(0,m.index-260),m.index);
       const mesmaLinha=antes.slice(antes.lastIndexOf('\n')+1);
-      const remissao=/\b(NOS TERMOS (?:DA|DO)|CONFORME|COM BASE (?:NA|NO)|DE ACORDO COM|ATRIBUICOES[^\n]{0,120}(?:CONFERE|PREVISTAS)|REGIDA PELA|DISPOSTO (?:NA|NO)|REFERIDA (?:NA|NO)|ALTERA(?:DA)? PELA)\s*$/.test(mesmaLinha)||/\b(ATRIBUICOES[^\n]{0,140}|NOS TERMOS[^\n]{0,100}|CONFORME[^\n]{0,100})$/.test(mesmaLinha);
+      // RC16: PDF.js pode quebrar a linha exatamente entre a expressão remissiva e o
+      // nome da norma (ex.: "com base na\nResolução CEE nº 26/2016"). Nesse caso,
+      // testar apenas `mesmaLinha` transforma a referência em falso cabeçalho e corta
+      // o ato. A janela final é compactada entre linhas antes da decisão.
+      const caudaCompacta=antes.replace(/\s+/g,' ').trim();
+      const remissaoRx=/\b(NOS TERMOS (?:DA|DO|DAS|DOS)|CONFORME|COM BASE (?:NA|NO|NAS|NOS)|DE ACORDO COM|REGIDA PELA|DISPOSTO (?:NA|NO|NAS|NOS)|REFERIDA (?:NA|NO|NAS|NOS)|ALTERA(?:DA)? PELA)\s*$/;
+      const remissao=remissaoRx.test(mesmaLinha)||remissaoRx.test(caudaCompacta)||/\bATRIBUICOES[\s\S]{0,160}(?:CONFERE|PREVISTAS)\s*$/.test(caudaCompacta);
       if(remissao)continue;
       add(m.index,m[1],m[2].replace(/\s/g,''));
     }
