@@ -385,11 +385,14 @@ async function atualizarInstituicao(instituicaoId,payload){
     // O catálogo mestre é a fonte exibida em várias listas. Sincroniza pelo vínculo interno e,
     // para cadastros migrados antigos com escola_id ausente/inconsistente, também pelo INEP/MEC.
     let mestreId=Number(anterior.escola_id)||null;
-    if(!mestreId&&registro.cod_inep){const rr=await c.from('escolas_sigee').select('id').eq('cod_mec',registro.cod_inep).limit(2);if(rr.error)throw rr.error;if((rr.data||[]).length===1)mestreId=Number(rr.data[0].id);}
+    if(registro.cod_inep){const rr=await c.from('escolas_sigee').select('id,cod_mec').eq('cod_mec',registro.cod_inep).limit(2);if(rr.error)throw rr.error;if((rr.data||[]).length===1)mestreId=Number(rr.data[0].id);}
     if(mestreId){
-      const {error:em}=await c.from('escolas_sigee').update({nome_escola:registro.nome_instituicao,nome:registro.nome_instituicao}).eq('id',mestreId);
+      // Exige retorno da linha atualizada: "sucesso" sem linha afetada não pode mais mascarar
+      // falha de consolidação no catálogo que alimenta legalizacao_catalogo_v.
+      const {data:ms,error:em}=await c.from('escolas_sigee').update({nome_escola:registro.nome_instituicao,nome:registro.nome_instituicao}).eq('id',mestreId).select('id,nome_escola,nome,cod_mec');
       if(em)throw new Error(`O cadastro regulatório foi atualizado, mas não foi possível sincronizar o nome no cadastro mestre: ${em.message||em}`);
-      if(!anterior.escola_id){const {error:ev}=await c.from('legalizacao_instituicoes').update({escola_id:mestreId}).eq('id',anterior.id);if(ev)throw ev;}
+      if(!(ms||[]).length)throw new Error('A alteração foi gravada no prontuário, mas o cadastro mestre não confirmou a atualização. O salvamento foi interrompido para evitar divergência de nomes.');
+      if(Number(anterior.escola_id)!==mestreId){const {error:ev}=await c.from('legalizacao_instituicoes').update({escola_id:mestreId}).eq('id',anterior.id);if(ev)throw ev;data.escola_id=mestreId;}
       escolaCache.delete(String(mestreId));
     }
     // Ocorrências DOE já vinculadas passam a exibir a denominação institucional corrigida.
@@ -400,7 +403,7 @@ async function atualizarInstituicao(instituicaoId,payload){
   if(payload.mantenedora_razao_social||payload.mantenedora_cnpj||payload.mantenedora_representante||payload.mantenedora_whatsapp||payload.mantenedora_email||payload.mantenedora_municipio){const mt={razao_social:clean(payload.mantenedora_razao_social),cnpj:digits(payload.mantenedora_cnpj,14),representante_legal:clean(payload.mantenedora_representante),telefone:null,whatsapp:digits(payload.mantenedora_whatsapp,11),email:clean(payload.mantenedora_email),municipio:clean(payload.mantenedora_municipio),uf:'BA'};if(mt.cnpj&&!cnpjValido(mt.cnpj))throw new Error('CNPJ da mantenedora inválido.');if(mt.whatsapp&&!telefoneValido(mt.whatsapp))throw new Error('WhatsApp da mantenedora inválido.');if(mt.municipio&&municipiosNte.length&&!municipiosNte.some(x=>String(x.municipio||'').localeCompare(String(mt.municipio),'pt-BR',{sensitivity:'base'})===0))throw new Error('O município da mantenedora deve pertencer ao NTE da instituição.');const rm=await c.from('legalizacao_mantenedoras').select('id').eq('instituicao_id',anterior.id).order('created_at',{ascending:false}).limit(1);if(rm.error)throw rm.error;if(rm.data?.[0]){const ur=await c.from('legalizacao_mantenedoras').update(mt).eq('id',rm.data[0].id);if(ur.error)throw ur.error;}else if(mt.razao_social){const ir=await c.from('legalizacao_mantenedoras').insert({instituicao_id:anterior.id,...mt});if(ir.error)throw ir.error;}}
 
   const mudouNte=Number(anterior.nte_id)!==Number(registro.nte_id);if(mudouNte){for(const tabela of ['legalizacao_processos','legalizacao_fiscalizacoes','legalizacao_inspecoes','legalizacao_averiguacoes']){try{const r=await c.from(tabela).update({nte_id:registro.nte_id}).eq('instituicao_id',anterior.id);if(r.error&&!/relation|column|schema cache|does not exist/i.test(String(r.error.message||'')))throw r.error;}catch(e){console.warn('[Legalização] sincronismo territorial complementar falhou em',tabela,e?.message||e);}}}
-  const campos=Object.keys(registro).filter(k=>!['atualizado_por_id','updated_at'].includes(k)&&String(anterior[k]??'')!==String(registro[k]??''));try{const u=user();await c.from('logs_sigee').insert({usuario_id:currentUserId(),nome:u?.nome||null,email:u?.email||null,acao:'Cadastro institucional atualizado.',created_at:new Date().toISOString(),nte:String(registro.nte_id),perfil:u?.perfil||null,detalhes:`Instituição ${anterior.id} · ${registro.nome_instituicao} · Campos alterados: ${campos.join(', ')||'nenhum'}${mudouNte?` · Transferência territorial: NTE-${anterior.nte_id} → NTE-${registro.nte_id}`:''}`,modulo:'legalizacao',etapa:'CADASTRO',sessao_id:window.SIGEE_SESSAO_ID||null});}catch(e){console.warn('[Legalização] Cadastro salvo, mas o log complementar falhou:',e);}resumoCache=null;return anterior.escola_id?escolaParaInstituicao(await obterEscolaMestre(anterior.escola_id),data):data;
+  const campos=Object.keys(registro).filter(k=>!['atualizado_por_id','updated_at'].includes(k)&&String(anterior[k]??'')!==String(registro[k]??''));try{const u=user();await c.from('logs_sigee').insert({usuario_id:currentUserId(),nome:u?.nome||null,email:u?.email||null,acao:'Cadastro institucional atualizado.',created_at:new Date().toISOString(),nte:String(registro.nte_id),perfil:u?.perfil||null,detalhes:`Instituição ${anterior.id} · ${registro.nome_instituicao} · Campos alterados: ${campos.join(', ')||'nenhum'}${mudouNte?` · Transferência territorial: NTE-${anterior.nte_id} → NTE-${registro.nte_id}`:''}`,modulo:'legalizacao',etapa:'CADASTRO',sessao_id:window.SIGEE_SESSAO_ID||null});}catch(e){console.warn('[Legalização] Cadastro salvo, mas o log complementar falhou:',e);}resumoCache=null;const escolaFinal=Number(data.escola_id||anterior.escola_id)||null;return escolaFinal?escolaParaInstituicao(await obterEscolaMestre(escolaFinal),data):data;
 }
 async function excluirInstituicao(instituicaoId){
   assertAccess();
@@ -1098,7 +1101,17 @@ function decisaoNegativaAtoImportado(r){
 }
 async function aplicarEfeitoRegulatorioAtoConfirmado(inst,r,escolaLegada){
   const c=client(),tipo=normalizarOfertaAto([r.tipo_ato,r.ato,r.detalhe].filter(Boolean).join(' ')),now=new Date().toISOString();
-  if(decisaoNegativaAtoImportado(r))return{situacao:null,ofertasAtualizadas:0,decisao:'INDEFERIDO'};
+  if(decisaoNegativaAtoImportado(r)){
+    // Indeferimento não é ausência de efeito: ele precisa neutralizar um credenciamento
+    // que tenha sido materializado indevidamente por uma importação anterior. Preserva-se
+    // CREDENCIADA somente quando existir outro ato positivo confirmado e independente.
+    const {data:atos,error:ea}=await c.from('legalizacao_atos_legais').select('id,tipo_ato,ato,detalhe,importacao_id,situacao_registro').eq('instituicao_id',inst.id).eq('situacao_registro','CONFIRMADO').limit(500);
+    if(ea)throw ea;
+    const temCredPositivo=(atos||[]).some(a=>{if(Number(a.importacao_id)===Number(r.id))return false;const tx=normalizarOfertaAto([a.tipo_ato,a.ato,a.detalhe].filter(Boolean).join(' '));return (tx.includes('CREDENCIAMENTO')||tx.includes('RECREDENCIAMENTO'))&&!/\b(INDEFERIMENTO|INDEFERIR|INDEFERIDO|INDEFERIDA|NAO DEFERIR|DESFAVORAVEL)\b/.test(tx);});
+    const alvo=temCredPositivo?'CREDENCIADA':'A_CONFERIR';
+    const {error:ei}=await c.from('legalizacao_instituicoes').update({situacao_regulatoria:alvo,atualizado_por_id:currentUserId(),updated_at:now}).eq('id',inst.id);if(ei)throw ei;
+    return{situacao:alvo,ofertasAtualizadas:0,decisao:'INDEFERIDO'};
+  }
   if(tipo.includes('DEFERIMENTO PARCIAL')||tipo.includes('PARCIALMENTE DEFER'))return{situacao:null,ofertasAtualizadas:0,decisao:'PARCIALMENTE_DEFERIDO'};
   let situacao=null;if(tipo.includes('DESCREDENCIAMENTO'))situacao='EXTINTA';else if(tipo.includes('CREDENCIAMENTO')||tipo.includes('RECREDENCIAMENTO')||tipo.includes('RENOVACAO CREDENCIAMENTO'))situacao='CREDENCIADA';
   if(situacao){

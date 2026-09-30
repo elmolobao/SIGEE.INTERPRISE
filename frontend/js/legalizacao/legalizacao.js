@@ -350,8 +350,22 @@ function harmonizarCadeiasRegulatoriasDoe(rows=[]){
         const pa=String(p.data_publicacao||'').slice(0,4);
         return pn===numero&&(!ano||!pa||pa===ano)&&Math.abs(Number(p.linha_origem||0)-Number(principal.linha_origem||0))<=500;
       });
-      if(cand.length!==1)continue;
-      const p=cand[0];
+      // Quando a Resolução não reproduz o nome da unidade, o Parecer imediatamente
+      // relacionado pode ser a única fonte de identidade. Se a referência nominal ao
+      // Parecer não foi capturada no bloco, usa-se proximidade + mesma publicação/data
+      // somente quando houver um único Parecer candidato, evitando associação por palpite.
+      let cadeia=cand;
+      if(cadeia.length!==1){
+        const prox=pareceres.filter(p=>{
+          const dist=Math.abs(Number(p.linha_origem||0)-Number(principal.linha_origem||0));
+          const mesmaData=!p.data_publicacao||!principal.data_publicacao||p.data_publicacao===principal.data_publicacao;
+          const identificado=(p.instituicao_id||p.escola_id)||(!/^Instituição não identificada/i.test(String(p.escola_nome||''))&&p.escola_nome);
+          return dist<=350&&mesmaData&&identificado;
+        }).sort((a,b)=>Math.abs(Number(a.linha_origem||0)-Number(principal.linha_origem||0))-Math.abs(Number(b.linha_origem||0)-Number(principal.linha_origem||0)));
+        if(prox.length===1)cadeia=prox;
+      }
+      if(cadeia.length!==1)continue;
+      const p=cadeia[0];
       // SEI is the safest bridge because the service resolves it against the procedure.
       if(principal.numero_processo&&!p.numero_processo)p.numero_processo=principal.numero_processo;
       // If the principal was already identified by MEC/CNPJ/COD SEC, the Parecer belongs
