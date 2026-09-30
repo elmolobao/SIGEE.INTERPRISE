@@ -279,8 +279,13 @@ function segmentarPublicacoesDoe(paginas){
     while((m=rx.exec(norm)))add(m.index,m[1],m[2]);
     const rxNte=/PORTARIA\s+(?:N(?:O|RO|º|°)?\.?\s*)?([0-9]{1,5}\s*\/\s*20\d{2})\s*[-–—]?\s*NTE\s*-?\s*\d{1,2}\b/g;
     while((m=rxNte.exec(norm)))add(m.index,'PORTARIA',m[1].replace(/\s/g,''));
-    const rxCee=/(RESOLUCAO|PARECER)\s+(?:CEE(?:\/BA)?\s*)?(?:N(?:O|RO|º|°)?\.?\s*)?([0-9]{1,6}(?:\s*\/\s*20\d{2})?)/g;
+    const rxCee=/(?:^|\n)\s*(RESOLUCAO|PARECER)\s+(?:CEE(?:\/BA)?\s*)?(?:N(?:O|RO|º|°)?\.?\s*)?([0-9]{1,6}(?:\s*\/\s*20\d{2})?)/g;
     while((m=rxCee.exec(norm))){
+      // RC14: Resolução/Parecer só nasce de cabeçalho editorial em início de linha.
+      // Referências internas (ex.: 'com base na Resolução CEE nº 26/2016') jamais
+      // podem virar novo ato e, portanto, não truncam o bloco vigente.
+      const cabecalhoIdx=m.index+(m[0].length-m[0].trimStart().length);
+      m.index=cabecalhoIdx;
       // RC7: não segmenta como nova publicação uma Resolução/Parecer apenas citado
       // como fundamento dentro do corpo de outro ato. Cabeçalhos reais normalmente
       // iniciam linha/bloco; referências vêm precedidas por expressões de remissão.
