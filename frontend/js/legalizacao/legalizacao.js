@@ -340,6 +340,34 @@ function segmentarPublicacoesDoe(paginas){
     else if(grupoAtivo&&!inicios.some(x=>x.agrupada)&&!mg)grupoAtivo=null;
   }
 
+  // RC13: atos podem continuar fisicamente na página seguinte do PDF. O segmentador
+  // trabalha página a página; portanto um artigo que termina, por exemplo, em "com base na"
+  // não pode ser considerado encerrado. Recuperamos somente a continuação editorial imediata
+  // da página seguinte, até o marcador EGBA de fechamento ou um novo cabeçalho inequívoco.
+  const paginaPorNumero=new Map(paginas.map(p=>[Number(p.pagina),String(p.texto||'')]));
+  const finalIncompleto=/\b(?:COM\s+BASE\s+(?:NA|NO|NAS|NOS)|NOS\s+TERMOS\s+(?:DA|DO|DAS|DOS)|DE\s+ACORDO\s+COM|CONFORME|MEDIANTE|OBSERVADO|OBSERVANDO|EM\s+RAZAO\s+(?:DA|DO)|TENDO\s+EM\s+VISTA)\s*$/i;
+  for(const b of blocos){
+    if(!['RESOLUCAO','PARECER','PORTARIA','DECRETO'].includes(upper(b.especie)))continue;
+    if(!finalIncompleto.test(semAcento(String(b.texto||'')).trim()))continue;
+    const prox=paginaPorNumero.get(Number(b.pagina)+1);
+    if(!prox)continue;
+    let cont=String(prox||'').trim();
+    if(!cont)continue;
+    const fechamento=cont.match(/<#E\.G\.B#[^>]*\/>/i);
+    let limite=fechamento&&fechamento.index>=0?fechamento.index+fechamento[0].length:cont.length;
+    // Só considera um novo cabeçalho depois de uma margem inicial: referências legais no
+    // começo da continuação ("Resolução CEE nº ...") pertencem ao artigo anterior.
+    const resto=semAcento(cont.slice(120));
+    const novo=resto.search(/(?:^|\n)\s*(?:RESOLUCAO|PARECER|PORTARIA|DECRETO)\s+(?:CEE(?:\/BA)?\s*)?(?:N(?:O|RO|º|°)?\.?\s*)?[0-9]{1,6}(?:\s*\/\s*20\d{2})?\b/im);
+    if(novo>=0)limite=Math.min(limite,120+novo);
+    const acrescimo=cont.slice(0,limite).trim();
+    if(acrescimo.length>20){
+      b.texto=`${String(b.texto||'').trim()}\n${acrescimo}`.trim();
+      b.normalizado=normalizarBuscaDoe(b.texto);
+      b.continuadoPaginaSeguinte=true;
+    }
+  }
+
   // Define uma ordem única por página somente depois de combinar atos unitários e agrupados.
   const porPagina=new Map();
   for(const b of blocos){
