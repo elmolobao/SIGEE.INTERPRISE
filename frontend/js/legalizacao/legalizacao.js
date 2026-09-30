@@ -362,6 +362,16 @@ function harmonizarCadeiasRegulatoriasDoe(rows=[]){
         p.municipio=principal.municipio||p.municipio;
         if(upper(p.status_match)!=='CONFIRMADO')p.status_match='PENDENTE_CONFERENCIA';
         p.detalhe=`${p.detalhe||''} Cadeia regulatória vinculada à ${principal.ato} nº ${principal.numero_publicacao}; identidade institucional herdada do ato principal para evitar homônimos.`.trim();
+      }else if((p.instituicao_id||p.escola_id)||(!/^Instituição não identificada/i.test(String(p.escola_nome||''))&&p.escola_nome)){
+        // A Resolução frequentemente apenas homologa o Parecer. Quando o nome da escola está
+        // no Parecer, a identidade deve subir para o ato normativo principal, sem inventar vínculo.
+        principal.instituicao_id=p.instituicao_id||null;principal.escola_id=p.escola_id||null;
+        principal.escola_nome=p.escola_nome||principal.escola_nome;principal.nte_numero=p.nte_numero||principal.nte_numero;
+        principal.municipio=p.municipio||principal.municipio;
+        if(upper(principal.status_match)!=='CONFIRMADO')principal.status_match='PENDENTE_CONFERENCIA';
+        const decisaoParecer=decisaoRegulatoriaDoe(p.detalhe||'');
+        if(decisaoParecer==='INDEFERIDO'&&!/^INDEFERIMENTO_/.test(upper(principal.tipo_ato||'')))principal.tipo_ato=`INDEFERIMENTO_${principal.tipo_ato||p.tipo_ato||'ATO_REGULATORIO'}`;
+        principal.detalhe=`${principal.detalhe||''} Identidade institucional obtida no Parecer ${p.numero_publicacao||''}: ${p.escola_nome||'instituição identificada'}.${decisaoParecer==='INDEFERIDO'?' O Parecer registra INDEFERIMENTO; nenhum efeito favorável deve ser aplicado.':''}`.trim();
       }
     }
   }

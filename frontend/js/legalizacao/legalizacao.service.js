@@ -381,10 +381,17 @@ async function atualizarInstituicao(instituicaoId,payload){
   const {data,error}=await c.from('legalizacao_instituicoes').update(registro).eq('id',anterior.id).select('*').single();if(error)throw error;
   // O nome institucional é compartilhado entre o prontuário regulatório e o catálogo mestre.
   // Sem este sincronismo, a tela voltava a exibir a denominação antiga após recarregar.
-  if(anterior.escola_id&&clean(anterior.nome_instituicao)!==registro.nome_instituicao){
-    const {error:em}=await c.from('escolas_sigee').update({nome_escola:registro.nome_instituicao,nome:registro.nome_instituicao}).eq('id',anterior.escola_id);
-    if(em)throw new Error(`O cadastro regulatório foi atualizado, mas não foi possível sincronizar o nome no cadastro mestre: ${em.message||em}`);
-    escolaCache.delete(String(anterior.escola_id));
+  if(clean(anterior.nome_instituicao)!==registro.nome_instituicao){
+    // O catálogo mestre é a fonte exibida em várias listas. Sincroniza pelo vínculo interno e,
+    // para cadastros migrados antigos com escola_id ausente/inconsistente, também pelo INEP/MEC.
+    let mestreId=Number(anterior.escola_id)||null;
+    if(!mestreId&&registro.cod_inep){const rr=await c.from('escolas_sigee').select('id').eq('cod_mec',registro.cod_inep).limit(2);if(rr.error)throw rr.error;if((rr.data||[]).length===1)mestreId=Number(rr.data[0].id);}
+    if(mestreId){
+      const {error:em}=await c.from('escolas_sigee').update({nome_escola:registro.nome_instituicao,nome:registro.nome_instituicao}).eq('id',mestreId);
+      if(em)throw new Error(`O cadastro regulatório foi atualizado, mas não foi possível sincronizar o nome no cadastro mestre: ${em.message||em}`);
+      if(!anterior.escola_id){const {error:ev}=await c.from('legalizacao_instituicoes').update({escola_id:mestreId}).eq('id',anterior.id);if(ev)throw ev;}
+      escolaCache.delete(String(mestreId));
+    }
     // Ocorrências DOE já vinculadas passam a exibir a denominação institucional corrigida.
     const {error:edoe}=await c.from('legalizacao_atos_importacao').update({escola_nome:registro.nome_instituicao}).eq('instituicao_id',anterior.id);
     if(edoe)console.warn('[Legalização] nome corrigido, mas ocorrências DOE antigas não puderam ser sincronizadas',edoe);
