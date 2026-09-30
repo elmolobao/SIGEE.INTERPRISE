@@ -908,20 +908,27 @@ async function importarAtosLote(rows=[]){
   const confirmados=[];
   for(const dataDoe of datas){
     const {data,error}=await c.from('legalizacao_atos_importacao')
-      .select('id,status_match,ato,numero_publicacao,data_publicacao,instituicao_id,escola_id,escola_nome,nte_numero,municipio')
+      .select('id,status_match,ato,numero_publicacao,data_publicacao,instituicao_id,escola_id,escola_nome,nte_numero,municipio,detalhe,arquivo_origem,linha_origem')
       .eq('data_publicacao',dataDoe).eq('status_match','CONFIRMADO').limit(10000);
     if(error)throw error;confirmados.push(...(data||[]));
   }
   const normNum=v=>upper(String(v||'').replace(/\s+/g,''));
   const chaveDoc=x=>`${upper(x?.ato)}|${normNum(x?.numero_publicacao)}|${String(x?.data_publicacao||'').slice(0,10)}`;
+  const chaveAto=x=>`${upper(x?.ato)}|${normNum(x?.numero_publicacao)}`;
   const confirmadosPorChave=new Map(confirmados.map(x=>[chaveDoc(x),x]));
+  // RC17: registros confirmados antigos podem ter data_publicacao divergente/nula por terem
+  // sido criados antes da normalização do DOE. Para reparo documental, espécie+número é a
+  // identidade editorial primária; a data continua sendo preferida quando disponível.
+  const confirmadosPorAto=new Map();
+  for(const x of confirmados){const k=chaveAto(x);if(!confirmadosPorAto.has(k))confirmadosPorAto.set(k,[]);confirmadosPorAto.get(k).push(x);}
   const restantes=[];
   const reparados=[];
   for(const row of rows){
-    const existente=confirmadosPorChave.get(chaveDoc(row));
+    let existente=confirmadosPorChave.get(chaveDoc(row));
+    if(!existente){const candidatos=confirmadosPorAto.get(chaveAto(row))||[];if(candidatos.length===1)existente=candidatos[0];}
     if(!existente){restantes.push(row);continue;}
     const upd={
-      detalhe:row.detalhe||null,
+      detalhe:(String(row.detalhe||'').length>=String(existente.detalhe||'').length?row.detalhe:existente.detalhe)||null,
       arquivo_origem:row.arquivo_origem||null,
       linha_origem:row.linha_origem||null,
       numero_processo:row.numero_processo||null,
@@ -937,8 +944,15 @@ async function importarAtosLote(rows=[]){
     // Sincroniza a mesma evidência reparada pelo importacao_id, sem alterar vínculo,
     // decisão, espécie, número, status de confirmação ou autoria da conferência.
     const atoUpd={detalhe:upd.detalhe,numero_processo:upd.numero_processo,vigencia_inicio:upd.vigencia_inicio,vigencia_fim:upd.vigencia_fim,vigencia_origem:upd.vigencia_origem};
-    const {error:errorAto}=await c.from('legalizacao_atos_legais').update(atoUpd).eq('importacao_id',existente.id).eq('situacao_registro','CONFIRMADO');
-    if(errorAto)throw errorAto;
+    let qAto=c.from('legalizacao_atos_legais').update(atoUpd).eq('importacao_id',existente.id).eq('situacao_registro','CONFIRMADO');
+    let {error:errorAto}=await qAto;if(errorAto)throw errorAto;
+    // Legado: alguns atos legais confirmados não possuem importacao_id. Sincroniza também
+    // por instituição + espécie + número, sem tocar em vínculo/status/autoria.
+    const vincId=Number(existente.instituicao_id)||null;
+    if(vincId){
+      const {error:eLeg}=await c.from('legalizacao_atos_legais').update(atoUpd).eq('instituicao_id',vincId).eq('numero_ato',row.numero_publicacao).eq('situacao_registro','CONFIRMADO');
+      if(eLeg)throw eLeg;
+    }
     reparados.push({...existente,...upd,status_match:'CONFIRMADO'});
   }
   rows=restantes;
