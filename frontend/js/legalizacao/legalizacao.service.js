@@ -889,9 +889,11 @@ async function prepararReprocessamentoDoeNaoFinalizado(rows=[]){
   if(removidos){atosControleCache=null;resumoCache=null;}
   return{reprocessado:removidos>0,removidos};
 }
+// RC19 DIAGNOSTICO: somente telemetria local no console para a Resolução 303/2026.
+function diagnosticoServiceDoe303(etapa,valor,extra={}){try{const texto=String(valor?.detalhe||'');const alvo=String(valor?.numero_publicacao||valor?.numero_ato||'').replace(/\s/g,'').startsWith('303')||/\b303\s*\/\s*2026\b/i.test(texto);if(!alvo)return;const rec={etapa,tamanho:texto.length,temArt4:/Art\.?\s*4[º°o]?/i.test(texto),temContinuacao26:/Resolu[cç][aã]o\s+CEE\s+(?:n[º°o]?\.?\s*)?0?26\s*\/\s*2016/i.test(texto),final:texto.slice(-700),...extra};window.SIGEE_DOE_DIAGNOSTICO_303=window.SIGEE_DOE_DIAGNOSTICO_303||[];window.SIGEE_DOE_DIAGNOSTICO_303.push(rec);console.group(`[SIGEE DOE RC19 SERVICE] 303/2026 · ${etapa}`);console.table({tamanho:rec.tamanho,temArt4:rec.temArt4,temContinuacao26:rec.temContinuacao26});console.log(rec.final);console.log(rec);console.groupEnd();}catch(e){console.warn('[SIGEE DOE RC19 SERVICE] falha no diagnóstico',e);}}
 async function importarAtosLote(rows=[]){
   assertAccess();if(!podeGerirDoe())throw new Error('A importação de atos é autorizada apenas para os perfis Master e SEC.');
-  if(!Array.isArray(rows)||!rows.length)return[];
+  if(!Array.isArray(rows)||!rows.length)return[];for(const r of rows)diagnosticoServiceDoe303('04B_ENTRADA_SERVICE',r,{status:r.status_match});
   if(rows.length>200)throw new Error('Cada lote pode conter no máximo 200 registros.');
   const c=client();
   // Ao importar novamente uma data ainda não finalizada, refazemos a leitura com o parser
@@ -926,7 +928,7 @@ async function importarAtosLote(rows=[]){
   for(const row of rows){
     let existente=confirmadosPorChave.get(chaveDoc(row));
     if(!existente){const candidatos=confirmadosPorAto.get(chaveAto(row))||[];if(candidatos.length===1)existente=candidatos[0];}
-    if(!existente){restantes.push(row);continue;}
+    if(!existente){restantes.push(row);continue;}diagnosticoServiceDoe303('05B_CONFIRMADO_EXISTENTE',existente,{id:existente.id,status:existente.status_match});diagnosticoServiceDoe303('05C_ROW_REIMPORTADA',row,{status:row.status_match});
     const upd={
       detalhe:(String(row.detalhe||'').length>=String(existente.detalhe||'').length?row.detalhe:existente.detalhe)||null,
       arquivo_origem:row.arquivo_origem||null,
@@ -939,7 +941,7 @@ async function importarAtosLote(rows=[]){
       vigencia_origem:row.vigencia_origem||null
     };
     const {error}=await c.from('legalizacao_atos_importacao').update(upd).eq('id',existente.id).eq('status_match','CONFIRMADO');
-    if(error)throw error;
+    if(error)throw error;diagnosticoServiceDoe303('06_ATUALIZADO_IMPORTACAO',{...existente,...upd},{id:existente.id,status:'CONFIRMADO'});
     // RC16: o prontuário mantém uma cópia documental em legalizacao_atos_legais.
     // Sincroniza a mesma evidência reparada pelo importacao_id, sem alterar vínculo,
     // decisão, espécie, número, status de confirmação ou autoria da conferência.
@@ -1054,7 +1056,7 @@ async function listarAtosImportados(status=''){
   if(legados.size)resultado.push(...acumulado.filter(x=>legados.has(`LEGADO:${clean(x.arquivo_origem)||String(x.id)}`)));
   const vistos=new Set(),unicos=resultado.filter(x=>{if(vistos.has(x.id))return false;vistos.add(x.id);return true;});const reconciliados=await reconciliarVinculosFortesDoe(unicos);await sanearReferenciasNormativasPendentes(reconciliados);await consolidarPareceresNaFilaDoe(reconciliados);return reconciliados.filter(x=>!['REJEITADO','DUPLICADO'].includes(upper(x.status_match)));
 }
-async function obterAtoImportado(importacaoId){assertAccess();if(!podeGerirDoe())throw new Error('A conferência de importações é autorizada apenas para os perfis Master e SEC.');const id=Number(importacaoId);if(!id)throw new Error('Publicação inválida.');const c=client(),{data,error}=await c.from('legalizacao_atos_importacao').select('*').eq('id',id).maybeSingle();if(error)throw error;if(!data)throw new Error('Publicação importada não encontrada.');return data;}
+async function obterAtoImportado(importacaoId){assertAccess();if(!podeGerirDoe())throw new Error('A conferência de importações é autorizada apenas para os perfis Master e SEC.');const id=Number(importacaoId);if(!id)throw new Error('Publicação inválida.');const c=client(),{data,error}=await c.from('legalizacao_atos_importacao').select('*').eq('id',id).maybeSingle();if(error)throw error;if(!data)throw new Error('Publicação importada não encontrada.');diagnosticoServiceDoe303('06B_OBTER_ATO_IMPORTADO',data,{id:data.id,status:data.status_match});return data;}
 async function consolidarPassivoHistoricoDoe(){
   assertAccess();if(!podeGerirDoe())throw new Error('A consolidação histórica do Diário Oficial é autorizada apenas para os perfis Master e SEC.');
   const c=client(),norm=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]+/g,'').trim();
