@@ -1105,9 +1105,17 @@ async function aplicarEfeitoRegulatorioAtoConfirmado(inst,r,escolaLegada){
     // Indeferimento não é ausência de efeito: ele precisa neutralizar um credenciamento
     // que tenha sido materializado indevidamente por uma importação anterior. Preserva-se
     // CREDENCIADA somente quando existir outro ato positivo confirmado e independente.
-    const {data:atos,error:ea}=await c.from('legalizacao_atos_legais').select('id,tipo_ato,ato,detalhe,importacao_id,situacao_registro').eq('instituicao_id',inst.id).eq('situacao_registro','CONFIRMADO').limit(500);
+    const {data:atos,error:ea}=await c.from('legalizacao_atos_legais').select('id,tipo_ato,ato,numero_ato,data_publicacao,detalhe,importacao_id,situacao_registro').eq('instituicao_id',inst.id).eq('situacao_registro','CONFIRMADO').limit(500);
     if(ea)throw ea;
-    const temCredPositivo=(atos||[]).some(a=>{if(Number(a.importacao_id)===Number(r.id))return false;const tx=normalizarOfertaAto([a.tipo_ato,a.ato,a.detalhe].filter(Boolean).join(' '));return (tx.includes('CREDENCIAMENTO')||tx.includes('RECREDENCIAMENTO'))&&!/\b(INDEFERIMENTO|INDEFERIR|INDEFERIDO|INDEFERIDA|NAO DEFERIR|DESFAVORAVEL)\b/.test(tx);});
+    const numeroAtual=String(r.numero_publicacao||'').replace(/\s+/g,'').toUpperCase(),dataAtual=String(r.data_publicacao||'').slice(0,10);
+    const temCredPositivo=(atos||[]).some(a=>{
+      if(Number(a.importacao_id)===Number(r.id))return false;
+      // Reimportações da mesma Resolução não constituem outro credenciamento positivo.
+      const mesmoAto=numeroAtual&&String(a.numero_ato||'').replace(/\s+/g,'').toUpperCase()===numeroAtual&&(!dataAtual||!a.data_publicacao||String(a.data_publicacao).slice(0,10)===dataAtual);
+      if(mesmoAto)return false;
+      const tx=normalizarOfertaAto([a.tipo_ato,a.ato,a.detalhe].filter(Boolean).join(' '));
+      return (tx.includes('CREDENCIAMENTO')||tx.includes('RECREDENCIAMENTO'))&&!/\b(INDEFERIMENTO|INDEFERIR|INDEFERIDO|INDEFERIDA|NAO DEFERIR|DESFAVORAVEL)\b/.test(tx);
+    });
     const alvo=temCredPositivo?'CREDENCIADA':'A_CONFERIR';
     const {error:ei}=await c.from('legalizacao_instituicoes').update({situacao_regulatoria:alvo,atualizado_por_id:currentUserId(),updated_at:now}).eq('id',inst.id);if(ei)throw ei;
     return{situacao:alvo,ofertasAtualizadas:0,decisao:'INDEFERIDO'};
@@ -1158,8 +1166,9 @@ async function confirmarAtoImportado(importacaoId,escolaId=null,ajustes={}){
         const {error:eneg}=await c.from('legalizacao_processos').update(updNeg).eq('id',p0.id);if(eneg)throw eneg;
         await historicoProcesso(p0.id,'PUBLICACAO_DOE_INDEFERIMENTO','Publicação do Diário Oficial confirmou o indeferimento do pleito. Nenhum efeito favorável de credenciamento/autorização foi aplicado.',{numero_ato:r.numero_publicacao,data_publicacao:r.data_publicacao,importacao_id:r.id});
         if(upper(p0.tipo)==='CREDENCIAMENTO'){
-          const {data:outros}=await c.from('legalizacao_atos_legais').select('id,tipo_ato,detalhe,importacao_id').eq('instituicao_id',inst.id).eq('situacao_registro','CONFIRMADO').neq('importacao_id',r.id).limit(300);
-          const temCredenciamentoPositivo=(outros||[]).some(a=>{const tx=normalizarOfertaAto([a.tipo_ato,a.detalhe].filter(Boolean).join(' '));return (tx.includes('CREDENCIAMENTO')||tx.includes('RECREDENCIAMENTO'))&&!/\b(INDEFERIMENTO|INDEFERIR|INDEFERIDO|INDEFERIDA|DESFAVORAVEL)\b/.test(tx);});
+          const {data:outros}=await c.from('legalizacao_atos_legais').select('id,tipo_ato,numero_ato,data_publicacao,detalhe,importacao_id').eq('instituicao_id',inst.id).eq('situacao_registro','CONFIRMADO').neq('importacao_id',r.id).limit(300);
+          const numeroAtual=String(r.numero_publicacao||'').replace(/\s+/g,'').toUpperCase(),dataAtual=String(r.data_publicacao||'').slice(0,10);
+          const temCredenciamentoPositivo=(outros||[]).some(a=>{const mesmoAto=numeroAtual&&String(a.numero_ato||'').replace(/\s+/g,'').toUpperCase()===numeroAtual&&(!dataAtual||!a.data_publicacao||String(a.data_publicacao).slice(0,10)===dataAtual);if(mesmoAto)return false;const tx=normalizarOfertaAto([a.tipo_ato,a.detalhe].filter(Boolean).join(' '));return (tx.includes('CREDENCIAMENTO')||tx.includes('RECREDENCIAMENTO'))&&!/\b(INDEFERIMENTO|INDEFERIR|INDEFERIDO|INDEFERIDA|DESFAVORAVEL)\b/.test(tx);});
           if(!temCredenciamentoPositivo){const {error:einst}=await c.from('legalizacao_instituicoes').update({situacao_regulatoria:'A_CONFERIR',atualizado_por_id:currentUserId(),updated_at:now}).eq('id',inst.id);if(einst)throw einst;}
         }
         avisos.push('O DOE registra indeferimento. O procedimento foi encerrado como INDEFERIDO e nenhum credenciamento ou autorização foi concedido.');

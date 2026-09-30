@@ -336,58 +336,57 @@ function prepararBaseDoe(base){return (base||[]).map(x=>({...x,_nome:normalizarB
 function contextoDaInstituicaoDoe(texto,inst){const raw=String(texto||''),rawNorm=semAcento(raw),alvos=[inst?.nome_instituicao,inst?.cod_inep,inst?.cod_sec,inst?.cnpj,...(inst?.mantenedora_cnpjs||[])].filter(Boolean);let pos=-1;for(const alvo of alvos){const chave=semAcento(String(alvo));if(!chave)continue;const p=rawNorm.indexOf(chave);if(p>=0){pos=p;break;}}if(pos<0)return raw.slice(0,2600);return raw.slice(Math.max(0,pos-1000),Math.min(raw.length,pos+1800));}
 function pontuarInstituicaoDoe(inst,pagina){let pontos=0,criterios=[];const compact=pagina.normalizado,digits=somenteDigitosDoe(pagina.texto),plain=normalizarTextoDoe(pagina.texto),cnpjs=[inst._cnpj,...inst._mcnpj].filter(x=>x.length===14);const cnpjExato=cnpjs.some(c=>digits.includes(c)),inepExato=inst._inep.length>=6&&digits.includes(inst._inep),secExato=inst._sec.length>=3&&digits.includes(inst._sec),nomeExato=inst._nome.length>=8&&compact.includes(inst._nome);if(cnpjExato){pontos+=160;criterios.push('CNPJ exato');}if(inepExato){pontos+=150;criterios.push('INEP/MEC exato');}if(secExato){pontos+=120;criterios.push('COD SEC exato');}if(nomeExato){pontos+=100;criterios.push('nome exato da unidade');}else if(inst._nome.length>=10){const stop=new Set(['ESCOLA','COLEGIO','CENTRO','EDUCACAO','EDUCACIONAL','INSTITUTO','ENSINO','UNIDADE','ESTADUAL','MUNICIPAL','PRIVADA']);const palavras=normalizarTextoDoe(inst.nome_instituicao).split(/\s+/).filter(w=>w.length>=4&&!stop.has(w));const hits=palavras.filter(w=>plain.includes(w));const proporcao=palavras.length?hits.length/palavras.length:0;if(palavras.length>=2&&hits.length>=2&&proporcao>=0.6){pontos+=Math.min(70,35+hits.length*8);criterios.push(`nome aproximado ${hits.length}/${palavras.length}`);}}if(inst._municipio&&plain.includes(inst._municipio)){pontos+=15;criterios.push('município');}return{pontos,criterios,forte:cnpjExato||inepExato||secExato,nomeExato};}
 function harmonizarCadeiasRegulatoriasDoe(rows=[]){
-  const lista=rows||[];
-  const pareceres=lista.filter(x=>upper(x.ato)==='PARECER');
-  const principais=lista.filter(x=>['RESOLUCAO','PORTARIA','RETIFICACAO'].includes(upper(x.ato)));
-  for(const principal of principais){
-    const det=normalizarTextoDoe(principal.detalhe||'');
-    const refs=[...det.matchAll(/\bPARECER(?:\s+CEE(?:\/BA)?)?\s*(?:N(?:O|RO|º|°)?\.?\s*)?(\d{1,6})(?:\s*\/\s*(20\d{2}))?/g)];
-    for(const m of refs){
-      const numero=String(m[1]||'').replace(/^0+/,'')||'0';
-      const ano=m[2]||String(principal.data_publicacao||'').slice(0,4);
-      const cand=pareceres.filter(p=>{
-        const pn=String(p.numero_publicacao||'').replace(/^0+/,'')||'0';
-        const pa=String(p.data_publicacao||'').slice(0,4);
-        return pn===numero&&(!ano||!pa||pa===ano)&&Math.abs(Number(p.linha_origem||0)-Number(principal.linha_origem||0))<=500;
-      });
-      // Quando a Resolução não reproduz o nome da unidade, o Parecer imediatamente
-      // relacionado pode ser a única fonte de identidade. Se a referência nominal ao
-      // Parecer não foi capturada no bloco, usa-se proximidade + mesma publicação/data
-      // somente quando houver um único Parecer candidato, evitando associação por palpite.
-      let cadeia=cand;
-      if(cadeia.length!==1){
-        const prox=pareceres.filter(p=>{
-          const dist=Math.abs(Number(p.linha_origem||0)-Number(principal.linha_origem||0));
-          const mesmaData=!p.data_publicacao||!principal.data_publicacao||p.data_publicacao===principal.data_publicacao;
-          const identificado=(p.instituicao_id||p.escola_id)||(!/^Instituição não identificada/i.test(String(p.escola_nome||''))&&p.escola_nome);
-          return dist<=350&&mesmaData&&identificado;
-        }).sort((a,b)=>Math.abs(Number(a.linha_origem||0)-Number(principal.linha_origem||0))-Math.abs(Number(b.linha_origem||0)-Number(principal.linha_origem||0)));
-        if(prox.length===1)cadeia=prox;
-      }
-      if(cadeia.length!==1)continue;
-      const p=cadeia[0];
-      // SEI is the safest bridge because the service resolves it against the procedure.
-      if(principal.numero_processo&&!p.numero_processo)p.numero_processo=principal.numero_processo;
-      // If the principal was already identified by MEC/CNPJ/COD SEC, the Parecer belongs
-      // to the same regulatory chain and must not be independently attached to a homonym.
-      if(principal.instituicao_id||principal.escola_id){
-        p.instituicao_id=principal.instituicao_id||null;p.escola_id=principal.escola_id||null;
-        p.escola_nome=principal.escola_nome||p.escola_nome;p.nte_numero=principal.nte_numero||p.nte_numero;
-        p.municipio=principal.municipio||p.municipio;
-        if(upper(p.status_match)!=='CONFIRMADO')p.status_match='PENDENTE_CONFERENCIA';
-        p.detalhe=`${p.detalhe||''} Cadeia regulatória vinculada à ${principal.ato} nº ${principal.numero_publicacao}; identidade institucional herdada do ato principal para evitar homônimos.`.trim();
-      }else if((p.instituicao_id||p.escola_id)||(!/^Instituição não identificada/i.test(String(p.escola_nome||''))&&p.escola_nome)){
-        // A Resolução frequentemente apenas homologa o Parecer. Quando o nome da escola está
-        // no Parecer, a identidade deve subir para o ato normativo principal, sem inventar vínculo.
-        principal.instituicao_id=p.instituicao_id||null;principal.escola_id=p.escola_id||null;
-        principal.escola_nome=p.escola_nome||principal.escola_nome;principal.nte_numero=p.nte_numero||principal.nte_numero;
-        principal.municipio=p.municipio||principal.municipio;
-        if(upper(principal.status_match)!=='CONFIRMADO')principal.status_match='PENDENTE_CONFERENCIA';
-        const decisaoParecer=decisaoRegulatoriaDoe(p.detalhe||'');
-        if(decisaoParecer==='INDEFERIDO'&&!/^INDEFERIMENTO_/.test(upper(principal.tipo_ato||'')))principal.tipo_ato=`INDEFERIMENTO_${principal.tipo_ato||p.tipo_ato||'ATO_REGULATORIO'}`;
-        principal.detalhe=`${principal.detalhe||''} Identidade institucional obtida no Parecer ${p.numero_publicacao||''}: ${p.escola_nome||'instituição identificada'}.${decisaoParecer==='INDEFERIDO'?' O Parecer registra INDEFERIMENTO; nenhum efeito favorável deve ser aplicado.':''}`.trim();
-      }
+  const lista=rows||[],pareceres=lista.filter(x=>upper(x.ato)==='PARECER'),principais=lista.filter(x=>['RESOLUCAO','PORTARIA','RETIFICACAO'].includes(upper(x.ato)));
+  const identificada=x=>!!((x?.instituicao_id||x?.escola_id)||(!/^Instituição não identificada/i.test(String(x?.escola_nome||''))&&x?.escola_nome));
+  const numeroLimpo=v=>(String(v||'').match(/\d{1,6}/)?.[0]||'').replace(/^0+/,'')||'0';
+  const ligar=(principal,p)=>{
+    if(!principal||!p)return;
+    if(principal.numero_processo&&!p.numero_processo)p.numero_processo=principal.numero_processo;
+    if(p.numero_processo&&!principal.numero_processo)principal.numero_processo=p.numero_processo;
+    if(identificada(principal)){
+      p.instituicao_id=principal.instituicao_id||p.instituicao_id||null;p.escola_id=principal.escola_id||p.escola_id||null;
+      p.escola_nome=principal.escola_nome||p.escola_nome;p.nte_numero=principal.nte_numero||p.nte_numero;p.municipio=principal.municipio||p.municipio;
+      if(upper(p.status_match)!=='CONFIRMADO')p.status_match='PENDENTE_CONFERENCIA';
+    }else if(identificada(p)){
+      principal.instituicao_id=p.instituicao_id||null;principal.escola_id=p.escola_id||null;principal.escola_nome=p.escola_nome||principal.escola_nome;
+      principal.nte_numero=p.nte_numero||principal.nte_numero;principal.municipio=p.municipio||principal.municipio;
+      if(upper(principal.status_match)!=='CONFIRMADO')principal.status_match='PENDENTE_CONFERENCIA';
     }
+    // O Parecer contém a decisão de mérito; a Resolução normalmente apenas a homologa.
+    // A decisão negativa deve subir sempre para o ato normativo, mesmo que a Resolução
+    // repita apenas o objeto solicitado (credenciamento/autorização).
+    const decisaoParecer=decisaoRegulatoriaDoe(p.detalhe||'');
+    if(decisaoParecer==='INDEFERIDO'){
+      const objeto=String(principal.tipo_ato||p.tipo_ato||'ATO_REGULATORIO').replace(/^(?:INDEFERIMENTO_|DEFERIMENTO_PARCIAL_)+/i,'');
+      principal.tipo_ato=`INDEFERIMENTO_${objeto}`;
+      if(!/INDEFERIMENTO DO PARECER/i.test(String(principal.detalhe||'')))principal.detalhe=`${principal.detalhe||''} INDEFERIMENTO DO PARECER ${p.numero_publicacao||''}: decisão negativa vinculada ao ato normativo; nenhum efeito favorável de credenciamento/autorização deve ser aplicado.`.trim();
+    }
+    if(identificada(p)&&!/Identidade institucional obtida no Parecer/i.test(String(principal.detalhe||'')))principal.detalhe=`${principal.detalhe||''} Identidade institucional obtida no Parecer ${p.numero_publicacao||''}: ${p.escola_nome||'instituição identificada'}.`.trim();
+  };
+  for(const principal of principais){
+    const det=normalizarTextoDoe(principal.detalhe||''),refs=[...det.matchAll(/\bPARECER(?:\s+CEE(?:\/BA)?)?\s*(?:N(?:O|RO|º|°)?\.?\s*)?(\d{1,6})(?:\s*\/\s*(20\d{2}))?/g)];
+    let cadeia=[];
+    // 1. Vínculo documental explícito Resolução -> Parecer.
+    for(const m of refs){
+      const numero=numeroLimpo(m[1]),ano=m[2]||String(principal.data_publicacao||'').slice(0,4);
+      cadeia.push(...pareceres.filter(p=>numeroLimpo(p.numero_publicacao)===numero&&(!ano||!p.data_publicacao||String(p.data_publicacao).slice(0,4)===ano)));
+    }
+    cadeia=[...new Set(cadeia)];
+    // 2. Se a referência ao Parecer ficou fora do recorte textual da Resolução, usa a
+    // sequência editorial do mesmo DOE: mesmo arquivo/data e Parecer imediatamente anterior.
+    if(cadeia.length!==1){
+      const candidatos=pareceres.filter(p=>{
+        const mesmoArquivo=!p.arquivo_origem||!principal.arquivo_origem||p.arquivo_origem===principal.arquivo_origem;
+        const mesmaData=!p.data_publicacao||!principal.data_publicacao||p.data_publicacao===principal.data_publicacao;
+        const delta=Number(principal.linha_origem||0)-Number(p.linha_origem||0);
+        return mesmoArquivo&&mesmaData&&delta>=0&&delta<=600&&identificada(p);
+      }).sort((a,b)=>(Number(principal.linha_origem||0)-Number(a.linha_origem||0))-(Number(principal.linha_origem||0)-Number(b.linha_origem||0)));
+      // Aceita o Parecer editorialmente mais próximo somente se ele for claramente mais
+      // próximo que o segundo candidato; evita herdar instituição de outro processo.
+      if(candidatos.length===1)cadeia=[candidatos[0]];
+      else if(candidatos.length>1){const d0=Number(principal.linha_origem||0)-Number(candidatos[0].linha_origem||0),d1=Number(principal.linha_origem||0)-Number(candidatos[1].linha_origem||0);if(d1-d0>=80)cadeia=[candidatos[0]];}
+    }
+    if(cadeia.length===1)ligar(principal,cadeia[0]);
   }
   return lista;
 }
