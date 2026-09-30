@@ -1151,6 +1151,24 @@ async function confirmarAtoImportado(importacaoId,escolaId=null,ajustes={}){
   if(Object.keys(correcoes).length){const {error:ec}=await c.from('legalizacao_atos_importacao').update(correcoes).eq('id',r.id);if(ec)throw ec;}
   const registro={instituicao_id:inst.id,escola_id:escolaLegada,importacao_id:r.id,ato:r.ato,tipo_ato:r.tipo_ato,numero_ato:r.numero_publicacao,data_publicacao:r.data_publicacao,numero_processo:r.numero_processo,vigencia_inicio:r.vigencia_inicio,vigencia_fim:r.vigencia_fim,vigencia_origem:r.vigencia_origem,detalhe:r.detalhe,fonte:`IMPORTACAO:${r.arquivo_origem}`,situacao_registro:'CONFIRMADO',criado_por_id:currentUserId()};
   const {data,error}=await c.from('legalizacao_atos_legais').upsert(registro,{onConflict:'importacao_id'}).select('*').single();if(error)throw error;
+  // Reconciliação canônica do ato: uma reimportação/reclassificação da mesma publicação
+  // não pode criar dois atos legais para a mesma instituição. A chave funcional é
+  // instituição + espécie + número + data de publicação; a ocorrência recém-confirmada
+  // prevalece porque contém a classificação revisada pelo conferente.
+  const numeroCanon=String(r.numero_publicacao||'').trim();
+  if(numeroCanon){
+    let qDup=c.from('legalizacao_atos_legais').select('id,importacao_id,tipo_ato,ato,numero_ato,data_publicacao').eq('instituicao_id',inst.id).eq('numero_ato',numeroCanon).neq('id',data.id);
+    if(r.data_publicacao)qDup=qDup.eq('data_publicacao',r.data_publicacao);
+    const {data:duplicados,error:eDup}=await qDup.limit(100);if(eDup)throw eDup;
+    const idsDuplicados=(duplicados||[]).filter(a=>{
+      const especieAtual=upper(r.ato||'RESOLUCAO'),especieAntiga=upper(a.ato||'');
+      return !especieAntiga||!especieAtual||especieAntiga===especieAtual;
+    }).map(a=>a.id).filter(Boolean);
+    if(idsDuplicados.length){
+      const {error:eDel}=await c.from('legalizacao_atos_legais').delete().in('id',idsDuplicados);if(eDel)throw new Error(`Falha ao reconciliar versões anteriores do mesmo ato: ${eDel.message||eDel}`);
+      avisos.push(`${idsDuplicados.length} registro(s) anterior(es) da mesma publicação foram substituídos pela classificação confirmada.`);
+    }
+  }
   // O efeito regulatório é parte da confirmação. Ele é aplicado antes de encerrar a ocorrência,
   // permitindo repetir com segurança uma confirmação antiga que tenha ficado parcialmente processada.
   await aplicarEfeitoRegulatorioAtoConfirmado(inst,r,escolaLegada);
