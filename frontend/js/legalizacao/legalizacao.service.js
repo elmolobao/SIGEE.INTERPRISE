@@ -517,6 +517,28 @@ async function obterProntuario(instituicaoId){
   ]);
   for(const r of queries){if(r.error)throw r.error;}
   let [mantenedoras,responsaveis,carimbos,ofertas,processos,fiscalizacoes,inspecoes,handoffs,atosLegais,irregularidades]=queries.map(r=>r.data||[]);
+
+  // RC6 — saneamento de atos legados/reclassificados. Uma mesma publicação não pode
+  // permanecer duas vezes no prontuário apenas porque foi reimportada com classificação
+  // corrigida. Para instituição + espécie + número + data, uma decisão negativa confirmada
+  // prevalece sobre uma classificação favorável anterior da mesma publicação.
+  const gruposAtos=new Map();
+  for(const a of atosLegais||[]){
+    const especie=upper(a.ato||'RESOLUCAO'),numero=String(a.numero_ato||'').replace(/\s+/g,'').toUpperCase(),dataPub=String(a.data_publicacao||'').slice(0,10);
+    if(!numero)continue;const k=`${especie}|${numero}|${dataPub}`;if(!gruposAtos.has(k))gruposAtos.set(k,[]);gruposAtos.get(k).push(a);
+  }
+  const removerLegados=[];
+  for(const grupo of gruposAtos.values()){
+    if(grupo.length<2)continue;
+    const negativa=a=>/\b(INDEFERIMENTO|INDEFERIR|INDEFERIDO|INDEFERIDA|DESFAVORAVEL)\b/.test(normalizarOfertaAto([a.tipo_ato,a.detalhe].filter(Boolean).join(' ')));
+    const negativos=grupo.filter(negativa);if(!negativos.length)continue;
+    negativos.sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')));const manter=negativos[0];
+    for(const a of grupo)if(a.id!==manter.id)removerLegados.push(a.id);
+  }
+  if(removerLegados.length){
+    atosLegais=atosLegais.filter(a=>!removerLegados.includes(a.id));
+    if(podeGerirDoe()){try{const {error:eSan}=await c.from('legalizacao_atos_legais').delete().in('id',removerLegados);if(eSan)console.warn('[SIGEE Legalização] Não foi possível remover atos legados duplicados.',eSan);}catch(e){console.warn('[SIGEE Legalização] Falha no saneamento persistente de atos legados.',e);}}
+  }
   const importacaoIds=[...new Set((atosLegais||[]).map(x=>Number(x.importacao_id)).filter(Boolean))];
   if(importacaoIds.length){
     try{
