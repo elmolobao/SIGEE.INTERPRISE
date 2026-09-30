@@ -966,7 +966,7 @@ async function consolidarPareceresNaFilaDoe(rows=[]){
     const proc=clean(r.numero_processo)||clean(p.numero_processo)||null,cnpj=clean(r.cnpj_extraido)||clean(p.cnpj_extraido)||null;
     const decisaoNeg=/\bINDEFER/i.test(String(p.tipo_ato||''))||/\bINDEFERIR\b/i.test(String(p.detalhe||''));
     const tipo=decisaoNeg&&!/^INDEFERIMENTO_/i.test(String(r.tipo_ato||''))?`INDEFERIMENTO_${tipoBaseCadeiaDoe(r.tipo_ato||p.tipo_ato||'ATO_REGULATORIO')}`:r.tipo_ato;
-    const detalheBase=String(r.detalhe||'').replace(/\s+O\s+CONSELHO\s+ESTADUAL\s+DE\s+EDUCA[CÇ][AÃ]O[\s\S]*$/i,'').trim();
+    const detalheBase=String(r.detalhe||'').trim(); // RC12: preservar integralmente o bloco documental da Resolução; não cortar no cabeçalho 'O CONSELHO'.
     const marcador='[PARECER VINCULADO]';const detalhe=detalheBase.includes(marcador)?detalheBase:`${detalheBase}\n\n${marcador} Parecer CEE nº ${p.numero_publicacao||'—'}${proc?` · Processo ${proc}`:''}.\n${String(p.detalhe||'').trim()}`.trim();
     const upd={escola_nome:nome||r.escola_nome,instituicao_id:iid,escola_id:eid,numero_processo:proc,cnpj_extraido:cnpj,tipo_ato:tipo,detalhe};
     const {error:er}=await c.from('legalizacao_atos_importacao').update(upd).eq('id',r.id);if(er)throw er;Object.assign(r,upd);
