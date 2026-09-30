@@ -820,11 +820,42 @@ async function listarBaseIdentificacaoDoe(){
   for(let i=0;i<ids.length;i+=300){const {data,error}=await c.from('legalizacao_mantenedoras').select('instituicao_id,cnpj,razao_social').in('instituicao_id',ids.slice(i,i+300));if(error)throw error;for(const m of data||[]){const alvo=porInstituicao.get(Number(m.instituicao_id));if(alvo&&digits(m.cnpj,14))alvo.mantenedora_cnpjs.push(digits(m.cnpj,14));}}
   return [...mapa.values()];
 }
+const lotesDoeReprocessamentoPreparados=new Set();
+async function prepararReprocessamentoDoeNaoFinalizado(rows=[]){
+  const c=client(),lote=clean(rows?.[0]?.lote_id);if(!lote||lotesDoeReprocessamentoPreparados.has(lote))return{reprocessado:false,removidos:0};
+  const datas=[...new Set((rows||[]).map(x=>String(x.data_publicacao||'').slice(0,10)).filter(x=>/^\d{4}-\d{2}-\d{2}$/.test(x)))];
+  if(!datas.length){lotesDoeReprocessamentoPreparados.add(lote);return{reprocessado:false,removidos:0};}
+  let removidos=0;
+  for(const dataDoe of datas){
+    const {data:anteriores,error}=await c.from('legalizacao_atos_importacao')
+      .select('id,status_match,lote_id,arquivo_origem,data_publicacao,confirmado_em')
+      .eq('data_publicacao',dataDoe).limit(10000);
+    if(error)throw error;
+    if(!(anteriores||[]).length)continue;
+    const ativos=(anteriores||[]).filter(x=>!['CONFIRMADO','REJEITADO'].includes(upper(x.status_match)));
+    // Uma edição é considerada ainda não finalizada enquanto possuir ocorrências automáticas
+    // ou pendentes. Decisões manuais (CONFIRMADO/REJEITADO) são preservadas.
+    if(!ativos.length)continue;
+    const ids=ativos.map(x=>Number(x.id)).filter(Boolean);
+    for(let i=0;i<ids.length;i+=300){
+      const {error:ed}=await c.from('legalizacao_atos_importacao').delete().in('id',ids.slice(i,i+300));
+      if(ed)throw ed;
+    }
+    removidos+=ids.length;
+  }
+  lotesDoeReprocessamentoPreparados.add(lote);
+  if(removidos){atosControleCache=null;resumoCache=null;}
+  return{reprocessado:removidos>0,removidos};
+}
 async function importarAtosLote(rows=[]){
   assertAccess();if(!podeGerirDoe())throw new Error('A importação de atos é autorizada apenas para os perfis Master e SEC.');
   if(!Array.isArray(rows)||!rows.length)return[];
   if(rows.length>200)throw new Error('Cada lote pode conter no máximo 200 registros.');
   const c=client();
+  // Ao importar novamente uma data ainda não finalizada, refazemos a leitura com o parser
+  // vigente. Registros automáticos/pendentes anteriores são substituídos; confirmações e
+  // rejeições manuais permanecem preservadas para auditoria.
+  await prepararReprocessamentoDoeNaoFinalizado(rows);
   // A tabela possui validações/gatilhos de identificação relativamente custosos. Um INSERT
   // grande faz todo o trabalho compartilhar o mesmo statement_timeout do PostgreSQL. Quando
   // isso ocorrer, divide-se o lote progressivamente: cada suboperação recebe uma nova janela
