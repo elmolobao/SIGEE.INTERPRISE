@@ -426,7 +426,43 @@ function segmentarPublicacoesDoe(paginas){
         }
         if(continuacao)trecho=`${trecho}\n${continuacao}`.trim();
       }
+      // RC30: barreira geral contra gravação de Resoluções/Pareceres truncados.
+      // Se o recorte não contém o corpo decisório mínimo, refaz o recorte diretamente
+      // da página já reconstruída por colunas, usando o cabeçalho exato e o fechamento
+      // editorial EGBA (ou o próximo cabeçalho inequívoco) como limites.
+      if(['RESOLUCAO','PARECER'].includes(upper(a.especie))){
+        const nt=normalizarTextoDoe(trecho);
+        const incompleto=upper(a.especie)==='RESOLUCAO'
+          ? (!/\bRESOLVE\b/.test(nt)||!/\bART\.?\s*1(?:O|º|°)?\b/.test(nt)||trecho.length<420)
+          : (trecho.length<260);
+        if(incompleto){
+          const numRx=String(a.numero||'').replace(/[.*+?^${}()|[\]\\]/g,'\\$&').split('\/').join('\\s*\/\\s*');
+          const cabRx=new RegExp(`(?:^|\\n)\\s*${upper(a.especie)}\\s+(?:CEE(?:\\/BA)?\\s*)?(?:N(?:O|RO|º|°)?\\.?\\s*)?${numRx}`,'i');
+          const cab=cabRx.exec(texto);
+          if(cab){
+            const ini=cab.index+(cab[0].length-cab[0].trimStart().length);
+            const cauda=texto.slice(ini);
+            const fecha=cauda.match(/<#E\.G\.B#[^>]*\/>/i);
+            let limite=fecha?fecha.index+fecha[0].length:cauda.length;
+            if(!fecha){
+              const depois=cauda.slice(Math.max(80,cab[0].length));
+              const prox=semAcento(depois).search(/(?:^|\n)\s*(?:RESOLUCAO|PARECER|PORTARIA|DECRETO)\s+(?:CEE(?:\/BA)?\s*)?(?:N(?:O|RO|º|°)?\.?\s*)?[0-9]{1,6}(?:\s*\/\s*20\d{2})?\b/im);
+              if(prox>=0)limite=Math.min(limite,Math.max(80,cab[0].length)+prox);
+            }
+            const recuperado=cauda.slice(0,limite).trim();
+            const nr=normalizarTextoDoe(recuperado);
+            const valido=upper(a.especie)!=='RESOLUCAO'||(/\bRESOLVE\b/.test(nr)&&/\bART\.?\s*1(?:O|º|°)?\b/.test(nr));
+            if(valido&&recuperado.length>trecho.length)trecho=recuperado;
+          }
+        }
+      }
       if(trecho.length<40)continue;
+      // Não persiste uma Resolução sem corpo decisório: é preferível deixá-la fora do lote
+      // a gravar evidência truncada que depois pareça um ato completo no prontuário.
+      if(upper(a.especie)==='RESOLUCAO'){
+        const corpo=normalizarTextoDoe(trecho);
+        if(!/\bRESOLVE\b/.test(corpo)||!/\bART\.?\s*1(?:O|º|°)?\b/.test(corpo))continue;
+      }
       if(a.agrupada){
         // Prefixo sintético apenas para o classificador: preserva o número individual
         // e o NTE do cabeçalho agrupador sem alterar a evidência textual armazenada.
