@@ -906,12 +906,18 @@ async function importarAtosLote(rows=[]){
   // atualizamos somente os campos documentais extraídos da mesma espécie+número+data.
   // Assim a Resolução 303/2026 pode receber o Art. 3º/Art. 4º completos sem criar
   // duplicidade nem exigir desfazer a confirmação existente.
-  const datas=[...new Set(rows.map(x=>String(x.data_publicacao||'').slice(0,10)).filter(x=>/^\d{4}-\d{2}-\d{2}$/.test(x)))];
+  // RC21: não restringir a descoberta do CONFIRMADO à data do DOE. Registros legados
+  // podem ter data_publicacao nula/divergente; a RC17 previa fallback espécie+número, mas
+  // esse fallback nunca enxergava tais registros porque a consulta anterior já os excluía.
+  // Buscamos os CONFIRMADOS pelos números presentes no lote e fazemos a preferência por
+  // espécie+número+data em memória, com fallback seguro por espécie+número.
+  const numerosLote=[...new Set(rows.map(x=>String(x.numero_publicacao||'').trim()).filter(Boolean))];
   const confirmados=[];
-  for(const dataDoe of datas){
+  for(let i=0;i<numerosLote.length;i+=100){
+    const nums=numerosLote.slice(i,i+100);
     const {data,error}=await c.from('legalizacao_atos_importacao')
       .select('id,status_match,ato,numero_publicacao,data_publicacao,instituicao_id,escola_id,escola_nome,nte_numero,municipio,detalhe,arquivo_origem,linha_origem')
-      .eq('data_publicacao',dataDoe).eq('status_match','CONFIRMADO').limit(10000);
+      .eq('status_match','CONFIRMADO').in('numero_publicacao',nums).limit(10000);
     if(error)throw error;confirmados.push(...(data||[]));
   }
   const normNum=v=>upper(String(v||'').replace(/\s+/g,''));
@@ -940,8 +946,10 @@ async function importarAtosLote(rows=[]){
       vigencia_fim:row.vigencia_fim||null,
       vigencia_origem:row.vigencia_origem||null
     };
-    const {error}=await c.from('legalizacao_atos_importacao').update(upd).eq('id',existente.id).eq('status_match','CONFIRMADO');
-    if(error)throw error;diagnosticoServiceDoe303('06_ATUALIZADO_IMPORTACAO',{...existente,...upd},{id:existente.id,status:'CONFIRMADO'});
+    const {data:atualizado,error}=await c.from('legalizacao_atos_importacao').update(upd).eq('id',existente.id).eq('status_match','CONFIRMADO').select('id,status_match,ato,numero_publicacao,data_publicacao,instituicao_id,escola_id,escola_nome,nte_numero,municipio,detalhe,arquivo_origem,linha_origem').single();
+    if(error)throw error;
+    if(!atualizado)throw new Error(`Não foi possível reparar a evidência do ato confirmado ${row.numero_publicacao||''}.`);
+    diagnosticoServiceDoe303('06_ATUALIZADO_IMPORTACAO',atualizado,{id:existente.id,status:'CONFIRMADO'});
     // RC16: o prontuário mantém uma cópia documental em legalizacao_atos_legais.
     // Sincroniza a mesma evidência reparada pelo importacao_id, sem alterar vínculo,
     // decisão, espécie, número, status de confirmação ou autoria da conferência.
