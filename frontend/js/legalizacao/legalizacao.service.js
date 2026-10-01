@@ -44,8 +44,15 @@ async function contarFonteInstituicoes(tabela,filtros={},somenteNovas=false){
 async function buscarFaixaInstituicoes(tabela,filtros={},inicio=0,fim=49,somenteNovas=false){
   if(fim<inicio)return[];const c=client();let q=c.from(tabela).select('*').order('nome_instituicao',{ascending:true});if(somenteNovas)q=q.is('escola_id',null);q=aplicarFiltrosCatalogo(scoped(q),filtros);const {data,error}=await q.range(inicio,fim);if(error)throw error;return(data||[]).map(x=>somenteNovas?{...x,prontuario_id:x.id,origem:x.origem||'CADASTRO_LEGALIZACAO'}:x);
 }
+let reparoPassivoDoeEmExecucao=null,reparoPassivoDoeConcluido=false;
+async function garantirReparoPassivoDoe(){
+  if(reparoPassivoDoeConcluido||!podeGerirDoe())return;
+  if(!reparoPassivoDoeEmExecucao)reparoPassivoDoeEmExecucao=repararIdentidadesCanonicasDoe().then(r=>{reparoPassivoDoeConcluido=true;return r;}).finally(()=>{reparoPassivoDoeEmExecucao=null;});
+  return reparoPassivoDoeEmExecucao;
+}
 async function consultarInstituicoes(filtros={}){
   assertAccess();const c=client();if(!c)throw new Error('Cliente Supabase indisponível.');
+  await garantirReparoPassivoDoe();
   const page=Math.max(1,intOrNull(filtros.page)||1),pageSize=Math.min(100,Math.max(10,intOrNull(filtros.pageSize)||50)),from=(page-1)*pageSize,to=from+pageSize-1;
   // O catálogo histórico é baseado na view legalizacao_catalogo_v. Instituições criadas diretamente
   // em Legalização ainda não possuem escola_id e, por isso, precisam ser agregadas à consulta.
@@ -941,10 +948,10 @@ async function importarAtosLote(rows=[]){
     // RC24: atos já CONFIRMADOS também precisam receber regras regulatórias introduzidas
     // depois da confirmação original. A reimportação não reabre a conferência; apenas
     // reconcilia os metadados derivados do próprio texto documental.
-    const regVidaReimportada=regularizacaoVidaEscolarDoe(row);
-    const vigInicioReconciliada=regVidaReimportada?`${regVidaReimportada.inicio}-01-01`:(row.vigencia_inicio||existente.vigencia_inicio||null);
-    const vigFimReconciliada=regVidaReimportada?`${regVidaReimportada.fim}-12-31`:(row.vigencia_fim||existente.vigencia_fim||null);
-    const vigOrigemReconciliada=regVidaReimportada?'REGULARIZACAO_VIDA_ESCOLAR':(row.vigencia_origem||existente.vigencia_origem||null);
+    const regVidaReimportada=regularizacaoVidaEscolarDoe(row),decisaoNegativaReimportada=decisaoNegativaAtoImportado(row),usarRegVida=!!regVidaReimportada&&decisaoNegativaReimportada;
+    const vigInicioReconciliada=usarRegVida?`${regVidaReimportada.inicio}-01-01`:(row.vigencia_inicio||existente.vigencia_inicio||null);
+    const vigFimReconciliada=usarRegVida?`${regVidaReimportada.fim}-12-31`:(row.vigencia_fim||existente.vigencia_fim||null);
+    const vigOrigemReconciliada=usarRegVida?'REGULARIZACAO_VIDA_ESCOLAR':(row.vigencia_origem||existente.vigencia_origem||null);
     const upd={
       detalhe:(String(row.detalhe||'').length>=String(existente.detalhe||'').length?row.detalhe:existente.detalhe)||null,
       arquivo_origem:row.arquivo_origem||null,
@@ -974,7 +981,7 @@ async function importarAtosLote(rows=[]){
       if(eLeg)throw eLeg;
       // Aplica retroativamente o efeito operacional da regularização da vida escolar ao
       // cadastro/ofertas, sem alterar a decisão histórica de INDEFERIMENTO do ato.
-      if(regVidaReimportada){
+      if(usarRegVida){
         const instReconciliada=await oneScoped('legalizacao_instituicoes',vincId,{globalDoe:true});
         if(instReconciliada?.id){
           const rowEfeito={...row,id:existente.id,detalhe:upd.detalhe,vigencia_inicio:upd.vigencia_inicio,vigencia_fim:upd.vigencia_fim,vigencia_origem:upd.vigencia_origem};
@@ -1086,33 +1093,39 @@ async function listarAtosImportados(status=''){
 async function obterAtoImportado(importacaoId){assertAccess();if(!podeGerirDoe())throw new Error('A conferência de importações é autorizada apenas para os perfis Master e SEC.');const id=Number(importacaoId);if(!id)throw new Error('Publicação inválida.');const c=client(),{data,error}=await c.from('legalizacao_atos_importacao').select('*').eq('id',id).maybeSingle();if(error)throw error;if(!data)throw new Error('Publicação importada não encontrada.');diagnosticoServiceDoe303('06B_OBTER_ATO_IMPORTADO',data,{id:data.id,status:data.status_match});return data;}
 
 async function repararIdentidadesCanonicasDoe(){
-  assertAccess();if(!podeGerirDoe())return{instituicoes:0,atosRevisao:0};
+  assertAccess();if(!podeGerirDoe())return{instituicoes:0,atosRevisao:0,vigencias:0};
   const c=client(),insts=[];
   for(let ini=0;ini<12000;ini+=1000){const {data,error}=await c.from('legalizacao_instituicoes').select('id,escola_id,nome_instituicao,cod_inep,municipio,nte_id').not('escola_id','is',null).order('id',{ascending:true}).range(ini,ini+999);if(error)throw error;insts.push(...(data||[]));if((data||[]).length<1000)break;}
-  if(!insts.length)return{instituicoes:0,atosRevisao:0};
+  if(!insts.length)return{instituicoes:0,atosRevisao:0,vigencias:0};
   const escolaIds=[...new Set(insts.map(x=>Number(x.escola_id)).filter(Boolean))],mestres=new Map();
   for(let i=0;i<escolaIds.length;i+=300){const {data,error}=await c.from('escolas_sigee').select('id,nome_escola,nome,cod_mec,municipio,nte_id').in('id',escolaIds.slice(i,i+300));if(error)throw error;for(const e of data||[])mestres.set(Number(e.id),e);}
-  let corrigidas=0,atosRevisao=0;
-  const norm=normalizarChaveDoe;
+  let corrigidas=0,atosRevisao=0,vigencias=0;const norm=normalizarChaveDoe;
   for(const inst of insts){
     const mestre=mestres.get(Number(inst.escola_id));if(!mestre)continue;
     const nomeM=clean(mestre.nome_escola||mestre.nome),inepM=clean(mestre.cod_mec),munM=clean(mestre.municipio),nteM=mestre.nte_id??inst.nte_id;
     const divergente=(nomeM&&norm(inst.nome_instituicao)!==norm(nomeM))||(inepM&&digits(inst.cod_inep,30)!==digits(inepM,30))||(munM&&norm(inst.municipio)!==norm(munM))||String(inst.nte_id??'')!==String(nteM??'');
-    if(!divergente)continue;
-    const {error:eu}=await c.from('legalizacao_instituicoes').update({nome_instituicao:nomeM||inst.nome_instituicao,cod_inep:inepM||inst.cod_inep,municipio:munM||inst.municipio,nte_id:nteM,atualizado_por_id:currentUserId(),updated_at:new Date().toISOString()}).eq('id',inst.id);
-    if(eu)throw eu;corrigidas++;
-    const {data:imports,error:ei}=await c.from('legalizacao_atos_importacao').select('id,ato,tipo_ato,escola_nome,status_match').eq('instituicao_id',inst.id).eq('status_match','CONFIRMADO').limit(1000);if(ei)throw ei;
+    if(divergente){const {error:eu}=await c.from('legalizacao_instituicoes').update({nome_instituicao:nomeM||inst.nome_instituicao,cod_inep:inepM||inst.cod_inep,municipio:munM||inst.municipio,nte_id:nteM,atualizado_por_id:currentUserId(),updated_at:new Date().toISOString()}).eq('id',inst.id);if(eu)throw eu;corrigidas++;}
+    // Audita os atos mesmo quando a identidade já foi saneada em execução anterior.
+    const {data:imports,error:ei}=await c.from('legalizacao_atos_importacao').select('id,ato,tipo_ato,escola_nome,status_match,detalhe,vigencia_inicio,vigencia_fim,vigencia_origem').eq('instituicao_id',inst.id).eq('status_match','CONFIRMADO').limit(1000);if(ei)throw ei;
     for(const imp of imports||[]){
-      const nomeDoe=norm(imp.escola_nome),nomeCanon=norm(nomeM),tipo=normalizarOfertaAto([imp.tipo_ato,imp.ato].filter(Boolean).join(' ')),mudancaDenominacao=tipo.includes('MUDANCA')&&tipo.includes('DENOMIN');
+      const nomeDoe=norm(imp.escola_nome),nomeCanon=norm(nomeM),tipo=normalizarOfertaAto([imp.tipo_ato,imp.ato,imp.detalhe].filter(Boolean).join(' ')),mudancaDenominacao=tipo.includes('MUDANCA')&&tipo.includes('DENOMIN');
       const compativel=!nomeDoe||!nomeCanon||nomeDoe===nomeCanon||nomeDoe.includes(nomeCanon)||nomeCanon.includes(nomeDoe);
-      if(compativel||mudancaDenominacao)continue;
-      const {error:el}=await c.from('legalizacao_atos_legais').update({situacao_registro:'VINCULO_A_REVISAR'}).eq('importacao_id',imp.id).eq('situacao_registro','CONFIRMADO');if(el)throw el;
-      const {error:er}=await c.from('legalizacao_atos_importacao').update({instituicao_id:null,escola_id:null,status_match:'PENDENTE_CONFERENCIA'}).eq('id',imp.id);if(er)throw er;
-      atosRevisao++;
+      if(!compativel&&!mudancaDenominacao){
+        const {error:el}=await c.from('legalizacao_atos_legais').update({situacao_registro:'VINCULO_A_REVISAR'}).eq('importacao_id',imp.id).eq('situacao_registro','CONFIRMADO');if(el)throw el;
+        const {error:er}=await c.from('legalizacao_atos_importacao').update({instituicao_id:null,escola_id:null,status_match:'PENDENTE_CONFERENCIA'}).eq('id',imp.id);if(er)throw er;atosRevisao++;continue;
+      }
+      // Corrige passivo de atos positivos em que 2021-2025 (regularização histórica)
+      // foi gravado como vigência. Reconhece "por 06 anos, a partir de 2026".
+      const neg=decisaoNegativaAtoImportado(imp),txt=normalizarOfertaAto(imp.detalhe);
+      if(!neg){
+        const ma=txt.match(/\bPOR\s+0?(\d{1,2})\s+ANOS?\b/),mi=txt.match(/A\s+PARTIR\s+(?:DO\s+ANO\s+DE\s+|DE\s+)?((?:19|20)\d{2})/);
+        if(ma&&mi){const anos=Number(ma[1]),ano=Number(mi[1]);if(anos>0&&anos<=20){const vi=`${ano}-01-01`,vf=`${ano+anos-1}-12-31`;if(imp.vigencia_inicio!==vi||imp.vigencia_fim!==vf||upper(imp.vigencia_origem)!=='ANO_INICIAL_E_PRAZO_DO_ATO'){const upd={vigencia_inicio:vi,vigencia_fim:vf,vigencia_origem:'ANO_INICIAL_E_PRAZO_DO_ATO'};const {error:ev}=await c.from('legalizacao_atos_importacao').update(upd).eq('id',imp.id);if(ev)throw ev;const {error:ea}=await c.from('legalizacao_atos_legais').update(upd).eq('importacao_id',imp.id).eq('situacao_registro','CONFIRMADO');if(ea)throw ea;vigencias++;}}
+        }
+      }
     }
   }
-  if(corrigidas||atosRevisao){escolaCache.clear();atosControleCache=null;resumoCache=null;}
-  return{instituicoes:corrigidas,atosRevisao};
+  if(corrigidas||atosRevisao||vigencias){escolaCache.clear();atosControleCache=null;resumoCache=null;}
+  return{instituicoes:corrigidas,atosRevisao,vigencias};
 }
 
 async function consolidarPassivoHistoricoDoe(){
