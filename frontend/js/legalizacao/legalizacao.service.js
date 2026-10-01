@@ -858,6 +858,9 @@ async function listarBaseIdentificacaoDoe(){
   const mapa=new Map();
   const add=x=>{const iid=Number(x.id||x.prontuario_id)||null,eid=Number(x.escola_id)||null,k=iid?`I:${iid}`:(eid?`E:${eid}`:`N:${upper(x.nome_instituicao)}:${upper(x.municipio)}`);if(!mapa.has(k))mapa.set(k,{...x,id:iid,prontuario_id:iid,escola_id:eid,mantenedora_cnpjs:[]});};
   catalogo.forEach(add);novas.forEach(add);
+  const vinculados=[...mapa.values()].filter(x=>Number(x.escola_id)),escolaIds=[...new Set(vinculados.map(x=>Number(x.escola_id)).filter(Boolean))],mestres=new Map();
+  for(let i=0;i<escolaIds.length;i+=300){const {data,error}=await c.from('escolas_sigee').select('id,nome_escola,nome,cod_mec,municipio,nte_id').in('id',escolaIds.slice(i,i+300));if(error)throw error;for(const e of data||[])mestres.set(Number(e.id),e);}
+  for(const x of vinculados){const e=mestres.get(Number(x.escola_id));if(!e)continue;x.nome_instituicao=e.nome_escola||e.nome||x.nome_instituicao;x.cod_inep=clean(e.cod_mec)||x.cod_inep;x.municipio=clean(e.municipio)||x.municipio;x.nte_id=e.nte_id??x.nte_id;x._identidade_canonica='CADASTRO_MESTRE';}
   const porInstituicao=new Map([...mapa.values()].filter(x=>Number(x.prontuario_id)).map(x=>[Number(x.prontuario_id),x])),ids=[...porInstituicao.keys()];
   for(let i=0;i<ids.length;i+=300){const {data,error}=await c.from('legalizacao_mantenedoras').select('instituicao_id,cnpj,razao_social').in('instituicao_id',ids.slice(i,i+300));if(error)throw error;for(const m of data||[]){const alvo=porInstituicao.get(Number(m.instituicao_id));if(alvo&&digits(m.cnpj,14))alvo.mantenedora_cnpjs.push(digits(m.cnpj,14));}}
   return [...mapa.values()];
@@ -1192,7 +1195,9 @@ async function reconciliarVinculoAtoImportado(r){
   for(const x of candidatos){const pi=Number(x.prontuario_id||x.instituicao_id||x.id)||null,pe=Number(x.escola_id)||null,k=pi?`I:${pi}`:(pe?`E:${pe}`:null);if(k&&!chaves.has(k)){chaves.add(k);unicos.push({...x,prontuario_id:pi,escola_id:pe});}}
   if(!unicos.length)throw new Error('Vincule uma instituição antes de confirmar o ato. O SIGEE não encontrou identificador forte inequívoco (Processo SEI, CNPJ, MEC/INEP ou Código SEC). Selecione manualmente a instituição correta; nome, município e NTE não vinculam automaticamente.');
   if(unicos.length!==1)throw new Error(`A vinculação automática encontrou ${unicos.length} cadastros compatíveis. Selecione a instituição correta antes de confirmar.`);
-  const alvo=unicos[0];let inst=null;
+  const alvo=unicos[0];
+  if(Number(alvo.escola_id)){const mestre=await obterEscolaMestre(Number(alvo.escola_id)),nomeDoe=normalizarChaveDoe(r?.escola_nome),nomeMestre=normalizarChaveDoe(mestre?.nome_escola||mestre?.nome),tipoAto=normalizarOfertaAto([r?.tipo_ato,r?.ato,r?.detalhe].filter(Boolean).join(' ')),mudancaDenominacao=tipoAto.includes('MUDANCA')&&tipoAto.includes('DENOMIN');const compativel=!nomeDoe||!nomeMestre||nomeDoe===nomeMestre||nomeDoe.includes(nomeMestre)||nomeMestre.includes(nomeDoe);if(!compativel&&!mudancaDenominacao)throw new Error(`O identificador encontrado aponta para "${mestre?.nome_escola||mestre?.nome}", mas o DOE identifica "${r?.escola_nome||'outra instituição'}". O vínculo automático foi bloqueado para preservar o cadastro mestre. Localize e vincule manualmente a instituição correta.`);}
+  let inst=null;
   if(Number(alvo.prontuario_id))inst=await oneScoped('legalizacao_instituicoes',Number(alvo.prontuario_id),{globalDoe:true});
   else if(Number(alvo.escola_id))inst=await habilitarProntuario(Number(alvo.escola_id),{globalDoe:true});
   if(!inst)throw new Error('Não foi possível consolidar o vínculo da instituição identificada.');
@@ -1354,16 +1359,11 @@ async function confirmarAtoImportado(importacaoId,escolaId=null,ajustes={}){
   if(iid){inst=await oneScoped('legalizacao_instituicoes',iid,{globalDoe:true});}else if(eid){inst=await habilitarProntuario(eid,{globalDoe:true});}else{inst=await reconciliarVinculoAtoImportado(r);}
   if(!inst?.id)throw new Error('Vincule uma instituição antes de confirmar o ato.');
   const escolaLegada=Number(inst.escola_id||eid)||null,now=new Date().toISOString(),avisos=[];
-  const regVida=regularizacaoVidaEscolarDoe(r);
-  if(regVida){
-    // A vigência reconhecida pelo período de regularização alimenta o ato confirmado e,
-    // consequentemente, o prontuário/cadastro sem apagar a decisão de indeferimento.
-    if(!r.vigencia_inicio)r.vigencia_inicio=`${regVida.inicio}-01-01`;
-    if(!r.vigencia_fim)r.vigencia_fim=`${regVida.fim}-12-31`;
-    if(!r.vigencia_origem)r.vigencia_origem='REGULARIZACAO_VIDA_ESCOLAR';
-  }
+  const regVida=regularizacaoVidaEscolarDoe(r),decisaoNegativa=decisaoNegativaAtoImportado(r);
+  if(regVida&&decisaoNegativa){r.vigencia_inicio=`${regVida.inicio}-01-01`;r.vigencia_fim=`${regVida.fim}-12-31`;r.vigencia_origem='REGULARIZACAO_VIDA_ESCOLAR';}
+  else if(regVida&&!decisaoNegativa&&upper(r.vigencia_origem)==='REGULARIZACAO_VIDA_ESCOLAR'){r.vigencia_inicio=null;r.vigencia_fim=null;r.vigencia_origem='NAO_IDENTIFICADA';}
   if(Object.keys(correcoes).length){const {error:ec}=await c.from('legalizacao_atos_importacao').update(correcoes).eq('id',r.id);if(ec)throw ec;}
-  if(regVida){const {error:erv}=await c.from('legalizacao_atos_importacao').update({vigencia_inicio:r.vigencia_inicio,vigencia_fim:r.vigencia_fim,vigencia_origem:r.vigencia_origem}).eq('id',r.id);if(erv)throw erv;avisos.push(`Vida escolar regularizada de ${regVida.inicio} a ${regVida.fim}; instituição considerada vigente até ${regVida.fim} pela regra operacional do SIGEE.`);}
+  if(regVida&&decisaoNegativa){const {error:erv}=await c.from('legalizacao_atos_importacao').update({vigencia_inicio:r.vigencia_inicio,vigencia_fim:r.vigencia_fim,vigencia_origem:r.vigencia_origem}).eq('id',r.id);if(erv)throw erv;avisos.push(`Vida escolar regularizada de ${regVida.inicio} a ${regVida.fim}; instituição considerada vigente até ${regVida.fim} pela regra operacional do SIGEE.`);}
   const registro={instituicao_id:inst.id,escola_id:escolaLegada,importacao_id:r.id,ato:r.ato,tipo_ato:r.tipo_ato,numero_ato:r.numero_publicacao,data_publicacao:r.data_publicacao,numero_processo:r.numero_processo,vigencia_inicio:r.vigencia_inicio,vigencia_fim:r.vigencia_fim,vigencia_origem:r.vigencia_origem,detalhe:r.detalhe,fonte:`IMPORTACAO:${r.arquivo_origem}`,situacao_registro:'CONFIRMADO',criado_por_id:currentUserId()};
   const {data,error}=await c.from('legalizacao_atos_legais').upsert(registro,{onConflict:'importacao_id'}).select('*').single();if(error)throw error;
   // Reconciliação canônica do ato: uma reimportação/reclassificação da mesma publicação
