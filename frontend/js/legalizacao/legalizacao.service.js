@@ -1248,10 +1248,35 @@ function decisaoNegativaAtoImportado(r){
   const t=normalizarOfertaAto([r?.tipo_ato,r?.ato,r?.detalhe].filter(Boolean).join(' '));
   return /\b(INDEFERIMENTO|INDEFERIR|INDEFERIDO|INDEFERIDA|NAO DEFERIR|DESFAVORAVEL)\b/.test(t);
 }
+function regularizacaoVidaEscolarDoe(r){
+  const bruto=String(r?.detalhe||'');
+  const t=normalizarOfertaAto(bruto);
+  if(!/REGULARIZ(?:A|AR|E)[^\n.]{0,180}VIDA ESCOLAR/.test(t))return null;
+  const m=t.match(/(?:PERIODO|PERÍODO)\s+(?:DE\s+)?(20\d{2})\s+(?:A|ATE)\s+(20\d{2})/i)||t.match(/VIDA ESCOLAR[\s\S]{0,500}?(20\d{2})\s+(?:A|ATE)\s+(20\d{2})/i);
+  if(!m)return null;
+  const inicio=Number(m[1]),fim=Number(m[2]);if(!inicio||!fim||fim<inicio)return null;
+  const etapas=[];if(/ENSINO FUNDAMENTAL/.test(t))etapas.push('ENSINO_FUNDAMENTAL');if(/ENSINO MEDIO/.test(t))etapas.push('ENSINO_MEDIO');if(/EDUCACAO INFANTIL/.test(t)&&/REGULARIZ[\s\S]{0,350}EDUCACAO INFANTIL/.test(t))etapas.push('EDUCACAO_INFANTIL');
+  const novoProcesso=/NOVO PROCESSO|INSTRUIR NOVO PROCESSO/.test(t),base26=/RESOLUCAO CEE\s*(?:N[ºO°.]*)?\s*0?26\/2016/.test(t);
+  return{inicio,fim,etapas,novoProcesso,base26};
+}
 async function aplicarEfeitoRegulatorioAtoConfirmado(inst,r,escolaLegada){
   const c=client(),tipo=normalizarOfertaAto([r.tipo_ato,r.ato,r.detalhe].filter(Boolean).join(' ')),now=new Date().toISOString();
   if(decisaoNegativaAtoImportado(r)){
-    // Indeferimento não é ausência de efeito: ele precisa neutralizar um credenciamento
+    const regVida=regularizacaoVidaEscolarDoe(r);
+    if(regVida){
+      // Regra SIGEE: quando o próprio ato de indeferimento regulariza expressamente a vida
+      // escolar por período determinado, a instituição permanece operacionalmente VIGENTE
+      // até o término reconhecido. O indeferimento continua preservado no histórico decisório.
+      const {error:ei}=await c.from('legalizacao_instituicoes').update({situacao_regulatoria:'CREDENCIADA',dados_importados_status:'CONFIRMADO',atualizado_por_id:currentUserId(),updated_at:now}).eq('id',inst.id);if(ei)throw ei;
+      let ofertasAtualizadas=0;
+      if(regVida.etapas.length){
+        const {data:ofs,error:eo}=await c.from('legalizacao_ofertas').select('id,etapa_modalidade').eq('instituicao_id',inst.id);if(eo)throw eo;
+        const ids=(ofs||[]).filter(o=>{const e=normalizarOfertaAto(o.etapa_modalidade);return (regVida.etapas.includes('ENSINO_FUNDAMENTAL')&&e.includes('FUNDAMENTAL'))||(regVida.etapas.includes('ENSINO_MEDIO')&&e.includes('ENSINO MEDIO'))||(regVida.etapas.includes('EDUCACAO_INFANTIL')&&e.includes('EDUCACAO INFANTIL'));}).map(o=>o.id);
+        if(ids.length){const {error:eof}=await c.from('legalizacao_ofertas').update({situacao:'AUTORIZADA',ano_inicio_vigencia:regVida.inicio,ano_fim_vigencia:regVida.fim,updated_at:now}).in('id',ids);if(eof)throw eof;ofertasAtualizadas=ids.length;}
+      }
+      return{situacao:'CREDENCIADA',ofertasAtualizadas,decisao:'INDEFERIDO_COM_REGULARIZACAO',regularizacao_vida_escolar:regVida};
+    }
+    // Indeferimento sem regularização expressa de vida escolar neutraliza um credenciamento
     // que tenha sido materializado indevidamente por uma importação anterior. Preserva-se
     // CREDENCIADA somente quando existir outro ato positivo confirmado e independente.
     const {data:atos,error:ea}=await c.from('legalizacao_atos_legais').select('id,tipo_ato,ato,numero_ato,data_publicacao,detalhe,importacao_id,situacao_registro').eq('instituicao_id',inst.id).eq('situacao_registro','CONFIRMADO').limit(500);
@@ -1297,7 +1322,16 @@ async function confirmarAtoImportado(importacaoId,escolaId=null,ajustes={}){
   if(iid){inst=await oneScoped('legalizacao_instituicoes',iid,{globalDoe:true});}else if(eid){inst=await habilitarProntuario(eid,{globalDoe:true});}else{inst=await reconciliarVinculoAtoImportado(r);}
   if(!inst?.id)throw new Error('Vincule uma instituição antes de confirmar o ato.');
   const escolaLegada=Number(inst.escola_id||eid)||null,now=new Date().toISOString(),avisos=[];
+  const regVida=regularizacaoVidaEscolarDoe(r);
+  if(regVida){
+    // A vigência reconhecida pelo período de regularização alimenta o ato confirmado e,
+    // consequentemente, o prontuário/cadastro sem apagar a decisão de indeferimento.
+    if(!r.vigencia_inicio)r.vigencia_inicio=`${regVida.inicio}-01-01`;
+    if(!r.vigencia_fim)r.vigencia_fim=`${regVida.fim}-12-31`;
+    if(!r.vigencia_origem)r.vigencia_origem='REGULARIZACAO_VIDA_ESCOLAR';
+  }
   if(Object.keys(correcoes).length){const {error:ec}=await c.from('legalizacao_atos_importacao').update(correcoes).eq('id',r.id);if(ec)throw ec;}
+  if(regVida){const {error:erv}=await c.from('legalizacao_atos_importacao').update({vigencia_inicio:r.vigencia_inicio,vigencia_fim:r.vigencia_fim,vigencia_origem:r.vigencia_origem}).eq('id',r.id);if(erv)throw erv;avisos.push(`Vida escolar regularizada de ${regVida.inicio} a ${regVida.fim}; instituição considerada vigente até ${regVida.fim} pela regra operacional do SIGEE.`);}
   const registro={instituicao_id:inst.id,escola_id:escolaLegada,importacao_id:r.id,ato:r.ato,tipo_ato:r.tipo_ato,numero_ato:r.numero_publicacao,data_publicacao:r.data_publicacao,numero_processo:r.numero_processo,vigencia_inicio:r.vigencia_inicio,vigencia_fim:r.vigencia_fim,vigencia_origem:r.vigencia_origem,detalhe:r.detalhe,fonte:`IMPORTACAO:${r.arquivo_origem}`,situacao_registro:'CONFIRMADO',criado_por_id:currentUserId()};
   const {data,error}=await c.from('legalizacao_atos_legais').upsert(registro,{onConflict:'importacao_id'}).select('*').single();if(error)throw error;
   // Reconciliação canônica do ato: uma reimportação/reclassificação da mesma publicação
@@ -1338,9 +1372,12 @@ async function confirmarAtoImportado(importacaoId,escolaId=null,ajustes={}){
           const {data:outros}=await c.from('legalizacao_atos_legais').select('id,tipo_ato,numero_ato,data_publicacao,detalhe,importacao_id').eq('instituicao_id',inst.id).eq('situacao_registro','CONFIRMADO').neq('importacao_id',r.id).limit(300);
           const numeroAtual=String(r.numero_publicacao||'').replace(/\s+/g,'').toUpperCase(),dataAtual=String(r.data_publicacao||'').slice(0,10);
           const temCredenciamentoPositivo=(outros||[]).some(a=>{const mesmoAto=numeroAtual&&String(a.numero_ato||'').replace(/\s+/g,'').toUpperCase()===numeroAtual&&(!dataAtual||!a.data_publicacao||String(a.data_publicacao).slice(0,10)===dataAtual);if(mesmoAto)return false;const tx=normalizarOfertaAto([a.tipo_ato,a.detalhe].filter(Boolean).join(' '));return (tx.includes('CREDENCIAMENTO')||tx.includes('RECREDENCIAMENTO'))&&!/\b(INDEFERIMENTO|INDEFERIR|INDEFERIDO|INDEFERIDA|DESFAVORAVEL)\b/.test(tx);});
-          if(!temCredenciamentoPositivo){const {error:einst}=await c.from('legalizacao_instituicoes').update({situacao_regulatoria:'A_CONFERIR',atualizado_por_id:currentUserId(),updated_at:now}).eq('id',inst.id);if(einst)throw einst;}
+          const regVidaProc=regularizacaoVidaEscolarDoe(r);
+          if(!temCredenciamentoPositivo&&!regVidaProc){const {error:einst}=await c.from('legalizacao_instituicoes').update({situacao_regulatoria:'A_CONFERIR',atualizado_por_id:currentUserId(),updated_at:now}).eq('id',inst.id);if(einst)throw einst;}
         }
-        avisos.push('O DOE registra indeferimento. O procedimento foi encerrado como INDEFERIDO e nenhum credenciamento ou autorização foi concedido.');
+        const regVidaProc=regularizacaoVidaEscolarDoe(r);
+        if(regVidaProc)avisos.push(`O DOE registra indeferimento do pleito, mas regulariza expressamente a vida escolar de ${regVidaProc.inicio} a ${regVidaProc.fim}. Pela regra operacional do SIGEE, a instituição permanece VIGENTE até ${regVidaProc.fim} e o novo processo regulatório continua necessário.`);
+        else avisos.push('O DOE registra indeferimento. O procedimento foi encerrado como INDEFERIDO e nenhum credenciamento ou autorização foi concedido.');
       }else avisos.push('A publicação registra deferimento parcial. O ato foi preservado para conferência e nenhum efeito favorável integral foi aplicado automaticamente.');
     }else if(candidatos.length>1){avisos.push('Há mais de um procedimento compatível aguardando publicação; o DOE foi confirmado, mas o procedimento não foi encerrado automaticamente.');}
   }catch(e){console.warn('[DOE] confirmação concluída, mas o encontro auxiliar com procedimento falhou',e);avisos.push('O encontro auxiliar com a fila Aguardando Publicação não foi concluído.');}
