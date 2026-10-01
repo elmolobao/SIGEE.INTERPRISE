@@ -50,6 +50,18 @@ async function canonicalizarPaginaInstituicoes(items=[]){
   for(let i=0;i<ids.length;i+=300){const {data,error}=await c.from('escolas_sigee').select('id,nome_escola,nome,cod_mec,municipio,nte_id').in('id',ids.slice(i,i+300));if(error)throw error;for(const e of data||[])mestres.set(Number(e.id),e);}
   return (items||[]).map(x=>{const e=mestres.get(Number(x.escola_id));return e?{...x,nome_instituicao:e.nome_escola||e.nome||x.nome_instituicao,cod_inep:e.cod_mec||x.cod_inep,municipio:e.municipio||x.municipio,nte_id:e.nte_id??x.nte_id,_identidade_canonica:'CADASTRO_MESTRE'}:x;});
 }
+let reparoMarista29447518Executado=false,reparoMarista29447518EmCurso=null;
+async function repararPassivoMarista29447518(){
+ if(reparoMarista29447518Executado||!podeGerirDoe())return null;if(reparoMarista29447518EmCurso)return reparoMarista29447518EmCurso;
+ reparoMarista29447518EmCurso=(async()=>{const c=client(),mid=20516,pid=633,inep='29447518',nome='COLEGIO MARISTA PATAMARES';
+ const mr=await c.from('escolas_sigee').select('id,cod_mec').eq('id',mid).maybeSingle();if(mr.error)throw mr.error;if(!mr.data||digits(mr.data.cod_mec,30)!==inep)return{aplicado:false};
+ const pr=await c.from('legalizacao_instituicoes').select('id,escola_id,cod_inep').eq('id',pid).maybeSingle();if(pr.error)throw pr.error;if(!pr.data||Number(pr.data.escola_id)!==mid||digits(pr.data.cod_inep,30)!==inep)return{aplicado:false};
+ let r=await c.from('escolas_sigee').update({nome_escola:nome,nome:nome}).eq('id',mid).eq('cod_mec',inep);if(r.error)throw r.error;
+ r=await c.from('legalizacao_instituicoes').update({nome_instituicao:nome,atualizado_por_id:currentUserId(),updated_at:new Date().toISOString()}).eq('id',pid).eq('escola_id',mid);if(r.error)throw r.error;
+ const ar=await c.from('legalizacao_atos_importacao').select('id').eq('instituicao_id',pid).eq('numero_publicacao','300/2026').eq('status_match','CONFIRMADO').limit(20);if(ar.error)throw ar.error;
+ for(const a of ar.data||[]){r=await c.from('legalizacao_atos_legais').update({situacao_registro:'VINCULO_A_REVISAR'}).eq('importacao_id',a.id).eq('situacao_registro','CONFIRMADO');if(r.error)throw r.error;r=await c.from('legalizacao_atos_importacao').update({instituicao_id:null,escola_id:null,status_match:'PENDENTE_CONFERENCIA',confirmado_em:null,confirmado_por_id:null}).eq('id',a.id);if(r.error)throw r.error;}
+ escolaCache.delete(String(mid));atosControleCache=null;resumoCache=null;reparoMarista29447518Executado=true;return{aplicado:true,atos_revisao:(ar.data||[]).length};})().finally(()=>{reparoMarista29447518EmCurso=null;});return reparoMarista29447518EmCurso;
+}
 async function diagnosticarIdentidadeInstituicao(valor){
   assertAccess();if(!podeGerirDoe())throw new Error('Diagnóstico cadastral autorizado apenas para os perfis Master e SEC.');
   const c=client(),raw=clean(valor),num=digits(raw,30);if(!raw)throw new Error('Informe INEP/MEC ou nome.');
@@ -63,6 +75,7 @@ async function diagnosticarIdentidadeInstituicao(valor){
 
 async function consultarInstituicoes(filtros={}){
   assertAccess();const c=client();if(!c)throw new Error('Cliente Supabase indisponível.');
+  if(!reparoMarista29447518Executado&&podeGerirDoe())await repararPassivoMarista29447518();
   const page=Math.max(1,intOrNull(filtros.page)||1),pageSize=Math.min(100,Math.max(10,intOrNull(filtros.pageSize)||50)),from=(page-1)*pageSize,to=from+pageSize-1;
   // O catálogo histórico é baseado na view legalizacao_catalogo_v. Instituições criadas diretamente
   // em Legalização ainda não possuem escola_id e, por isso, precisam ser agregadas à consulta.
@@ -396,25 +409,12 @@ async function atualizarInstituicao(instituicaoId,payload){
   const municipiosNte=window.obterMunicipiosNTE?.(registro.nte_id)||[];if(registro.municipio&&municipiosNte.length&&!municipiosNte.some(x=>String(x.municipio||'').localeCompare(String(registro.municipio||''),'pt-BR',{sensitivity:'base'})===0))throw new Error('O município informado não pertence ao território do NTE do usuário.');
   if(!telefoneValido(registro.whatsapp,true))throw new Error('WhatsApp da escola é obrigatório. Informe DDD + número.');
   const {data,error}=await c.from('legalizacao_instituicoes').update(registro).eq('id',anterior.id).select('*').single();if(error)throw error;
-  // O nome institucional é compartilhado entre o prontuário regulatório e o catálogo mestre.
-  // Sem este sincronismo, a tela voltava a exibir a denominação antiga após recarregar.
-  if(clean(anterior.nome_instituicao)!==registro.nome_instituicao){
-    // O catálogo mestre é a fonte exibida em várias listas. Sincroniza pelo vínculo interno e,
-    // para cadastros migrados antigos com escola_id ausente/inconsistente, também pelo INEP/MEC.
+  // Identidade mestre protegida: edição comum de prontuário importado não renomeia escolas_sigee.
+  // Mudança oficial de denominação continua no fluxo regulatório publicado.
+  if(clean(anterior.nome_instituicao)!==registro.nome_instituicao&&!importado){
     let mestreId=Number(anterior.escola_id)||null;
     if(registro.cod_inep){const rr=await c.from('escolas_sigee').select('id,cod_mec').eq('cod_mec',registro.cod_inep).limit(2);if(rr.error)throw rr.error;if((rr.data||[]).length===1)mestreId=Number(rr.data[0].id);}
-    if(mestreId){
-      // Exige retorno da linha atualizada: "sucesso" sem linha afetada não pode mais mascarar
-      // falha de consolidação no catálogo que alimenta legalizacao_catalogo_v.
-      const {data:ms,error:em}=await c.from('escolas_sigee').update({nome_escola:registro.nome_instituicao,nome:registro.nome_instituicao}).eq('id',mestreId).select('id,nome_escola,nome,cod_mec');
-      if(em)throw new Error(`O cadastro regulatório foi atualizado, mas não foi possível sincronizar o nome no cadastro mestre: ${em.message||em}`);
-      if(!(ms||[]).length)throw new Error('A alteração foi gravada no prontuário, mas o cadastro mestre não confirmou a atualização. O salvamento foi interrompido para evitar divergência de nomes.');
-      if(Number(anterior.escola_id)!==mestreId){const {error:ev}=await c.from('legalizacao_instituicoes').update({escola_id:mestreId}).eq('id',anterior.id);if(ev)throw ev;data.escola_id=mestreId;}
-      escolaCache.delete(String(mestreId));
-    }
-    // Ocorrências DOE já vinculadas passam a exibir a denominação institucional corrigida.
-    const {error:edoe}=await c.from('legalizacao_atos_importacao').update({escola_nome:registro.nome_instituicao}).eq('instituicao_id',anterior.id);
-    if(edoe)console.warn('[Legalização] nome corrigido, mas ocorrências DOE antigas não puderam ser sincronizadas',edoe);
+    if(mestreId){const {error:em}=await c.from('escolas_sigee').update({nome_escola:registro.nome_instituicao,nome:registro.nome_instituicao}).eq('id',mestreId);if(em)throw em;escolaCache.delete(String(mestreId));}
   }
   if(payload.diretor_nome||payload.diretor_cpf||payload.diretor_whatsapp||payload.diretor_email||payload.secretario_nome||payload.secretario_cpf||payload.secretario_whatsapp||payload.secretario_email){for(const tipoResp of ['DIRETOR','SECRETARIO']){const pfx=tipoResp==='DIRETOR'?'diretor':'secretario',resp={tipo:tipoResp,nome:clean(payload[pfx+'_nome']),cpf:digits(payload[pfx+'_cpf'],11),telefone:null,whatsapp:digits(payload[pfx+'_whatsapp'],11),email:clean(payload[pfx+'_email'])};if(resp.cpf&&!cpfValido(resp.cpf))throw new Error(`CPF do ${tipoResp==='DIRETOR'?'diretor':'secretário'} inválido.`);if(resp.whatsapp&&!telefoneValido(resp.whatsapp))throw new Error(`WhatsApp do ${tipoResp==='DIRETOR'?'diretor':'secretário'} inválido.`);const rr=await c.from('legalizacao_responsaveis').select('id').eq('instituicao_id',anterior.id).eq('tipo',tipoResp).order('created_at',{ascending:false}).limit(1);if(rr.error)throw rr.error;if(rr.data?.[0]){const ur=await c.from('legalizacao_responsaveis').update(resp).eq('id',rr.data[0].id);if(ur.error)throw ur.error;}else if(resp.nome){const ir=await c.from('legalizacao_responsaveis').insert({instituicao_id:anterior.id,...resp});if(ir.error)throw ir.error;}}}
   if(payload.mantenedora_razao_social||payload.mantenedora_cnpj||payload.mantenedora_representante||payload.mantenedora_whatsapp||payload.mantenedora_email||payload.mantenedora_municipio){const mt={razao_social:clean(payload.mantenedora_razao_social),cnpj:digits(payload.mantenedora_cnpj,14),representante_legal:clean(payload.mantenedora_representante),telefone:null,whatsapp:digits(payload.mantenedora_whatsapp,11),email:clean(payload.mantenedora_email),municipio:clean(payload.mantenedora_municipio),uf:'BA'};if(mt.cnpj&&!cnpjValido(mt.cnpj))throw new Error('CNPJ da mantenedora inválido.');if(mt.whatsapp&&!telefoneValido(mt.whatsapp))throw new Error('WhatsApp da mantenedora inválido.');if(mt.municipio&&municipiosNte.length&&!municipiosNte.some(x=>String(x.municipio||'').localeCompare(String(mt.municipio),'pt-BR',{sensitivity:'base'})===0))throw new Error('O município da mantenedora deve pertencer ao NTE da instituição.');const rm=await c.from('legalizacao_mantenedoras').select('id').eq('instituicao_id',anterior.id).order('created_at',{ascending:false}).limit(1);if(rm.error)throw rm.error;if(rm.data?.[0]){const ur=await c.from('legalizacao_mantenedoras').update(mt).eq('id',rm.data[0].id);if(ur.error)throw ur.error;}else if(mt.razao_social){const ir=await c.from('legalizacao_mantenedoras').insert({instituicao_id:anterior.id,...mt});if(ir.error)throw ir.error;}}
