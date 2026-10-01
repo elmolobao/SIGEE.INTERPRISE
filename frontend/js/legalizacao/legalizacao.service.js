@@ -44,15 +44,14 @@ async function contarFonteInstituicoes(tabela,filtros={},somenteNovas=false){
 async function buscarFaixaInstituicoes(tabela,filtros={},inicio=0,fim=49,somenteNovas=false){
   if(fim<inicio)return[];const c=client();let q=c.from(tabela).select('*').order('nome_instituicao',{ascending:true});if(somenteNovas)q=q.is('escola_id',null);q=aplicarFiltrosCatalogo(scoped(q),filtros);const {data,error}=await q.range(inicio,fim);if(error)throw error;return(data||[]).map(x=>somenteNovas?{...x,prontuario_id:x.id,origem:x.origem||'CADASTRO_LEGALIZACAO'}:x);
 }
-let reparoPassivoDoeEmExecucao=null,reparoPassivoDoeConcluido=false;
-async function garantirReparoPassivoDoe(){
-  if(reparoPassivoDoeConcluido||!podeGerirDoe())return;
-  if(!reparoPassivoDoeEmExecucao)reparoPassivoDoeEmExecucao=repararIdentidadesCanonicasDoe().then(r=>{reparoPassivoDoeConcluido=true;return r;}).finally(()=>{reparoPassivoDoeEmExecucao=null;});
-  return reparoPassivoDoeEmExecucao;
+async function canonicalizarPaginaInstituicoes(items=[]){
+  const ids=[...new Set((items||[]).map(x=>Number(x.escola_id)).filter(Boolean))];if(!ids.length)return items||[];
+  const c=client(),mestres=new Map();
+  for(let i=0;i<ids.length;i+=300){const {data,error}=await c.from('escolas_sigee').select('id,nome_escola,nome,cod_mec,municipio,nte_id').in('id',ids.slice(i,i+300));if(error)throw error;for(const e of data||[])mestres.set(Number(e.id),e);}
+  return (items||[]).map(x=>{const e=mestres.get(Number(x.escola_id));return e?{...x,nome_instituicao:e.nome_escola||e.nome||x.nome_instituicao,cod_inep:e.cod_mec||x.cod_inep,municipio:e.municipio||x.municipio,nte_id:e.nte_id??x.nte_id,_identidade_canonica:'CADASTRO_MESTRE'}:x;});
 }
 async function consultarInstituicoes(filtros={}){
   assertAccess();const c=client();if(!c)throw new Error('Cliente Supabase indisponível.');
-  await garantirReparoPassivoDoe();
   const page=Math.max(1,intOrNull(filtros.page)||1),pageSize=Math.min(100,Math.max(10,intOrNull(filtros.pageSize)||50)),from=(page-1)*pageSize,to=from+pageSize-1;
   // O catálogo histórico é baseado na view legalizacao_catalogo_v. Instituições criadas diretamente
   // em Legalização ainda não possuem escola_id e, por isso, precisam ser agregadas à consulta.
@@ -60,7 +59,7 @@ async function consultarInstituicoes(filtros={}){
   const total=novasTotal+catalogoTotal,items=[];
   if(from<novasTotal){const fimNovas=Math.min(to,novasTotal-1);items.push(...await buscarFaixaInstituicoes('legalizacao_instituicoes',filtros,from,fimNovas,true));}
   if(items.length<pageSize&&to>=novasTotal){const inicioCatalogo=Math.max(0,from-novasTotal),quantidade=pageSize-items.length;items.push(...await buscarFaixaInstituicoes('legalizacao_catalogo_v',filtros,inicioCatalogo,inicioCatalogo+quantidade-1,false));}
-  return {items,total,page,pageSize,pages:Math.max(1,Math.ceil(total/pageSize))};
+  return {items:await canonicalizarPaginaInstituicoes(items),total,page,pageSize,pages:Math.max(1,Math.ceil(total/pageSize))};
 }
 async function listarInstituicoes(filtros={}){return (await consultarInstituicoes(filtros)).items;}
 async function buscarInstituicoesAlteracao(busca,limite=12){
