@@ -935,6 +935,13 @@ async function importarAtosLote(rows=[]){
     let existente=confirmadosPorChave.get(chaveDoc(row));
     if(!existente){const candidatos=confirmadosPorAto.get(chaveAto(row))||[];if(candidatos.length===1)existente=candidatos[0];}
     if(!existente){restantes.push(row);continue;}diagnosticoServiceDoe303('05B_CONFIRMADO_EXISTENTE',existente,{id:existente.id,status:existente.status_match});diagnosticoServiceDoe303('05C_ROW_REIMPORTADA',row,{status:row.status_match});
+    // RC24: atos já CONFIRMADOS também precisam receber regras regulatórias introduzidas
+    // depois da confirmação original. A reimportação não reabre a conferência; apenas
+    // reconcilia os metadados derivados do próprio texto documental.
+    const regVidaReimportada=regularizacaoVidaEscolarDoe(row);
+    const vigInicioReconciliada=regVidaReimportada?`${regVidaReimportada.inicio}-01-01`:(row.vigencia_inicio||existente.vigencia_inicio||null);
+    const vigFimReconciliada=regVidaReimportada?`${regVidaReimportada.fim}-12-31`:(row.vigencia_fim||existente.vigencia_fim||null);
+    const vigOrigemReconciliada=regVidaReimportada?'REGULARIZACAO_VIDA_ESCOLAR':(row.vigencia_origem||existente.vigencia_origem||null);
     const upd={
       detalhe:(String(row.detalhe||'').length>=String(existente.detalhe||'').length?row.detalhe:existente.detalhe)||null,
       arquivo_origem:row.arquivo_origem||null,
@@ -942,9 +949,9 @@ async function importarAtosLote(rows=[]){
       numero_processo:row.numero_processo||null,
       cnpj_extraido:row.cnpj_extraido||null,
       endereco_extraido:row.endereco_extraido||null,
-      vigencia_inicio:row.vigencia_inicio||null,
-      vigencia_fim:row.vigencia_fim||null,
-      vigencia_origem:row.vigencia_origem||null
+      vigencia_inicio:vigInicioReconciliada,
+      vigencia_fim:vigFimReconciliada,
+      vigencia_origem:vigOrigemReconciliada
     };
     const {data:atualizado,error}=await c.from('legalizacao_atos_importacao').update(upd).eq('id',existente.id).eq('status_match','CONFIRMADO').select('id,status_match,ato,numero_publicacao,data_publicacao,instituicao_id,escola_id,escola_nome,nte_numero,municipio,detalhe,arquivo_origem,linha_origem').single();
     if(error)throw error;
@@ -962,6 +969,15 @@ async function importarAtosLote(rows=[]){
     if(vincId){
       const {error:eLeg}=await c.from('legalizacao_atos_legais').update(atoUpd).eq('instituicao_id',vincId).eq('numero_ato',row.numero_publicacao).eq('situacao_registro','CONFIRMADO');
       if(eLeg)throw eLeg;
+      // Aplica retroativamente o efeito operacional da regularização da vida escolar ao
+      // cadastro/ofertas, sem alterar a decisão histórica de INDEFERIMENTO do ato.
+      if(regVidaReimportada){
+        const instReconciliada=await oneScoped('legalizacao_instituicoes',vincId,{globalDoe:true});
+        if(instReconciliada?.id){
+          const rowEfeito={...row,id:existente.id,detalhe:upd.detalhe,vigencia_inicio:upd.vigencia_inicio,vigencia_fim:upd.vigencia_fim,vigencia_origem:upd.vigencia_origem};
+          await aplicarEfeitoRegulatorioAtoConfirmado(instReconciliada,rowEfeito,Number(existente.escola_id)||Number(instReconciliada.escola_id)||null);
+        }
+      }
     }
     reparados.push({...existente,...upd,status_match:'CONFIRMADO'});
   }

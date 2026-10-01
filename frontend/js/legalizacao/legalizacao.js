@@ -201,7 +201,9 @@ function textoPublicacaoDoeFormatado(a,imp={}){
     if(conselho>=0)principal=principal.slice(conselho);
   }
   principal=principal
-    .replace(/\s*<#E\.G\.B#[^>]+\/?>(?:\s*)$/gi,'')
+    // Marcadores editoriais EGBA são metadados de proveniência: permanecem no texto
+    // persistido, mas nunca integram a leitura documental apresentada ao usuário.
+    .replace(/\s*<#E\.G\.B#[^>]*\/?>(?:\s*)/gi,' ')
     .replace(/\s*\n\s*/g,' ')
     .replace(/\s{2,}/g,' ')
     .trim();
