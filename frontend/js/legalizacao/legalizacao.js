@@ -205,6 +205,10 @@ function textoPublicacaoDoeFormatado(a,imp={}){
     // Marcadores editoriais EGBA são metadados de proveniência: permanecem no texto
     // persistido, mas nunca integram a leitura documental apresentada ao usuário.
     .replace(/\s*<#E\.G\.B#[^>]*\/?>(?:\s*)/gi,' ')
+    // Rodapés/cabeçalhos editoriais do PDF não pertencem ao teor do ato.
+    .replace(/\s*C[ÓO]PIA\s*-\s*Consulte\s+informa[cç][aã]o\s+oficial\s+em\s+www\.dool\.egba\.ba\.gov\.br\s*/gi,' ')
+    .replace(/\s*SALVADOR,?\s+(?:SEGUNDA|TER[CÇ]A|QUARTA|QUINTA|SEXTA|S[ÁA]BADO|DOMINGO)[- ]FEIRA,[^\n]*ANO\s+CXI[^\n]*/gi,' ')
+    .replace(/\s*Identidade institucional obtida no Parecer[^.]*\.?(?=\s|$)/gi,' ')
     .replace(/\s*\n\s*/g,' ')
     .replace(/\s{2,}/g,' ')
     .trim();
@@ -396,6 +400,32 @@ function segmentarPublicacoesDoe(paginas){
         if(proximoCabecalho>=0)fim=Math.min(fim,a.idx+40+proximoCabecalho);
       }
       let trecho=texto.slice(a.idx,fim).trim();
+
+      // RC28: publicações EGBA podem atravessar a quebra física de página do PDF.
+      // Quando o envelope <#E.G.B#ID> abre nesta página e o fechamento do MESMO ID
+      // só aparece nas páginas seguintes, anexamos somente a continuação pertencente
+      // ao envelope. Isso é genérico para todas as instituições/atos e evita que a
+      // evidência termine no rodapé da página (caso Resolução 302/2026, p. 37→38).
+      if(abertura&&!fimEnvelopeEgba){
+        const idOriginal=String(abertura[1]||'');
+        const idRx=idOriginal.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+        const fechaRx=new RegExp(`<#E\\.G\\.B#${idRx}\\/>`,'i');
+        const paginaAtualIdx=paginas.indexOf(pagina);
+        let continuacao='';
+        for(let pj=paginaAtualIdx+1;pj<paginas.length;pj++){
+          const proxTexto=String(paginas[pj]?.texto||'');
+          const fecha=fechaRx.exec(proxTexto);
+          if(fecha){
+            continuacao+=(continuacao?'\n':'')+proxTexto.slice(0,fecha.index+fecha[0].length);
+            break;
+          }
+          // Limite defensivo: uma publicação EGBA normal não deve consumir muitas páginas.
+          // Mantém o importador protegido contra envelope malformado.
+          if(pj-paginaAtualIdx>3)break;
+          continuacao+=(continuacao?'\n':'')+proxTexto;
+        }
+        if(continuacao)trecho=`${trecho}\n${continuacao}`.trim();
+      }
       if(trecho.length<40)continue;
       if(a.agrupada){
         // Prefixo sintético apenas para o classificador: preserva o número individual
