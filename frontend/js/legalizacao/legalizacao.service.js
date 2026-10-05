@@ -96,15 +96,41 @@ async function diagnosticarIdentidadeInstituicao(valor){
 
 let saneamentoDuplicata299AcademicoExecutado=false,saneamentoDuplicata299AcademicoEmCurso=null;
 async function sanearDuplicataContaminada299Academico(){
-  if(saneamentoDuplicata299AcademicoExecutado||!podeGerirDoe())return null;if(saneamentoDuplicata299AcademicoEmCurso)return saneamentoDuplicata299AcademicoEmCurso;
+  if(saneamentoDuplicata299AcademicoExecutado||!podeGerirDoe())return null;
+  if(saneamentoDuplicata299AcademicoEmCurso)return saneamentoDuplicata299AcademicoEmCurso;
   saneamentoDuplicata299AcademicoEmCurso=(async()=>{const c=client();
-    const {data:conf,error:ec}=await c.from('legalizacao_atos_importacao').select('id').eq('numero_publicacao','299/2026').eq('status_match','CONFIRMADO').limit(20);if(ec)throw ec;if(!(conf||[]).length)return{removidos:0};
-    const {data:pend,error:ep}=await c.from('legalizacao_atos_importacao').select('id,escola_nome,numero_processo,cnpj_extraido,status_match').eq('numero_publicacao','299/2026').in('status_match',['IDENTIFICADO','PENDENTE_CONFERENCIA','AMBIGUO']).limit(100);if(ep)throw ep;
-    const alvo=(pend||[]).filter(x=>normalizarChaveDoe(x.escola_nome)==='COLEGIO ACADEMICO'&&clean(x.numero_processo)==='011.5502.2025.0010663-41');
-    for(const x of alvo){const {error}=await c.from('legalizacao_atos_importacao').delete().eq('id',x.id).in('status_match',['IDENTIFICADO','PENDENTE_CONFERENCIA','AMBIGUO']);if(error)throw error;}
-    if(alvo.length){atosControleCache=null;resumoCache=null;}saneamentoDuplicata299AcademicoExecutado=true;return{removidos:alvo.length};
-  })().finally(()=>{saneamentoDuplicata299AcademicoEmCurso=null;});return saneamentoDuplicata299AcademicoEmCurso;
+    // Regra documental: um ato já CONFIRMADO é soberano sobre segundas ocorrências
+    // não finalizadas da mesma espécie + número + data/edição + página.
+    const {data:conf,error:ec}=await c.from('legalizacao_atos_importacao')
+      .select('id,lote_id,arquivo_origem,linha_origem,ato,numero_publicacao,data_publicacao,status_match')
+      .eq('numero_publicacao','299/2026').eq('status_match','CONFIRMADO').limit(20);
+    if(ec)throw ec;if(!(conf||[]).length){saneamentoDuplicata299AcademicoExecutado=true;return{removidos:0};}
+    const {data:pend,error:ep}=await c.from('legalizacao_atos_importacao')
+      .select('id,lote_id,arquivo_origem,linha_origem,ato,numero_publicacao,data_publicacao,status_match')
+      .eq('numero_publicacao','299/2026')
+      .in('status_match',['IDENTIFICADO','PENDENTE_CONFERENCIA','AGUARDANDO_CONFERENCIA','AMBIGUO']).limit(100);
+    if(ep)throw ep;
+    const norm=x=>normalizarChaveDoe(x||'');
+    const pagina=x=>{const m=String(x?.linha_origem||'').match(/(?:PAG(?:INA)?|P[ÁA]G(?:INA)?)\D*(\d+)/i);return m?m[1]:'';};
+    const alvo=(pend||[]).filter(p=>(conf||[]).some(q=>{
+      const especie=!p.ato||!q.ato||norm(p.ato)===norm(q.ato);
+      const data=String(p.data_publicacao||'').slice(0,10),dataQ=String(q.data_publicacao||'').slice(0,10);
+      const mesmaData=data&&dataQ&&data===dataQ;
+      const mesmoArquivo=p.arquivo_origem&&q.arquivo_origem&&String(p.arquivo_origem)===String(q.arquivo_origem);
+      const pp=pagina(p),pq=pagina(q),mesmaPagina=!pp||!pq||pp===pq;
+      return especie&&mesmaPagina&&(mesmaData||mesmoArquivo);
+    }));
+    for(const x of alvo){
+      const {error}=await c.from('legalizacao_atos_importacao').delete().eq('id',x.id)
+        .in('status_match',['IDENTIFICADO','PENDENTE_CONFERENCIA','AGUARDANDO_CONFERENCIA','AMBIGUO']);
+      if(error)throw error;
+    }
+    if(alvo.length){atosControleCache=null;resumoCache=null;}
+    saneamentoDuplicata299AcademicoExecutado=true;return{removidos:alvo.length};
+  })().finally(()=>{saneamentoDuplicata299AcademicoEmCurso=null;});
+  return saneamentoDuplicata299AcademicoEmCurso;
 }
+
 let reparoOfertas299Executado=false,reparoOfertas299EmCurso=null;
 async function repararOfertasConfirmadas299(){
   if(reparoOfertas299Executado||!podeGerirDoe())return null;if(reparoOfertas299EmCurso)return reparoOfertas299EmCurso;
