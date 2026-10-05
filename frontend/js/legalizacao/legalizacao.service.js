@@ -1086,6 +1086,39 @@ async function importarAtosLote(rows=[]){
       return mesmoNumero&&mesmaEspecie&&dc&&dr&&dc===dr;
     }));
   }
+
+  // RC48: reimportação idempotente do mesmo lote.
+  // A chave única do banco é (lote_id, linha_origem). Se uma linha desse lote já existe,
+  // ela é reconciliada em vez de provocar novo INSERT. CONFIRMADO/REJEITADO permanecem
+  // soberanos; somente ocorrências automáticas/pendentes recebem a nova extração.
+  if(rows.length){
+    const lotes=[...new Set(rows.map(x=>clean(x.lote_id)).filter(Boolean))];
+    const existentes=[];
+    for(let i=0;i<lotes.length;i+=20){
+      const {data,error}=await c.from('legalizacao_atos_importacao')
+        .select('id,lote_id,linha_origem,status_match,ato,numero_publicacao,data_publicacao,instituicao_id,escola_id,escola_nome,confirmado_em')
+        .in('lote_id',lotes.slice(i,i+20)).limit(10000);
+      if(error)throw error;existentes.push(...(data||[]));
+    }
+    const chaveLinha=x=>`${clean(x?.lote_id)}|${String(x?.linha_origem??'')}`;
+    const porLinha=new Map(existentes.map(x=>[chaveLinha(x),x]));
+    const pendentesInsert=[];
+    for(const row of rows){
+      const ex=porLinha.get(chaveLinha(row));
+      if(!ex){pendentesInsert.push(row);continue;}
+      const st=upper(ex.status_match);
+      if(['CONFIRMADO','REJEITADO'].includes(st)){continue;}
+      const upd={...row};
+      delete upd.id;
+      // identidade física da ocorrência permanece a mesma; o conteúdo é recalculado pelo parser atual.
+      const {data:atualizado,error}=await c.from('legalizacao_atos_importacao')
+        .update(upd).eq('id',ex.id)
+        .select('id,status_match,escola_id,instituicao_id').single();
+      if(error)throw error;
+      if(atualizado)reparados.push(atualizado);
+    }
+    rows=pendentesInsert;
+  }
   if(!rows.length){atosControleCache=null;resumoCache=null;return reparados;}
   // A tabela possui validações/gatilhos de identificação relativamente custosos. Um INSERT
   // grande faz todo o trabalho compartilhar o mesmo statement_timeout do PostgreSQL. Quando
