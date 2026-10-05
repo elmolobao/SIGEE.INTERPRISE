@@ -4,7 +4,8 @@
 if(window.__SIGEE_LEGALIZACAO_RC1210A21__)return;window.__SIGEE_LEGALIZACAO_RC1210A21__=true;
 const MOD='LEGALIZACAO',$=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const CENTRAL_PENDENCIAS_ATIVA=false; // Mantida em código para retomada futura, sem consultas massivas enquanto desativada.
-let prontuarioAtual=null;let prontuarioModoOperacional=false,paginaVisao=1,paginaInstituicoes=1,paginaPendencias=1,kpisCarregados=false,pendenciasCache=null,atosControleCache=null;
+let prontuarioAtual=null;
+let catalogoOfertasCache=null;let prontuarioModoOperacional=false,paginaVisao=1,paginaInstituicoes=1,paginaPendencias=1,kpisCarregados=false,pendenciasCache=null,atosControleCache=null;
 const regTabsCarregadas=new Set();
 const lotesDoeAbertos=new Set();
 // Mantém o estado de expansão dos checklists de descredenciamento entre recargas/rerenders.
