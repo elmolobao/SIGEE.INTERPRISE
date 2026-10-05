@@ -788,7 +788,8 @@ async function carregarAtosImportados(){
     const filtro=$('#leg-atos-status')?.value||'';
     const svc=window.SIGEE_LEGALIZACAO_SERVICE;
     if(!svc?.listarAtosImportados)throw new Error('Serviço de consulta dos atos importados não disponível.');
-    if(!window.__SIGEE_DOE_PASSIVO_CONSOLIDADO__&&svc.consolidarPassivoHistoricoDoe){window.__SIGEE_DOE_PASSIVO_CONSOLIDADO__=true;try{await svc.consolidarPassivoHistoricoDoe();}catch(e){window.__SIGEE_DOE_PASSIVO_CONSOLIDADO__=false;console.warn('[DOE] consolidação conservadora do passivo histórico não concluída',e);}}
+    // A listagem do DOE deve ser somente leitura e nunca aguardar saneamentos globais.
+    // Consolidações/reparos históricos permanecem disponíveis no serviço, mas não bloqueiam a abertura da aba.
     const statusConsulta=filtro||'';
     const lista=await svc.listarAtosImportados(statusConsulta);
     const resumo=resumoListaDoe(lista||[]);
