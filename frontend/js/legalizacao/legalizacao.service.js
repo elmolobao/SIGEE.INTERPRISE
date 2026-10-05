@@ -94,9 +94,22 @@ async function diagnosticarIdentidadeInstituicao(valor){
   return{consulta:raw,prontuarios,mestres,catalogo,atos,divergencias};
 }
 
+let reparoOfertas299Executado=false,reparoOfertas299EmCurso=null;
+async function repararOfertasConfirmadas299(){
+  if(reparoOfertas299Executado||!podeGerirDoe())return null;if(reparoOfertas299EmCurso)return reparoOfertas299EmCurso;
+  reparoOfertas299EmCurso=(async()=>{const c=client();
+    const {data:rows,error}=await c.from('legalizacao_atos_importacao').select('*').eq('numero_publicacao','299/2026').eq('status_match','CONFIRMADO').limit(20);if(error)throw error;
+    for(const r of rows||[]){if(!r.instituicao_id)continue;const inst=await oneScoped('legalizacao_instituicoes',Number(r.instituicao_id),{globalDoe:true});if(!inst?.id)continue;await aplicarEfeitoRegulatorioAtoConfirmado(inst,r,Number(r.escola_id)||Number(inst.escola_id)||null);
+      // mantém a cópia legal sincronizada com a vigência eventualmente completada
+      if(r.vigencia_fim){const {error:ea}=await c.from('legalizacao_atos_legais').update({vigencia_fim:r.vigencia_fim,vigencia_origem:r.vigencia_origem}).eq('importacao_id',r.id).eq('situacao_registro','CONFIRMADO');if(ea)throw ea;}
+    }
+    atosControleCache=null;resumoCache=null;reparoOfertas299Executado=true;return{processados:(rows||[]).length};
+  })().finally(()=>{reparoOfertas299EmCurso=null;});return reparoOfertas299EmCurso;
+}
 async function consultarInstituicoes(filtros={}){
   assertAccess();const c=client();if(!c)throw new Error('Cliente Supabase indisponível.');
   if(!reparoMarista29447518Executado&&podeGerirDoe())await repararPassivoMarista29447518();
+  if(!reparoOfertas299Executado&&podeGerirDoe())await repararOfertasConfirmadas299();
   const page=Math.max(1,intOrNull(filtros.page)||1),pageSize=Math.min(100,Math.max(10,intOrNull(filtros.pageSize)||50)),from=(page-1)*pageSize,to=from+pageSize-1;
   // O catálogo histórico é baseado na view legalizacao_catalogo_v. Instituições criadas diretamente
   // em Legalização ainda não possuem escola_id e, por isso, precisam ser agregadas à consulta.
@@ -1411,12 +1424,35 @@ async function aplicarEfeitoRegulatorioAtoConfirmado(inst,r,escolaLegada){
     const {error}=await c.from('legalizacao_instituicoes').update({situacao_regulatoria:situacao,atualizado_por_id:currentUserId(),updated_at:now}).eq('id',inst.id);if(error)throw new Error(`Falha ao atualizar a situação regulatória da instituição: ${error.message||error}`);
     if(situacao==='EXTINTA'&&escolaLegada){const {error:eleg}=await c.from('escolas_sigee').update({situacao_funcional:'Extinta'}).eq('id',escolaLegada);if(eleg)console.warn('[DOE] não foi possível refletir situação funcional no catálogo mestre',eleg);}
   }
-  const ini=anoIso(r.vigencia_inicio),fim=anoIso(r.vigencia_fim);if(!ini&&!fim)return{situacao,ofertasAtualizadas:0};
+  let ini=anoIso(r.vigencia_inicio),fim=anoIso(r.vigencia_fim);
+  // Quando o ato positivo informa duração em anos ("por seis anos, a partir de 2026"),
+  // completa a vigência inclusiva sem depender de data final explícita no parser.
+  if(ini&&!fim){
+    const txDur=normalizarOfertaAto(r.detalhe||'');
+    const mDur=txDur.match(/POR\s+(\d{1,2})\s+ANOS?/);
+    if(mDur){const dur=Number(mDur[1]);if(dur>0&&dur<=20){fim=ini+dur-1;r.vigencia_fim=`${fim}-12-31`;r.vigencia_origem=r.vigencia_origem&&upper(r.vigencia_origem)!=='NAO_IDENTIFICADA'?r.vigencia_origem:'DURACAO_DO_ATO';await c.from('legalizacao_atos_importacao').update({vigencia_fim:r.vigencia_fim,vigencia_origem:r.vigencia_origem}).eq('id',r.id);}}
+  }
+  if(!ini&&!fim)return{situacao,ofertasAtualizadas:0};
   const alvos=[];if(tipo.includes('FUNDAMENTAL I')||tipo.includes('ANOS INICIAIS')||/1(?:º|O)?\s*(?:AO|A)\s*5(?:º|O)?\s*ANO/.test(tipo))alvos.push('FUNDAMENTAL I','ANOS INICIAIS');if(tipo.includes('FUNDAMENTAL II')||tipo.includes('ANOS FINAIS')||/6(?:º|O)?\s*(?:AO|A)\s*9(?:º|O)?\s*ANO/.test(tipo))alvos.push('FUNDAMENTAL II','ANOS FINAIS');if(tipo.includes('ENSINO MEDIO'))alvos.push('ENSINO MEDIO');if(tipo.includes('EDUCACAO INFANTIL'))alvos.push('EDUCACAO INFANTIL');if(tipo.includes('TECNIC'))alvos.push('TECNIC');if(!alvos.length)return{situacao,ofertasAtualizadas:0};
   const {data:ofs,error:eo}=await c.from('legalizacao_ofertas').select('id,etapa_modalidade,curso_tecnico').eq('instituicao_id',inst.id);if(eo)throw new Error(`Falha ao consultar as ofertas da instituição: ${eo.message||eo}`);
-  const ids=(ofs||[]).filter(o=>{const t=normalizarOfertaAto([o.etapa_modalidade,o.curso_tecnico].filter(Boolean).join(' '));return alvos.some(a=>t.includes(a));}).map(o=>o.id);if(!ids.length)return{situacao,ofertasAtualizadas:0};
-  const upd={situacao:'AUTORIZADA',updated_at:now};if(ini)upd.ano_inicio_vigencia=ini;if(fim)upd.ano_fim_vigencia=fim;const {error:eu}=await c.from('legalizacao_ofertas').update(upd).in('id',ids);if(eu)throw new Error(`Falha ao atualizar a vigência das ofertas: ${eu.message||eu}`);
-  return{situacao,ofertasAtualizadas:ids.length};
+  const existentes=ofs||[],ids=existentes.filter(o=>{const t=normalizarOfertaAto([o.etapa_modalidade,o.curso_tecnico].filter(Boolean).join(' '));return alvos.some(a=>t.includes(a));}).map(o=>o.id);
+  const upd={situacao:'AUTORIZADA',updated_at:now};if(ini)upd.ano_inicio_vigencia=ini;if(fim)upd.ano_fim_vigencia=fim;
+  if(ids.length){const {error:eu}=await c.from('legalizacao_ofertas').update(upd).in('id',ids);if(eu)throw new Error(`Falha ao atualizar a vigência das ofertas: ${eu.message||eu}`);}
+  // A publicação confirmada também materializa ofertas inexistentes no prontuário.
+  // Ensino Fundamental 1º–9º é armazenado nas duas referências já usadas pelo módulo.
+  const desejadas=[];
+  if(alvos.includes('EDUCACAO INFANTIL'))desejadas.push('Educação Infantil');
+  if(alvos.includes('FUNDAMENTAL I')||alvos.includes('ANOS INICIAIS'))desejadas.push('Ensino Fundamental — Anos Iniciais');
+  if(alvos.includes('FUNDAMENTAL II')||alvos.includes('ANOS FINAIS'))desejadas.push('Ensino Fundamental — Anos Finais');
+  if(alvos.includes('ENSINO MEDIO'))desejadas.push('Ensino Médio');
+  let criadas=0;
+  for(const etapa of desejadas){
+    const chave=normalizarOfertaAto(etapa),jaExiste=existentes.some(o=>normalizarOfertaAto(o.etapa_modalidade)===chave);
+    if(jaExiste)continue;
+    const dados={instituicao_id:inst.id,etapa_modalidade:etapa,curso_tecnico:null,eixo_tecnologico:null,situacao:'AUTORIZADA',ano_inicio_vigencia:ini||null,ano_fim_vigencia:fim||null,updated_at:now};
+    const {error:ec}=await c.from('legalizacao_ofertas').insert(dados);if(ec)throw new Error(`Falha ao criar oferta reconhecida no DOE (${etapa}): ${ec.message||ec}`);criadas++;
+  }
+  return{situacao,ofertasAtualizadas:ids.length+criadas,ofertasCriadas:criadas};
 }
 async function aplicarAlteracaoCadastralPublicada(p){
   if(upper(p?.tipo)!=='ALTERACAO_CADASTRAL')return;const c=client(),subt=upper(p.subtipo),d=p.dados_alteracao||{},now=new Date().toISOString();
