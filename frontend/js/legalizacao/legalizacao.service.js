@@ -1120,27 +1120,45 @@ async function importarAtosLote(rows=[]){
     rows=pendentesInsert;
   }
   if(!rows.length){atosControleCache=null;resumoCache=null;return reparados;}
-  // A tabela possui validações/gatilhos de identificação relativamente custosos. Um INSERT
-  // RC49: gravação idempotente também no nível do banco. A chave (lote_id, linha_origem)
-  // pode reaparecer em retry/concorrrência da mesma importação; nesses casos o registro já
-  // gravado é preservado e a duplicata é ignorada, sem sobrescrever decisões existentes.
-  // Um lote grande também faz todo o trabalho compartilhar o mesmo statement_timeout do PostgreSQL. Quando
-  // isso ocorrer, divide-se o lote progressivamente: cada suboperação recebe uma nova janela
-  // de execução sem alterar a identificação dos atos nem o lote_id da edição do DOE.
-  const inserir=async parte=>{
-    const {data,error}=await c.from('legalizacao_atos_importacao').upsert(parte,{onConflict:'lote_id,linha_origem',ignoreDuplicates:true}).select('id,status_match,escola_id,instituicao_id');
-    if(!error)return data||[];
-    const msg=String(error?.message||error||'');
-    const timeout=/statement timeout|canceling statement due to statement timeout/i.test(msg);
-    if(timeout&&parte.length>1){
-      const meio=Math.ceil(parte.length/2);
-      const a=await inserir(parte.slice(0,meio));
-      const b=await inserir(parte.slice(meio));
-      return [...a,...b];
+  // RC50: persistência idempotente linha a linha.
+  // Não dependemos mais de UPSERT em lote para tratar a chave (lote_id, linha_origem):
+  // cada ocorrência consulta a chave física, atualiza somente registro não encerrado e
+  // insere apenas quando ela realmente não existe. Se houver corrida e o INSERT receber
+  // 23505, a linha vencedora é relida e o processamento continua sem abortar o Diário.
+  const persistirLinha=async row=>{
+    const lote=clean(row?.lote_id),linha=Number(row?.linha_origem);
+    if(!lote||!Number.isFinite(linha))throw new Error('Ocorrência DOE sem lote_id/linha_origem válida.');
+    const localizar=async()=>{
+      const {data,error}=await c.from('legalizacao_atos_importacao')
+        .select('id,status_match,escola_id,instituicao_id')
+        .eq('lote_id',lote).eq('linha_origem',linha).maybeSingle();
+      if(error)throw error;return data||null;
+    };
+    let ex=await localizar();
+    if(ex){
+      if(['CONFIRMADO','REJEITADO'].includes(upper(ex.status_match)))return ex;
+      const upd={...row};delete upd.id;delete upd.lote_id;delete upd.linha_origem;
+      const {data,error}=await c.from('legalizacao_atos_importacao').update(upd).eq('id',ex.id)
+        .select('id,status_match,escola_id,instituicao_id').single();
+      if(error)throw error;return data;
     }
-    throw error;
+    const {data,error}=await c.from('legalizacao_atos_importacao').insert(row)
+      .select('id,status_match,escola_id,instituicao_id').single();
+    if(!error)return data;
+    const msg=String(error?.message||error||'');
+    const duplicada=String(error?.code||'')==='23505'||/duplicate key value violates unique constraint|lote_id_linha_origem_key/i.test(msg);
+    if(!duplicada)throw error;
+    ex=await localizar();
+    if(!ex)throw error;
+    if(['CONFIRMADO','REJEITADO'].includes(upper(ex.status_match)))return ex;
+    const upd={...row};delete upd.id;delete upd.lote_id;delete upd.linha_origem;
+    const {data:rec,error:er}=await c.from('legalizacao_atos_importacao').update(upd).eq('id',ex.id)
+      .select('id,status_match,escola_id,instituicao_id').single();
+    if(er)throw er;return rec;
   };
-  return [...reparados,...await inserir(rows)];
+  const gravados=[];
+  for(const row of rows){const g=await persistirLinha(row);if(g)gravados.push(g);}
+  return [...reparados,...gravados];
 }
 function ehReferenciaNormativaImportada(r){
   const especie=upper(r?.ato),n=normalizarChaveDoe([r?.detalhe,r?.tipo_ato].filter(Boolean).join(' '));
