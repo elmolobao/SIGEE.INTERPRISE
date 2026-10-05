@@ -1038,7 +1038,8 @@ async function importarAtosLote(rows=[]){
     const upd={
       detalhe:(String(row.detalhe||'').length>=String(existente.detalhe||'').length?row.detalhe:existente.detalhe)||null,
       arquivo_origem:row.arquivo_origem||null,
-      linha_origem:row.linha_origem||null,
+      // RC51: lote_id + linha_origem formam a identidade física da ocorrência.
+      // Em reimportação, um CONFIRMADO mantém essa chave histórica imutável.
       numero_processo:row.numero_processo||null,
       cnpj_extraido:row.cnpj_extraido||null,
       endereco_extraido:row.endereco_extraido||null,
@@ -1110,6 +1111,8 @@ async function importarAtosLote(rows=[]){
       if(['CONFIRMADO','REJEITADO'].includes(st)){continue;}
       const upd={...row};
       delete upd.id;
+      delete upd.lote_id;
+      delete upd.linha_origem;
       // identidade física da ocorrência permanece a mesma; o conteúdo é recalculado pelo parser atual.
       const {data:atualizado,error}=await c.from('legalizacao_atos_importacao')
         .update(upd).eq('id',ex.id)
