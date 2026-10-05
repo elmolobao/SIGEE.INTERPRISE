@@ -100,8 +100,9 @@ async function repararOfertasConfirmadas299(){
   reparoOfertas299EmCurso=(async()=>{const c=client();
     const {data:rows,error}=await c.from('legalizacao_atos_importacao').select('*').eq('numero_publicacao','299/2026').eq('status_match','CONFIRMADO').limit(20);if(error)throw error;
     for(const r of rows||[]){if(!r.instituicao_id)continue;const inst=await oneScoped('legalizacao_instituicoes',Number(r.instituicao_id),{globalDoe:true});if(!inst?.id)continue;await aplicarEfeitoRegulatorioAtoConfirmado(inst,r,Number(r.escola_id)||Number(inst.escola_id)||null);
-      // mantém a cópia legal sincronizada com a vigência eventualmente completada
-      if(r.vigencia_fim){const {error:ea}=await c.from('legalizacao_atos_legais').update({vigencia_fim:r.vigencia_fim,vigencia_origem:r.vigencia_origem}).eq('importacao_id',r.id).eq('situacao_registro','CONFIRMADO');if(ea)throw ea;}
+      // Releitura garante sincronismo da cópia legal após completar duração textual.
+      const {data:rr,error:er}=await c.from('legalizacao_atos_importacao').select('vigencia_inicio,vigencia_fim,vigencia_origem').eq('id',r.id).maybeSingle();if(er)throw er;
+      if(rr?.vigencia_fim){const {error:ea}=await c.from('legalizacao_atos_legais').update({vigencia_inicio:rr.vigencia_inicio||r.vigencia_inicio,vigencia_fim:rr.vigencia_fim,vigencia_origem:rr.vigencia_origem}).eq('importacao_id',r.id).eq('situacao_registro','CONFIRMADO');if(ea)throw ea;}
     }
     atosControleCache=null;resumoCache=null;reparoOfertas299Executado=true;return{processados:(rows||[]).length};
   })().finally(()=>{reparoOfertas299EmCurso=null;});return reparoOfertas299EmCurso;
@@ -1429,11 +1430,16 @@ async function aplicarEfeitoRegulatorioAtoConfirmado(inst,r,escolaLegada){
   // completa a vigência inclusiva sem depender de data final explícita no parser.
   if(ini&&!fim){
     const txDur=normalizarOfertaAto(r.detalhe||'');
-    const mDur=txDur.match(/POR\s+(\d{1,2})\s+ANOS?/);
-    if(mDur){const dur=Number(mDur[1]);if(dur>0&&dur<=20){fim=ini+dur-1;r.vigencia_fim=`${fim}-12-31`;r.vigencia_origem=r.vigencia_origem&&upper(r.vigencia_origem)!=='NAO_IDENTIFICADA'?r.vigencia_origem:'DURACAO_DO_ATO';await c.from('legalizacao_atos_importacao').update({vigencia_fim:r.vigencia_fim,vigencia_origem:r.vigencia_origem}).eq('id',r.id);}}
+    const palavras={UM:1,UMA:1,DOIS:2,DUAS:2,TRES:3,QUATRO:4,CINCO:5,SEIS:6,SETE:7,OITO:8,NOVE:9,DEZ:10};
+    const mDur=txDur.match(/POR\s+(?:(\d{1,2})|\b(UM|UMA|DOIS|DUAS|TRES|QUATRO|CINCO|SEIS|SETE|OITO|NOVE|DEZ)\b)\s+ANOS?/);
+    const dur=mDur?(Number(mDur[1])||palavras[mDur[2]]||0):0;
+    if(dur>0&&dur<=20){fim=ini+dur-1;r.vigencia_fim=`${fim}-12-31`;r.vigencia_origem='DURACAO_DO_ATO';const {error:ev}=await c.from('legalizacao_atos_importacao').update({vigencia_fim:r.vigencia_fim,vigencia_origem:r.vigencia_origem}).eq('id',r.id);if(ev)throw ev;}
   }
   if(!ini&&!fim)return{situacao,ofertasAtualizadas:0};
-  const alvos=[];if(tipo.includes('FUNDAMENTAL I')||tipo.includes('ANOS INICIAIS')||/1(?:º|O)?\s*(?:AO|A)\s*5(?:º|O)?\s*ANO/.test(tipo))alvos.push('FUNDAMENTAL I','ANOS INICIAIS');if(tipo.includes('FUNDAMENTAL II')||tipo.includes('ANOS FINAIS')||/6(?:º|O)?\s*(?:AO|A)\s*9(?:º|O)?\s*ANO/.test(tipo))alvos.push('FUNDAMENTAL II','ANOS FINAIS');if(tipo.includes('ENSINO MEDIO'))alvos.push('ENSINO MEDIO');if(tipo.includes('EDUCACAO INFANTIL'))alvos.push('EDUCACAO INFANTIL');if(tipo.includes('TECNIC'))alvos.push('TECNIC');if(!alvos.length)return{situacao,ofertasAtualizadas:0};
+  const alvos=[];
+  const fundamentalCompleto=/ENSINO FUNDAMENTAL[^.]{0,80}(?:1(?:º|O)?\s*(?:AO|A)\s*9(?:º|O)?|1\s*AO\s*9)\s*ANO/.test(tipo);
+  if(fundamentalCompleto||tipo.includes('FUNDAMENTAL I')||tipo.includes('ANOS INICIAIS')||/1(?:º|O)?\s*(?:AO|A)\s*5(?:º|O)?\s*ANO/.test(tipo))alvos.push('FUNDAMENTAL I','ANOS INICIAIS');
+  if(fundamentalCompleto||tipo.includes('FUNDAMENTAL II')||tipo.includes('ANOS FINAIS')||/6(?:º|O)?\s*(?:AO|A)\s*9(?:º|O)?\s*ANO/.test(tipo))alvos.push('FUNDAMENTAL II','ANOS FINAIS');if(tipo.includes('ENSINO MEDIO'))alvos.push('ENSINO MEDIO');if(tipo.includes('EDUCACAO INFANTIL'))alvos.push('EDUCACAO INFANTIL');if(tipo.includes('TECNIC'))alvos.push('TECNIC');if(!alvos.length)return{situacao,ofertasAtualizadas:0};
   const {data:ofs,error:eo}=await c.from('legalizacao_ofertas').select('id,etapa_modalidade,curso_tecnico').eq('instituicao_id',inst.id);if(eo)throw new Error(`Falha ao consultar as ofertas da instituição: ${eo.message||eo}`);
   const existentes=ofs||[],ids=existentes.filter(o=>{const t=normalizarOfertaAto([o.etapa_modalidade,o.curso_tecnico].filter(Boolean).join(' '));return alvos.some(a=>t.includes(a));}).map(o=>o.id);
   const upd={situacao:'AUTORIZADA',updated_at:now};if(ini)upd.ano_inicio_vigencia=ini;if(fim)upd.ano_fim_vigencia=fim;
