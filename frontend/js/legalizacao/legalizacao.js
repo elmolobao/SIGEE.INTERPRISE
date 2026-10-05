@@ -457,7 +457,35 @@ function segmentarPublicacoesDoe(paginas){
           }
         }
       }
+      // RC47: isolamento rígido entre atos distintos no mesmo DOE.
+      // Uma publicação funcional/administrativa jamais pode absorver uma PORTARIA NTE
+      // regulatória que apareça depois na mesma página ou em continuação de página.
+      {
+        const atualNumero=String(a.numero||'').replace(/\s/g,'').toUpperCase();
+        const atualEspecie=upper(a.especie);
+        const rxProximaPortariaNte=/(?:^|\n)\s*PORTARIA\s+(?:N(?:O|RO|º|°)?\.?\s*)?([0-9]{1,5}\s*\/\s*20\d{2})\s*[-–—]?\s*NTE\s*-?\s*\d{1,2}\b/ig;
+        let pm;
+        while((pm=rxProximaPortariaNte.exec(trecho))){
+          const num=String(pm[1]||'').replace(/\s/g,'').toUpperCase();
+          const inicio=pm.index+(pm[0].length-pm[0].trimStart().length);
+          if(inicio>0 && !(atualEspecie==='PORTARIA' && num===atualNumero)){
+            trecho=trecho.slice(0,inicio).trim();
+            break;
+          }
+        }
+      }
       if(trecho.length<40)continue;
+
+      // RC47: Portarias administrativas de pessoal não pertencem ao domínio regulatório.
+      // Números funcionais sem /AAAA são descartados somente quando o próprio bloco
+      // contém marcadores inequívocos de pessoal; atos de gestão escolar são preservados.
+      if(upper(a.especie)==='PORTARIA' && !/\/20\d{2}\b/.test(String(a.numero||''))){
+        const nt=normalizarTextoDoe(trecho);
+        const pessoal=/\b(READAPTAR|SERVIDOR(?:ES)?|REDA|RESCINDIR\s+O\s+CONTRATO|MATRICULA\s+NOME(?:\s+SERVIDOR)?\s+CARGO|AUXILIO[- ]FUNERAL|LICENCA[- ]PREMIO|LICENCA\s+PARA\s+TRATAMENTO)\b/.test(nt);
+        const gestaoEscolar=/\b(DIRETOR(?:A)?|VICE[- ]?DIRETOR(?:A)?|SECRETARI[OA](?:\s+ESCOLAR)?)\b/.test(nt)&&/\b(NOMEIA|NOMEACAO|DESIGNA|DESIGNACAO|EXONERA|EXONERACAO|DISPENSA|DISPENSAR)\b/.test(nt);
+        if(pessoal&&!gestaoEscolar)continue;
+      }
+
       // Não persiste uma Resolução sem corpo decisório: é preferível deixá-la fora do lote
       // a gravar evidência truncada que depois pareça um ato completo no prontuário.
       if(upper(a.especie)==='RESOLUCAO'){
