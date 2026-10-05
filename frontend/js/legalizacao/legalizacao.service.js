@@ -52,15 +52,36 @@ async function canonicalizarPaginaInstituicoes(items=[]){
 }
 let reparoMarista29447518Executado=false,reparoMarista29447518EmCurso=null;
 async function repararPassivoMarista29447518(){
- if(reparoMarista29447518Executado||!podeGerirDoe())return null;if(reparoMarista29447518EmCurso)return reparoMarista29447518EmCurso;
- reparoMarista29447518EmCurso=(async()=>{const c=client(),mid=20516,pid=633,inep='29447518',nome='COLEGIO MARISTA PATAMARES';
- const mr=await c.from('escolas_sigee').select('id,cod_mec').eq('id',mid).maybeSingle();if(mr.error)throw mr.error;if(!mr.data||digits(mr.data.cod_mec,30)!==inep)return{aplicado:false};
- const pr=await c.from('legalizacao_instituicoes').select('id,escola_id,cod_inep').eq('id',pid).maybeSingle();if(pr.error)throw pr.error;if(!pr.data||Number(pr.data.escola_id)!==mid||digits(pr.data.cod_inep,30)!==inep)return{aplicado:false};
- let r=await c.from('escolas_sigee').update({nome_escola:nome,nome:nome}).eq('id',mid).eq('cod_mec',inep);if(r.error)throw r.error;
- r=await c.from('legalizacao_instituicoes').update({nome_instituicao:nome,atualizado_por_id:currentUserId(),updated_at:new Date().toISOString()}).eq('id',pid).eq('escola_id',mid);if(r.error)throw r.error;
- const ar=await c.from('legalizacao_atos_importacao').select('id').eq('instituicao_id',pid).eq('numero_publicacao','300/2026').eq('status_match','CONFIRMADO').limit(20);if(ar.error)throw ar.error;
- for(const a of ar.data||[]){r=await c.from('legalizacao_atos_legais').update({situacao_registro:'VINCULO_A_REVISAR'}).eq('importacao_id',a.id).eq('situacao_registro','CONFIRMADO');if(r.error)throw r.error;r=await c.from('legalizacao_atos_importacao').update({instituicao_id:null,escola_id:null,status_match:'PENDENTE_CONFERENCIA',confirmado_em:null,confirmado_por_id:null}).eq('id',a.id);if(r.error)throw r.error;}
- escolaCache.delete(String(mid));atosControleCache=null;resumoCache=null;reparoMarista29447518Executado=true;return{aplicado:true,atos_revisao:(ar.data||[]).length};})().finally(()=>{reparoMarista29447518EmCurso=null;});return reparoMarista29447518EmCurso;
+  if(reparoMarista29447518Executado||!podeGerirDoe())return null;
+  if(reparoMarista29447518EmCurso)return reparoMarista29447518EmCurso;
+  reparoMarista29447518EmCurso=(async()=>{
+    const c=client(),mid=20516,pid=633,inep='29447518',nome='COLEGIO MARISTA PATAMARES';
+    // Guardas: o reparo só atua no cadastro diagnosticado; qualquer divergência aborta.
+    const mr=await c.from('escolas_sigee').select('id,cod_mec,nome_escola,nome').eq('id',mid).maybeSingle();if(mr.error)throw mr.error;
+    const pr=await c.from('legalizacao_instituicoes').select('id,escola_id,cod_inep,nome_instituicao').eq('id',pid).maybeSingle();if(pr.error)throw pr.error;
+    if(!mr.data||!pr.data||digits(mr.data.cod_mec,30)!==inep||digits(pr.data.cod_inep,30)!==inep||Number(pr.data.escola_id)!==mid)return{aplicado:false,motivo:'guardas_nao_conferem'};
+    // Mantém Patamares como identidade canônica do INEP 29447518.
+    let r=await c.from('escolas_sigee').update({nome_escola:nome,nome:nome}).eq('id',mid).eq('cod_mec',inep);if(r.error)throw r.error;
+    r=await c.from('legalizacao_instituicoes').update({nome_instituicao:nome}).eq('id',pid).eq('escola_id',mid);if(r.error)throw r.error;
+    // A 300/2026 confirmada de Patamares é soberana e NÃO é alterada.
+    const conf=await c.from('legalizacao_atos_importacao').select('id,lote_id,data_publicacao,ato,numero_publicacao,status_match,instituicao_id,escola_id').eq('numero_publicacao','300/2026').eq('status_match','CONFIRMADO').eq('instituicao_id',pid).limit(20);if(conf.error)throw conf.error;
+    const confirmados=conf.data||[];
+    // Remove somente duplicatas automáticas/pendentes da MESMA publicação 300/2026.
+    // Não toca em CONFIRMADO/REJEITADO nem em qualquer outro ato ou instituição.
+    if(confirmados.length){
+      const pend=await c.from('legalizacao_atos_importacao').select('id,status_match,lote_id,data_publicacao,ato,numero_publicacao').eq('numero_publicacao','300/2026').in('status_match',['IDENTIFICADO','PENDENTE_CONFERENCIA','AMBIGUO']).limit(100);if(pend.error)throw pend.error;
+      const norm=x=>upper(x||'').replace(/[^A-Z0-9]/g,'');
+      const duplicadas=(pend.data||[]).filter(p=>confirmados.some(q=>{
+        const mesmaEspecie=!p.ato||!q.ato||norm(p.ato)===norm(q.ato);
+        const mesmaEdicao=(p.lote_id&&q.lote_id&&String(p.lote_id)===String(q.lote_id))||(p.data_publicacao&&q.data_publicacao&&String(p.data_publicacao).slice(0,10)===String(q.data_publicacao).slice(0,10));
+        return mesmaEspecie&&mesmaEdicao;
+      }));
+      for(const d of duplicadas){r=await c.from('legalizacao_atos_importacao').delete().eq('id',d.id).in('status_match',['IDENTIFICADO','PENDENTE_CONFERENCIA','AMBIGUO']);if(r.error)throw r.error;}
+    }
+    escolaCache.delete(String(mid));atosControleCache=null;resumoCache=null;reparoMarista29447518Executado=true;
+    return{aplicado:true,confirmados_preservados:confirmados.length};
+  })().finally(()=>{reparoMarista29447518EmCurso=null;});
+  return reparoMarista29447518EmCurso;
 }
 async function diagnosticarIdentidadeInstituicao(valor){
   assertAccess();if(!podeGerirDoe())throw new Error('Diagnóstico cadastral autorizado apenas para os perfis Master e SEC.');
@@ -1002,6 +1023,17 @@ async function importarAtosLote(rows=[]){
     reparados.push({...existente,...upd,status_match:'CONFIRMADO'});
   }
   rows=restantes;
+  // Não recriar ocorrência automática quando a mesma espécie+número+publicação já está CONFIRMADA.
+  // O confirmado é preservado como registro soberano; a importação continua normalmente para os demais atos.
+  if(rows.length&&confirmados.length){
+    const norm=x=>upper(x||'').replace(/[^A-Z0-9]/g,'');
+    rows=rows.filter(r=>!confirmados.some(cnf=>{
+      const mesmoNumero=clean(cnf.numero_publicacao)===clean(r.numero_publicacao);
+      const mesmaEspecie=norm(cnf.ato)===norm(r.ato);
+      const dc=String(cnf.data_publicacao||'').slice(0,10),dr=String(r.data_publicacao||'').slice(0,10);
+      return mesmoNumero&&mesmaEspecie&&dc&&dr&&dc===dr;
+    }));
+  }
   if(!rows.length){atosControleCache=null;resumoCache=null;return reparados;}
   // A tabela possui validações/gatilhos de identificação relativamente custosos. Um INSERT
   // grande faz todo o trabalho compartilhar o mesmo statement_timeout do PostgreSQL. Quando
