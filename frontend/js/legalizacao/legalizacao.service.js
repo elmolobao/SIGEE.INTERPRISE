@@ -94,6 +94,17 @@ async function diagnosticarIdentidadeInstituicao(valor){
   return{consulta:raw,prontuarios,mestres,catalogo,atos,divergencias};
 }
 
+let saneamentoDuplicata299AcademicoExecutado=false,saneamentoDuplicata299AcademicoEmCurso=null;
+async function sanearDuplicataContaminada299Academico(){
+  if(saneamentoDuplicata299AcademicoExecutado||!podeGerirDoe())return null;if(saneamentoDuplicata299AcademicoEmCurso)return saneamentoDuplicata299AcademicoEmCurso;
+  saneamentoDuplicata299AcademicoEmCurso=(async()=>{const c=client();
+    const {data:conf,error:ec}=await c.from('legalizacao_atos_importacao').select('id').eq('numero_publicacao','299/2026').eq('status_match','CONFIRMADO').limit(20);if(ec)throw ec;if(!(conf||[]).length)return{removidos:0};
+    const {data:pend,error:ep}=await c.from('legalizacao_atos_importacao').select('id,escola_nome,numero_processo,cnpj_extraido,status_match').eq('numero_publicacao','299/2026').in('status_match',['IDENTIFICADO','PENDENTE_CONFERENCIA','AMBIGUO']).limit(100);if(ep)throw ep;
+    const alvo=(pend||[]).filter(x=>normalizarChaveDoe(x.escola_nome)==='COLEGIO ACADEMICO'&&clean(x.numero_processo)==='011.5502.2025.0010663-41');
+    for(const x of alvo){const {error}=await c.from('legalizacao_atos_importacao').delete().eq('id',x.id).in('status_match',['IDENTIFICADO','PENDENTE_CONFERENCIA','AMBIGUO']);if(error)throw error;}
+    if(alvo.length){atosControleCache=null;resumoCache=null;}saneamentoDuplicata299AcademicoExecutado=true;return{removidos:alvo.length};
+  })().finally(()=>{saneamentoDuplicata299AcademicoEmCurso=null;});return saneamentoDuplicata299AcademicoEmCurso;
+}
 let reparoOfertas299Executado=false,reparoOfertas299EmCurso=null;
 async function repararOfertasConfirmadas299(){
   if(reparoOfertas299Executado||!podeGerirDoe())return null;if(reparoOfertas299EmCurso)return reparoOfertas299EmCurso;
@@ -111,6 +122,7 @@ async function consultarInstituicoes(filtros={}){
   assertAccess();const c=client();if(!c)throw new Error('Cliente Supabase indisponível.');
   if(!reparoMarista29447518Executado&&podeGerirDoe())await repararPassivoMarista29447518();
   if(!reparoOfertas299Executado&&podeGerirDoe())await repararOfertasConfirmadas299();
+  if(!saneamentoDuplicata299AcademicoExecutado&&podeGerirDoe())await sanearDuplicataContaminada299Academico();
   const page=Math.max(1,intOrNull(filtros.page)||1),pageSize=Math.min(100,Math.max(10,intOrNull(filtros.pageSize)||50)),from=(page-1)*pageSize,to=from+pageSize-1;
   // O catálogo histórico é baseado na view legalizacao_catalogo_v. Instituições criadas diretamente
   // em Legalização ainda não possuem escola_id e, por isso, precisam ser agregadas à consulta.
@@ -1128,6 +1140,7 @@ async function consolidarPareceresNaFilaDoe(rows=[]){
 }
 async function listarAtosImportados(status=''){
   assertAccess();if(!podeGerirDoe())throw new Error('A conferência de importações é autorizada apenas para os perfis Master e SEC.');
+  if(!saneamentoDuplicata299AcademicoExecutado)await sanearDuplicataContaminada299Academico();
   const c=client(),campos='id,lote_id,arquivo_origem,linha_origem,nte_numero,municipio,escola_nome,ato,tipo_ato,numero_publicacao,data_publicacao,numero_processo,vigencia_inicio,vigencia_fim,vigencia_origem,status_match,escola_id,instituicao_id,cnpj_extraido,detalhe,endereco_extraido,created_at,confirmado_em,confirmado_por_id',st=upper(status);
   const pagina=500,maxPaginas=12,alvosLote=25,acumulado=[];let offset=0,lotes=new Map();
   for(let p=0;p<maxPaginas;p++){
@@ -1257,13 +1270,13 @@ async function reconciliarVinculosFortesDoe(rows=[]){
     const iid=[...set][0],inst=instMap.get(iid);if(!inst)continue;
     const eid=Number(inst.escola_id)||null;
     if(Number(r.instituicao_id)!==iid||Number(r.escola_id||0)!==Number(eid||0)||String(r.escola_nome||'')!==String(inst.nome_instituicao||'')){
-      reparos.push({id:Number(r.id),iid,eid,nome:inst.nome_instituicao||r.escola_nome,nte:Number(inst.nte_id)||null,municipio:inst.municipio||r.municipio});
-      r.instituicao_id=iid;r.escola_id=eid;r.escola_nome=inst.nome_instituicao||r.escola_nome;r.nte_numero=Number(inst.nte_id)||r.nte_numero;r.municipio=inst.municipio||r.municipio;
+      reparos.push({id:Number(r.id),iid,eid});
+      r.instituicao_id=iid;r.escola_id=eid;
       if(upper(r.status_match)==='AMBIGUO')r.status_match='PENDENTE_CONFERENCIA';
     }
   }
   for(const x of reparos){
-    const {error}=await c.from('legalizacao_atos_importacao').update({instituicao_id:x.iid,escola_id:x.eid,escola_nome:x.nome,nte_numero:x.nte,municipio:x.municipio,status_match:'PENDENTE_CONFERENCIA'}).eq('id',x.id);
+    const {error}=await c.from('legalizacao_atos_importacao').update({instituicao_id:x.iid,escola_id:x.eid,status_match:'PENDENTE_CONFERENCIA'}).eq('id',x.id);
     if(error)throw error;
   }
   return lista;
@@ -1272,7 +1285,7 @@ async function reconciliarVinculoAtoImportado(r){
   const c=client(),porSei=await resolverInstituicaoDoePorSei(r?.numero_processo);
   if(porSei?.id){
     const escolaLegada=Number(porSei.escola_id)||null;
-    const {error}=await c.from('legalizacao_atos_importacao').update({instituicao_id:porSei.id,escola_id:escolaLegada,escola_nome:porSei.nome_instituicao,nte_numero:Number(porSei.nte_id)||null,municipio:porSei.municipio||null,status_match:'PENDENTE_CONFERENCIA'}).eq('id',r.id);
+    const {error}=await c.from('legalizacao_atos_importacao').update({instituicao_id:porSei.id,escola_id:escolaLegada,status_match:'PENDENTE_CONFERENCIA'}).eq('id',r.id);
     if(error)throw error;return porSei;
   }
   const iid=Number(r?.instituicao_id)||null,eid=Number(r?.escola_id)||null,strong=/CNPJ exato|INEP\/MEC exato|COD SEC exato/i.test(String(r?.detalhe||''));
