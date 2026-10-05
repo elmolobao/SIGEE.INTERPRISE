@@ -1121,11 +1121,14 @@ async function importarAtosLote(rows=[]){
   }
   if(!rows.length){atosControleCache=null;resumoCache=null;return reparados;}
   // A tabela possui validações/gatilhos de identificação relativamente custosos. Um INSERT
-  // grande faz todo o trabalho compartilhar o mesmo statement_timeout do PostgreSQL. Quando
+  // RC49: gravação idempotente também no nível do banco. A chave (lote_id, linha_origem)
+  // pode reaparecer em retry/concorrrência da mesma importação; nesses casos o registro já
+  // gravado é preservado e a duplicata é ignorada, sem sobrescrever decisões existentes.
+  // Um lote grande também faz todo o trabalho compartilhar o mesmo statement_timeout do PostgreSQL. Quando
   // isso ocorrer, divide-se o lote progressivamente: cada suboperação recebe uma nova janela
   // de execução sem alterar a identificação dos atos nem o lote_id da edição do DOE.
   const inserir=async parte=>{
-    const {data,error}=await c.from('legalizacao_atos_importacao').insert(parte).select('id,status_match,escola_id,instituicao_id');
+    const {data,error}=await c.from('legalizacao_atos_importacao').upsert(parte,{onConflict:'lote_id,linha_origem',ignoreDuplicates:true}).select('id,status_match,escola_id,instituicao_id');
     if(!error)return data||[];
     const msg=String(error?.message||error||'');
     const timeout=/statement timeout|canceling statement due to statement timeout/i.test(msg);
