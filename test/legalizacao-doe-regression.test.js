@@ -43,8 +43,9 @@ if(efeito.includes("if(!ini&&!fim)return{situacao,ofertasAtualizadas:0}")) fail(
 if(!efeito.includes("ano_inicio_vigencia:ini||null") || !efeito.includes("ano_fim_vigencia:fim||null")) fail('Oferta sem vigência não é materializada em aberto');
 if(!efeito.includes("jaExiste")) fail('Proteção contra duplicidade de oferta ausente');
 const reconc=body('reconciliarEfeitosAtosConfirmados','salvarOfertaInstituicao');
-if(!reconc.includes(".eq('status_match','CONFIRMADO')")) fail('Reconciliação deixou de ser restrita a CONFIRMADOS');
-if(!reconc.includes(".eq('instituicao_id',inst.id)")) fail('Reconciliação deixou de ser restrita à instituição');
+if(!reconc.includes("from('legalizacao_atos_legais')") || !reconc.includes(".eq('instituicao_id',inst.id)")) fail('Reconciliação deixou de usar o ato legal como âncora institucional');
+if(!reconc.includes("map(a=>Number(a.importacao_id)") || !reconc.includes("from('legalizacao_atos_importacao')") || !reconc.includes(".in('id',importacaoIds)")) fail('Reconciliação deixou de recuperar a ocorrência DOE por importacao_id');
 if(reconc.includes('importarAtosLote(')||reconc.includes('vincularAtoImportado(')) fail('Reconciliação não pode reimportar/revincular');
-if(!reconc.includes("upper(ato.ato)==='PARECER'")) fail('Parecer voltou a produzir efeito autônomo');
-console.log('Legalização DOE regression baseline RC59: OK');
+if(!reconc.includes("vínculo institucional divergente")) fail('Reconciliação perdeu bloqueio de vínculo DOE explicitamente divergente');
+if(!reconc.includes("upper(imp.ato||legal.tipo_documento)==='PARECER'")) fail('Parecer voltou a produzir efeito autônomo');
+console.log('Legalização DOE regression baseline RC60: OK');
