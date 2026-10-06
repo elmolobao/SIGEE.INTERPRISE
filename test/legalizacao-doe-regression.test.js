@@ -54,4 +54,10 @@ if(!efeito61.includes('extrairAlvosOfertaDaEvidencia(r,legal)')) fail('Ofertas d
 if(!efeito61.includes("diagnostico_oferta:'SEM_ETAPA_NA_EVIDENCIA'")) fail('Ausência real de etapa/modalidade deixou de ser diagnosticada');
 const reconc61=body('reconciliarEfeitosAtosConfirmados','salvarOfertaInstituicao');
 if(!reconc61.includes(',legal);')) fail('Reconciliação não repassa a cópia documental do ato legal à regra de ofertas');
-console.log('Legalização DOE regression baseline RC61: OK');
+const salvar62=body('salvarOfertaInstituicao','confirmarAtoImportado');
+if(!salvar62.includes("listarCatalogoCursosTecnicos()")||!salvar62.includes("eixo=sel.eixo_tecnologico")) fail('Curso técnico manual deixou de ser selecionado do catálogo com eixo automático');
+const aplicar62=body('aplicarEfeitoRegulatorioAtoConfirmado','aplicarAlteracaoCadastralPublicada');
+if(!aplicar62.includes("identificarCursosTecnicosNaEvidencia(r,legal)")) fail('Importação DOE deixou de identificar automaticamente cursos técnicos');
+if(!aplicar62.includes("CURSO_TECNICO_NAO_IDENTIFICADO_NO_CATALOGO")) fail('Importação técnica sem correspondência deixou de ser diagnosticada');
+
+console.log('Legalização DOE regression baseline RC62: OK');
