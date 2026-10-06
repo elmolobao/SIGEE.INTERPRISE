@@ -1590,11 +1590,31 @@ async function aplicarAlteracaoCadastralPublicada(p){
 async function reconciliarEfeitosAtosConfirmados(instituicaoId){
   assertAccess();if(!podeGerirDoe())throw new Error('A reconciliação de atos confirmados é autorizada apenas para os perfis Master e SEC.');
   const c=client(),inst=await oneScoped('legalizacao_instituicoes',Number(instituicaoId),{globalDoe:true});if(!inst?.id)throw new Error('Instituição não localizada.');
-  const {data:atos,error}=await c.from('legalizacao_atos_importacao').select('*').eq('instituicao_id',inst.id).eq('status_match','CONFIRMADO').order('data_publicacao',{ascending:true}).order('id',{ascending:true}).limit(2000);if(error)throw error;
-  let processados=0,ignoradosParecer=0,ofertasAtualizadas=0,ofertasCriadas=0;const falhas=[];
-  for(const ato of atos||[]){if(upper(ato.ato)==='PARECER'){ignoradosParecer++;continue;}try{const efeito=await aplicarEfeitoRegulatorioAtoConfirmado(inst,ato,Number(ato.escola_id)||Number(inst.escola_id)||null);processados++;ofertasAtualizadas+=Number(efeito?.ofertasAtualizadas||0);ofertasCriadas+=Number(efeito?.ofertasCriadas||0);}catch(e){falhas.push({importacao_id:ato.id,numero_publicacao:ato.numero_publicacao||null,mensagem:e?.message||String(e)});}}
-  try{await c.from('logs_sigee').insert({usuario_id:currentUserId(),acao:'RECONCILIACAO_ATOS_CONFIRMADOS',modulo:'LEGALIZACAO',detalhes:`Instituição ${inst.id}: ${processados} ato(s) reaplicado(s), ${ofertasCriadas} oferta(s) criada(s), ${ofertasAtualizadas} oferta(s) reconhecida(s)/atualizada(s), ${ignoradosParecer} parecer(es) sem efeito autônomo, ${falhas.length} falha(s).`});}catch(_){}
-  atosControleCache=null;resumoCache=null;return{instituicao_id:inst.id,atos_confirmados:(atos||[]).length,processados,ignorados_parecer:ignoradosParecer,ofertas_atualizadas:ofertasAtualizadas,ofertas_criadas:ofertasCriadas,falhas};
+  // RC60: a fonte do vínculo institucional é legalizacao_atos_legais. Registros DOE legados
+  // podem não possuir instituicao_id, embora já estejam corretamente vinculados pelo ato legal.
+  const {data:legais,error:el}=await c.from('legalizacao_atos_legais').select('*').eq('instituicao_id',inst.id).order('data_publicacao',{ascending:true}).order('id',{ascending:true}).limit(2000);if(el)throw el;
+  const importacaoIds=[...new Set((legais||[]).map(a=>Number(a.importacao_id)||0).filter(Boolean))];
+  let importacoes=[];
+  if(importacaoIds.length){
+    const {data,error}=await c.from('legalizacao_atos_importacao').select('*').in('id',importacaoIds).limit(2000);if(error)throw error;importacoes=data||[];
+  }
+  const porId=new Map(importacoes.map(a=>[Number(a.id),a]));
+  let processados=0,ignoradosParecer=0,ofertasAtualizadas=0,ofertasCriadas=0,semImportacao=0;const falhas=[];
+  for(const legal of legais||[]){
+    const imp=porId.get(Number(legal.importacao_id)||0);
+    if(!imp){semImportacao++;continue;}
+    // O ato legal é a âncora do vínculo; a ocorrência DOE só fornece o conteúdo extraído.
+    // Se a ocorrência possuir vínculo explícito divergente, não reaplicar automaticamente.
+    if(imp.instituicao_id&&Number(imp.instituicao_id)!==Number(inst.id)){falhas.push({ato_legal_id:legal.id,importacao_id:imp.id,numero_publicacao:imp.numero_publicacao||legal.numero_ato||null,mensagem:'Importação possui vínculo institucional divergente do ato legal.'});continue;}
+    if(upper(imp.ato||legal.tipo_documento)==='PARECER'){ignoradosParecer++;continue;}
+    try{
+      const ato={...imp,instituicao_id:inst.id};
+      const efeito=await aplicarEfeitoRegulatorioAtoConfirmado(inst,ato,Number(imp.escola_id)||Number(inst.escola_id)||null);
+      processados++;ofertasAtualizadas+=Number(efeito?.ofertasAtualizadas||0);ofertasCriadas+=Number(efeito?.ofertasCriadas||0);
+    }catch(e){falhas.push({ato_legal_id:legal.id,importacao_id:imp.id,numero_publicacao:imp.numero_publicacao||legal.numero_ato||null,mensagem:e?.message||String(e)});}
+  }
+  try{await c.from('logs_sigee').insert({usuario_id:currentUserId(),acao:'RECONCILIACAO_ATOS_CONFIRMADOS',modulo:'LEGALIZACAO',detalhes:`Instituição ${inst.id}: ${processados} ato(s) legal(is) reaplicado(s), ${ofertasCriadas} oferta(s) criada(s), ${ofertasAtualizadas} oferta(s) reconhecida(s)/atualizada(s), ${ignoradosParecer} parecer(es), ${semImportacao} ato(s) sem importação, ${falhas.length} falha(s).`});}catch(_){}
+  atosControleCache=null;resumoCache=null;return{instituicao_id:inst.id,atos_legais:(legais||[]).length,importacoes_localizadas:importacoes.length,processados,ignorados_parecer:ignoradosParecer,sem_importacao:semImportacao,ofertas_atualizadas:ofertasAtualizadas,ofertas_criadas:ofertasCriadas,falhas};
 }
 async function salvarOfertaInstituicao(instituicaoId,payload={}){
   assertAccess();if(!podeGerirDoe())throw new Error('O gerenciamento manual de ofertas é autorizado apenas para os perfis Master e SEC.');
