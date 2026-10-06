@@ -1555,13 +1555,14 @@ async function aplicarEfeitoRegulatorioAtoConfirmado(inst,r,escolaLegada){
     const dur=mDur?(Number(mDur[1])||palavras[mDur[2]]||0):0;
     if(dur>0&&dur<=20){fim=ini+dur-1;r.vigencia_fim=`${fim}-12-31`;r.vigencia_origem='DURACAO_DO_ATO';const {error:ev}=await c.from('legalizacao_atos_importacao').update({vigencia_fim:r.vigencia_fim,vigencia_origem:r.vigencia_origem}).eq('id',r.id);if(ev)throw ev;}
   }
-  if(!ini&&!fim)return{situacao,ofertasAtualizadas:0};
+  // RC58: vigência não identificada não impede o reconhecimento da oferta.
+  // A oferta pode ser materializada com vigência em aberto e completada em reimportação futura.
   const alvos=[];
   const fundamentalCompleto=/ENSINO FUNDAMENTAL[^.]{0,80}(?:1(?:º|O)?\s*(?:AO|A)\s*9(?:º|O)?|1\s*AO\s*9)\s*ANO/.test(tipo);
   if(fundamentalCompleto||tipo.includes('FUNDAMENTAL I')||tipo.includes('ANOS INICIAIS')||/1(?:º|O)?\s*(?:AO|A)\s*5(?:º|O)?\s*ANO/.test(tipo))alvos.push('FUNDAMENTAL I','ANOS INICIAIS');
   if(fundamentalCompleto||tipo.includes('FUNDAMENTAL II')||tipo.includes('ANOS FINAIS')||/6(?:º|O)?\s*(?:AO|A)\s*9(?:º|O)?\s*ANO/.test(tipo))alvos.push('FUNDAMENTAL II','ANOS FINAIS');if(tipo.includes('ENSINO MEDIO'))alvos.push('ENSINO MEDIO');if(tipo.includes('EDUCACAO INFANTIL'))alvos.push('EDUCACAO INFANTIL');if(tipo.includes('TECNIC'))alvos.push('TECNIC');if(!alvos.length)return{situacao,ofertasAtualizadas:0};
   const {data:ofs,error:eo}=await c.from('legalizacao_ofertas').select('id,etapa_modalidade,curso_tecnico').eq('instituicao_id',inst.id);if(eo)throw new Error(`Falha ao consultar as ofertas da instituição: ${eo.message||eo}`);
-  const existentes=ofs||[],ids=existentes.filter(o=>{const t=normalizarOfertaAto([o.etapa_modalidade,o.curso_tecnico].filter(Boolean).join(' '));return alvos.some(a=>t.includes(a));}).map(o=>o.id);
+  const existentes=ofs||[],ofertaCorresponde=(o,a)=>{const t=normalizarOfertaAto([o.etapa_modalidade,o.curso_tecnico].filter(Boolean).join(' '));if(a==='FUNDAMENTAL I'||a==='ANOS INICIAIS')return t.includes('FUNDAMENTAL I')||t.includes('ANOS INICIAIS');if(a==='FUNDAMENTAL II'||a==='ANOS FINAIS')return t.includes('FUNDAMENTAL II')||t.includes('ANOS FINAIS');if(a==='ENSINO MEDIO')return t.includes('ENSINO MEDIO');if(a==='EDUCACAO INFANTIL')return t.includes('EDUCACAO INFANTIL');if(a==='TECNIC')return t.includes('TECNIC');return t.includes(a);},ids=existentes.filter(o=>alvos.some(a=>ofertaCorresponde(o,a))).map(o=>o.id);
   const upd={situacao:'AUTORIZADA',updated_at:now};if(ini)upd.ano_inicio_vigencia=ini;if(fim)upd.ano_fim_vigencia=fim;
   if(ids.length){const {error:eu}=await c.from('legalizacao_ofertas').update(upd).in('id',ids);if(eu)throw new Error(`Falha ao atualizar a vigência das ofertas: ${eu.message||eu}`);}
   // A publicação confirmada também materializa ofertas inexistentes no prontuário.
