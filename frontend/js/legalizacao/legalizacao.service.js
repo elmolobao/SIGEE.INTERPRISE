@@ -146,9 +146,10 @@ async function repararOfertasConfirmadas299(){
 }
 async function consultarInstituicoes(filtros={}){
   assertAccess();const c=client();if(!c)throw new Error('Cliente Supabase indisponível.');
-  if(!reparoMarista29447518Executado&&podeGerirDoe())await repararPassivoMarista29447518();
-  if(!reparoOfertas299Executado&&podeGerirDoe())await repararOfertasConfirmadas299();
-  if(!saneamentoDuplicata299AcademicoExecutado&&podeGerirDoe())await sanearDuplicataContaminada299Academico();
+  // RC57 — leitura do catálogo é estritamente read-only.
+  // Saneamentos históricos não podem executar como efeito colateral de uma consulta.
+  // Reparos legados permanecem isolados no código até migração administrativa explícita,
+  // mas nunca são disparados por consultar/listar instituições.
   const page=Math.max(1,intOrNull(filtros.page)||1),pageSize=Math.min(100,Math.max(10,intOrNull(filtros.pageSize)||50)),from=(page-1)*pageSize,to=from+pageSize-1;
   // O catálogo histórico é baseado na view legalizacao_catalogo_v. Instituições criadas diretamente
   // em Legalização ainda não possuem escola_id e, por isso, precisam ser agregadas à consulta.
@@ -979,7 +980,9 @@ async function prepararReprocessamentoDoeNaoFinalizado(rows=[]){
   for(const dataDoe of datas){
     const {data:anteriores,error}=await c.from('legalizacao_atos_importacao')
       .select('id,status_match,lote_id,arquivo_origem,data_publicacao,confirmado_em')
-      .eq('data_publicacao',dataDoe).limit(10000);
+      // RC57 — reprocessamento é isolado pelo lote físico. Nunca remover ocorrências
+      // pendentes de outro arquivo/edição apenas porque compartilham a mesma data.
+      .eq('lote_id',lote).eq('data_publicacao',dataDoe).limit(10000);
     if(error)throw error;
     if(!(anteriores||[]).length)continue;
     const ativos=(anteriores||[]).filter(x=>!['CONFIRMADO','REJEITADO'].includes(upper(x.status_match)));
@@ -1076,8 +1079,13 @@ async function importarAtosLote(rows=[]){
     // por instituição + espécie + número, sem tocar em vínculo/status/autoria.
     const vincId=Number(existente.instituicao_id)||null;
     if(vincId){
-      const {error:eLeg}=await c.from('legalizacao_atos_legais').update(atoUpd).eq('instituicao_id',vincId).eq('numero_ato',row.numero_publicacao).eq('situacao_registro','CONFIRMADO');
-      if(eLeg)throw eLeg;
+      // RC57 — fallback legado só pode sincronizar a MESMA publicação documental.
+      // Número isolado não é identidade suficiente: números podem se repetir em anos/espécies.
+      let qLeg=c.from('legalizacao_atos_legais').update(atoUpd)
+        .eq('instituicao_id',vincId).eq('numero_ato',row.numero_publicacao).eq('situacao_registro','CONFIRMADO');
+      if(row.ato)qLeg=qLeg.eq('ato',row.ato);
+      if(row.data_publicacao)qLeg=qLeg.eq('data_publicacao',row.data_publicacao);
+      const {error:eLeg}=await qLeg;if(eLeg)throw eLeg;
       // Aplica retroativamente o efeito operacional da regularização da vida escolar ao
       // cadastro/ofertas, sem alterar a decisão histórica de INDEFERIMENTO do ato.
       if(usarRegVida){
@@ -1238,7 +1246,8 @@ async function consolidarPareceresNaFilaDoe(rows=[]){
 }
 async function listarAtosImportados(status=''){
   assertAccess();if(!podeGerirDoe())throw new Error('A conferência de importações é autorizada apenas para os perfis Master e SEC.');
-  if(!saneamentoDuplicata299AcademicoExecutado)await sanearDuplicataContaminada299Academico();
+  // RC57 — abrir a fila do DOE não executa saneamento específico de instituição/ato.
+  // A tela de consulta deve refletir o banco, não modificá-lo silenciosamente.
   const c=client(),campos='id,lote_id,arquivo_origem,linha_origem,nte_numero,municipio,escola_nome,ato,tipo_ato,numero_publicacao,data_publicacao,numero_processo,vigencia_inicio,vigencia_fim,vigencia_origem,status_match,escola_id,instituicao_id,cnpj_extraido,detalhe,endereco_extraido,created_at,confirmado_em,confirmado_por_id',st=upper(status);
   const pagina=500,maxPaginas=12,alvosLote=25,acumulado=[];let offset=0,lotes=new Map();
   for(let p=0;p<maxPaginas;p++){
