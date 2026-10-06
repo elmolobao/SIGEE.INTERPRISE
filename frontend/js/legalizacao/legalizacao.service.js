@@ -1501,8 +1501,22 @@ function regularizacaoVidaEscolarDoe(r){
   const novoProcesso=/NOVO PROCESSO|INSTRUIR NOVO PROCESSO/.test(t),base26=/RESOLUCAO CEE\s*(?:N[ºO°.]*)?\s*0?26\/2016/.test(t);
   return{inicio,fim,etapas,novoProcesso,base26};
 }
-async function aplicarEfeitoRegulatorioAtoConfirmado(inst,r,escolaLegada){
-  const c=client(),tipo=normalizarOfertaAto([r.tipo_ato,r.ato,r.detalhe].filter(Boolean).join(' ')),now=new Date().toISOString();
+function evidenciaRegulatoriaAto(r,legal=null){
+  const partes=[r?.tipo_ato,r?.ato,r?.detalhe,legal?.tipo_ato,legal?.ato,legal?.detalhe].filter(Boolean);
+  return normalizarOfertaAto(partes.join('\n'));
+}
+function extrairAlvosOfertaDaEvidencia(r,legal=null){
+  const tipo=evidenciaRegulatoriaAto(r,legal),alvos=[];
+  const fundamentalCompleto=/ENSINO FUNDAMENTAL[^.\n]{0,120}(?:1(?:º|O)?\s*(?:AO|A)\s*9(?:º|O)?|1\s*AO\s*9)\s*ANO/.test(tipo);
+  if(fundamentalCompleto||tipo.includes('FUNDAMENTAL I')||tipo.includes('ANOS INICIAIS')||/1(?:º|O)?\s*(?:AO|A)\s*5(?:º|O)?\s*ANO/.test(tipo))alvos.push('FUNDAMENTAL I','ANOS INICIAIS');
+  if(fundamentalCompleto||tipo.includes('FUNDAMENTAL II')||tipo.includes('ANOS FINAIS')||/6(?:º|O)?\s*(?:AO|A)\s*9(?:º|O)?\s*ANO/.test(tipo))alvos.push('FUNDAMENTAL II','ANOS FINAIS');
+  if(tipo.includes('ENSINO MEDIO'))alvos.push('ENSINO MEDIO');
+  if(tipo.includes('EDUCACAO INFANTIL'))alvos.push('EDUCACAO INFANTIL');
+  if(tipo.includes('TECNIC'))alvos.push('TECNIC');
+  return [...new Set(alvos)];
+}
+async function aplicarEfeitoRegulatorioAtoConfirmado(inst,r,escolaLegada,legal=null){
+  const c=client(),tipo=evidenciaRegulatoriaAto(r,legal),now=new Date().toISOString();
   if(decisaoNegativaAtoImportado(r)){
     const regVida=regularizacaoVidaEscolarDoe(r);
     if(regVida){
@@ -1557,10 +1571,8 @@ async function aplicarEfeitoRegulatorioAtoConfirmado(inst,r,escolaLegada){
   }
   // RC58: vigência não identificada não impede o reconhecimento da oferta.
   // A oferta pode ser materializada com vigência em aberto e completada em reimportação futura.
-  const alvos=[];
-  const fundamentalCompleto=/ENSINO FUNDAMENTAL[^.]{0,80}(?:1(?:º|O)?\s*(?:AO|A)\s*9(?:º|O)?|1\s*AO\s*9)\s*ANO/.test(tipo);
-  if(fundamentalCompleto||tipo.includes('FUNDAMENTAL I')||tipo.includes('ANOS INICIAIS')||/1(?:º|O)?\s*(?:AO|A)\s*5(?:º|O)?\s*ANO/.test(tipo))alvos.push('FUNDAMENTAL I','ANOS INICIAIS');
-  if(fundamentalCompleto||tipo.includes('FUNDAMENTAL II')||tipo.includes('ANOS FINAIS')||/6(?:º|O)?\s*(?:AO|A)\s*9(?:º|O)?\s*ANO/.test(tipo))alvos.push('FUNDAMENTAL II','ANOS FINAIS');if(tipo.includes('ENSINO MEDIO'))alvos.push('ENSINO MEDIO');if(tipo.includes('EDUCACAO INFANTIL'))alvos.push('EDUCACAO INFANTIL');if(tipo.includes('TECNIC'))alvos.push('TECNIC');if(!alvos.length)return{situacao,ofertasAtualizadas:0};
+  const alvos=extrairAlvosOfertaDaEvidencia(r,legal);
+  if(!alvos.length)return{situacao,ofertasAtualizadas:0,ofertasCriadas:0,diagnostico_oferta:'SEM_ETAPA_NA_EVIDENCIA',evidencia_campos:{importacao_detalhe:!!r?.detalhe,ato_legal_detalhe:!!legal?.detalhe}};
   const {data:ofs,error:eo}=await c.from('legalizacao_ofertas').select('id,etapa_modalidade,curso_tecnico').eq('instituicao_id',inst.id);if(eo)throw new Error(`Falha ao consultar as ofertas da instituição: ${eo.message||eo}`);
   const existentes=ofs||[],ofertaCorresponde=(o,a)=>{const t=normalizarOfertaAto([o.etapa_modalidade,o.curso_tecnico].filter(Boolean).join(' '));if(a==='FUNDAMENTAL I'||a==='ANOS INICIAIS')return t.includes('FUNDAMENTAL I')||t.includes('ANOS INICIAIS');if(a==='FUNDAMENTAL II'||a==='ANOS FINAIS')return t.includes('FUNDAMENTAL II')||t.includes('ANOS FINAIS');if(a==='ENSINO MEDIO')return t.includes('ENSINO MEDIO');if(a==='EDUCACAO INFANTIL')return t.includes('EDUCACAO INFANTIL');if(a==='TECNIC')return t.includes('TECNIC');return t.includes(a);},ids=existentes.filter(o=>alvos.some(a=>ofertaCorresponde(o,a))).map(o=>o.id);
   const upd={situacao:'AUTORIZADA',updated_at:now};if(ini)upd.ano_inicio_vigencia=ini;if(fim)upd.ano_fim_vigencia=fim;
@@ -1599,7 +1611,7 @@ async function reconciliarEfeitosAtosConfirmados(instituicaoId){
     const {data,error}=await c.from('legalizacao_atos_importacao').select('*').in('id',importacaoIds).limit(2000);if(error)throw error;importacoes=data||[];
   }
   const porId=new Map(importacoes.map(a=>[Number(a.id),a]));
-  let processados=0,ignoradosParecer=0,ofertasAtualizadas=0,ofertasCriadas=0,semImportacao=0;const falhas=[];
+  let processados=0,ignoradosParecer=0,ofertasAtualizadas=0,ofertasCriadas=0,semImportacao=0,semEtapaNaEvidencia=0;const falhas=[];
   for(const legal of legais||[]){
     const imp=porId.get(Number(legal.importacao_id)||0);
     if(!imp){semImportacao++;continue;}
@@ -1609,12 +1621,12 @@ async function reconciliarEfeitosAtosConfirmados(instituicaoId){
     if(upper(imp.ato||legal.tipo_documento)==='PARECER'){ignoradosParecer++;continue;}
     try{
       const ato={...imp,instituicao_id:inst.id};
-      const efeito=await aplicarEfeitoRegulatorioAtoConfirmado(inst,ato,Number(imp.escola_id)||Number(inst.escola_id)||null);
-      processados++;ofertasAtualizadas+=Number(efeito?.ofertasAtualizadas||0);ofertasCriadas+=Number(efeito?.ofertasCriadas||0);
+      const efeito=await aplicarEfeitoRegulatorioAtoConfirmado(inst,ato,Number(imp.escola_id)||Number(inst.escola_id)||null,legal);
+      processados++;ofertasAtualizadas+=Number(efeito?.ofertasAtualizadas||0);ofertasCriadas+=Number(efeito?.ofertasCriadas||0);if(efeito?.diagnostico_oferta==='SEM_ETAPA_NA_EVIDENCIA')semEtapaNaEvidencia++;
     }catch(e){falhas.push({ato_legal_id:legal.id,importacao_id:imp.id,numero_publicacao:imp.numero_publicacao||legal.numero_ato||null,mensagem:e?.message||String(e)});}
   }
-  try{await c.from('logs_sigee').insert({usuario_id:currentUserId(),acao:'RECONCILIACAO_ATOS_CONFIRMADOS',modulo:'LEGALIZACAO',detalhes:`Instituição ${inst.id}: ${processados} ato(s) legal(is) reaplicado(s), ${ofertasCriadas} oferta(s) criada(s), ${ofertasAtualizadas} oferta(s) reconhecida(s)/atualizada(s), ${ignoradosParecer} parecer(es), ${semImportacao} ato(s) sem importação, ${falhas.length} falha(s).`});}catch(_){}
-  atosControleCache=null;resumoCache=null;return{instituicao_id:inst.id,atos_legais:(legais||[]).length,importacoes_localizadas:importacoes.length,processados,ignorados_parecer:ignoradosParecer,sem_importacao:semImportacao,ofertas_atualizadas:ofertasAtualizadas,ofertas_criadas:ofertasCriadas,falhas};
+  try{await c.from('logs_sigee').insert({usuario_id:currentUserId(),acao:'RECONCILIACAO_ATOS_CONFIRMADOS',modulo:'LEGALIZACAO',detalhes:`Instituição ${inst.id}: ${processados} ato(s) legal(is) reaplicado(s), ${ofertasCriadas} oferta(s) criada(s), ${ofertasAtualizadas} oferta(s) reconhecida(s)/atualizada(s), ${ignoradosParecer} parecer(es), ${semImportacao} ato(s) sem importação, ${semEtapaNaEvidencia} ato(s) sem etapa/modalidade na evidência preservada, ${falhas.length} falha(s).`});}catch(_){}
+  atosControleCache=null;resumoCache=null;return{instituicao_id:inst.id,atos_legais:(legais||[]).length,importacoes_localizadas:importacoes.length,processados,ignorados_parecer:ignoradosParecer,sem_importacao:semImportacao,sem_etapa_na_evidencia:semEtapaNaEvidencia,ofertas_atualizadas:ofertasAtualizadas,ofertas_criadas:ofertasCriadas,falhas};
 }
 async function salvarOfertaInstituicao(instituicaoId,payload={}){
   assertAccess();if(!podeGerirDoe())throw new Error('O gerenciamento manual de ofertas é autorizado apenas para os perfis Master e SEC.');
