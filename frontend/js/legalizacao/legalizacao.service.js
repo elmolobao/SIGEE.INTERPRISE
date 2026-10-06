@@ -307,17 +307,19 @@ function requisitoOfertaAplicavel(r,catalogoSelecionado=[],ato='AUTORIZACAO'){
   const etapaReq=chaveEtapaOferta(r);if(!etapaReq)return true;
   return selecionados.some(o=>chaveEtapaOferta(o)===etapaReq);
 }
+const CATALOGO_MESTRE_CURSOS_TECNICOS=[
+{curso_tecnico:'Serviços Jurídicos',eixo_tecnologico:'Gestão e Negócios'},
+{curso_tecnico:'Transações Imobiliárias',eixo_tecnologico:'Gestão e Negócios'},
+{curso_tecnico:'Segurança do Trabalho',eixo_tecnologico:'Segurança'},
+{curso_tecnico:'Enfermagem',eixo_tecnologico:'Ambiente e Saúde'},
+{curso_tecnico:'Rádio e Televisão',eixo_tecnologico:'Produção Cultural e Design'}
+];
 async function listarCatalogoCursosTecnicos(){
-  assertAccess();const c=client(),map=new Map(),add=(curso,eixo)=>{curso=clean(curso);eixo=clean(eixo);if(!curso||!eixo)return;const k=normalizarOfertaAto(curso);if(!map.has(k))map.set(k,{curso_tecnico:curso,eixo_tecnologico:eixo});};
-  // Fonte canônica operacional: pares curso/eixo já validados no SIGEE.
-  const [a,b]=await Promise.all([
-    c.from('legalizacao_ofertas').select('curso_tecnico,eixo_tecnologico').not('curso_tecnico','is',null).not('eixo_tecnologico','is',null).limit(5000),
-    c.from('legalizacao_processos_ofertas').select('curso_nome,eixo_tecnologico').not('curso_nome','is',null).not('eixo_tecnologico','is',null).limit(5000)
-  ]);
-  if(a.error)throw a.error;if(b.error)throw b.error;
-  for(const x of a.data||[])add(x.curso_tecnico,x.eixo_tecnologico);
-  for(const x of b.data||[])add(x.curso_nome,x.eixo_tecnologico);
-  return [...map.values()].sort((x,y)=>x.curso_tecnico.localeCompare(y.curso_tecnico,'pt-BR'));
+  assertAccess();const c=client(),map=new Map(),add=(curso,eixo,fonte='SIGEE')=>{curso=clean(curso);eixo=clean(eixo);if(!curso||!eixo)return;const k=normalizarOfertaAto(curso);if(!map.has(k))map.set(k,{curso_tecnico:curso,eixo_tecnologico:eixo,fonte});};
+  for(const x of CATALOGO_MESTRE_CURSOS_TECNICOS)add(x.curso_tecnico,x.eixo_tecnologico,'CNCT');
+  const [x,y]=await Promise.all([c.from('legalizacao_ofertas').select('curso_tecnico,eixo_tecnologico').not('curso_tecnico','is',null).not('eixo_tecnologico','is',null).limit(5000),c.from('legalizacao_processos_ofertas').select('curso_nome,eixo_tecnologico').not('curso_nome','is',null).not('eixo_tecnologico','is',null).limit(5000)]);
+  if(x.error)throw x.error;if(y.error)throw y.error;for(const o of x.data||[])add(o.curso_tecnico,o.eixo_tecnologico);for(const o of y.data||[])add(o.curso_nome,o.eixo_tecnologico);
+  return [...map.values()].sort((m,n)=>m.curso_tecnico.localeCompare(n.curso_tecnico,'pt-BR'));
 }
 async function identificarCursosTecnicosNaEvidencia(r,legal=null){
   const evidencia=evidenciaRegulatoriaAto(r,legal),catalogo=await listarCatalogoCursosTecnicos(),achados=[];
@@ -1640,7 +1642,7 @@ async function reconciliarEfeitosAtosConfirmados(instituicaoId){
     const {data,error}=await c.from('legalizacao_atos_importacao').select('*').in('id',importacaoIds).limit(2000);if(error)throw error;importacoes=data||[];
   }
   const porId=new Map(importacoes.map(a=>[Number(a.id),a]));
-  let processados=0,ignoradosParecer=0,ofertasAtualizadas=0,ofertasCriadas=0,semImportacao=0,semEtapaNaEvidencia=0,cursoTecnicoNaoIdentificado=0;const falhas=[];
+  let processados=0,ignoradosParecer=0,ofertasAtualizadas=0,ofertasCriadas=0,semImportacao=0,semEtapaNaEvidencia=0,cursoTecnicoNaoIdentificado=0,cursosTecnicosIdentificados=0;const falhas=[];
   for(const legal of legais||[]){
     const imp=porId.get(Number(legal.importacao_id)||0);
     if(!imp){semImportacao++;continue;}
@@ -1650,12 +1652,14 @@ async function reconciliarEfeitosAtosConfirmados(instituicaoId){
     if(upper(imp.ato||legal.tipo_documento)==='PARECER'){ignoradosParecer++;continue;}
     try{
       const ato={...imp,instituicao_id:inst.id};
-      const efeito=await aplicarEfeitoRegulatorioAtoConfirmado(inst,ato,Number(imp.escola_id)||Number(inst.escola_id)||null,legal);
-      processados++;ofertasAtualizadas+=Number(efeito?.ofertasAtualizadas||0);ofertasCriadas+=Number(efeito?.ofertasCriadas||0);if(efeito?.diagnostico_oferta==='SEM_ETAPA_NA_EVIDENCIA')semEtapaNaEvidencia++;if(efeito?.diagnostico_oferta==='CURSO_TECNICO_NAO_IDENTIFICADO_NO_CATALOGO')cursoTecnicoNaoIdentificado++;
+      const pareceresSuporte=(legais||[]).filter(x=>upper(x.tipo_documento||x.ato)==='PARECER'&&clean(x.data_publicacao)===clean(legal.data_publicacao)).map(x=>porId.get(Number(x.importacao_id)||0)).filter(Boolean);
+      const legalComSuporte={...legal,detalhe:[legal.detalhe,...pareceresSuporte.map(x=>x.detalhe)].filter(Boolean).join('\n')};
+      const efeito=await aplicarEfeitoRegulatorioAtoConfirmado(inst,ato,Number(imp.escola_id)||Number(inst.escola_id)||null,legalComSuporte);
+      processados++;ofertasAtualizadas+=Number(efeito?.ofertasAtualizadas||0);ofertasCriadas+=Number(efeito?.ofertasCriadas||0);if(efeito?.diagnostico_oferta==='SEM_ETAPA_NA_EVIDENCIA')semEtapaNaEvidencia++;if(efeito?.diagnostico_oferta==='CURSO_TECNICO_NAO_IDENTIFICADO_NO_CATALOGO')cursoTecnicoNaoIdentificado++;cursosTecnicosIdentificados+=Number(efeito?.cursosTecnicosIdentificados?.length||0);
     }catch(e){falhas.push({ato_legal_id:legal.id,importacao_id:imp.id,numero_publicacao:imp.numero_publicacao||legal.numero_ato||null,mensagem:e?.message||String(e)});}
   }
   try{await c.from('logs_sigee').insert({usuario_id:currentUserId(),acao:'RECONCILIACAO_ATOS_CONFIRMADOS',modulo:'LEGALIZACAO',detalhes:`Instituição ${inst.id}: ${processados} ato(s) legal(is) reaplicado(s), ${ofertasCriadas} oferta(s) criada(s), ${ofertasAtualizadas} oferta(s) reconhecida(s)/atualizada(s), ${ignoradosParecer} parecer(es), ${semImportacao} ato(s) sem importação, ${semEtapaNaEvidencia} ato(s) sem etapa/modalidade, ${cursoTecnicoNaoIdentificado} ato(s) técnico(s) sem curso reconhecido no catálogo, ${falhas.length} falha(s).`});}catch(_){}
-  atosControleCache=null;resumoCache=null;return{instituicao_id:inst.id,atos_legais:(legais||[]).length,importacoes_localizadas:importacoes.length,processados,ignorados_parecer:ignoradosParecer,sem_importacao:semImportacao,sem_etapa_na_evidencia:semEtapaNaEvidencia,curso_tecnico_nao_identificado:cursoTecnicoNaoIdentificado,ofertas_atualizadas:ofertasAtualizadas,ofertas_criadas:ofertasCriadas,falhas};
+  atosControleCache=null;resumoCache=null;return{instituicao_id:inst.id,atos_legais:(legais||[]).length,importacoes_localizadas:importacoes.length,processados,ignorados_parecer:ignoradosParecer,sem_importacao:semImportacao,sem_etapa_na_evidencia:semEtapaNaEvidencia,curso_tecnico_nao_identificado:cursoTecnicoNaoIdentificado,cursos_tecnicos_identificados:cursosTecnicosIdentificados,ofertas_atualizadas:ofertasAtualizadas,ofertas_criadas:ofertasCriadas,falhas};
 }
 async function salvarOfertaInstituicao(instituicaoId,payload={}){
   assertAccess();if(!podeGerirDoe())throw new Error('O gerenciamento manual de ofertas é autorizado apenas para os perfis Master e SEC.');
