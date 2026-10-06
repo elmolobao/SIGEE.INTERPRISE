@@ -48,4 +48,10 @@ if(!reconc.includes("map(a=>Number(a.importacao_id)") || !reconc.includes("from(
 if(reconc.includes('importarAtosLote(')||reconc.includes('vincularAtoImportado(')) fail('Reconciliação não pode reimportar/revincular');
 if(!reconc.includes("vínculo institucional divergente")) fail('Reconciliação perdeu bloqueio de vínculo DOE explicitamente divergente');
 if(!reconc.includes("upper(imp.ato||legal.tipo_documento)==='PARECER'")) fail('Parecer voltou a produzir efeito autônomo');
-console.log('Legalização DOE regression baseline RC60: OK');
+const efeito61=body('aplicarEfeitoRegulatorioAtoConfirmado','aplicarAlteracaoCadastralPublicada');
+if(!efeito61.includes('evidenciaRegulatoriaAto(r,legal)')) fail('Aplicação deixou de combinar evidência da importação e do ato legal');
+if(!efeito61.includes('extrairAlvosOfertaDaEvidencia(r,legal)')) fail('Ofertas deixaram de usar a evidência documental consolidada');
+if(!efeito61.includes("diagnostico_oferta:'SEM_ETAPA_NA_EVIDENCIA'")) fail('Ausência real de etapa/modalidade deixou de ser diagnosticada');
+const reconc61=body('reconciliarEfeitosAtosConfirmados','salvarOfertaInstituicao');
+if(!reconc61.includes(',legal);')) fail('Reconciliação não repassa a cópia documental do ato legal à regra de ofertas');
+console.log('Legalização DOE regression baseline RC61: OK');
