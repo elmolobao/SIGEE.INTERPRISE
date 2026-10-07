@@ -1869,10 +1869,10 @@ function vigenciaTecnicaDaEvidenciaDoe(r,legal=null){
 }
 async function saneamentoExplicitoCajazeiras289(inst,legais){
  const c=client(),nome=normalizarOfertaAto(inst?.nome_fantasia||inst?.nome||inst?.razao_social||'');
- if(!(nome.includes('GRAU')&&nome.includes('CAJAZEIRAS')))return{removidos:0};
+ if(!(nome.includes('GRAU')&&nome.includes('CAJAZEIRAS')))return{removidos:0,motivo:'INSTITUICAO_NAO_IDENTIFICADA'};
  const nums=new Set((legais||[]).map(a=>clean(a.numero_ato)));if(!['311/2026','312/2026','313/2026'].every(n=>nums.has(n)))return{removidos:0,motivo:'ATOS_PRINCIPAIS_AUSENTES'};
  const chave=`SANEAMENTO_CAJAZEIRAS_289_2022_RC71:${inst.id}`,{data:ja,error:eLog}=await c.from('logs_sigee').select('id').eq('acao','SANEAMENTO_EXPLICITO_DOE').eq('modulo','LEGALIZACAO').ilike('detalhes',`%${chave}%`).limit(1);if(eLog)throw eLog;if((ja||[]).length)return{removidos:0,motivo:'JA_EXECUTADO'};
- const ids=(legais||[]).filter(a=>upper(a.tipo_documento||a.especie_documental)==='RESOLUCAO'&&clean(a.numero_ato)==='289/2022').map(a=>a.id).filter(Boolean);if(!ids.length)return{removidos:0,motivo:'SEM_RESIDUOS'};
+ const ids=(legais||[]).filter(a=>upper(a.tipo_documento||a.especie_documental||a.ato)==='RESOLUCAO'&&clean(a.numero_ato)==='289/2022').map(a=>a.id).filter(Boolean);if(!ids.length)return{removidos:0,motivo:'SEM_RESIDUOS'};
  const {error:eDel}=await c.from('legalizacao_atos_legais').delete().in('id',ids);if(eDel)throw eDel;
  await c.from('logs_sigee').insert({usuario_id:currentUserId(),acao:'SANEAMENTO_EXPLICITO_DOE',modulo:'LEGALIZACAO',detalhes:`${chave} | Removidos ${ids.length} registro(s) RESOLUCAO 289/2022. Preservados 311/2026, 312/2026, 313/2026 e demais atos.`});return{removidos:ids.length};
 }
@@ -1888,7 +1888,7 @@ async function reconciliarEfeitosAtosConfirmados(instituicaoId){
     const {data,error}=await c.from('legalizacao_atos_importacao').select('*').in('id',importacaoIds).limit(2000);if(error)throw error;importacoes=data||[];
   }
   let saneamentoExplicito={removidos:0},falhasPreSaneamento=null;try{saneamentoExplicito=await saneamentoExplicitoCajazeiras289(inst,legais||[]);}catch(e){falhasPreSaneamento={etapa:'SANEAMENTO_EXPLICITO_RC71',mensagem:e?.message||String(e)};}
-  const legaisAtivos=saneamentoExplicito.removidos?(legais||[]).filter(a=>!(upper(a.tipo_documento||a.especie_documental)==='RESOLUCAO'&&clean(a.numero_ato)==='289/2022')):(legais||[]);
+  const legaisAtivos=saneamentoExplicito.removidos?(legais||[]).filter(a=>!(upper(a.tipo_documento||a.especie_documental||a.ato)==='RESOLUCAO'&&clean(a.numero_ato)==='289/2022')):(legais||[]);
   const porId=new Map(importacoes.map(a=>[Number(a.id),a]));
   let processados=0,ignoradosParecer=0,ofertasAtualizadas=0,ofertasCriadas=0,semImportacao=0,semEtapaNaEvidencia=0,cursoTecnicoNaoIdentificado=0,cursosTecnicosIdentificados=0;const cursosIdentificadosNomes=new Set(),falhas=[];if(falhasPreSaneamento)falhas.push(falhasPreSaneamento);
   for(const legal of legaisAtivos){
@@ -1953,7 +1953,7 @@ async function reconciliarEfeitosAtosConfirmados(instituicaoId){
     }
   }catch(e){falhas.push({etapa:'SANEAMENTO_PASSIVO_RC69',mensagem:e?.message||String(e)});}
   try{await c.from('logs_sigee').insert({usuario_id:currentUserId(),acao:'RECONCILIACAO_ATOS_CONFIRMADOS',modulo:'LEGALIZACAO',detalhes:`Instituição ${inst.id}: ${processados} ato(s) legal(is) reaplicado(s), ${ofertasCriadas} oferta(s) criada(s), ${ofertasAtualizadas} oferta(s) reconhecida(s)/atualizada(s), ${referenciasNormativasRemovidas} referência(s) normativa(s) residual(is) removida(s), ${ofertasContaminadasLimpas} vigência(s) contaminada(s) limpa(s), ${falhas.length} falha(s).`});}catch(_){}
-  atosControleCache=null;resumoCache=null;return{instituicao_id:inst.id,atos_legais:(legais||[]).length-referenciasNormativasRemovidas,importacoes_localizadas:importacoes.length,processados,ignorados_parecer:ignoradosParecer,sem_importacao:semImportacao,sem_etapa_na_evidencia:semEtapaNaEvidencia,curso_tecnico_nao_identificado:cursoTecnicoNaoIdentificado,cursos_tecnicos_identificados:cursosTecnicosIdentificados,cursos_tecnicos_nomes:[...cursosIdentificadosNomes],ofertas_atualizadas:ofertasAtualizadas,ofertas_criadas:ofertasCriadas,referencias_normativas_removidas:referenciasNormativasRemovidas+saneamentoExplicito.removidos,saneamento_explicito_289_removidos:saneamentoExplicito.removidos,ofertas_contaminadas_limpas:ofertasContaminadasLimpas,falhas};
+  atosControleCache=null;resumoCache=null;return{instituicao_id:inst.id,atos_legais:(legais||[]).length-referenciasNormativasRemovidas,importacoes_localizadas:importacoes.length,processados,ignorados_parecer:ignoradosParecer,sem_importacao:semImportacao,sem_etapa_na_evidencia:semEtapaNaEvidencia,curso_tecnico_nao_identificado:cursoTecnicoNaoIdentificado,cursos_tecnicos_identificados:cursosTecnicosIdentificados,cursos_tecnicos_nomes:[...cursosIdentificadosNomes],ofertas_atualizadas:ofertasAtualizadas,ofertas_criadas:ofertasCriadas,referencias_normativas_removidas:referenciasNormativasRemovidas+saneamentoExplicito.removidos,saneamento_explicito_289_removidos:saneamentoExplicito.removidos,saneamento_explicito_289_motivo:saneamentoExplicito.motivo||null,ofertas_contaminadas_limpas:ofertasContaminadasLimpas,falhas};
 }
 async function salvarOfertaInstituicao(instituicaoId,payload={}){
   assertAccess();if(!podeGerirDoe())throw new Error('O gerenciamento manual de ofertas é autorizado apenas para os perfis Master e SEC.');
