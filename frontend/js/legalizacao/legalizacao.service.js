@@ -527,9 +527,14 @@ async function listarCatalogoCursosTecnicos(){
   return [...map.values()].sort((m,n)=>m.curso_tecnico.localeCompare(n.curso_tecnico,'pt-BR'));
 }
 async function identificarCursosTecnicosNaEvidencia(r,legal=null){
-  const evidencia=evidenciaRegulatoriaAto(r,legal),catalogo=await listarCatalogoCursosTecnicos(),achados=[];
+  const bruto=[r?.detalhe,legal?.detalhe].filter(Boolean).join('\n'),evidencia=evidenciaRegulatoriaAto(r,legal),catalogo=await listarCatalogoCursosTecnicos(),achados=[];
+  // Especializações técnicas são ofertas pós-técnicas e não integram a lista-base de títulos
+  // do CNCT como um novo curso técnico. Quando o próprio ato traz nome e eixo, preserva-se
+  // a denominação específica como oferta regulatória da instituição.
+  const esp=bruto.match(/Especializa(?:ç|c)[aã]o\s+T[eé]cnica(?:\s+de\s+N[ií]vel\s+M[eé]dio)?\s+em\s+([^,;.\n]+)/i),eixo=bruto.match(/Eixo\s+Tecnol[oó]gico\s+([^,;.\n]+)/i);
+  if(esp){const nome=`Especialização Técnica em ${clean(esp[1])}`,ax=clean(eixo?.[1])||'';if(nome&&ax)achados.push({curso_tecnico:nome,eixo_tecnologico:ax,fonte:'ATO_DOE'});}
   for(const c of catalogo){const nome=normalizarOfertaAto(c.curso_tecnico),alias=chaveCanonicaCursoTecnico(c.curso_tecnico);if((nome&&evidencia.includes(nome))||(alias&&evidencia.includes(alias)))achados.push(c);}
-  return achados;
+  const vistos=new Set();return achados.filter(x=>{const k=chaveCanonicaCursoTecnico(x.curso_tecnico);if(vistos.has(k))return false;vistos.add(k);return true;});
 }
 async function listarCatalogoOfertas(){
   assertAccess();const c=client();const {data,error}=await c.from('legalizacao_oferta_catalogo').select('*').eq('ativo',true).order('ordem',{ascending:true});if(error)throw error;return normalizarCatalogoOfertas(data||[]);
@@ -1784,6 +1789,10 @@ async function aplicarEfeitoRegulatorioAtoConfirmado(inst,r,escolaLegada,legal=n
     if(situacao==='EXTINTA'&&escolaLegada){const {error:eleg}=await c.from('escolas_sigee').update({situacao_funcional:'Extinta'}).eq('id',escolaLegada);if(eleg)console.warn('[DOE] não foi possível refletir situação funcional no catálogo mestre',eleg);}
   }
   let ini=anoIso(r.vigencia_inicio),fim=anoIso(r.vigencia_fim);
+  const anoPublicacao=anoIso(r.data_publicacao)||anoIso(legal?.data_publicacao);
+  // RC67: em autorização/renovação com efeito a partir da publicação, a publicação é a origem
+  // temporal segura quando o parser legado não gravou vigencia_inicio.
+  if(!ini&&anoPublicacao&&/(AUTORIZ|RENOV|FUNCIONAMENTO)/.test(tipo))ini=anoPublicacao;
   // Quando o ato positivo informa duração em anos ("por seis anos, a partir de 2026"),
   // completa a vigência inclusiva sem depender de data final explícita no parser.
   if(ini&&!fim){
@@ -1798,23 +1807,26 @@ async function aplicarEfeitoRegulatorioAtoConfirmado(inst,r,escolaLegada,legal=n
   const alvos=extrairAlvosOfertaDaEvidencia(r,legal);
   if(!alvos.length)return{situacao,ofertasAtualizadas:0,ofertasCriadas:0,diagnostico_oferta:'SEM_ETAPA_NA_EVIDENCIA',evidencia_campos:{importacao_detalhe:!!r?.detalhe,ato_legal_detalhe:!!legal?.detalhe}};
   const {data:ofs,error:eo}=await c.from('legalizacao_ofertas').select('id,etapa_modalidade,curso_tecnico').eq('instituicao_id',inst.id);if(eo)throw new Error(`Falha ao consultar as ofertas da instituição: ${eo.message||eo}`);
-  const existentes=ofs||[],ofertaCorresponde=(o,a)=>{const t=normalizarOfertaAto([o.etapa_modalidade,o.curso_tecnico].filter(Boolean).join(' '));if(a==='FUNDAMENTAL I'||a==='ANOS INICIAIS')return t.includes('FUNDAMENTAL I')||t.includes('ANOS INICIAIS');if(a==='FUNDAMENTAL II'||a==='ANOS FINAIS')return t.includes('FUNDAMENTAL II')||t.includes('ANOS FINAIS');if(a==='ENSINO MEDIO')return t.includes('ENSINO MEDIO');if(a==='EDUCACAO INFANTIL')return t.includes('EDUCACAO INFANTIL');if(a==='TECNIC')return t.includes('TECNIC');return t.includes(a);},ids=existentes.filter(o=>alvos.some(a=>ofertaCorresponde(o,a))).map(o=>o.id);
+  const existentes=ofs||[],ofertaCorresponde=(o,a)=>{const t=normalizarOfertaAto([o.etapa_modalidade,o.curso_tecnico].filter(Boolean).join(' '));if(a==='FUNDAMENTAL I'||a==='ANOS INICIAIS')return t.includes('FUNDAMENTAL I')||t.includes('ANOS INICIAIS');if(a==='FUNDAMENTAL II'||a==='ANOS FINAIS')return t.includes('FUNDAMENTAL II')||t.includes('ANOS FINAIS');if(a==='ENSINO MEDIO')return t.includes('ENSINO MEDIO');if(a==='EDUCACAO INFANTIL')return t.includes('EDUCACAO INFANTIL');if(a==='TECNIC')return false;return t.includes(a);};
   const upd={situacao:'AUTORIZADA',updated_at:now};if(ini)upd.ano_inicio_vigencia=ini;if(fim)upd.ano_fim_vigencia=fim;
-  if(ids.length){const {error:eu}=await c.from('legalizacao_ofertas').update(upd).in('id',ids);if(eu)throw new Error(`Falha ao atualizar a vigência das ofertas: ${eu.message||eu}`);}
-  // A publicação confirmada também materializa ofertas inexistentes no prontuário.
-  // Ensino Fundamental 1º–9º é armazenado nas duas referências já usadas pelo módulo.
+  // RC67: atos técnicos são específicos por curso. Nunca propagar a vigência de um curso
+  // para todas as ofertas técnicas da instituição.
   if(alvos.includes('TECNIC')){
     const cursos=await identificarCursosTecnicosNaEvidencia(r,legal);
-    if(!cursos.length)return{situacao,ofertasAtualizadas:ids.length,ofertasCriadas:0,diagnostico_oferta:'CURSO_TECNICO_NAO_IDENTIFICADO_NO_CATALOGO'};
-    let criadasTecnicas=0;
+    if(!cursos.length)return{situacao,ofertasAtualizadas:0,ofertasCriadas:0,diagnostico_oferta:'CURSO_TECNICO_NAO_IDENTIFICADO_NO_CATALOGO'};
+    let criadasTecnicas=0,atualizadasTecnicas=0;
     for(const ct of cursos){
-      const jaExiste=existentes.some(o=>normalizarOfertaAto(o.curso_tecnico)===normalizarOfertaAto(ct.curso_tecnico));
-      if(jaExiste)continue;
+      const equivalentes=existentes.filter(o=>chaveCanonicaCursoTecnico(o.curso_tecnico)===chaveCanonicaCursoTecnico(ct.curso_tecnico));
+      if(equivalentes.length){const idsCurso=equivalentes.map(o=>o.id).filter(Boolean);const dadosCurso={...upd,curso_tecnico:ct.curso_tecnico,eixo_tecnologico:ct.eixo_tecnologico};const {error:eu}=await c.from('legalizacao_ofertas').update(dadosCurso).in('id',idsCurso);if(eu)throw new Error(`Falha ao atualizar a oferta técnica ${ct.curso_tecnico}: ${eu.message||eu}`);atualizadasTecnicas+=idsCurso.length;continue;}
       const dados={instituicao_id:inst.id,etapa_modalidade:'Educação Profissional / Técnica',curso_tecnico:ct.curso_tecnico,eixo_tecnologico:ct.eixo_tecnologico,situacao:'AUTORIZADA',ano_inicio_vigencia:ini||null,ano_fim_vigencia:fim||null,updated_at:now};
       const {error:ec}=await c.from('legalizacao_ofertas').insert(dados);if(ec)throw new Error(`Falha ao criar curso técnico reconhecido no DOE (${ct.curso_tecnico}): ${ec.message||ec}`);criadasTecnicas++;
     }
-    return{situacao,ofertasAtualizadas:ids.length+criadasTecnicas,ofertasCriadas:criadasTecnicas,cursosTecnicosIdentificados:cursos};
+    return{situacao,ofertasAtualizadas:atualizadasTecnicas+criadasTecnicas,ofertasCriadas:criadasTecnicas,cursosTecnicosIdentificados:cursos};
   }
+  const ids=existentes.filter(o=>alvos.some(a=>ofertaCorresponde(o,a))).map(o=>o.id);
+  if(ids.length){const {error:eu}=await c.from('legalizacao_ofertas').update(upd).in('id',ids);if(eu)throw new Error(`Falha ao atualizar a vigência das ofertas: ${eu.message||eu}`);}
+  // A publicação confirmada também materializa ofertas inexistentes no prontuário.
+  // Ensino Fundamental 1º–9º é armazenado nas duas referências já usadas pelo módulo.
   const desejadas=[];
   if(alvos.includes('EDUCACAO INFANTIL'))desejadas.push('Educação Infantil');
   if(alvos.includes('FUNDAMENTAL I')||alvos.includes('ANOS INICIAIS'))desejadas.push('Ensino Fundamental — Anos Iniciais');
@@ -1835,6 +1847,29 @@ async function aplicarAlteracaoCadastralPublicada(p){
   if(subt==='MANTENEDORA'){const razao=clean(d.mantenedora_razao_social_nova),cnpj=digits(d.mantenedora_cnpj_novo,14);if(!razao||!cnpj)throw new Error('O procedimento publicado não possui razão social/CNPJ da nova mantenedora.');const {data:atuais,error:ea}=await c.from('legalizacao_mantenedoras').select('*').eq('instituicao_id',p.instituicao_id).order('created_at',{ascending:false}).limit(10);if(ea)throw ea;for(const m of atuais||[]){if(m.ativa!==false){const {error:eoff}=await c.from('legalizacao_mantenedoras').update({ativa:false}).eq('id',m.id);if(eoff)throw eoff;}}const {error:en}=await c.from('legalizacao_mantenedoras').insert({instituicao_id:p.instituicao_id,razao_social:razao,cnpj,ativa:true});if(en)throw en;await historicoProcesso(p.id,'MANTENEDORA_CONSOLIDADA','Mudança de mantenedor consolidada após publicação no Diário Oficial.',{razao_social_anterior:d.mantenedora_razao_social_anterior||null,cnpj_anterior:d.mantenedora_cnpj_anterior||null,razao_social_nova:razao,cnpj_novo:cnpj});}
   if(subt==='ENDERECO'){const upd={cep:clean(d.cep_novo),logradouro:clean(d.logradouro_novo),numero:clean(d.numero_novo),complemento:clean(d.complemento_novo),bairro:clean(d.bairro_novo),municipio:clean(d.municipio_novo),atualizado_por_id:currentUserId(),updated_at:now};const {error}=await c.from('legalizacao_instituicoes').update(upd).eq('id',p.instituicao_id);if(error)throw error;await historicoProcesso(p.id,'ENDERECO_CONSOLIDADO','Mudança de endereço consolidada após publicação no Diário Oficial.',{novo_endereco:d});}
 }
+function numeroParecerReferenciadoDoe(v){
+  const t=normalizarOfertaAto(v);const m=t.match(/PARECER(?:\s+CONCLUSIVO)?\s+CEE\s*(?:N\s*)?[ºO°.]?\s*(\d{1,4}\/20\d{2})/);return m?m[1]:null;
+}
+function numeroResolucaoPrincipalDoe(v){
+  const t=normalizarOfertaAto(v);const ms=[...t.matchAll(/RESOLUCAO\s+CEE\s*(?:N\s*)?[ºO°.]?\s*(\d{1,4}\/20\d{2})/g)].map(m=>m[1]);
+  // Em uma ocorrência de Resolução, o cabeçalho/ato corrente aparece antes das referências
+  // normativas internas. A 289/2022 não pode substituir 311/2026, 312/2026 etc.
+  return ms.length?ms[0]:null;
+}
+function naturezaTecnicaDaEvidenciaDoe(r,legal=null){
+  const t=evidenciaRegulatoriaAto(r,legal);if(!t.includes('TECNIC'))return null;
+  if(/RENOVACAO\s+(?:DA\s+)?AUTORIZACAO|RENOVE[^.\n]{0,120}AUTORIZACAO|RENOVE[^.\n]{0,120}FUNCIONAMENTO/.test(t))return 'RENOVACAO_AUTORIZACAO_TECNICO';
+  if(/AUTORIZACAO|AUTORIZE|AUTORIZAR/.test(t))return 'AUTORIZACAO_TECNICO';return null;
+}
+function vigenciaTecnicaDaEvidenciaDoe(r,legal=null){
+  const bruto=[r?.detalhe,legal?.detalhe].filter(Boolean).join('\n'),t=normalizarOfertaAto(bruto),pub=clean(r?.data_publicacao||legal?.data_publicacao).slice(0,10);if(!pub)return{};
+  const meses={JANEIRO:'01',FEVEREIRO:'02',MARCO:'03',ABRIL:'04',MAIO:'05',JUNHO:'06',JULHO:'07',AGOSTO:'08',SETEMBRO:'09',OUTUBRO:'10',NOVEMBRO:'11',DEZEMBRO:'12'};
+  let m=t.match(/ATE\s+(\d{1,2})\s+DE\s+(JANEIRO|FEVEREIRO|MARCO|ABRIL|MAIO|JUNHO|JULHO|AGOSTO|SETEMBRO|OUTUBRO|NOVEMBRO|DEZEMBRO)\s+DE\s+(20\d{2})/);
+  if(m)return{vigencia_inicio:pub,vigencia_fim:`${m[3]}-${meses[m[2]]}-${String(m[1]).padStart(2,'0')}`,vigencia_origem:'PRAZO_EXPRESSO_DO_ATO'};
+  m=t.match(/POR\s+(\d{1,2})\s*\([^)]*\)\s+ANOS?|POR\s+(\d{1,2})\s+ANOS?/);const anos=m?Number(m[1]||m[2]):0;
+  if(anos>0&&anos<=20){const [y,mo,d]=pub.split('-').map(Number);return{vigencia_inicio:pub,vigencia_fim:`${y+anos}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`,vigencia_origem:'DURACAO_DO_ATO'};}
+  return{};
+}
 async function reconciliarEfeitosAtosConfirmados(instituicaoId){
   assertAccess();if(!podeGerirDoe())throw new Error('A reconciliação de atos confirmados é autorizada apenas para os perfis Master e SEC.');
   const c=client(),inst=await oneScoped('legalizacao_instituicoes',Number(instituicaoId),{globalDoe:true});if(!inst?.id)throw new Error('Instituição não localizada.');
@@ -1854,11 +1889,29 @@ async function reconciliarEfeitosAtosConfirmados(instituicaoId){
     // O ato legal é a âncora do vínculo; a ocorrência DOE só fornece o conteúdo extraído.
     // Se a ocorrência possuir vínculo explícito divergente, não reaplicar automaticamente.
     if(imp.instituicao_id&&Number(imp.instituicao_id)!==Number(inst.id)){falhas.push({ato_legal_id:legal.id,importacao_id:imp.id,numero_publicacao:imp.numero_publicacao||legal.numero_ato||null,mensagem:'Importação possui vínculo institucional divergente do ato legal.'});continue;}
-    if(upper(imp.ato||legal.tipo_documento)==='PARECER'){ignoradosParecer++;continue;}
+    if(upper(imp.ato||legal.tipo_documento)==='PARECER'){
+      try{const updParecer={},nat=naturezaTecnicaDaEvidenciaDoe(imp,legal),vig=vigenciaTecnicaDaEvidenciaDoe(imp,legal);if(nat&&clean(legal.tipo_ato)!==nat)updParecer.tipo_ato=nat;Object.assign(updParecer,vig);if(Object.keys(updParecer).length){const {error:eP}=await c.from('legalizacao_atos_legais').update(updParecer).eq('id',legal.id);if(eP)throw eP;}ignoradosParecer++;}catch(e){falhas.push({ato_legal_id:legal.id,importacao_id:imp.id,numero_publicacao:imp.numero_publicacao||legal.numero_ato||null,mensagem:e?.message||String(e)});}continue;
+    }
     try{
-      const ato={...imp,instituicao_id:inst.id};
-      const pareceresSuporte=(legais||[]).filter(x=>upper(x.tipo_documento||x.ato)==='PARECER'&&clean(x.data_publicacao)===clean(legal.data_publicacao)).map(x=>porId.get(Number(x.importacao_id)||0)).filter(Boolean);
+      const ato={...imp,instituicao_id:inst.id,...vigenciaTecnicaDaEvidenciaDoe(imp,legal)};
+      const refParecer=numeroParecerReferenciadoDoe([legal.detalhe,imp.detalhe].filter(Boolean).join('\n'));
+      const processoAtual=clean(legal.numero_processo||imp.numero_processo);
+      const pareceresSuporte=(legais||[]).filter(x=>{
+        if(upper(x.tipo_documento||x.ato)!=='PARECER')return false;
+        const px=porId.get(Number(x.importacao_id)||0),num=clean(x.numero_ato||px?.numero_publicacao);
+        if(refParecer)return num.replace(/[^0-9/]/g,'')===refParecer.replace(/[^0-9/]/g,'');
+        const procX=clean(x.numero_processo||px?.numero_processo);return !!(processoAtual&&procX&&processoAtual===procX);
+      }).map(x=>porId.get(Number(x.importacao_id)||0)).filter(Boolean);
       const legalComSuporte={...legal,detalhe:[legal.detalhe,...pareceresSuporte.map(x=>x.detalhe)].filter(Boolean).join('\n')};
+      // RC67: saneia o passivo já confirmado sem apagar histórico. Corrige somente metadados
+      // derivados da própria ocorrência: número principal da Resolução, natureza e vigência.
+      const especie=upper(legal.tipo_documento||imp.ato),updLegal={};
+      if(especie==='RESOLUCAO'){
+        const nr=numeroResolucaoPrincipalDoe([imp.detalhe,legal.detalhe].filter(Boolean).join('\n'));if(nr&&nr!==clean(legal.numero_ato))updLegal.numero_ato=nr;
+      }
+      const natureza=naturezaTecnicaDaEvidenciaDoe(ato,legalComSuporte);if(natureza&&clean(legal.tipo_ato)!==natureza)updLegal.tipo_ato=natureza;
+      Object.assign(updLegal,vigenciaTecnicaDaEvidenciaDoe(ato,legalComSuporte));
+      if(Object.keys(updLegal).length){const {error:eSan}=await c.from('legalizacao_atos_legais').update(updLegal).eq('id',legal.id);if(eSan)throw eSan;Object.assign(legalComSuporte,updLegal);}
       const efeito=await aplicarEfeitoRegulatorioAtoConfirmado(inst,ato,Number(imp.escola_id)||Number(inst.escola_id)||null,legalComSuporte);
       processados++;ofertasAtualizadas+=Number(efeito?.ofertasAtualizadas||0);ofertasCriadas+=Number(efeito?.ofertasCriadas||0);if(efeito?.diagnostico_oferta==='SEM_ETAPA_NA_EVIDENCIA')semEtapaNaEvidencia++;if(efeito?.diagnostico_oferta==='CURSO_TECNICO_NAO_IDENTIFICADO_NO_CATALOGO')cursoTecnicoNaoIdentificado++;cursosTecnicosIdentificados+=Number(efeito?.cursosTecnicosIdentificados?.length||0);
     }catch(e){falhas.push({ato_legal_id:legal.id,importacao_id:imp.id,numero_publicacao:imp.numero_publicacao||legal.numero_ato||null,mensagem:e?.message||String(e)});}
