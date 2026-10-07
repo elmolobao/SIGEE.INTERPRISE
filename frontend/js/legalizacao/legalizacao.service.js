@@ -1913,8 +1913,30 @@ async function reconciliarEfeitosAtosConfirmados(instituicaoId){
       processados++;ofertasAtualizadas+=Number(efeito?.ofertasAtualizadas||0);ofertasCriadas+=Number(efeito?.ofertasCriadas||0);if(efeito?.diagnostico_oferta==='SEM_ETAPA_NA_EVIDENCIA')semEtapaNaEvidencia++;if(efeito?.diagnostico_oferta==='CURSO_TECNICO_NAO_IDENTIFICADO_NO_CATALOGO')cursoTecnicoNaoIdentificado++;cursosTecnicosIdentificados+=Number(efeito?.cursosTecnicosIdentificados?.length||0);for(const ct of efeito?.cursosTecnicosIdentificados||[])if(ct?.curso_tecnico)cursosIdentificadosNomes.add(ct.curso_tecnico);
     }catch(e){falhas.push({ato_legal_id:legal.id,importacao_id:imp.id,numero_publicacao:imp.numero_publicacao||legal.numero_ato||null,mensagem:e?.message||String(e)});}
   }
-  try{await c.from('logs_sigee').insert({usuario_id:currentUserId(),acao:'RECONCILIACAO_ATOS_CONFIRMADOS',modulo:'LEGALIZACAO',detalhes:`Instituição ${inst.id}: ${processados} ato(s) legal(is) reaplicado(s), ${ofertasCriadas} oferta(s) criada(s), ${ofertasAtualizadas} oferta(s) reconhecida(s)/atualizada(s), ${ignoradosParecer} parecer(es), ${semImportacao} ato(s) sem importação, ${semEtapaNaEvidencia} ato(s) sem etapa/modalidade, ${cursoTecnicoNaoIdentificado} ato(s) técnico(s) sem curso reconhecido no catálogo, ${falhas.length} falha(s).`});}catch(_){}
-  atosControleCache=null;resumoCache=null;return{instituicao_id:inst.id,atos_legais:(legais||[]).length,importacoes_localizadas:importacoes.length,processados,ignorados_parecer:ignoradosParecer,sem_importacao:semImportacao,sem_etapa_na_evidencia:semEtapaNaEvidencia,curso_tecnico_nao_identificado:cursoTecnicoNaoIdentificado,cursos_tecnicos_identificados:cursosTecnicosIdentificados,cursos_tecnicos_nomes:[...cursosIdentificadosNomes],ofertas_atualizadas:ofertasAtualizadas,ofertas_criadas:ofertasCriadas,falhas};
+  let referenciasNormativasRemovidas=0,ofertasContaminadasLimpas=0;
+  try{
+    const canonicos=new Set((legais||[]).map(a=>clean(a.numero_ato))),idsReferencia=[];
+    for(const legal of legais||[]){
+      if(clean(legal.numero_ato)!=='289/2022')continue;
+      const imp=porId.get(Number(legal.importacao_id)||0);if(!imp)continue;
+      const bruto=[imp.detalhe,legal.detalhe].filter(Boolean).join('\n'),principal=numeroResolucaoPrincipalDoe(bruto);
+      const normativa=/CONFERE.{0,80}RESOLUCAO\s+CEE.{0,30}289\/2022|NOS\s+TERMOS.{0,80}RESOLUCAO\s+CEE.{0,30}289\/2022/i.test(normalizarOfertaAto(bruto));
+      if(principal&&principal!=='289/2022'&&normativa&&canonicos.has(principal))idsReferencia.push(legal.id);
+    }
+    if(idsReferencia.length){const {error:eRef}=await c.from('legalizacao_atos_legais').delete().in('id',idsReferencia);if(eRef)throw eRef;referenciasNormativasRemovidas=idsReferencia.length;}
+    const houveMarcadorSaneamento=(importacoes||[]).some(x=>/\[SANEAMENTO\s+DOE/i.test(String(x.detalhe||'')));
+    if(houveMarcadorSaneamento){
+      const evidenciaConfirmada=(legais||[]).filter(a=>!idsReferencia.includes(a.id)).map(a=>{const imp=porId.get(Number(a.importacao_id)||0);return limparMetadadosInternosDoe([imp?.detalhe,a?.detalhe].filter(Boolean).join('\n'));}).join('\n');
+      const saneamentoExplicito=/Curso\s+(?:de\s+Educa(?:ç|c)[aã]o\s+Profissional\s+T[eé]cnica\s+de\s+N[ií]vel\s+M[eé]dio|T[eé]cnico(?:\s+de\s+N[ií]vel\s+M[eé]dio)?)\s+em\s+Saneamento\b/i.test(evidenciaConfirmada);
+      if(!saneamentoExplicito){
+        const {data:ofsSan,error:eQs}=await c.from('legalizacao_ofertas').select('id,curso_tecnico,ano_inicio_vigencia,ano_fim_vigencia').eq('instituicao_id',inst.id).limit(1000);if(eQs)throw eQs;
+        const idsSan=(ofsSan||[]).filter(o=>chaveCanonicaCursoTecnico(o.curso_tecnico)==='SANEAMENTO'&&(o.ano_inicio_vigencia||o.ano_fim_vigencia)).map(o=>o.id);
+        if(idsSan.length){const {error:eSan}=await c.from('legalizacao_ofertas').update({ano_inicio_vigencia:null,ano_fim_vigencia:null,updated_at:new Date().toISOString()}).in('id',idsSan);if(eSan)throw eSan;ofertasContaminadasLimpas=idsSan.length;}
+      }
+    }
+  }catch(e){falhas.push({etapa:'SANEAMENTO_PASSIVO_RC69',mensagem:e?.message||String(e)});}
+  try{await c.from('logs_sigee').insert({usuario_id:currentUserId(),acao:'RECONCILIACAO_ATOS_CONFIRMADOS',modulo:'LEGALIZACAO',detalhes:`Instituição ${inst.id}: ${processados} ato(s) legal(is) reaplicado(s), ${ofertasCriadas} oferta(s) criada(s), ${ofertasAtualizadas} oferta(s) reconhecida(s)/atualizada(s), ${referenciasNormativasRemovidas} referência(s) normativa(s) residual(is) removida(s), ${ofertasContaminadasLimpas} vigência(s) contaminada(s) limpa(s), ${falhas.length} falha(s).`});}catch(_){}
+  atosControleCache=null;resumoCache=null;return{instituicao_id:inst.id,atos_legais:(legais||[]).length-referenciasNormativasRemovidas,importacoes_localizadas:importacoes.length,processados,ignorados_parecer:ignoradosParecer,sem_importacao:semImportacao,sem_etapa_na_evidencia:semEtapaNaEvidencia,curso_tecnico_nao_identificado:cursoTecnicoNaoIdentificado,cursos_tecnicos_identificados:cursosTecnicosIdentificados,cursos_tecnicos_nomes:[...cursosIdentificadosNomes],ofertas_atualizadas:ofertasAtualizadas,ofertas_criadas:ofertasCriadas,referencias_normativas_removidas:referenciasNormativasRemovidas,ofertas_contaminadas_limpas:ofertasContaminadasLimpas,falhas};
 }
 async function salvarOfertaInstituicao(instituicaoId,payload={}){
   assertAccess();if(!podeGerirDoe())throw new Error('O gerenciamento manual de ofertas é autorizado apenas para os perfis Master e SEC.');
