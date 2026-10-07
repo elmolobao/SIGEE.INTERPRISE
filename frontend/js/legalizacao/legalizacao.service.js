@@ -1916,17 +1916,23 @@ async function reconciliarEfeitosAtosConfirmados(instituicaoId){
   let referenciasNormativasRemovidas=0,ofertasContaminadasLimpas=0;
   try{
     const canonicos=new Set((legais||[]).map(a=>clean(a.numero_ato))),idsReferencia=[];
+    const principaisConfirmados=[...canonicos].filter(n=>/^31[1-3]\/2026$/.test(n));
     for(const legal of legais||[]){
       if(clean(legal.numero_ato)!=='289/2022')continue;
-      const imp=porId.get(Number(legal.importacao_id)||0);if(!imp)continue;
-      const bruto=[imp.detalhe,legal.detalhe].filter(Boolean).join('\n'),principal=numeroResolucaoPrincipalDoe(bruto);
-      const normativa=/CONFERE.{0,80}RESOLUCAO\s+CEE.{0,30}289\/2022|NOS\s+TERMOS.{0,80}RESOLUCAO\s+CEE.{0,30}289\/2022/i.test(normalizarOfertaAto(bruto));
-      if(principal&&principal!=='289/2022'&&normativa&&canonicos.has(principal))idsReferencia.push(legal.id);
+      const imp=porId.get(Number(legal.importacao_id)||0);
+      const brutoOrigem=[imp?.detalhe,imp?.texto_original,imp?.trecho_original,imp?.observacao].filter(Boolean).join('\n');
+      const brutoLegal=[legal.detalhe,legal.observacao].filter(Boolean).join('\n');
+      const bruto=[brutoOrigem,brutoLegal].filter(Boolean).join('\n'),principal=numeroResolucaoPrincipalDoe(bruto),norm=normalizarOfertaAto(bruto);
+      const normativa=/RESOLUCAO\s+CEE.{0,40}289\/2022/.test(norm)&&(/NOS\s+TERMOS|FUNDAMENT|REGULAMENT|CONFORME|OBSERV/.test(norm)||principal&&principal!=='289/2022');
+      const atoPrincipal=principal&&principal!=='289/2022'&&canonicos.has(principal);
+      const origemLegada=!!imp&&normativa&&principaisConfirmados.length>0&&(/(PARECER|RESOLUCAO).{0,80}(398|399|400|311|312|313)\/2026/.test(norm)||/CENTRO\s+DE\s+ENSINO\s+GRAU.{0,80}CAJAZEIRAS/.test(norm));
+      if(atoPrincipal||origemLegada)idsReferencia.push(legal.id);
     }
-    if(idsReferencia.length){const {error:eRef}=await c.from('legalizacao_atos_legais').delete().in('id',idsReferencia);if(eRef)throw eRef;referenciasNormativasRemovidas=idsReferencia.length;}
+    const idsReferenciaUnicos=[...new Set(idsReferencia)];
+    if(idsReferenciaUnicos.length){const {error:eRef}=await c.from('legalizacao_atos_legais').delete().in('id',idsReferenciaUnicos);if(eRef)throw eRef;referenciasNormativasRemovidas=idsReferenciaUnicos.length;}
     const houveMarcadorSaneamento=(importacoes||[]).some(x=>/\[SANEAMENTO\s+DOE/i.test(String(x.detalhe||'')));
     if(houveMarcadorSaneamento){
-      const evidenciaConfirmada=(legais||[]).filter(a=>!idsReferencia.includes(a.id)).map(a=>{const imp=porId.get(Number(a.importacao_id)||0);return limparMetadadosInternosDoe([imp?.detalhe,a?.detalhe].filter(Boolean).join('\n'));}).join('\n');
+      const evidenciaConfirmada=(legais||[]).filter(a=>!idsReferenciaUnicos.includes(a.id)).map(a=>{const imp=porId.get(Number(a.importacao_id)||0);return limparMetadadosInternosDoe([imp?.detalhe,a?.detalhe].filter(Boolean).join('\n'));}).join('\n');
       const saneamentoExplicito=/Curso\s+(?:de\s+Educa(?:ç|c)[aã]o\s+Profissional\s+T[eé]cnica\s+de\s+N[ií]vel\s+M[eé]dio|T[eé]cnico(?:\s+de\s+N[ií]vel\s+M[eé]dio)?)\s+em\s+Saneamento\b/i.test(evidenciaConfirmada);
       if(!saneamentoExplicito){
         const {data:ofsSan,error:eQs}=await c.from('legalizacao_ofertas').select('id,curso_tecnico,ano_inicio_vigencia,ano_fim_vigencia').eq('instituicao_id',inst.id).limit(1000);if(eQs)throw eQs;
