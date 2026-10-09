@@ -1899,7 +1899,12 @@ async function reconciliarEfeitosAtosConfirmados(instituicaoId){
     {id:713,importacao_id:10001},{id:714,importacao_id:9999}
   ].every(alvo=>candidatos289.some(a=>Number(a.id)===alvo.id&&Number(a.importacao_id)===alvo.importacao_id&&Number(a.instituicao_id)===624&&upper(a.especie)==='RESOLUCAO'));
   const principaisValidos=[{id:739,numero:'313/2026'},{id:740,numero:'312/2026'},{id:741,numero:'311/2026'}].every(alvo=>principais.some(a=>Number(a.id)===alvo.id&&a.numero===alvo.numero&&Number(a.instituicao_id)===624));
-  if(alvoInstituicao&&candidatosValidos&&principaisValidos){
+  // RC77: idempotência do saneamento. Ausência de ambos os alvos após a RC75
+  // é estado final, não divergência. Preservar as travas para qualquer exclusão.
+  const candidatosJaAusentes=alvoInstituicao&&candidatos289.length===0&&principaisValidos;
+  if(candidatosJaAusentes){
+    saneamentoExplicito={removidos:0,motivo:'JA_SANEADO_SEM_RESIDUOS'};
+  }else if(alvoInstituicao&&candidatosValidos&&principaisValidos){
     const chave='SANEAMENTO_CAJAZEIRAS_289_2022_RC71:624';
     try{
       const {data:ja,error:eLog}=await c.from('logs_sigee').select('id').eq('acao','SANEAMENTO_EXPLICITO_DOE').eq('modulo','LEGALIZACAO').ilike('detalhes',`%${chave}%`).limit(1);
