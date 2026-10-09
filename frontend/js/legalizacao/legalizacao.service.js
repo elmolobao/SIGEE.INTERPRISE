@@ -1892,8 +1892,31 @@ async function reconciliarEfeitosAtosConfirmados(instituicaoId){
   const candidatos289=(legais||[]).filter(a=>clean(a.numero_ato)==='289/2022').map(a=>({id:a.id,importacao_id:a.importacao_id,especie:clean(a.tipo_documento||a.especie_documental||a.ato),numero:clean(a.numero_ato),instituicao_id:a.instituicao_id}));
   const principais=(legais||[]).filter(a=>['311/2026','312/2026','313/2026'].includes(clean(a.numero_ato))).map(a=>({id:a.id,numero:clean(a.numero_ato),instituicao_id:a.instituicao_id}));
   const diagnostico289={modo:'SOMENTE_LEITURA',instituicao_id:inst.id,escola_id:inst.escola_id||null,nomes:nomesInstitucionais,candidatos:candidatos289,atos_principais:principais};
-  const saneamentoExplicito={removidos:0,motivo:'DIAGNOSTICO_RC74_SEM_EXCLUSAO'};const falhasPreSaneamento=null;
-  const legaisAtivos=saneamentoExplicito.removidos?(legais||[]).filter(a=>!(upper(a.tipo_documento||a.especie_documental||a.ato)==='RESOLUCAO'&&clean(a.numero_ato)==='289/2022')):(legais||[]);
+  // RC75: operação restrita aos IDs comprovados na RC74; não usa heurística de nome.
+  let saneamentoExplicito={removidos:0,motivo:'FORA_DO_ESCOPO_RC75'},falhasPreSaneamento=null;
+  const alvoInstituicao=Number(inst.id)===624&&Number(inst.escola_id)===17851;
+  const candidatosValidos=candidatos289.length===2&&[
+    {id:713,importacao_id:10001},{id:714,importacao_id:9999}
+  ].every(alvo=>candidatos289.some(a=>Number(a.id)===alvo.id&&Number(a.importacao_id)===alvo.importacao_id&&Number(a.instituicao_id)===624&&upper(a.especie)==='RESOLUCAO'));
+  const principaisValidos=[{id:739,numero:'313/2026'},{id:740,numero:'312/2026'},{id:741,numero:'311/2026'}].every(alvo=>principais.some(a=>Number(a.id)===alvo.id&&a.numero===alvo.numero&&Number(a.instituicao_id)===624));
+  if(alvoInstituicao&&candidatosValidos&&principaisValidos){
+    const chave='SANEAMENTO_CAJAZEIRAS_289_2022_RC71:624';
+    try{
+      const {data:ja,error:eLog}=await c.from('logs_sigee').select('id').eq('acao','SANEAMENTO_EXPLICITO_DOE').eq('modulo','LEGALIZACAO').ilike('detalhes',`%${chave}%`).limit(1);
+      if(eLog)throw eLog;
+      if((ja||[]).length)saneamentoExplicito={removidos:0,motivo:'JA_EXECUTADO'};
+      else{
+        const {data:excluidos,error:eDel}=await c.from('legalizacao_atos_legais').delete().eq('instituicao_id',624).in('id',[713,714]).in('importacao_id',[10001,9999]).select('id');
+        if(eDel)throw eDel;
+        const removidos=(excluidos||[]).length;
+        saneamentoExplicito={removidos,motivo:removidos===2?'CONCLUIDO':'EXCLUSAO_PARCIAL_VERIFICAR'};
+        const {error:eAud}=await c.from('logs_sigee').insert({usuario_id:currentUserId(),acao:'SANEAMENTO_EXPLICITO_DOE',modulo:'LEGALIZACAO',detalhes:`${chave} | RC75 IDs 713/714; importações 10001/9999; removidos ${removidos}; instituição 624; escola 17851. Atos 739/740/741 preservados.`});
+        if(eAud)falhasPreSaneamento={etapa:'AUDITORIA_RC75',mensagem:eAud.message||String(eAud)};
+      }
+    }catch(e){saneamentoExplicito={removidos:0,motivo:'FALHA_RC75'};falhasPreSaneamento={etapa:'SANEAMENTO_RC75',mensagem:e?.message||String(e)};}
+  }else if(alvoInstituicao)saneamentoExplicito={removidos:0,motivo:'IDS_OU_VINCULOS_DIVERGENTES_SEM_EXCLUSAO'};
+
+  const legaisAtivos=saneamentoExplicito.removidos?(legais||[]).filter(a=>![713,714].includes(Number(a.id))):(legais||[]);
   const porId=new Map(importacoes.map(a=>[Number(a.id),a]));
   let processados=0,ignoradosParecer=0,ofertasAtualizadas=0,ofertasCriadas=0,semImportacao=0,semEtapaNaEvidencia=0,cursoTecnicoNaoIdentificado=0,cursosTecnicosIdentificados=0;const cursosIdentificadosNomes=new Set(),falhas=[];if(falhasPreSaneamento)falhas.push(falhasPreSaneamento);
   for(const legal of legaisAtivos){
