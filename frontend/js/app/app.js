@@ -3723,7 +3723,7 @@ Arquivo gerado a partir do index.html estável. Nesta fase inicial, o código fo
             if (tipoEl) tipoEl.disabled = false;
             if (localEl) localEl.disabled = false;
             if (lblResponsavel) lblResponsavel.textContent = 'Selecionar Responsável pelo Desarquivamento (Filtrado por NTE)';
-            if (textoConfirmacao) textoConfirmacao.textContent = 'CONFIRMO O RECEBIMENTO DA PASTA E O ENVIO PARA DESARQUIVAMENTO';
+            if (textoConfirmacao) textoConfirmacao.textContent = 'CONFIRMO O ENVIO DO E-MAIL 02 – ALUNO (ANÁLISE).';
         }
 
         if(selRespDesarq) selRespDesarq.dataset.sigeeTentativaResponsaveis = '0';
