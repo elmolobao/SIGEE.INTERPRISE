@@ -74,6 +74,25 @@
       .sigee-wam-btn-secondary{background:rgba(255,255,255,.10);color:#fff}
       .sigee-wam-btn-primary{background:#fff;color:#102033}
       .sigee-wam-btn:disabled{cursor:not-allowed;opacity:.45}
+      /* Ciclo de reiteração: layout compacto para visualizar confirmação e ações sem rolagem em desktop. */
+      @media (min-width:641px){
+        .sigee-wam-dialog{width:min(850px,calc(100vw - 32px));max-height:calc(100dvh - 24px)}
+        .sigee-wam-header,.sigee-wam-footer{padding:10px 20px}
+        .sigee-wam-header h2{font-size:1.05rem}
+        .sigee-wam-body{gap:8px;padding:10px 20px;align-content:start}
+        .sigee-wam-flow{gap:8px}
+        .sigee-wam-card{padding:9px 12px}
+        .sigee-wam-label{margin-bottom:2px;font-size:.7rem}
+        .sigee-wam-value{font-size:.9rem}
+        .sigee-wam-message{padding:10px 12px}
+        .sigee-wam-message-code{margin-bottom:3px}
+        .sigee-wam-message-text{font-size:.83rem;line-height:1.35}
+        .sigee-wam-consequence{padding:9px 12px;font-size:.85rem}
+        .sigee-wam-field label{margin-bottom:4px;font-size:.85rem}
+        .sigee-wam-field textarea{min-height:54px;max-height:100px;padding:8px 10px}
+        .sigee-wam-confirm{padding:8px 11px;font-size:.85rem}
+        .sigee-wam-btn{padding:9px 15px}
+      }
       @media (max-width:640px){.sigee-wam-backdrop{padding:8px;align-items:stretch}.sigee-wam-dialog{width:100%;max-height:calc(100dvh - 16px);margin:auto}.sigee-wam-header,.sigee-wam-footer{padding:14px 16px}.sigee-wam-body{padding:16px;gap:14px}.sigee-wam-flow{grid-template-columns:1fr}.sigee-wam-arrow{transform:rotate(90deg);text-align:center;line-height:1}.sigee-wam-footer{flex-direction:column-reverse}.sigee-wam-btn{width:100%}}
       @media (max-height:760px){.sigee-wam-backdrop{padding:10px}.sigee-wam-dialog{max-height:calc(100dvh - 20px)}.sigee-wam-header,.sigee-wam-footer{padding-top:13px;padding-bottom:13px}.sigee-wam-body{padding-top:15px;padding-bottom:15px;gap:12px}.sigee-wam-card{padding:11px}.sigee-wam-message,.sigee-wam-consequence,.sigee-wam-confirm{padding:11px}.sigee-wam-field textarea{min-height:72px}}
     `;
