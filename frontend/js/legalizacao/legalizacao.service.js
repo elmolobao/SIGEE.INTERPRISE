@@ -522,9 +522,26 @@ function chaveCanonicaCursoTecnico(v){return normalizarOfertaAto(v).replace(/^TE
 async function listarCatalogoCursosTecnicos(){
   assertAccess();const c=client(),map=new Map(),add=(curso,eixo,fonte='SIGEE')=>{curso=clean(curso);eixo=clean(eixo);if(!curso||!eixo)return;const k=chaveCanonicaCursoTecnico(curso);if(!map.has(k)||fonte==='CNCT')map.set(k,{curso_tecnico:curso,eixo_tecnologico:eixo,fonte});};
   for(const x of CATALOGO_MESTRE_CURSOS_TECNICOS)add(x.curso_tecnico,x.eixo_tecnologico,'CNCT');
-  const [x,y]=await Promise.all([c.from('legalizacao_ofertas').select('curso_tecnico,eixo_tecnologico').not('curso_tecnico','is',null).not('eixo_tecnologico','is',null).limit(5000),c.from('legalizacao_processos_ofertas').select('curso_nome,eixo_tecnologico').not('curso_nome','is',null).not('eixo_tecnologico','is',null).limit(5000)]);
-  if(x.error)throw x.error;if(y.error)throw y.error;for(const o of x.data||[])add(o.curso_tecnico,o.eixo_tecnologico);for(const o of y.data||[])add(o.curso_nome,o.eixo_tecnologico);
+  const consultas=await Promise.allSettled([
+    c.from('legalizacao_ofertas').select('curso_tecnico,eixo_tecnologico').not('curso_tecnico','is',null).not('eixo_tecnologico','is',null).limit(5000),
+    c.from('legalizacao_processos_ofertas').select('curso_nome,eixo_tecnologico').not('curso_nome','is',null).not('eixo_tecnologico','is',null).limit(5000)
+  ]);
+  consultas.forEach((r,i)=>{
+    if(r.status!=='fulfilled'||r.value?.error){console.warn('[Legalização] Enriquecimento opcional do catálogo indisponível',i,r.status==='fulfilled'?r.value.error:r.reason);return;}
+    for(const o of r.value.data||[])add(i===0?o.curso_tecnico:o.curso_nome,o.eixo_tecnologico);
+  });
   return [...map.values()].sort((m,n)=>m.curso_tecnico.localeCompare(n.curso_tecnico,'pt-BR'));
+}
+async function buscarTodasPaginasDoe(criarConsulta,{tamanho=500,maxPaginas=100}={}){
+  const registros=[];
+  for(let pagina=0;pagina<maxPaginas;pagina++){
+    const inicio=pagina*tamanho;
+    const {data,error}=await criarConsulta().range(inicio,inicio+tamanho-1);
+    if(error)throw error;
+    const lote=data||[];registros.push(...lote);
+    if(lote.length<tamanho)return registros;
+  }
+  throw new Error('Consulta DOE ultrapassou o limite de paginação segura; reconciliação interrompida para evitar dados truncados.');
 }
 async function identificarCursosTecnicosNaEvidencia(r,legal=null){
   const bruto=limparMetadadosInternosDoe([r?.detalhe,legal?.detalhe].filter(Boolean).join('\n')),catalogo=await listarCatalogoCursosTecnicos(),achados=[];
@@ -1867,61 +1884,27 @@ function vigenciaTecnicaDaEvidenciaDoe(r,legal=null){
   if(anos>0&&anos<=20){const [y,mo,d]=pub.split('-').map(Number);return{vigencia_inicio:pub,vigencia_fim:`${y+anos}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`,vigencia_origem:'DURACAO_DO_ATO'};}
   return{};
 }
-async function saneamentoExplicitoCajazeiras289(inst,legais){
- const c=client(),nome=normalizarOfertaAto(inst?.nome_instituicao||inst?.nome_fantasia||inst?.nome||inst?.razao_social||'');
- if(!(nome.includes('GRAU')&&nome.includes('CAJAZEIRAS')))return{removidos:0,motivo:'INSTITUICAO_NAO_IDENTIFICADA'};
- const nums=new Set((legais||[]).map(a=>clean(a.numero_ato)));if(!['311/2026','312/2026','313/2026'].every(n=>nums.has(n)))return{removidos:0,motivo:'ATOS_PRINCIPAIS_AUSENTES'};
- const chave=`SANEAMENTO_CAJAZEIRAS_289_2022_RC71:${inst.id}`,{data:ja,error:eLog}=await c.from('logs_sigee').select('id').eq('acao','SANEAMENTO_EXPLICITO_DOE').eq('modulo','LEGALIZACAO').ilike('detalhes',`%${chave}%`).limit(1);if(eLog)throw eLog;if((ja||[]).length)return{removidos:0,motivo:'JA_EXECUTADO'};
- const ids=(legais||[]).filter(a=>upper(a.tipo_documento||a.especie_documental||a.ato)==='RESOLUCAO'&&clean(a.numero_ato)==='289/2022').map(a=>a.id).filter(Boolean);if(!ids.length)return{removidos:0,motivo:'SEM_RESIDUOS'};
- const {error:eDel}=await c.from('legalizacao_atos_legais').delete().in('id',ids);if(eDel)throw eDel;
- await c.from('logs_sigee').insert({usuario_id:currentUserId(),acao:'SANEAMENTO_EXPLICITO_DOE',modulo:'LEGALIZACAO',detalhes:`${chave} | Removidos ${ids.length} registro(s) RESOLUCAO 289/2022. Preservados 311/2026, 312/2026, 313/2026 e demais atos.`});return{removidos:ids.length};
-}
+// RC78: saneamentos históricos são migrações auditadas, nunca ações da reconciliação regular.
 async function reconciliarEfeitosAtosConfirmados(instituicaoId){
   assertAccess();if(!podeGerirDoe())throw new Error('A reconciliação de atos confirmados é autorizada apenas para os perfis Master e SEC.');
   const c=client(),inst=await oneScoped('legalizacao_instituicoes',Number(instituicaoId),{globalDoe:true});if(!inst?.id)throw new Error('Instituição não localizada.');
   // RC60: a fonte do vínculo institucional é legalizacao_atos_legais. Registros DOE legados
   // podem não possuir instituicao_id, embora já estejam corretamente vinculados pelo ato legal.
-  const {data:legais,error:el}=await c.from('legalizacao_atos_legais').select('*').eq('instituicao_id',inst.id).order('data_publicacao',{ascending:true}).order('id',{ascending:true}).limit(2000);if(el)throw el;
+  const legais=await buscarTodasPaginasDoe(()=>c.from('legalizacao_atos_legais').select('*').eq('instituicao_id',inst.id).order('data_publicacao',{ascending:true}).order('id',{ascending:true}));
   const importacaoIds=[...new Set((legais||[]).map(a=>Number(a.importacao_id)||0).filter(Boolean))];
   let importacoes=[];
   if(importacaoIds.length){
-    const {data,error}=await c.from('legalizacao_atos_importacao').select('*').in('id',importacaoIds).limit(2000);if(error)throw error;importacoes=data||[];
+    for(let i=0;i<importacaoIds.length;i+=100){const ids=importacaoIds.slice(i,i+100);importacoes.push(...await buscarTodasPaginasDoe(()=>c.from('legalizacao_atos_importacao').select('*').in('id',ids).order('id',{ascending:true})));}
   }
   // RC74: somente diagnóstico. Não excluir registros sem confirmação dos IDs e origem documental.
   const nomesInstitucionais=['nome_instituicao','nome_fantasia','nome','razao_social','nome_escola'].map(campo=>({campo,valor:clean(inst?.[campo]||'')}));
   const candidatos289=(legais||[]).filter(a=>clean(a.numero_ato)==='289/2022').map(a=>({id:a.id,importacao_id:a.importacao_id,especie:clean(a.tipo_documento||a.especie_documental||a.ato),numero:clean(a.numero_ato),instituicao_id:a.instituicao_id}));
   const principais=(legais||[]).filter(a=>['311/2026','312/2026','313/2026'].includes(clean(a.numero_ato))).map(a=>({id:a.id,numero:clean(a.numero_ato),instituicao_id:a.instituicao_id}));
   const diagnostico289={modo:'SOMENTE_LEITURA',instituicao_id:inst.id,escola_id:inst.escola_id||null,nomes:nomesInstitucionais,candidatos:candidatos289,atos_principais:principais};
-  // RC75: operação restrita aos IDs comprovados na RC74; não usa heurística de nome.
-  let saneamentoExplicito={removidos:0,motivo:'FORA_DO_ESCOPO_RC75'},falhasPreSaneamento=null;
-  const alvoInstituicao=Number(inst.id)===624&&Number(inst.escola_id)===17851;
-  const candidatosValidos=candidatos289.length===2&&[
-    {id:713,importacao_id:10001},{id:714,importacao_id:9999}
-  ].every(alvo=>candidatos289.some(a=>Number(a.id)===alvo.id&&Number(a.importacao_id)===alvo.importacao_id&&Number(a.instituicao_id)===624&&upper(a.especie)==='RESOLUCAO'));
-  const principaisValidos=[{id:739,numero:'313/2026'},{id:740,numero:'312/2026'},{id:741,numero:'311/2026'}].every(alvo=>principais.some(a=>Number(a.id)===alvo.id&&a.numero===alvo.numero&&Number(a.instituicao_id)===624));
-  // RC77: idempotência do saneamento. Ausência de ambos os alvos após a RC75
-  // é estado final, não divergência. Preservar as travas para qualquer exclusão.
-  const candidatosJaAusentes=alvoInstituicao&&candidatos289.length===0&&principaisValidos;
-  if(candidatosJaAusentes){
-    saneamentoExplicito={removidos:0,motivo:'JA_SANEADO_SEM_RESIDUOS'};
-  }else if(alvoInstituicao&&candidatosValidos&&principaisValidos){
-    const chave='SANEAMENTO_CAJAZEIRAS_289_2022_RC71:624';
-    try{
-      const {data:ja,error:eLog}=await c.from('logs_sigee').select('id').eq('acao','SANEAMENTO_EXPLICITO_DOE').eq('modulo','LEGALIZACAO').ilike('detalhes',`%${chave}%`).limit(1);
-      if(eLog)throw eLog;
-      if((ja||[]).length)saneamentoExplicito={removidos:0,motivo:'JA_EXECUTADO'};
-      else{
-        const {data:excluidos,error:eDel}=await c.from('legalizacao_atos_legais').delete().eq('instituicao_id',624).in('id',[713,714]).in('importacao_id',[10001,9999]).select('id');
-        if(eDel)throw eDel;
-        const removidos=(excluidos||[]).length;
-        saneamentoExplicito={removidos,motivo:removidos===2?'CONCLUIDO':'EXCLUSAO_PARCIAL_VERIFICAR'};
-        const {error:eAud}=await c.from('logs_sigee').insert({usuario_id:currentUserId(),acao:'SANEAMENTO_EXPLICITO_DOE',modulo:'LEGALIZACAO',detalhes:`${chave} | RC75 IDs 713/714; importações 10001/9999; removidos ${removidos}; instituição 624; escola 17851. Atos 739/740/741 preservados.`});
-        if(eAud)falhasPreSaneamento={etapa:'AUDITORIA_RC75',codigo:eAud.code||null,mensagem:eAud.message||String(eAud)};
-      }
-    }catch(e){saneamentoExplicito={removidos:0,motivo:'FALHA_RC75'};falhasPreSaneamento={etapa:'SANEAMENTO_RC75',codigo:e?.code||null,mensagem:e?.message||String(e)};}
-  }else if(alvoInstituicao)saneamentoExplicito={removidos:0,motivo:'IDS_OU_VINCULOS_DIVERGENTES_SEM_EXCLUSAO'};
-
-  const legaisAtivos=saneamentoExplicito.removidos?(legais||[]).filter(a=>![713,714].includes(Number(a.id))):(legais||[]);
+  // RC78: diagnóstico legado somente leitura; sem exclusão por IDs fixos.
+  const saneamentoExplicito={removidos:0,motivo:candidatos289.length?'RESIDUOS_REQUEREM_MIGRACAO_AUDITADA':'JA_SANEADO_SEM_RESIDUOS'};
+  const falhasPreSaneamento=null;
+  const legaisAtivos=legais||[];
   const porId=new Map(importacoes.map(a=>[Number(a.id),a]));
   let processados=0,ignoradosParecer=0,ofertasAtualizadas=0,ofertasCriadas=0,semImportacao=0,semEtapaNaEvidencia=0,cursoTecnicoNaoIdentificado=0,cursosTecnicosIdentificados=0;const cursosIdentificadosNomes=new Set(),falhas=[];if(falhasPreSaneamento)falhas.push(falhasPreSaneamento);
   for(const legal of legaisAtivos){
