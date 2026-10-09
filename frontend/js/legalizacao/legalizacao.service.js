@@ -1911,9 +1911,9 @@ async function reconciliarEfeitosAtosConfirmados(instituicaoId){
         const removidos=(excluidos||[]).length;
         saneamentoExplicito={removidos,motivo:removidos===2?'CONCLUIDO':'EXCLUSAO_PARCIAL_VERIFICAR'};
         const {error:eAud}=await c.from('logs_sigee').insert({usuario_id:currentUserId(),acao:'SANEAMENTO_EXPLICITO_DOE',modulo:'LEGALIZACAO',detalhes:`${chave} | RC75 IDs 713/714; importações 10001/9999; removidos ${removidos}; instituição 624; escola 17851. Atos 739/740/741 preservados.`});
-        if(eAud)falhasPreSaneamento={etapa:'AUDITORIA_RC75',mensagem:eAud.message||String(eAud)};
+        if(eAud)falhasPreSaneamento={etapa:'AUDITORIA_RC75',codigo:eAud.code||null,mensagem:eAud.message||String(eAud)};
       }
-    }catch(e){saneamentoExplicito={removidos:0,motivo:'FALHA_RC75'};falhasPreSaneamento={etapa:'SANEAMENTO_RC75',mensagem:e?.message||String(e)};}
+    }catch(e){saneamentoExplicito={removidos:0,motivo:'FALHA_RC75'};falhasPreSaneamento={etapa:'SANEAMENTO_RC75',codigo:e?.code||null,mensagem:e?.message||String(e)};}
   }else if(alvoInstituicao)saneamentoExplicito={removidos:0,motivo:'IDS_OU_VINCULOS_DIVERGENTES_SEM_EXCLUSAO'};
 
   const legaisAtivos=saneamentoExplicito.removidos?(legais||[]).filter(a=>![713,714].includes(Number(a.id))):(legais||[]);
@@ -1979,7 +1979,7 @@ async function reconciliarEfeitosAtosConfirmados(instituicaoId){
         if(idsSan.length){const {error:eSan}=await c.from('legalizacao_ofertas').update({ano_inicio_vigencia:null,ano_fim_vigencia:null,updated_at:new Date().toISOString()}).in('id',idsSan);if(eSan)throw eSan;ofertasContaminadasLimpas=idsSan.length;}
       }
     }
-  }catch(e){falhas.push({etapa:'SANEAMENTO_PASSIVO_RC69',mensagem:e?.message||String(e)});}
+  }catch(e){falhas.push({etapa:'SANEAMENTO_PASSIVO_RC69',codigo:e?.code||null,mensagem:e?.message||String(e)});}
   try{await c.from('logs_sigee').insert({usuario_id:currentUserId(),acao:'RECONCILIACAO_ATOS_CONFIRMADOS',modulo:'LEGALIZACAO',detalhes:`Instituição ${inst.id}: ${processados} ato(s) legal(is) reaplicado(s), ${ofertasCriadas} oferta(s) criada(s), ${ofertasAtualizadas} oferta(s) reconhecida(s)/atualizada(s), ${referenciasNormativasRemovidas+saneamentoExplicito.removidos} referência(s) normativa(s) residual(is) removida(s), ${ofertasContaminadasLimpas} vigência(s) contaminada(s) limpa(s), ${falhas.length} falha(s).`});}catch(_){}
   atosControleCache=null;resumoCache=null;return{instituicao_id:inst.id,atos_legais:(legais||[]).length-referenciasNormativasRemovidas-saneamentoExplicito.removidos,importacoes_localizadas:importacoes.length,processados,ignorados_parecer:ignoradosParecer,sem_importacao:semImportacao,sem_etapa_na_evidencia:semEtapaNaEvidencia,curso_tecnico_nao_identificado:cursoTecnicoNaoIdentificado,cursos_tecnicos_identificados:cursosTecnicosIdentificados,cursos_tecnicos_nomes:[...cursosIdentificadosNomes],ofertas_atualizadas:ofertasAtualizadas,ofertas_criadas:ofertasCriadas,referencias_normativas_removidas:referenciasNormativasRemovidas+saneamentoExplicito.removidos,saneamento_explicito_289_removidos:saneamentoExplicito.removidos,saneamento_explicito_289_motivo:saneamentoExplicito.motivo||null,diagnostico_289:diagnostico289,ofertas_contaminadas_limpas:ofertasContaminadasLimpas,falhas};
 }
