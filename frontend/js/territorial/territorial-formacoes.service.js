@@ -7,30 +7,43 @@ function usuario(){return window.SIGEE_SESSION?.getUser?.()||window.usuarioLogad
 function perfil(){return window.SIGEE_PERFIS?.normalizar?.(usuario()?.perfil)||window.SIGEE_SESSION?.normalizarPerfil?.(usuario()?.perfil)||String(usuario()?.perfil||'');}
 function master(){return perfil()==='Master';}
 function exigir(){if(!master())throw new Error('Acesso restrito ao perfil Master.');const c=cliente();if(!c)throw new Error('Cliente Supabase indisponível.');return c;}
-async function agenda(){const c=exigir();const {data,error}=await c.from('gt_agenda').select('*').order('inicio',{ascending:true});if(error)throw error;return data||[];}
-async function monitoramento(){const c=exigir();const {data,error}=await c.from('gt_monitoramento').select('*').order('data_registro',{ascending:false});if(error)throw error;return data||[];}
+// Paginação para não truncar o histórico territorial no limite padrão do Supabase.
+async function todas(queryFactory){
+  const itens=[];const pagina=500;
+  for(let inicio=0;inicio<100000;inicio+=pagina){
+    const {data,error}=await queryFactory().range(inicio,inicio+pagina-1);
+    if(error)throw error;
+    const lote=data||[];itens.push(...lote);
+    if(lote.length<pagina)return itens;
+  }
+  throw new Error('Limite de segurança na leitura do histórico territorial.');
+}
+async function agenda(){const c=exigir();return todas(()=>c.from('gt_agenda').select('*').order('inicio',{ascending:true}).order('id',{ascending:true}));}
+async function monitoramento(){const c=exigir();return todas(()=>c.from('gt_monitoramento').select('*').order('data_registro',{ascending:false}).order('id',{ascending:false}));}
 async function carregar(){const [a,m]=await Promise.all([agenda(),monitoramento()]);return{agenda:a,monitoramento:m};}
 async function carregarDossie(nte){
   const c=exigir(), n=Number(nte);
-  const [a,m,nf]=await Promise.all([
-    c.from('gt_agenda').select('*').contains('ntes',[n]).order('inicio',{ascending:false}),
-    c.from('gt_monitoramento').select('*').eq('nte_numero',n).order('data_registro',{ascending:false}),
-    c.from('gt_monitoramento_notificacoes').select('*').eq('nte_numero',n).order('data_notificacao',{ascending:false})
+  const [agendaNte,monitor,notificacoes]=await Promise.all([
+    todas(()=>c.from('gt_agenda').select('*').contains('ntes',[n]).order('inicio',{ascending:false}).order('id',{ascending:false})),
+    todas(()=>c.from('gt_monitoramento').select('*').eq('nte_numero',n).order('data_registro',{ascending:false}).order('id',{ascending:false})),
+    todas(()=>c.from('gt_monitoramento_notificacoes').select('*').eq('nte_numero',n).order('data_notificacao',{ascending:false}).order('id',{ascending:false}))
   ]);
-  if(a.error)throw a.error;if(m.error)throw m.error;if(nf.error)throw nf.error;
-  const monitor=m.data||[], ids=monitor.map(x=>x.id), acoes=[];
+  const ids=monitor.map(x=>x.id), acoes=[];
   if(ids.length){
-    const ra=await c.from('gt_monitoramento_acoes').select('*').in('monitoramento_id',ids).order('data_acao',{ascending:true});
-    if(ra.error)throw ra.error;
-    const rows=ra.data||[];
+    const rows=[];
+    for(let i=0;i<ids.length;i+=100){
+      rows.push(...await todas(()=>c.from('gt_monitoramento_acoes').select('*').in('monitoramento_id',ids.slice(i,i+100)).order('data_acao',{ascending:true}).order('id',{ascending:true})));
+    }
     if(rows.length){
-      const rt=await c.from('gt_monitoramento_acao_tecnicos').select('*').in('acao_id',rows.map(x=>x.id));
-      if(rt.error)throw rt.error;
-      const mapa=new Map();(rt.data||[]).forEach(t=>{if(!mapa.has(t.acao_id))mapa.set(t.acao_id,[]);mapa.get(t.acao_id).push(t);});
+      const tecnicos=[];
+      for(let i=0;i<rows.length;i+=100){
+        tecnicos.push(...await todas(()=>c.from('gt_monitoramento_acao_tecnicos').select('*').in('acao_id',rows.slice(i,i+100).map(x=>x.id)).order('id',{ascending:true})));
+      }
+      const mapa=new Map();tecnicos.forEach(t=>{if(!mapa.has(t.acao_id))mapa.set(t.acao_id,[]);mapa.get(t.acao_id).push(t);});
       rows.forEach(x=>acoes.push({...x,tecnicos:mapa.get(x.id)||[]}));
     }
   }
-  return {agenda:a.data||[],monitoramento:monitor,acoes,notificacoes:nf.data||[]};
+  return {agenda:agendaNte,monitoramento:monitor,acoes,notificacoes};
 }
 window.SIGEE_TERRITORIAL_FORMACOES_SERVICE=Object.freeze({agenda,monitoramento,carregar,carregarDossie,master,versao:'GT-04.1'});
 })(window);
