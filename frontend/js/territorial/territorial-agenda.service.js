@@ -103,6 +103,37 @@
     return r.data;
   }
 
+  // Confirmação posterior à execução; mantém o histórico no próprio registro,
+  // sem depender de colunas novas ou duplicar atividades no dossiê.
+  async function confirmarExecucao(id,decisao,detalhes={}){
+    if(!master())throw new Error('Confirmação restrita ao perfil Master.');
+    if(!['REALIZADO','REMARCADO','CANCELADO'].includes(decisao))throw new Error('Decisão inválida.');
+    const c=cliente();if(!c)throw new Error('Cliente Supabase indisponível.');
+    const {data:atual,error:erro}=await c.from(TABELA).select('*').eq('id',id).single();
+    if(erro)erroBanco(erro);
+    if(!['AGENDADO','PLANEJADO','EM_ANDAMENTO','REMARCADO'].includes(atual.situacao))throw new Error('Esta atividade já foi encerrada.');
+    const hoje=new Date().toLocaleDateString('en-CA',{timeZone:'America/Bahia'});
+    const dataFim=new Date(atual.fim||atual.inicio).toLocaleDateString('en-CA',{timeZone:'America/Bahia'});
+    if(hoje<=dataFim)throw new Error('A confirmação estará disponível no dia seguinte ao término da atividade.');
+    const justificativa=String(detalhes.justificativa||'').trim();
+    if(decisao!=='REALIZADO'&&!justificativa)throw new Error('Informe a justificativa.');
+    const alteracoes={situacao:decisao,updated_at:new Date().toISOString()};
+    if(decisao==='REMARCADO'){
+      const inicio=new Date(detalhes.inicio),fim=new Date(detalhes.fim);
+      if(!Number.isFinite(inicio.getTime())||!Number.isFinite(fim.getTime())||fim<inicio||inicio<=new Date())throw new Error('Informe um novo período futuro válido.');
+      alteracoes.inicio=inicio.toISOString();alteracoes.fim=fim.toISOString();
+    }
+    const u=usuario()||{};
+    const registro=`[CONFIRMAÇÃO ${new Date().toISOString()}] ${decisao} por ${u.nome||u.email||'Master'}; período anterior: ${atual.inicio} a ${atual.fim}; ${decisao==='REMARCADO'?`novo período: ${alteracoes.inicio} a ${alteracoes.fim}; `:''}justificativa/resultado: ${justificativa||'Execução confirmada'}`;
+    alteracoes.observacoes=[atual.observacoes,registro].filter(Boolean).join('\n');
+    const {data,error}=await c.from(TABELA).update(alteracoes).eq('id',id).eq('updated_at',atual.updated_at).select('*');
+    if(error)erroBanco(error);
+    if(!data?.length)throw new Error('A atividade foi alterada por outro usuário. Atualize a agenda.');
+    try{window.registrarLog?.(`Confirmação de execução #${id}: ${decisao}`,'',{modulo:'gestao_territorial'});}catch(_){}
+    document.dispatchEvent(new CustomEvent('sigee:gt-agenda-atualizada',{detail:{registro:data[0]}}));
+    return data[0];
+  }
+
   async function excluir(id){
     if(!master()) throw new Error('Acesso restrito ao perfil Master.');
     const c=cliente(); if(!c) throw new Error('Cliente Supabase indisponível.');
@@ -152,5 +183,5 @@
     return true;
   }
 
-  window.SIGEE_TERRITORIAL_AGENDA_SERVICE=Object.freeze({listar,salvar,excluir,notificacoesUsuario,listarCiencias,marcarVisualizado,confirmarCiencia,nteUsuario,master,sec,global,versao:'GT-05.0'});
+  window.SIGEE_TERRITORIAL_AGENDA_SERVICE=Object.freeze({listar,salvar,confirmarExecucao,excluir,notificacoesUsuario,listarCiencias,marcarVisualizado,confirmarCiencia,nteUsuario,master,sec,global,versao:'GT-05.0'});
 })(window);
