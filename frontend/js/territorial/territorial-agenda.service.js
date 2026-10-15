@@ -47,12 +47,24 @@
 
   async function listar(filtros={}){
     const c=cliente(); if(!c) throw new Error('Cliente Supabase indisponível.');
-    let q=c.from(TABELA).select('*').order('inicio',{ascending:true});
-    if(!global()){const n=nteUsuario();if(!n)return [];q=q.contains('ntes',[Number(n)]);}
-    if(filtros.situacao) q=q.eq('situacao',filtros.situacao);
-    if(filtros.tipo) q=q.eq('tipo',filtros.tipo);
-    if(filtros.nte) q=q.contains('ntes',[Number(filtros.nte)]);
-    const {data,error}=await q; if(error) erroBanco(error); return data||[];
+    const nteRestrito=!global()?nteUsuario():null;
+    if(!global()&&!nteRestrito)return [];
+    // A API PostgREST limita o tamanho de cada resposta. Buscar apenas a primeira
+    // página fazia compromissos posteriores desaparecerem do calendário, embora
+    // continuassem visíveis no dossiê (que consulta o NTE individualmente).
+    const pagina=500, todos=[];
+    for(let inicio=0; ;inicio+=pagina){
+      let q=c.from(TABELA).select('*').order('inicio',{ascending:true}).order('id',{ascending:true}).range(inicio,inicio+pagina-1);
+      if(nteRestrito)q=q.contains('ntes',[Number(nteRestrito)]);
+      if(filtros.situacao)q=q.eq('situacao',filtros.situacao);
+      if(filtros.tipo)q=q.eq('tipo',filtros.tipo);
+      if(filtros.nte)q=q.contains('ntes',[Number(filtros.nte)]);
+      const {data,error}=await q;
+      if(error)erroBanco(error);
+      todos.push(...(data||[]));
+      if(!data||data.length<pagina)break;
+    }
+    return todos;
   }
 
   async function salvar(payload){
