@@ -1,0 +1,16 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const src=fs.readFileSync('frontend/js/legalizacao/legalizacao.js','utf8');
+const start=src.indexOf('function segmentarPublicacoesDoe(');
+const end=src.indexOf('\nfunction ',start+10);
+assert(start>=0&&end>start,'segmentador não encontrado');
+const context={semAcento:s=>String(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase(),upper:s=>String(s||'').toUpperCase(),normalizarBuscaDoe:s=>String(s).toUpperCase(),normalizarTextoDoe:s=>String(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase()};
+vm.createContext(context);
+vm.runInContext(src.slice(start,end),context);
+const mk=(n,name)=>`RESOLUÇÃO CEE Nº ${n}/2011\nO CONSELHO ESTADUAL DE EDUCAÇÃO, no uso das atribuições, RESOLVE:\nArt.1º Credenciar ${name}, situada na Bahia. `+'A'.repeat(500)+'\n';
+const input=`<#E.G.B#111#66#222>\n${mk(33,'ESCOLA UM')}${mk(46,'ESCOLA DOIS')}<#E.G.B#111#66#222/>`;
+const result=context.segmentarPublicacoesDoe([{pagina:66,texto:input}]);
+assert(result.length>=2,'dois cabeçalhos devem gerar dois blocos');
+const a=result.find(x=>String(x.numero).startsWith('33'));
+assert(a,'resolução 33 ausente');
+assert(!a.texto.includes('ESCOLA DOIS'),'primeiro ato absorveu instituição do segundo');
+console.log('RC64: isolamento de cabeçalhos em envelope compartilhado OK');
