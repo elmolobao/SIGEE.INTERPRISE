@@ -44,7 +44,7 @@ if(!efeito.includes("ano_inicio_vigencia:ini||null") || !efeito.includes("ano_fi
 if(!efeito.includes("jaExiste")) fail('Proteção contra duplicidade de oferta ausente');
 const reconc=body('reconciliarEfeitosAtosConfirmados','salvarOfertaInstituicao');
 if(!reconc.includes("from('legalizacao_atos_legais')") || !reconc.includes(".eq('instituicao_id',inst.id)")) fail('Reconciliação deixou de usar o ato legal como âncora institucional');
-if(!reconc.includes("map(a=>Number(a.importacao_id)") || !reconc.includes("from('legalizacao_atos_importacao')") || !reconc.includes(".in('id',importacaoIds)")) fail('Reconciliação deixou de recuperar a ocorrência DOE por importacao_id');
+if(!reconc.includes("map(a=>Number(a.importacao_id)") || !reconc.includes("from('legalizacao_atos_importacao')") || !(reconc.includes(".in('id',importacaoIds)") || (reconc.includes("importacaoIds.slice(i,i+100)") && reconc.includes(".in('id',ids)")))) fail('Reconciliação deixou de recuperar a ocorrência DOE por importacao_id');
 if(reconc.includes('importarAtosLote(')||reconc.includes('vincularAtoImportado(')) fail('Reconciliação não pode reimportar/revincular');
 if(!reconc.includes("vínculo institucional divergente")) fail('Reconciliação perdeu bloqueio de vínculo DOE explicitamente divergente');
 if(!reconc.includes("upper(imp.ato||legal.tipo_documento)==='PARECER'")) fail('Parecer voltou a produzir efeito autônomo');
