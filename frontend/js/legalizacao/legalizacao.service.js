@@ -1702,6 +1702,12 @@ async function localizarInstituicoesParaVinculoAto(filtros={}){
   // DOE precisa localizar também instituições extintas, paralisadas e ainda sem prontuário de Legalização.
   // Por isso os identificadores oficiais consultam primeiro as tabelas cadastrais diretamente, sem filtro de situação.
   if(tipo==='INEP'){
+    // Prioriza o cadastro regulatório atual, inclusive quando o nome no DOE é histórico.
+    for(const v of [valor,alvo].filter((x,i,a)=>x&&a.indexOf(x)===i)){
+      const {data,error}=await c.from('legalizacao_instituicoes').select('id,escola_id,nte_id,nome_instituicao,cod_inep,cod_sec,cnpj,municipio').eq('cod_inep',v).limit(30);
+      if(error)throw error;
+      for(const x of data||[])if(!municipio||normalizarChaveDoe(x.municipio)===municipio)add(x);
+    }
     const variantes=[valor,alvo].filter((v,i,a)=>v&&a.indexOf(v)===i);
     for(const v of variantes){const {data,error}=await c.from('escolas_sigee').select('id,nome_escola,nome,municipio,nte_id,cod_mec').eq('cod_mec',v).limit(30);if(error)throw error;for(const e of data||[]){if(!municipio||normalizarChaveDoe(e.municipio)===municipio)add({...e,escola_id:e.id,origem:'CADASTRO_MESTRE'});}}
     if(!out.length){for(let ini=0;ini<10000&&out.length<30;ini+=1000){const {data,error}=await c.from('escolas_sigee').select('id,nome_escola,nome,municipio,nte_id,cod_mec').order('id',{ascending:true}).range(ini,ini+999);if(error)throw error;for(const e of data||[]){if(digits(e.cod_mec,30)===alvo&&(!municipio||normalizarChaveDoe(e.municipio)===municipio))add({...e,escola_id:e.id,origem:'CADASTRO_MESTRE'});}if((data||[]).length<1000)break;}}
