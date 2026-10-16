@@ -709,12 +709,26 @@ function chaveLoteDoe(item){
   const data=dataArquivoDoe(item)||dataValidaIso(item?.data_publicacao)||dataValidaIso(item?.created_at)||'SEM_DATA';
   return `DOE:${data}`;
 }
+function numeroCanonicoAtoDoe(item){
+  const raw=String(item?.numero_publicacao||'').trim();
+  const match=raw.match(/^(?:N[º°o.]\s*)?0*(\d+)\s*(?:\/|[-])?\s*(\d{4})?$/i);
+  if(!match)return normalizarTextoDoe(raw);
+  const ano=match[2]||String(item?.data_publicacao||'').slice(0,4);
+  return `${Number(match[1])}/${ano||'SEM_ANO'}`;
+}
+function statusEfetivoAtoDoe(item){
+  const status=upper(item?.status_match);
+  // Uma confirmação gravada é definitiva para a fila, mesmo que uma
+  // reclassificação posterior tenha deixado status_match como IDENTIFICADO.
+  if(item?.confirmado_em && !['REJEITADO','DUPLICADO'].includes(status))return 'CONFIRMADO';
+  return status;
+}
 function assinaturaAtoDoe(item){
   const data=dataArquivoDoe(item)||dataValidaIso(item?.data_publicacao)||'SEM_DATA';
   const especie=upper(item?.ato||'');
-  const numero=normalizarTextoDoe(item?.numero_publicacao||'');
+  const numero=numeroCanonicoAtoDoe(item);
   const sei=normalizarTextoDoe(item?.numero_processo||'');
-  const inst=normalizarTextoDoe(item?.escola_nome||'');
+  const inst=Number(item?.instituicao_id)||Number(item?.escola_id)||normalizarTextoDoe(item?.escola_nome||'');
   const cnpj=somenteDigitosDoe(item?.cnpj_extraido||'');
   const pagina=paginaOrigemAto(item)||'';
   return [data,especie,numero,sei,cnpj||inst,pagina].join('|');
@@ -722,7 +736,11 @@ function assinaturaAtoDoe(item){
 function consolidarEdicaoDoe(itens=[]){
   const peso={CONFIRMADO:6,IDENTIFICADO:5,PENDENTE_CONFERENCIA:4,AMBIGUO:3,DUPLICADO:2,REJEITADO:1};
   const mapa=new Map();
-  for(const x of itens||[]){const k=assinaturaAtoDoe(x),ant=mapa.get(k);if(!ant||((peso[upper(x.status_match)]||0)>(peso[upper(ant.status_match)]||0))||((peso[upper(x.status_match)]||0)===(peso[upper(ant.status_match)]||0)&&Number(x.id)>Number(ant.id)))mapa.set(k,x);}
+  for(const x of itens||[]){
+    const k=assinaturaAtoDoe(x),ant=mapa.get(k);
+    const atual={...x,status_match:statusEfetivoAtoDoe(x)};
+    if(!ant||(peso[atual.status_match]||0)>(peso[ant.status_match]||0)||((peso[atual.status_match]||0)===(peso[ant.status_match]||0)&&Number(x.id)>Number(ant.id)))mapa.set(k,atual);
+  }
   return [...mapa.values()];
 }
 function metadadosLoteDoe(item){return{loteId:item?.lote_id||null,dataDoe:dataArquivoDoe(item)||dataValidaIso(item?.data_publicacao)||null,arquivo:item?.arquivo_origem||null};}

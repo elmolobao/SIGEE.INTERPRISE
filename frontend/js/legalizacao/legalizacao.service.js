@@ -1397,7 +1397,7 @@ async function importarAtosLote(rows=[]){
       const ex=porLinha.get(chaveLinha(row));
       if(!ex){pendentesInsert.push(row);continue;}
       const st=upper(ex.status_match);
-      if(['CONFIRMADO','REJEITADO'].includes(st)){continue;}
+      if(['CONFIRMADO','REJEITADO'].includes(st)||ex.confirmado_em){continue;}
       const upd={...row};
       delete upd.id;
       delete upd.lote_id;
@@ -1422,13 +1422,13 @@ async function importarAtosLote(rows=[]){
     if(!lote||!Number.isFinite(linha))throw new Error('Ocorrência DOE sem lote_id/linha_origem válida.');
     const localizar=async()=>{
       const {data,error}=await c.from('legalizacao_atos_importacao')
-        .select('id,status_match,escola_id,instituicao_id')
+        .select('id,status_match,escola_id,instituicao_id,confirmado_em')
         .eq('lote_id',lote).eq('linha_origem',linha).maybeSingle();
       if(error)throw error;return data||null;
     };
     let ex=await localizar();
     if(ex){
-      if(['CONFIRMADO','REJEITADO'].includes(upper(ex.status_match)))return ex;
+      if(['CONFIRMADO','REJEITADO'].includes(upper(ex.status_match))||ex.confirmado_em)return ex;
       const upd={...row};delete upd.id;delete upd.lote_id;delete upd.linha_origem;
       const {data,error}=await c.from('legalizacao_atos_importacao').update(upd).eq('id',ex.id)
         .select('id,status_match,escola_id,instituicao_id').single();
@@ -1442,7 +1442,7 @@ async function importarAtosLote(rows=[]){
     if(!duplicada)throw error;
     ex=await localizar();
     if(!ex)throw error;
-    if(['CONFIRMADO','REJEITADO'].includes(upper(ex.status_match)))return ex;
+    if(['CONFIRMADO','REJEITADO'].includes(upper(ex.status_match))||ex.confirmado_em)return ex;
     const upd={...row};delete upd.id;delete upd.lote_id;delete upd.linha_origem;
     const {data:rec,error:er}=await c.from('legalizacao_atos_importacao').update(upd).eq('id',ex.id)
       .select('id,status_match,escola_id,instituicao_id').single();
