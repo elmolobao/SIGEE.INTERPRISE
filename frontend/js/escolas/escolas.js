@@ -531,6 +531,7 @@
 <option value="Federal">FEDERAL</option>
 <option value="Conveniada">CONVENIADA</option>
 <option value="Municipalizada">MUNICIPALIZADA</option>
+<option value="Est./Conveniada">EST./CONVENIADA</option>
 </select></div></div>
         <div id="escola-form-vinculo-estadual" class="hidden border border-blue-100 bg-blue-50/60 rounded-lg p-3 space-y-2">
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
