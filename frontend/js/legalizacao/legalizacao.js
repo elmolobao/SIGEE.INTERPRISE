@@ -24,6 +24,14 @@ function processoEncerrado(p){return ['CONCLUIDO','ARQUIVADO','CANCELADO','PUBLI
 function setRegCount(tab,total){const el=document.querySelector(`[data-reg-count="${tab}"]`);if(el)el.textContent=String(Math.max(0,Number(total)||0));}
 function classificacaoInstitucional(i){
   const tipo=upper(i?.tipo_cadastro),rede=upper(i?.rede),natureza=upper(i?.natureza),dep=upper(i?.dependencia_adm||i?.dependencia_administrativa);
+  // RC70.63: a dependência do cadastro mestre prevalece sobre extensões regulatórias antigas.
+  const depNormalizada=dep.normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  if(depNormalizada==='PRIVADA'||depNormalizada==='PARTICULAR')return{tipo:'Privada',rede:'Privada',privada:true,conflito:false};
+  if(depNormalizada==='MUNICIPALIZADA')return{tipo:'Pública',rede:'Municipalizada',privada:false,conflito:false};
+  if(depNormalizada==='MUNICIPAL')return{tipo:'Pública',rede:'Municipal',privada:false,conflito:false};
+  if(depNormalizada==='ESTADUAL')return{tipo:'Pública',rede:'Estadual',privada:false,conflito:false};
+  if(depNormalizada==='FEDERAL')return{tipo:'Pública',rede:'Federal',privada:false,conflito:false};
+  if(depNormalizada==='EST./CONVENIADA')return{tipo:'Pública',rede:'Est./Conveniada',privada:false,conflito:false};
   const privadaTipo=['PRIVADA','PRIVATE'].includes(tipo),publicaTipo=['PUBLICA','PÚBLICA'].includes(tipo);
   const privadaRede=rede==='PRIVADA',publicaRede=['ESTADUAL','MUNICIPAL','FEDERAL'].includes(rede);
   const conflitante=(privadaTipo&&publicaRede)||(publicaTipo&&privadaRede);
