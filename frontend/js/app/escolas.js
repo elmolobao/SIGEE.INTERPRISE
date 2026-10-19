@@ -478,6 +478,7 @@
 <option value="Federal">FEDERAL</option>
 <option value="Conveniada">CONVENIADA</option>
 <option value="Municipalizada">MUNICIPALIZADA</option>
+<option value="Est./Conveniada">EST./CONVENIADA</option>
 </select></div></div>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
 <div><label class="block text-xs font-bold text-gray-700 uppercase mb-1">Situação Funcional</label><select id="escola-form-situacao" class="w-full p-2 border rounded text-xs font-bold bg-white"><option value="">SELECIONE</option><option value="Ativa">ATIVA</option><option value="Extinta">EXTINTA</option><option value="Paralisada">PARALISADA</option><option value="Em processo">EM PROCESSO</option></select></div>
