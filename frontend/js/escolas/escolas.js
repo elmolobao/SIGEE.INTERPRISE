@@ -527,7 +527,7 @@
 <option value="">SELECIONE</option>
 <option value="Estadual">ESTADUAL</option>
 <option value="Municipal">MUNICIPAL</option>
-<option value="Particular">PARTICULAR</option>
+<option value="PRIVADA">PRIVADA</option>
 <option value="Federal">FEDERAL</option>
 <option value="Conveniada">CONVENIADA</option>
 <option value="Municipalizada">MUNICIPALIZADA</option>
@@ -773,7 +773,7 @@
 
     definir(
       'escola-form-dep',
-      ['PRIVADA','PARTICULAR'].includes(normalizar(escolaDep(e))) ? 'Particular' : escolaDep(e)
+      ['PRIVADA','PARTICULAR'].includes(normalizar(escolaDep(e))) ? 'PRIVADA' : escolaDep(e)
     );
     definir('escola-form-situacao', escolaSituacao(e) || 'Extinta');
     definir('escola-form-acervo', escolaAcervo(e) || 'Recolhido');
