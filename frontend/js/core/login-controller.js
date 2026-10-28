@@ -47,7 +47,7 @@
 
     const { data, error } = await cliente
       .from(obterTabelaUsuarios())
-      .select('*')
+      .select('id,email,nome,perfil,nte_id,nte,ativo,Ativo,forcar_troca_senha,senha,senha_hash,pode_editar,grupo_id,perfil_acesso_id,permissoes_override,unidade_tipo,escola_id')
       .ilike('email', email)
       .limit(1)
       .maybeSingle();
@@ -78,6 +78,13 @@
       if (['inativo', 'desativado', 'bloqueado'].includes(status)) return false;
     }
     return true;
+  }
+
+  // Nunca persistir credenciais ou hashes no cache e na sessão do navegador.
+  function usuarioSemCredenciais(usuario) {
+    const copia = Object.assign({}, usuario || {});
+    ['senha', 'senha_hash', 'password', 'password_hash'].forEach(function (campo) { delete copia[campo]; });
+    return copia;
   }
 
   function sincronizarCacheDepoisDoLogin(usuario) {
@@ -160,7 +167,9 @@
         canonico = window.SIGEE_SESSION.normalizarUsuario(canonico);
       }
 
-      sincronizarCacheDepoisDoLogin(oficial);
+      const oficialSeguro = usuarioSemCredenciais(oficial);
+      canonico = usuarioSemCredenciais(canonico);
+      sincronizarCacheDepoisDoLogin(oficialSeguro);
       window.SIGEE_SESSION.setUser(canonico, {
         source: 'supabase-login-rc4.3.0',
         forceProfile: true,

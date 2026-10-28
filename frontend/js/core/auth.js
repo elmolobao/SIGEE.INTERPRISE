@@ -80,9 +80,12 @@
     if (!user || !user.email) return alert('Sessão não localizada. Faça login novamente.');
     if (!supabase) return alert('Cliente Supabase indisponível.');
     const payload = { senha: password, senha_hash: password, forcar_troca_senha: false };
-    const result = await supabase.from('usuarios_sigee').update(payload).eq('email', normalizeEmail(user.email)).select('*').maybeSingle();
+    const result = await supabase.from('usuarios_sigee').update(payload).eq('email', normalizeEmail(user.email)).select('id,email,nome,perfil,nte_id,nte,ativo,forcar_troca_senha').maybeSingle();
     if (result.error) return alert('Erro ao salvar nova senha: ' + result.error.message);
-    setUser(Object.assign({}, user, payload, result.data || {}));
+    // Não incluir a senha recém-digitada no objeto de sessão persistido.
+    const sessaoSegura = Object.assign({}, user, result.data || {}, { forcar_troca_senha: false });
+    ['senha', 'senha_hash', 'password', 'password_hash'].forEach(function (campo) { delete sessaoSegura[campo]; });
+    setUser(sessaoSegura);
     hidePasswordModal();
     alert('Senha cadastrada com sucesso.');
   }
