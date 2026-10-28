@@ -79,6 +79,20 @@
     const supabase = client();
     if (!user || !user.email) return alert('Sessão não localizada. Faça login novamente.');
     if (!supabase) return alert('Cliente Supabase indisponível.');
+    if (window.SIGEE_CONFIG?.seguranca?.supabaseAuth === true) {
+      const { error: authError } = await supabase.auth.updateUser({ password });
+      if (authError) return alert('Erro ao atualizar senha: ' + authError.message);
+      // O campo legado de senha não deve receber novas credenciais.
+      const result = await supabase.from('usuarios_sigee')
+        .update({ forcar_troca_senha: false })
+        .eq('auth_user_id', (await supabase.auth.getUser()).data.user?.id)
+        .select('id,email,nome,perfil,nte_id,nte,ativo,forcar_troca_senha').maybeSingle();
+      if (result.error) return alert('Senha alterada, mas a atualização cadastral falhou. Contate o administrador.');
+      setUser(Object.assign({}, user, result.data || {}));
+      hidePasswordModal();
+      alert('Senha cadastrada com sucesso.');
+      return;
+    }
     const payload = { senha: password, senha_hash: password, forcar_troca_senha: false };
     const result = await supabase.from('usuarios_sigee').update(payload).eq('email', normalizeEmail(user.email)).select('id,email,nome,perfil,nte_id,nte,ativo,forcar_troca_senha').maybeSingle();
     if (result.error) return alert('Erro ao salvar nova senha: ' + result.error.message);

@@ -41,6 +41,27 @@
       || 'usuarios_sigee';
   }
 
+  // Ativado somente após provisionar Supabase Auth e aplicar RLS de produção.
+  function authSeguraAtiva() {
+    return window.SIGEE_CONFIG?.seguranca?.supabaseAuth === true;
+  }
+
+  async function consultarUsuarioAuth(email, senha) {
+    const cliente = obterCliente();
+    if (!cliente?.auth?.signInWithPassword) throw new Error('Supabase Auth indisponível.');
+    const { data: loginData, error: loginError } = await cliente.auth.signInWithPassword({ email, password: senha });
+    if (loginError || !loginData?.user) return null;
+    // O vínculo deve ser garantido pelo banco via auth.uid(), não pelo e-mail do cliente.
+    const { data, error } = await cliente.from(obterTabelaUsuarios())
+      .select('id,email,nome,perfil,nte_id,nte,ativo,Ativo,forcar_troca_senha,pode_editar,grupo_id,perfil_acesso_id,permissoes_override,unidade_tipo,escola_id')
+      .eq('auth_user_id', loginData.user.id).maybeSingle();
+    if (error || !data) {
+      await cliente.auth.signOut();
+      throw new Error('Identidade sem vínculo autorizado no SIGEE.');
+    }
+    return data;
+  }
+
   async function consultarUsuarioOficial(email) {
     const cliente = obterCliente();
     if (!cliente) throw new Error('Cliente Supabase indisponível.');
@@ -137,9 +158,11 @@
     bloquearBotaoLogin(true);
 
     try {
-      const oficial = await consultarUsuarioOficial(email);
+      const oficial = authSeguraAtiva()
+        ? await consultarUsuarioAuth(email, senha)
+        : await consultarUsuarioOficial(email);
 
-      if (!oficial || !senhaConfere(oficial, senha)) {
+      if (!oficial || (!authSeguraAtiva() && !senhaConfere(oficial, senha))) {
         alert('E-mail ou senha inválidos.');
         return false;
       }
@@ -196,7 +219,7 @@
           login_id: loginId,
           usuario: canonico,
           loginConcluido: true,
-          senhaProvisoriaUsada: senha === (window.SIGEE_AUTH?.SENHA_PADRAO || 'SEC@2026')
+          senhaProvisoriaUsada: !authSeguraAtiva() && senha === (window.SIGEE_AUTH?.SENHA_PADRAO || 'SEC@2026')
         }
       };
       await window.SIGEE_AUTH?.verificarPrimeiroAcesso?.(contextoPrimeiroAcesso);
@@ -215,7 +238,10 @@
     }
   }
 
-  function logout() {
+  async function logout() {
+    if (authSeguraAtiva()) {
+      try { await obterCliente()?.auth?.signOut?.(); } catch (e) { console.warn('[SIGEE] Falha no logout remoto', e); }
+    }
     window.__SIGEE_LOGIN_CONCLUIDO__ = false;
     window.SIGEE_SESSION?.clear?.({ persist: true, emit: true });
     document.getElementById('sistema-dashboard')?.classList.add('hidden');
