@@ -1,0 +1,23 @@
+/* SIGEE: login/primeiro acesso responsivo, preservando rodape institucional. */
+body:has(#tela-login:not(.hidden)) { padding-bottom: 0 !important; }
+#tela-login:not(.hidden) {
+  min-height: 100dvh;
+  height: auto;
+  box-sizing: border-box;
+  align-items: flex-start;
+  padding: 16px 16px 112px;
+  overflow: visible;
+}
+#tela-login > div { margin: 0 auto; padding: 22px 24px; }
+#tela-login .sigee-login-brand { margin-bottom: 14px; }
+#tela-login #form-login .mb-6 { margin-bottom: 14px; }
+#tela-login #form-login .mb-4 { margin-bottom: 12px; }
+#tela-login #sigee-auth-painel { margin-top: 12px; padding: 14px; }
+#tela-login #sigee-auth-painel input { min-width: 0; }
+@media (min-height: 900px) {
+  #tela-login:not(.hidden) { align-items: center; }
+}
+@media (max-width: 480px) {
+  #tela-login > div { padding: 18px 16px; }
+  #tela-login:not(.hidden) { padding: 12px 12px 125px; }
+}
