@@ -21,3 +21,11 @@ body:has(#tela-login:not(.hidden)) { padding-bottom: 0 !important; }
   #tela-login > div { padding: 18px 16px; }
   #tela-login:not(.hidden) { padding: 12px 12px 125px; }
 }
+
+/* Um formulario por vez: login ou ativacao/recuperacao. */
+#tela-login #form-login.hidden,
+#tela-login #sigee-auth-acoes.hidden,
+#tela-login #sigee-auth-painel.hidden,
+#tela-login #sigee-auth-email-form.hidden,
+#tela-login #sigee-auth-senha-form.hidden { display: none !important; }
+#tela-login #sigee-auth-painel:not(.hidden) { margin-top: 0; }
