@@ -68,7 +68,7 @@
 
     const { data, error } = await cliente
       .from(obterTabelaUsuarios())
-      .select('id,email,nome,perfil,nte_id,nte,ativo,Ativo,forcar_troca_senha,senha,senha_hash,pode_editar,grupo_id,perfil_acesso_id,permissoes_override,unidade_tipo,escola_id')
+      .select('id,email,nome,perfil,nte_id,nte,ativo,Ativo,auth_user_id,forcar_troca_senha,senha,senha_hash,pode_editar,grupo_id,perfil_acesso_id,permissoes_override,unidade_tipo,escola_id')
       .ilike('email', email)
       .limit(1)
       .maybeSingle();
@@ -148,7 +148,7 @@
     event?.preventDefault?.();
 
     const email = emailNormalizado(document.getElementById('login-email')?.value);
-    const senha = texto(document.getElementById('login-senha')?.value);
+    const senha = document.getElementById('login-senha')?.value || ''; 
 
     if (!email || !senha) {
       alert('Informe e-mail e senha.');
@@ -158,16 +158,19 @@
     bloquearBotaoLogin(true);
 
     try {
-      const oficial = authSeguraAtiva()
-        ? await consultarUsuarioAuth(email, senha)
-        : await consultarUsuarioOficial(email);
+      // Transição controlada: contas já vinculadas usam exclusivamente Supabase Auth.
+      // Contas não provisionadas mantêm o fluxo anterior até a migração definitiva.
+      const cadastro = authSeguraAtiva() ? null : await consultarUsuarioOficial(email);
+      const usarAuth = authSeguraAtiva() || !!cadastro?.auth_user_id;
+      const oficial = usarAuth ? await consultarUsuarioAuth(email, senha) : cadastro;
 
-      if (!oficial || (!authSeguraAtiva() && !senhaConfere(oficial, senha))) {
+      if (!oficial || (!usarAuth && !senhaConfere(oficial, senha))) {
         alert('E-mail ou senha inválidos.');
         return false;
       }
 
       if (!usuarioEstaAtivo(oficial)) {
+        if (usarAuth) await obterCliente()?.auth?.signOut?.();
         alert('Usuário desativado. Procure o administrador do SIGEE.');
         return false;
       }
@@ -219,7 +222,7 @@
           login_id: loginId,
           usuario: canonico,
           loginConcluido: true,
-          senhaProvisoriaUsada: !authSeguraAtiva() && senha === (window.SIGEE_AUTH?.SENHA_PADRAO || 'SEC@2026')
+          senhaProvisoriaUsada: !usarAuth && senha === (window.SIGEE_AUTH?.SENHA_PADRAO || 'SEC@2026')
         }
       };
       await window.SIGEE_AUTH?.verificarPrimeiroAcesso?.(contextoPrimeiroAcesso);
@@ -239,7 +242,7 @@
   }
 
   async function logout() {
-    if (authSeguraAtiva()) {
+    if (true) {
       try { await obterCliente()?.auth?.signOut?.(); } catch (e) { console.warn('[SIGEE] Falha no logout remoto', e); }
     }
     window.__SIGEE_LOGIN_CONCLUIDO__ = false;

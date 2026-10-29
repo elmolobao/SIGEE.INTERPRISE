@@ -52,15 +52,15 @@
      const {error}=await c.auth.updateUser({password:a});if(error)throw error;
      await c.auth.signOut();$('sigee-auth-senha-form').reset();
      $('sigee-auth-senha-form').classList.add('hidden');
-     msg('Nova senha cadastrada no Supabase Auth. O login do SIGEE ainda está em migração; aguarde a liberação do novo acesso.');
+     msg('Senha cadastrada com sucesso. Volte ao login e entre com seu e-mail e a nova senha.');
    }catch(e){msg(e.message||'Não foi possível cadastrar a senha.',true);}finally{btn.disabled=false;}
  });
  async function processarRecuperacao(){
    const hash=window.location.hash||'';
-   const recovery=hash.includes('type=recovery');
+   const recovery=/(?:^|[&#])type=(?:recovery|invite)(?:&|$)/.test(hash) || new URLSearchParams(window.location.search).get('type')==='invite';
    const c=client();if(!c?.auth)return;
    c.auth.onAuthStateChange((event)=>{
-     if(event==='PASSWORD_RECOVERY'){
+     if(event==='PASSWORD_RECOVERY' || (event==='SIGNED_IN' && recovery)){
        exibirPainel();$('sigee-auth-email-form').classList.add('hidden');$('sigee-auth-senha-form').classList.remove('hidden');
        $('sigee-auth-titulo').textContent='Definir nova senha';$('sigee-auth-ajuda').textContent='Escolha sua nova senha para o SIGEE.';msg('');
      }
@@ -68,6 +68,13 @@
    if(recovery){
      exibirPainel();$('sigee-auth-email-form').classList.add('hidden');$('sigee-auth-senha-form').classList.remove('hidden');
      $('sigee-auth-titulo').textContent='Definir nova senha';$('sigee-auth-ajuda').textContent='Confirme a sessão do link recebido e defina sua senha.';
+   }
+   // Convites podem chegar com token_hash/code no querystring (PKCE).
+   // Nunca mostrar formulário de senha sem sessão autenticada válida.
+   const params = new URLSearchParams(window.location.search);
+   if(params.has('error') || hash.includes('error=')) {
+     exibirPainel();$('sigee-auth-email-form').classList.add('hidden');$('sigee-auth-senha-form').classList.add('hidden');
+     msg('Link inválido ou expirado. Solicite um novo link em Primeiro acesso.',true);
    }
  }
  processarRecuperacao();
