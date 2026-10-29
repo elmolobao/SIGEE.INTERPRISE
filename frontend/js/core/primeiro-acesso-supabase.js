@@ -9,16 +9,26 @@
  const panel = $('sigee-auth-painel');
  if(!panel) return;
  let modo='primeiro';
+ const loginForm=$('form-login'), actions=$('sigee-auth-acoes');
+ function exibirPainel(){
+   loginForm?.classList.add('hidden');actions?.classList.add('hidden');
+   panel.classList.remove('hidden');
+ }
+ function exibirLogin(){
+   panel.classList.add('hidden');loginForm?.classList.remove('hidden');
+   actions?.classList.remove('hidden');msg('');
+ }
+
  const msg=(s,erro=false)=>{const e=$('sigee-auth-mensagem');e.textContent=s;e.className='mt-2 text-sm '+(erro?'text-red-700':'text-gray-700');};
  function abrir(tipo){
-   modo=tipo;panel.classList.remove('hidden');$('sigee-auth-email-form').classList.remove('hidden');$('sigee-auth-senha-form').classList.add('hidden');
+   modo=tipo;exibirPainel();$('sigee-auth-email-form').classList.remove('hidden');$('sigee-auth-senha-form').classList.add('hidden');
    $('sigee-auth-titulo').textContent=tipo==='primeiro'?'Primeiro acesso ao SIGEE':'Recuperação de senha';
    $('sigee-auth-ajuda').textContent='Informe seu e-mail cadastrado. Se a conta já estiver habilitada, você receberá um link para definir a senha neste portal.';
    $('sigee-auth-email').value=$('login-email')?.value||'';msg('');
  }
  $('sigee-primeiro-acesso').addEventListener('click',()=>abrir('primeiro'));
  $('sigee-esqueci-senha').addEventListener('click',()=>abrir('recuperacao'));
- $('sigee-auth-fechar').addEventListener('click',()=>{panel.classList.add('hidden');msg('');});
+ $('sigee-auth-fechar').addEventListener('click',()=>exibirLogin());
  $('sigee-auth-email-form').addEventListener('submit',async event=>{
    event.preventDefault();const email=$('sigee-auth-email').value.trim().toLowerCase();
    const c=client();if(!c?.auth?.resetPasswordForEmail){msg('Serviço de autenticação indisponível.',true);return;}
@@ -42,7 +52,7 @@
      const {error}=await c.auth.updateUser({password:a});if(error)throw error;
      await c.auth.signOut();$('sigee-auth-senha-form').reset();
      $('sigee-auth-senha-form').classList.add('hidden');
-     msg('Senha cadastrada. Faça login com seu e-mail e a nova senha após a ativação do Supabase Auth no SIGEE.');
+     msg('Nova senha cadastrada no Supabase Auth. O login do SIGEE ainda está em migração; aguarde a liberação do novo acesso.');
    }catch(e){msg(e.message||'Não foi possível cadastrar a senha.',true);}finally{btn.disabled=false;}
  });
  async function processarRecuperacao(){
@@ -51,12 +61,12 @@
    const c=client();if(!c?.auth)return;
    c.auth.onAuthStateChange((event)=>{
      if(event==='PASSWORD_RECOVERY'){
-       panel.classList.remove('hidden');$('sigee-auth-email-form').classList.add('hidden');$('sigee-auth-senha-form').classList.remove('hidden');
+       exibirPainel();$('sigee-auth-email-form').classList.add('hidden');$('sigee-auth-senha-form').classList.remove('hidden');
        $('sigee-auth-titulo').textContent='Definir nova senha';$('sigee-auth-ajuda').textContent='Escolha sua nova senha para o SIGEE.';msg('');
      }
    });
    if(recovery){
-     panel.classList.remove('hidden');$('sigee-auth-email-form').classList.add('hidden');$('sigee-auth-senha-form').classList.remove('hidden');
+     exibirPainel();$('sigee-auth-email-form').classList.add('hidden');$('sigee-auth-senha-form').classList.remove('hidden');
      $('sigee-auth-titulo').textContent='Definir nova senha';$('sigee-auth-ajuda').textContent='Confirme a sessão do link recebido e defina sua senha.';
    }
  }
