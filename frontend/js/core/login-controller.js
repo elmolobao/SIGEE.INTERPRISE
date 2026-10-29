@@ -253,6 +253,8 @@
     return true;
   }
 
+  // Referência estável: scripts posteriores podem redefinir window.handleLogin.
+  window.SIGEE_LOGIN_AUTH = Object.freeze({ login });
   window.handleLogin = login;
   window.logout = logout;
   try {

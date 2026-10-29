@@ -178,6 +178,23 @@
 
     bloquearLogin(true);
     try {
+      // A autoridade RC4.5 é carregada após login-controller e sobrescrevia seu
+      // handleLogin. Uma conta vinculada NUNCA pode voltar à senha legada.
+      const c = cliente();
+      if (!c) throw new Error('Cliente Supabase indisponível.');
+      const { data: identidade, error: erroIdentidade } = await c.from(TABELA_USUARIOS)
+        .select('id,auth_user_id,ativo')
+        .ilike('email', email).limit(1).maybeSingle();
+      if (erroIdentidade) throw erroIdentidade;
+      if (!identidade || !usuarioAtivo(identidade)) {
+        alert('E-mail ou senha inválidos.');
+        return false;
+      }
+      if (identidade.auth_user_id) {
+        const loginAuth = window.SIGEE_LOGIN_AUTH?.login;
+        if (typeof loginAuth !== 'function') throw new Error('Login Supabase Auth indisponível.');
+        return await loginAuth(event);
+      }
       const oficial = await consultarUsuarioPorEmail(email);
       if (!oficial || !senhaConfere(oficial, senha)) {
         alert('E-mail ou senha inválidos.');
