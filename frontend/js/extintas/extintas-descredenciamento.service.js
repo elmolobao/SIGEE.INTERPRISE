@@ -316,7 +316,13 @@ async function cancelarSuspeitaErro(chamadoId,motivo){
   const texto=String(motivo||'').trim();if(texto.length<5)throw new Error('Informe o motivo do cancelamento da suspeita.');
   const c=await chamadoNoEscopo(chamadoId);
   if(norm(c.origem)!=='SUSPEITA_EXTINCAO'||norm(c.tipo)!=='SUSPEITA')throw new Error('Esta ação é exclusiva para Suspeita de Extinção.');
-  if(norm(c.etapa_atual)!=='INSPECAO')throw new Error('O cancelamento por erro só é permitido enquanto a suspeita estiver na etapa inicial de inspeção.');
+  // Cancelamento administrativo: somente suspeitas sem efeito final ou acervo movimentado.
+  // O histórico não é apagado. Procedimentos avançados exigem análise administrativa específica.
+  const etapasFinais=['AGUARDANDO_PUBLICACAO','PUBLICACAO_DESCREDENCIAMENTO','ENCERRADO','CANCELADA'];
+  if(etapasFinais.includes(norm(c.etapa_atual)))throw new Error('Procedimento em etapa final: exige revisão administrativa individual.');
+  const ac=await C().from('extintas_acervo_recolhimentos').select('id,situacao,fase_atual').eq('chamado_id',Number(chamadoId));
+  if(ac.error)throw ac.error;
+  if((ac.data||[]).some(x=>['RECOLHIDO','CONCLUIDO','RECEBIDO_EGBA','ENVIADO_EGBA'].includes(norm(x.situacao))||['RECOLHIMENTO','CONFERENCIA','CONCLUIDO'].includes(norm(x.fase_atual))))throw new Error('Há movimentação de acervo: cancelamento exige análise individual.');
   if(['CANCELADA_ERRO','SUSPEITA_NAO_CONFIRMADA','CONCLUIDO','PUBLICADO','EXTINTO'].includes(norm(c.status)))throw new Error('Esta suspeita não está disponível para cancelamento por erro.');
   const u=U(),agora=new Date().toISOString();
   const r=await C().from('extintas_descredenciamentos').update({status:'CANCELADA_ERRO',etapa_atual:'CANCELADA',atualizado_por_id:String(u.id||''),updated_at:agora}).eq('id',Number(chamadoId)).eq('origem','SUSPEITA_EXTINCAO').eq('tipo','SUSPEITA');if(r.error)throw r.error;
