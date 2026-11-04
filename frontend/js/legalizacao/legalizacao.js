@@ -459,6 +459,27 @@ function segmentarPublicacoesDoe(paginas){
         }
         if(continuacao)trecho=`${trecho}\n${continuacao}`.trim();
       }
+      // RC71: portarias de NTE podem começar no rodapé e continuar na página
+      // seguinte sem envelope EGBA visível no texto do PDF.js. Completar apenas
+      // quando a página atual não contém encerramento editorial e a continuação
+      // começa antes de outro cabeçalho de publicação. Não mistura atos vizinhos.
+      if(upper(a.especie)==='PORTARIA' && !fimEnvelopeEgba && !/<#E\.G\.B#[^>]*\/>/i.test(trecho)
+          && !inicios[i+1] && !/\b(?:ASSINADO|ASSINATURA DIGITAL)\b/i.test(trecho)){
+        const proxPagina=paginas[paginas.indexOf(pagina)+1];
+        const proximoTexto=String(proxPagina?.texto||'');
+        if(proximoTexto && /\b(?:DESCREDENCI|CREDENCI|AUTORIZ|INSTITUI[CÇ][AÃ]O|COL[EÉ]GIO|ESCOLA)\b/i.test(trecho)){
+          const fechamento=proximoTexto.match(/<#E\.G\.B#[^>]*\/>/i);
+          const cabecalho=semAcento(proximoTexto).search(/(?:^|\n)\s*(?:PORTARIA|RESOLUCAO|PARECER|DECRETO)\s+(?:CEE(?:\/BA)?\s*)?(?:N(?:O|RO|º|°)?\.?\s*)?[0-9]{1,6}(?:\s*\/\s*20\d{2})?\b/im);
+          const limites=[proximoTexto.length];
+          if(fechamento)limites.push(fechamento.index+fechamento[0].length);
+          if(cabecalho>=0)limites.push(cabecalho);
+          const limite=Math.min(...limites);
+          const complemento=proximoTexto.slice(0,limite).trim();
+          if(complemento.length>15 && limite>0){
+            trecho=`${trecho}\n${complemento}`.trim();
+          }
+        }
+      }
       // RC30: barreira geral contra gravação de Resoluções/Pareceres truncados.
       // Se o recorte não contém o corpo decisório mínimo, refaz o recorte diretamente
       // da página já reconstruída por colunas, usando o cabeçalho exato e o fechamento
