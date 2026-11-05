@@ -140,17 +140,18 @@
     if (botao) { botao.disabled = true; botao.textContent = 'Salvando...'; }
 
     try {
-      const payload = { senha, senha_hash: senha, forcar_troca_senha: false };
-      const { data, error } = await c.from(TABELA_USUARIOS)
-        .update(payload)
-        .ilike('email', emailNormalizado(usuario.email))
-        .select('*')
-        .maybeSingle();
-      if (error) throw error;
-
-      const atualizado = Object.assign({}, usuario, data || {}, payload);
+      // A senha antiga é validada no servidor. Nunca conceder UPDATE público na tabela.
+      const senhaAtual = window.__SIGEE_SENHA_LOGIN_PENDENTE__;
+      if (!senhaAtual) throw new Error('Sessão de primeiro acesso expirada. Entre novamente com a senha atual.');
+      const { data: resposta, error } = await c.functions.invoke('sigee-credenciais', {
+        body: { action: 'change_password', email: emailNormalizado(usuario.email), currentPassword: senhaAtual, newPassword: senha }
+      });
+      if (error) throw new Error('Serviço seguro de troca de senha indisponível.');
+      if (!resposta?.ok) throw new Error(resposta?.error || 'A troca de senha não foi confirmada.');
+      window.__SIGEE_SENHA_LOGIN_PENDENTE__ = null;
+      const atualizado = Object.assign({}, usuario, { forcar_troca_senha: false });
       window.SIGEE_SESSION?.setUser?.(atualizado, {
-        source: 'credenciais-rc4.5.0', forceProfile: true, persist: true, emit: true
+        source: 'credenciais-primeiro-acesso-servidor', forceProfile: true, persist: true, emit: true
       });
       fecharModal();
       alert('Nova senha cadastrada com sucesso.');
@@ -241,7 +242,13 @@
       window.dispatchEvent(new CustomEvent('sigee:session-ready', { detail: detalheLogin }));
 
       // A decisão é feita com o mesmo registro oficial usado para autenticar.
-      if (exigeTroca(oficial, senha)) abrirModal(Object.assign({}, canonico, oficial));
+      if (exigeTroca(oficial, senha)) {
+        // Transitório apenas na memória da aba; não persistir a senha na sessão.
+        window.__SIGEE_SENHA_LOGIN_PENDENTE__ = senha;
+        abrirModal(Object.assign({}, canonico, oficial));
+      } else {
+        window.__SIGEE_SENHA_LOGIN_PENDENTE__ = null;
+      }
 
       setTimeout(function () {
         try { window.sincronizarSupabaseSegundoPlanoSIGEE?.(); } catch (_) {}
@@ -258,6 +265,7 @@
 
   function logout() {
     fecharModal();
+    window.__SIGEE_SENHA_LOGIN_PENDENTE__ = null;
     window.__SIGEE_LOGIN_CONCLUIDO__ = false;
     document.dispatchEvent(new CustomEvent('sigee:usuario-deslogado'));
     window.dispatchEvent(new CustomEvent('sigee:usuario-deslogado'));
