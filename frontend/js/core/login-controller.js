@@ -191,6 +191,10 @@
       if (window.SIGEE_MODULOS?.hidratarUsuario) {
         canonico = await window.SIGEE_MODULOS.hidratarUsuario(canonico);
         canonico = window.SIGEE_SESSION.normalizarUsuario(canonico);
+        if (!window.SIGEE_MODULOS.vinculos(canonico).length) {
+          alert('Nenhum módulo autorizado foi confirmado para este usuário. Procure o administrador.');
+          return false;
+        }
       }
 
       const oficialSeguro = usuarioSemCredenciais(oficial);

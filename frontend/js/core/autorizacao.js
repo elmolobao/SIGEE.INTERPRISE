@@ -115,7 +115,7 @@ function autorizarRota(rota, silencioso=false){
   const chave = String(rota || '').trim();
   const u = usuario();
   const modulo = MODULO_ROTA[chave] || null;
-  if (perfil(u)==='Master') return true;
+  if (perfil(u)==='Master' && (!modulo || window.SIGEE_MODULOS?.podeAcessar?.(modulo,u)===true)) return true;
   if (modulo && window.SIGEE_MODULOS?.podeAcessar?.(modulo,u)!==true) {
     if (!silencioso) alert('Seu usuário não possui acesso ao módulo solicitado.');
     return false;
@@ -130,7 +130,7 @@ function autorizarRota(rota, silencioso=false){
   return false;
 }
 function itemPermitido(item, u){
-  if(perfil(u)==='Master') return true;
+  if(perfil(u)==='Master' && (!item.modulo || window.SIGEE_MODULOS?.podeAcessar?.(item.modulo,u)===true)) return true;
   if(item.modulo && window.SIGEE_MODULOS?.podeAcessar?.(item.modulo,u)!==true) return false;
   const p = item.modulo
     ? (window.SIGEE_MODULOS?.perfilNoModulo?.(item.modulo,u) || perfil(u))

@@ -35,20 +35,14 @@ function cliente(){
 }
 function legadoVinculos(u=usuario()){
   if(!u) return [];
-  if(ehMaster(u)) return TODOS.map(modulo_codigo=>({modulo_codigo,perfil_codigo:'Master',nte_id:null,ativo:true,pode_configurar:true,legado:true}));
+  // Nenhum perfil recebe módulos por herança: os vínculos persistidos são a autoridade.
+  if(ehMaster(u)) return [];
   // RC12.0.10A.36.3.14: o perfil SEC não recebe mais Escolas Extintas por herança.
   // SEC é perfil institucional/global; os domínios acessíveis devem vir exclusivamente
   // dos vínculos modulares configurados para o usuário.
   if(ehSEC(u)) return [];
-  // Compatibilidade: antes da RC12 os demais usuários pertenciam ao domínio Extintas.
-  return [{
-    modulo_codigo:CODIGOS.EXTINTAS,
-    perfil_codigo:perfilBase(u)||'Consulta',
-    nte_id:u?.nte_id ?? null,
-    ativo:true,
-    pode_configurar:['Administrador','Gestor'].includes(perfilBase(u)),
-    legado:true
-  }];
+  // Falha fechada: ausência de vínculo nunca autoriza Escolas Extintas.
+  return [];
 }
 function normalizarVinculo(v){
   const modulo_codigo=normalizarModulo(v?.modulo_codigo || v?.modulo || v?.codigo);
@@ -66,7 +60,7 @@ function vinculos(u=usuario()){
   if(!u) return [];
   const raw = Array.isArray(u?.vinculos_modulo) ? u.vinculos_modulo : [];
   const ativos=raw.map(normalizarVinculo).filter(v=>v&&v.ativo);
-  if(ativos.length) return ativos;
+  if(Array.isArray(u?.vinculos_modulo)) return ativos;
   // RC12.0.10A.9: se a sessão já possui módulos explícitos, eles são autoridade.
   // Nunca transformar um usuário exclusivo de Legalização em Extintas por fallback legado.
   const explicitos = Array.isArray(u?.modulos_acesso)
@@ -83,7 +77,7 @@ function vinculos(u=usuario()){
   // Isso evita que uma sessão SEC exclusiva de Legalização receba Extintas enquanto
   // os vínculos do Supabase ainda estão sendo hidratados.
   if(ehSEC(u)) return [];
-  return legadoVinculos(u);
+  return [];
 }
 function vinculo(modulo,u=usuario()){
   const cod=normalizarModulo(modulo);
@@ -103,24 +97,17 @@ function podeConfigurar(modulo,u=usuario()){
   return !!v && (v.pode_configurar===true || ['Administrador','Gestor'].includes(v.perfil_codigo));
 }
 async function buscarVinculos(usuarioId){
-  if(usuarioId==null) return [];
-  const c=cliente(); if(!c) return [];
-  try{
-    const {data,error}=await c.from('usuarios_modulos_sigee')
-      .select('id,usuario_id,modulo_codigo,perfil_codigo,nte_id,ativo,pode_configurar')
-      .eq('usuario_id',usuarioId)
-      .eq('ativo',true);
-    if(error){
-      // A migração pode ainda não ter sido aplicada. O login legado não deve quebrar.
-      console.warn('[SIGEE RC12] Vínculos de módulos ainda indisponíveis; usando compatibilidade Extintas.', error.message||error);
-      return [];
-    }
-    return (data||[]).map(normalizarVinculo).filter(Boolean);
-  }catch(erro){
-    console.warn('[SIGEE RC12] Falha ao carregar módulos do usuário.',erro);
-    return [];
-  }
+  if(usuarioId==null) throw new Error('Usuário sem identificador para validação de módulos.');
+  const c=cliente();
+  if(!c) throw new Error('Supabase indisponível para validar módulos.');
+  const {data,error}=await c.from('usuarios_modulos_sigee')
+    .select('id,usuario_id,modulo_codigo,perfil_codigo,nte_id,ativo,pode_configurar')
+    .eq('usuario_id',usuarioId)
+    .eq('ativo',true);
+  if(error) throw new Error('Não foi possível validar os módulos autorizados: '+error.message);
+  return (data||[]).map(normalizarVinculo).filter(Boolean);
 }
+
 async function hidratarUsuario(u){
   if(!u||typeof u!=='object') return u;
   // RC12.0.10A.36.3.15: inclusive Master deve consultar os vínculos persistidos.
@@ -128,7 +115,7 @@ async function hidratarUsuario(u){
   const encontrados=await buscarVinculos(u.id);
   // Se a tabela respondeu, inclusive com um único módulo, ela prevalece integralmente.
   // O fallback legado só existe para instalações onde a estrutura modular ainda não foi aplicada.
-  const lista=encontrados.length ? encontrados : vinculos(u);
+  const lista=encontrados; // Resposta vazia é autorização vazia, nunca fallback legado.
   return {...u,vinculos_modulo:lista,modulos_acesso:lista.map(v=>v.modulo_codigo)};
 }
 
@@ -139,14 +126,18 @@ async function reconciliarSessaoPersistida(){
     const hidratado=await hidratarUsuario(atual);
     const antes=JSON.stringify(vinculos(atual).map(v=>[v.modulo_codigo,v.perfil_codigo,v.nte_id,v.ativo!==false]));
     const depois=JSON.stringify(vinculos(hidratado).map(v=>[v.modulo_codigo,v.perfil_codigo,v.nte_id,v.ativo!==false]));
-    if(antes!==depois || !Array.isArray(atual.vinculos_modulo) || !atual.vinculos_modulo.length){
+    if(antes!==depois || !Array.isArray(atual.vinculos_modulo)){
       window.SIGEE_SESSION?.setUser?.(hidratado,{source:'modulos-reconcile-rc12.0.10A.9',persist:true,emit:true,forceProfile:true});
     }
     aplicarDataset(hidratado);
     return hidratado;
   }catch(erro){
     console.warn('[SIGEE RC12.0.10A.9] Falha ao reconciliar módulos da sessão.',erro);
-    return atual;
+    // Não reaproveitar permissões persistidas quando a validação remota falha.
+    const restrito={...atual,vinculos_modulo:[],modulos_acesso:[]};
+    window.SIGEE_SESSION?.setUser?.(restrito,{source:'modulos-fail-closed',persist:true,emit:true,forceProfile:true});
+    aplicarDataset(restrito);
+    return restrito;
   }
 }
 function aplicarDataset(u=usuario()){
