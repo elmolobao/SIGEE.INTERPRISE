@@ -439,7 +439,7 @@ function segmentarPublicacoesDoe(paginas){
       // só aparece nas páginas seguintes, anexamos somente a continuação pertencente
       // ao envelope. Isso é genérico para todas as instituições/atos e evita que a
       // evidência termine no rodapé da página (caso Resolução 302/2026, p. 37→38).
-      if(abertura&&!fimEnvelopeEgba){
+      if(abertura&&!fimEnvelopeEgba&&['RESOLUCAO','PARECER'].includes(upper(a.especie))){
         const idOriginal=String(abertura[1]||'');
         const idRx=idOriginal.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
         const fechaRx=new RegExp(`<#E\\.G\\.B#${idRx}\\/>`,'i');
