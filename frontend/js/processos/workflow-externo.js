@@ -16,7 +16,7 @@
   if (window.__SIGEE_WORKFLOW_EXTERNO_095__) return;
   window.__SIGEE_WORKFLOW_EXTERNO_095__ = true;
 
-  const VERSION = 'RC10.8.15';
+  const VERSION = 'RC11.3.8';
   const EXTERNAL_STATES = Object.freeze(['DES', 'RET', 'REU', 'CFD']);
 
   const ACTIONS = Object.freeze({
@@ -249,55 +249,20 @@
     });
   }
 
-  function homologacaoAtiva() {
-    try {
-      const status = window.SIGEE_WORKFLOW_CLOCK?.status?.();
-      return status?.enabled === true && status?.master === true;
-    } catch (_) { return false; }
-  }
-
   async function loadExecutedActions(process, force) {
     const instanceId = workflowInstanceId(process);
-    if (!instanceId) {
-      console.warn('[WorkflowExterno] Processo sem workflow_instance_id; nenhum bloqueio legado será aplicado.', process && process.id);
-      return actionHistoryCache;
-    }
+    if (!instanceId) throw new Error('Processo sem instância de workflow.');
     const cycle = currentCycle(process);
-    const prefix = instanceId + '::' + String(cycle) + '::';
-
-    /*
-     * RC10.4.0 — No Modo Homologação, bloqueios persistidos em testes
-     * anteriores não podem impedir a validação de uma nova projeção temporal.
-     * A regra oficial permanece inalterada fora da homologação.
-     */
-    if (homologacaoAtiva()) {
-      if (force) clearProcessActionCache(process);
-      return actionHistoryCache;
-    }
-
-    if (!force && Array.from(actionHistoryCache.keys()).some(function (key) { return key.startsWith(prefix); })) {
-      return actionHistoryCache;
-    }
-    if (force) clearProcessActionCache(process);
-    try {
-      const client = typeof window.obterSupabaseSIGEE === 'function' ? window.obterSupabaseSIGEE() : null;
-      if (!client) return actionHistoryCache;
-      // A leitura direta da tabela podia retornar vazio por causa das políticas RLS,
-      // mesmo quando o histórico havia sido gravado. A função RPC é SECURITY DEFINER
-      // e devolve exclusivamente as ações válidas da instância/ciclo informados.
-      const response = await client.rpc('sigee_workflow_acoes_executadas', {
-        p_workflow_instance_id: instanceId,
-        p_ciclo: cycle
-      });
-      if (response.error) throw response.error;
-      (response.data || []).forEach(function (item) {
-        const itemCycle = Number(item && item.ciclo || cycle);
-        const eventCode = text(item && item.acao);
-        if (eventCode) actionHistoryCache.set(actionKey(instanceId, itemCycle, eventCode), true);
-      });
-    } catch (error) {
-      console.warn('[WorkflowExterno] Não foi possível consultar bloqueios persistidos:', error);
-    }
+    const client = typeof window.obterSupabaseSIGEE === 'function' ? window.obterSupabaseSIGEE() : null;
+    if (!client) throw new Error('Supabase indisponível. Ação bloqueada.');
+    const response = await client.rpc('sigee_workflow_acoes_executadas', {
+      p_workflow_instance_id: instanceId, p_ciclo: cycle
+    });
+    if (response.error) throw response.error;
+    clearProcessActionCache(process);
+    (response.data || []).forEach(function (item) {
+      actionHistoryCache.set(actionKey(instanceId, Number(item.ciclo || cycle), text(item.acao)), true);
+    });
     return actionHistoryCache;
   }
 
@@ -451,120 +416,45 @@
       getProcess: async function (id) {
         return findProcess(id);
       },
-      saveProcess: async function (updated) {
-        if (!updated.workflow_instance_id) {
-          updated.workflow_instance_id = (typeof crypto !== 'undefined' && crypto.randomUUID)
-            ? crypto.randomUUID()
-            : ('WF-' + Date.now() + '-' + Math.random().toString(36).slice(2));
-        }
-
-        const list = processList();
-        const index = list.findIndex(function (item) {
-          return String(item.id) === String(updated.id);
-        });
-
-        /*
-         * PATCH 1.1.1:
-         * O TransitionManager devolve apenas os campos alterados pela
-         * transição. Salvar diretamente "updated" descartava dados que já
-         * existiam no objeto local, inclusive tecnico_responsavel.
-         */
-        const existente = index >= 0 ? list[index] : {};
-        const consolidado = Object.assign({}, existente, updated);
-
-        const responsavel =
-          consolidado.tecnico_responsavel ||
-          consolidado.tecnico_responsavel_nome ||
-          consolidado.responsavel ||
-          consolidado.responsavel_nome ||
-          consolidado.analista ||
-          consolidado.analista_nome ||
-          consolidado.digitador ||
-          consolidado.digitador_nome ||
-          consolidado.conferente ||
-          consolidado.conferente_nome ||
-          '';
-
-        if (responsavel) {
-          consolidado.tecnico_responsavel = responsavel;
-          consolidado.tecnico_responsavel_nome =
-            consolidado.tecnico_responsavel_nome || responsavel;
-          consolidado.responsavel =
-            consolidado.responsavel || responsavel;
-          consolidado.responsavel_nome =
-            consolidado.responsavel_nome || responsavel;
-        }
-
-        if (index >= 0) list[index] = consolidado;
-        else list.push(consolidado);
-
-        if (window.SIGEE_Processos && typeof window.SIGEE_Processos.salvar === 'function') {
-          await window.SIGEE_Processos.salvar(consolidado);
-        }
-
-        return consolidado;
-      },
-      addHistory: async function (record) {
-        try {
-          const client = typeof window.obterSupabaseSIGEE === 'function'
-            ? window.obterSupabaseSIGEE()
-            : null;
-          if (!client) return null;
-          const payload = {
-            processo_id: record.processId,
-            workflow_instance_id: findProcess(record.processId)?.workflow_instance_id || null,
-            workflow_model_version: '1.0.1c',
-            execution_status: 'EXECUTADA',
-            workflow_bloqueio_ativo: true,
-            codigo_sigee: findProcess(record.processId)?.codigo_sigee || '',
-            etapa: record.etapa_destino,
-            acao: record.event,
-            observacao: record.observation || null,
-            usuario_nome: record.usuario || null,
-            usuario_email: currentUser()?.email || null,
-            usuario_perfil: record.perfil || null,
-            nte: findProcess(record.processId)?.nte || null,
-            dados: {
-              etapa_origem: record.etapa_origem,
-              etapa_destino: record.etapa_destino,
-              mensagem: record.messageCode,
-              ciclo: record.cycle,
-              novo_ciclo: record.novo_ciclo || null,
-              prazo_dias: record.prazo_dias || null,
-              contexto_analise: record.contexto_analise || null,
-              executado_em_civil: new Date().toISOString(),
-              origem_registro: 'ACAO_EXECUTADA'
-            },
-            created_at: record.createdAt
-          };
-          // Registro atômico por RPC: não depende das políticas RLS da tabela e
-          // preserva a restrição de uma única execução por instância/ciclo/ação.
-          const response = await client.rpc('sigee_registrar_acao_workflow', {
-            p_processo_id: payload.processo_id,
-            p_workflow_instance_id: payload.workflow_instance_id,
-            p_ciclo: Number(record.cycle || 1),
-            p_acao: payload.acao,
-            p_etapa: payload.etapa,
-            p_codigo_sigee: payload.codigo_sigee,
-            p_observacao: payload.observacao,
-            p_usuario_nome: payload.usuario_nome,
-            p_usuario_email: payload.usuario_email,
-            p_usuario_perfil: payload.usuario_perfil,
-            p_nte: payload.nte,
-            p_dados: payload.dados
-          });
-          if (response.error) throw response.error;
-          const result = Array.isArray(response.data) ? response.data[0] : response.data;
-          if (!result || result.sucesso !== true) {
-            throw new Error((result && result.mensagem) || 'O Supabase não confirmou o registro da ação.');
+      commitExternal: async function (updated, record, original) {
+        const client = typeof window.obterSupabaseSIGEE === 'function' ? window.obterSupabaseSIGEE() : null;
+        if (!client) throw new Error('Supabase indisponível. Ação não executada.');
+        const response = await client.rpc('sigee_executar_acao_externa_v2', {
+          p_processo_id: original.id,
+          p_instancia: original.workflow_instance_id,
+          p_ciclo: record.cycle,
+          p_etapa_esperada: original.etapa_atual || original.etapa || null,
+          p_acao: record.event,
+          p_transicao: {
+            data_etapa_atual: updated.data_etapa_atual,
+            prazo_etapa: updated.prazo_etapa,
+            prazo_inicio: updated.prazo_inicio,
+            prazo_fim: updated.prazo_fim,
+            dias_decorridos: updated.dias_decorridos,
+            ultima_mensagem_workflow: updated.ultima_mensagem_workflow
+          },
+          p_observacao: record.observation,
+          p_usuario_nome: record.usuario,
+          p_usuario_email: currentUser()?.email || null,
+          p_usuario_perfil: record.perfil,
+          p_dados: {
+            etapa_origem: record.etapa_origem, etapa_destino: record.etapa_destino,
+            mensagem: record.messageCode, novo_ciclo: record.novo_ciclo,
+            prazo_dias: record.prazo_dias, contexto_analise: record.contexto_analise,
+            detalhes: record.details, origem_registro: 'ACAO_EXECUTADA'
           }
-          actionHistoryCache.set(actionKey(payload.workflow_instance_id, record.cycle, record.event), true);
-          return { id: result.historico_id || null };
-        } catch (error) {
-          console.error('[WorkflowExterno] Histórico não registrado:', error);
-          // Não sinaliza sucesso silencioso quando o bloqueio persistente falhar.
-          throw error;
+        });
+        if (response.error) throw response.error;
+        const result = response.data;
+        if (!result?.sucesso || !result.processo || !result.historico_id) {
+          throw new Error(result?.mensagem || 'Ação não confirmada pelo Supabase.');
         }
+        const consolidado = Object.assign({}, updated, result.processo);
+        const list = processList();
+        const index = list.findIndex(item => String(item.id) === String(original.id));
+        if (index >= 0) list[index] = consolidado;
+        actionHistoryCache.set(actionKey(original.workflow_instance_id, record.cycle, record.event), true);
+        return { process: consolidado, historyId: result.historico_id };
       },
       addAudit: async function (record) {
         try {
@@ -578,7 +468,8 @@
       },
       hasActionExecuted: async function (query) {
         const process = findProcess(query.processId);
-        if (process) await loadExecutedActions(process, true);
+        if (!process || currentCycle(process) !== query.cycle) throw new Error('Ciclo alterado. Reabra o processo.');
+        await loadExecutedActions(process, true);
         return actionHistoryCache.has(actionKey(workflowInstanceId(process), query.cycle, query.event));
       },
       now: function () {
@@ -592,6 +483,7 @@
   }
 
   function openAction(process, action) {
+    process = JSON.parse(JSON.stringify(process));
     if (!window.WorkflowActionModal) {
       toast('WorkflowActionModal não foi carregado.', 'error');
       return;
@@ -680,6 +572,7 @@
 
         const result = await window.TransitionManager.execute({
           processId: process.id,
+          process: process,
           event: action.event,
           user: currentUser(),
           observation: observacaoWorkflow,
@@ -735,10 +628,6 @@
         atualizado.ultima_mensagem_workflow = message.code;
         atualizado.ultimo_evento_workflow = action.event;
 
-        if (window.SIGEE_Processos && typeof window.SIGEE_Processos.salvar === 'function') {
-          await window.SIGEE_Processos.salvar(atualizado);
-        }
-
         actionHistoryCache.set(
           actionKey(
             workflowInstanceId(atualizado),
@@ -780,7 +669,10 @@
       return;
     }
 
-    await loadExecutedActions(process, true);
+    try { await loadExecutedActions(process, true); } catch (error) {
+      toast('Não foi possível verificar as travas. Nenhuma ação será liberada.', 'error');
+      return;
+    }
     const stateCode = processState(process);
     if (!EXTERNAL_STATES.includes(stateCode)) {
       return openLegacyDocumentReceived(id);
