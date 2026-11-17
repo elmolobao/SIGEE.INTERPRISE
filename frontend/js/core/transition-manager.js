@@ -14,7 +14,7 @@
 (function (window) {
   'use strict';
 
-  const VERSION = '0.9.5.5';
+  const VERSION = '0.9.5.6';
 
   const ERROR_MESSAGES = Object.freeze({
     WF001: 'Estado atual inválido.',
@@ -90,6 +90,7 @@
   const adapter = {
     async getProcess() { return null; },
     async saveProcess(process) { return process; },
+    commitExternal: null,
     async addHistory() { return null; },
     async addAudit() { return null; },
     async hasActionExecuted() { return false; },
@@ -555,22 +556,6 @@
       context
     );
 
-    let savedProcess;
-    try {
-      savedProcess = await adapter.saveProcess(updatedProcess, {
-        original: clone(process),
-        event: eventCode,
-        user: clone(user || null),
-        context: clone(context)
-      });
-    } catch (cause) {
-      throw error('WF009', {
-        processId: process.id,
-        event: eventCode,
-        cause: cause && cause.message ? cause.message : String(cause)
-      });
-    }
-
     const historyRecord = {
       processId: process.id,
       processo_id: process.id,
@@ -620,14 +605,37 @@
       data_hora: toISO(now)
     };
 
+    let savedProcess;
     let historyId = null;
     let auditId = null;
-
+    const atomic = typeof adapter.commitExternal === 'function' && Object.prototype.hasOwnProperty.call(EVENT_MESSAGE_CODES, eventCode);
+    if (atomic) {
+      const committed = await adapter.commitExternal(updatedProcess, historyRecord, process);
+      if (!committed || !committed.process || !committed.historyId) throw error('WF009');
+      savedProcess = committed.process;
+      historyId = committed.historyId;
+    } else {
     try {
-      const historyResult = await adapter.addHistory(historyRecord);
-      historyId = historyResult && (historyResult.id || historyResult.historyId) || null;
-    } catch (historyError) {
-      console.error('[TransitionManager] Falha ao registrar histórico:', historyError);
+      savedProcess = await adapter.saveProcess(updatedProcess, {
+        original: clone(process),
+        event: eventCode,
+        user: clone(user || null),
+        context: clone(context)
+      });
+    } catch (cause) {
+      throw error('WF009', {
+        processId: process.id,
+        event: eventCode,
+        cause: cause && cause.message ? cause.message : String(cause)
+      });
+    }
+
+      try {
+        const historyResult = await adapter.addHistory(historyRecord);
+        historyId = historyResult && (historyResult.id || historyResult.historyId) || null;
+      } catch (historyError) {
+        console.error('[TransitionManager] Falha ao registrar histórico:', historyError);
+      }
     }
 
     try {
